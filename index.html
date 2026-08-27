@@ -218,6 +218,7 @@ tr:hover td{background:#FAFAFD}
 .overlay.open{display:flex}
 .modal{background:#fff;border-radius:14px;width:100%;max-width:500px;max-height:92vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
 .modal-wide{max-width:760px}
+.modal-lg{max-width:680px}
 .modal-header{padding:18px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1}
 .modal-title{font-size:15px;font-weight:700}
 .modal-close{width:28px;height:28px;border-radius:6px;background:var(--bg);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--muted)}
@@ -290,6 +291,17 @@ textarea.form-input{resize:vertical;min-height:75px}
 .bar{width:100%;max-width:28px;border-radius:3px 3px 0 0;background:var(--p3);opacity:.65;min-height:3px}
 .bar.hi{opacity:1;background:var(--p2)}
 .bar-lbl{font-size:9px;color:var(--light);padding-top:4px}
+
+/* DASH FILTER */
+.dash-filter-bar{display:flex;align-items:center;gap:10px;margin-bottom:16px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 16px;flex-wrap:wrap}
+.dash-filter-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.dash-filter-sel{height:30px;font-size:12px;border:1px solid var(--border);border-radius:7px;padding:0 8px;background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;cursor:pointer}
+.dash-metrics-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}
+.metric-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;position:relative;overflow:hidden}
+.metric-accent{position:absolute;top:0;left:0;bottom:0;width:3px;border-radius:12px 0 0 12px}
+.metric-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px}
+.metric-value{font-size:22px;font-weight:800;letter-spacing:-0.5px;line-height:1}
+.metric-sub{font-size:11px;color:var(--muted);margin-top:5px}
 
 /* WELCOME */
 .welcome-box{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
@@ -634,6 +646,27 @@ textarea.form-input{resize:vertical;min-height:75px}
       </div>
       <div style="display:flex;gap:8px" id="welcome-actions"></div>
     </div>
+    <!-- Filtro de período -->
+    <div class="dash-filter-bar" id="dash-filter-bar">
+      <span class="dash-filter-label">📅 Período</span>
+      <select class="dash-filter-sel" id="dash-mes" onchange="setDashFilter()">
+        <option value="0">Todos os meses</option>
+        <option value="1">Janeiro</option><option value="2">Fevereiro</option>
+        <option value="3">Março</option><option value="4">Abril</option>
+        <option value="5">Maio</option><option value="6">Junho</option>
+        <option value="7">Julho</option><option value="8">Agosto</option>
+        <option value="9">Setembro</option><option value="10">Outubro</option>
+        <option value="11">Novembro</option><option value="12">Dezembro</option>
+      </select>
+      <select class="dash-filter-sel" id="dash-ano" onchange="setDashFilter()">
+        <option value="2024">2024</option>
+        <option value="2025">2025</option>
+        <option value="2026">2026</option>
+      </select>
+      <span style="font-size:12px;color:var(--muted);margin-left:4px" id="dash-filter-info"></span>
+    </div>
+    <!-- Métricas comerciais -->
+    <div class="dash-metrics-row" id="dash-metrics-row"></div>
     <!-- KPI Grid executivo -->
     <div class="kpi-grid" id="dash-kpis"></div>
     <div class="grid-2" style="margin-bottom:14px">
@@ -1580,7 +1613,8 @@ function saveModal(type,id=''){
       closeModal();renderProjetos();renderInicio();toast(id?'Projeto atualizado ✓':'Projeto criado ✓','#10B981');
     },
     lead(){
-      const obj={nome:v('f-nome'),empresa:v('f-empresa'),email:v('f-email'),telefone:v('f-tel'),valor:parseFloat(v('f-valor'))||0,estagio:v('f-estagio'),dataInicio:v('f-data-inicio'),dataFechamento:v('f-data-fecha'),desc:v('f-desc')};
+      const today=new Date().toISOString().slice(0,10);
+      const obj={nome:v('f-nome'),empresa:v('f-empresa'),email:v('f-email'),telefone:v('f-tel'),valor:parseFloat(v('f-valor'))||0,estagio:v('f-estagio'),dataInicio:v('f-data-inicio')||today,dataFechamento:v('f-data-fecha'),desc:v('f-desc')};
       if(!obj.nome){toast('Nome obrigatório','#EF4444');return}
       if(id)DB.update('leads',id,obj);else{const l={id:uid(),...obj};DB.push('leads',l);fireWebhook('lead.criado',l)}
       closeModal();renderComercial();if(currentDealId===id)renderDealDetail();toast(id?'Lead atualizado ✓':'Lead criado ✓','#10B981');
@@ -1685,14 +1719,14 @@ function formLead(d){
       <select class="form-input" id="f-estagio">${ests.map(e=>`<option ${d?.estagio===e?'selected':''}>${e}</option>`).join('')}</select></div>
   </div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">Data início</label><input class="form-input" id="f-data-inicio" type="date" value="${d?.dataInicio||''}"></div>
+    <div class="form-group"><label class="form-label">Data início <span style="font-size:10px;color:var(--muted)">(auto)</span></label><input class="form-input" id="f-data-inicio" type="date" value="${d?.dataInicio||new Date().toISOString().slice(0,10)}"></div>
     <div class="form-group"><label class="form-label">Previsão fechamento</label><input class="form-input" id="f-data-fecha" type="date" value="${d?.dataFechamento||''}"></div>
   </div>
   <div class="form-group"><label class="form-label">Descrição / Observações</label><textarea class="form-input" id="f-desc" rows="2">${d?.desc||''}</textarea></div>`;
 }
 
 function formTransacao(d){
-  const cats=['Mensalidade','Projeto','Software','Pessoal','Marketing','Infraestrutura','Outros'];
+  const cats=['Mensalidade','Projeto','Software','Pessoal','Marketing','Ads / Tráfego Pago','Infraestrutura','Outros'];
   return `<div class="form-group"><label class="form-label">Descrição *</label><input class="form-input" id="f-desc" value="${d?.desc||''}"></div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Categoria</label><select class="form-input" id="f-cat">${cats.map(c=>`<option ${d?.cat===c?'selected':''}>${c}</option>`).join('')}</select></div>
@@ -1911,9 +1945,52 @@ function deleteTask(id){
   setTimeout(()=>switchTab(document.querySelectorAll('#detail-body .tab-btn')[2],'tab-tarefas'),50);
 }
 
+// ═══ FILTRO DASHBOARD ═══
+let dashFilter={mes:new Date().getMonth()+1,ano:new Date().getFullYear()};
+
+function setDashFilter(){
+  dashFilter.mes=parseInt(document.getElementById('dash-mes')?.value||0);
+  dashFilter.ano=parseInt(document.getElementById('dash-ano')?.value||new Date().getFullYear());
+  renderInicio();
+}
+
+function txInPeriod(tx){
+  if(!tx.data)return true;
+  const d=new Date(tx.data+'T00:00:00');
+  if(dashFilter.mes&&(d.getMonth()+1)!==dashFilter.mes)return false;
+  if(d.getFullYear()!==dashFilter.ano)return false;
+  return true;
+}
+
+function leadInPeriod(l){
+  const ref=l.dataInicio||l.dataFechamento;
+  if(!ref)return true;
+  const d=new Date(ref+'T00:00:00');
+  if(dashFilter.mes&&(d.getMonth()+1)!==dashFilter.mes)return false;
+  if(d.getFullYear()!==dashFilter.ano)return false;
+  return true;
+}
+
 // ═══ RENDERS ═══
 function renderInicio(){
-  const cls=DB.get('clientes'),pros=DB.get('projetos'),txs=DB.get('transacoes'),mbs=DB.get('membros'),leads=DB.get('leads');
+  // Sincroniza selects com estado atual
+  const selMes=document.getElementById('dash-mes');
+  const selAno=document.getElementById('dash-ano');
+  if(selMes)selMes.value=dashFilter.mes;
+  if(selAno)selAno.value=dashFilter.ano;
+
+  const MESES=['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+  const filterLabel=dashFilter.mes
+    ?`${MESES[dashFilter.mes]} / ${dashFilter.ano}`
+    :`Ano ${dashFilter.ano}`;
+  const info=document.getElementById('dash-filter-info');
+  if(info)info.textContent='→ '+filterLabel;
+
+  const cls=DB.get('clientes'),pros=DB.get('projetos'),mbs=DB.get('membros'),leads=DB.get('leads');
+  const txsAll=DB.get('transacoes');
+  const txs=txsAll.filter(txInPeriod);   // transações do período
+  const leadsPeriod=leads.filter(leadInPeriod);
+
   const receita=txs.filter(t=>t.tipo==='Receita').reduce((a,t)=>a+t.valor,0);
   const despesa=txs.filter(t=>t.tipo==='Despesa').reduce((a,t)=>a+t.valor,0);
   const lucro=receita-despesa;
@@ -1921,7 +1998,48 @@ function renderInicio(){
   const atrasados=pros.filter(p=>p.prazo&&p.status!=='Concluído'&&new Date(p.prazo)<new Date());
   const tarefasPend=pros.filter(p=>p.status!=='Concluído');
   const churnRisk=cls.filter(c=>c.status==='Ativo'&&(c.health||0)<50);
-  const pipelineTotal=leads.reduce((a,l)=>a+l.valor,0);
+  const pipelineTotal=leadsPeriod.reduce((a,l)=>a+l.valor,0);
+
+  // ── Ciclo médio de fechamento ───────────────────────────────────────────
+  const leadsGanhos=leadsPeriod.filter(l=>l.dealStatus==='Ganho'&&l.dataInicio&&l.dataFechamento);
+  const cicloMedio=leadsGanhos.length
+    ?Math.round(leadsGanhos.reduce((acc,l)=>{
+        const diff=new Date(l.dataFechamento+'T00:00:00')-new Date(l.dataInicio+'T00:00:00');
+        return acc+Math.max(0,Math.round(diff/(1000*60*60*24)));
+      },0)/leadsGanhos.length)
+    :null;
+
+  // ── CAC (Custo de Aquisição de Cliente) ────────────────────────────────
+  const adsSpend=txs.filter(t=>t.tipo==='Despesa'&&/ads|tráfego|marketing/i.test(t.cat||'')).reduce((a,t)=>a+t.valor,0);
+  const novosClientes=leadsPeriod.filter(l=>l.dealStatus==='Ganho').length;
+  const cac=novosClientes>0?Math.round(adsSpend/novosClientes):null;
+
+  // Métricas comerciais (ciclo + CAC + ads)
+  const metricsEl=document.getElementById('dash-metrics-row');
+  if(metricsEl&&can('comercial','view')){
+    metricsEl.style.display='';
+    metricsEl.innerHTML=`
+      <div class="metric-card">
+        <div class="metric-accent" style="background:#3B82F6"></div>
+        <div class="metric-label">⏱ Ciclo médio de fechamento</div>
+        <div class="metric-value">${cicloMedio!==null?cicloMedio+' dias':'—'}</div>
+        <div class="metric-sub">${leadsGanhos.length} negócio${leadsGanhos.length!==1?'s':''} fechado${leadsGanhos.length!==1?'s':''} no período · ${filterLabel}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-accent" style="background:#F59E0B"></div>
+        <div class="metric-label">💰 Invest. em Ads no período</div>
+        <div class="metric-value">${fmtBRL(adsSpend)}</div>
+        <div class="metric-sub">Categoria "Ads / Tráfego Pago" nas transações · ${filterLabel}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-accent" style="background:#10B981"></div>
+        <div class="metric-label">🎯 CAC — Custo por cliente</div>
+        <div class="metric-value" style="color:${cac!==null&&cac>0?'var(--txt)':'var(--muted)'}">${cac!==null?fmtBRL(cac):'—'}</div>
+        <div class="metric-sub">${cac!==null?`Ads ÷ ${novosClientes} cliente${novosClientes!==1?'s':''} ganho${novosClientes!==1?'s':''}`:'Registre Ads e leads ganhos para calcular'}</div>
+      </div>`;
+  } else if(metricsEl){
+    metricsEl.style.display='none';
+  }
 
   // KPI Cards — filtrados por permissão do papel atual
   const allKpis=[
@@ -1960,13 +2078,18 @@ function renderInicio(){
   if(can('financas','view')){
     if(revSection)revSection.style.display='';
     if(chartsGrid)chartsGrid.style.display='';
-    const months=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago'];
-    const vals=[4200,5100,3800,6200,7100,5400,8200,receita||100];
-    const maxV=Math.max(...vals)||1;
-    document.getElementById('rev-total-lbl').textContent='Total: '+fmtBRL(receita);
-    document.getElementById('rev-chart').innerHTML=months.map((m,i)=>`
+    const MESES_SHORT=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    // Receita real por mês no ano selecionado
+    const vals=MESES_SHORT.map((_,i)=>{
+      const m=i+1;
+      return txsAll.filter(t=>t.tipo==='Receita'&&t.data&&new Date(t.data+'T00:00:00').getFullYear()===dashFilter.ano&&new Date(t.data+'T00:00:00').getMonth()+1===m).reduce((a,t)=>a+t.valor,0);
+    });
+    const maxV=Math.max(...vals,1);
+    const receitaTotal=vals.reduce((a,v)=>a+v,0);
+    document.getElementById('rev-total-lbl').textContent='Total '+dashFilter.ano+': '+fmtBRL(receitaTotal);
+    document.getElementById('rev-chart').innerHTML=MESES_SHORT.map((m,i)=>`
       <div class="bar-wrap">
-        <div class="bar-fill ${i===7?'bar-xl curr':'bar-xl'}" style="height:${Math.round(vals[i]/maxV*100)}%;opacity:${i===7?1:0.55+i*0.05}"></div>
+        <div class="bar-fill bar-xl${dashFilter.mes===i+1?' curr':''}" style="height:${Math.max(2,Math.round(vals[i]/maxV*100))}%;opacity:${dashFilter.mes===i+1||dashFilter.mes===0?1:0.45}"></div>
         <div class="bar-lbl-x">${m}</div>
       </div>`).join('');
   } else {
@@ -1989,8 +2112,8 @@ function renderInicio(){
       </div>`;
     }).join('');
     document.getElementById('pipe-stats-mini').innerHTML=`
-      <div class="stat-card" style="padding:14px"><div class="stat-lbl" style="margin-bottom:6px">Leads totais</div><div class="stat-val" style="font-size:22px">${leads.length}</div></div>
-      <div class="stat-card" style="padding:14px"><div class="stat-lbl" style="margin-bottom:6px">Tx. conversão est.</div><div class="stat-val" style="font-size:22px;color:var(--green)">${leads.length?Math.round((leads.filter(l=>l.dealStatus==='Ganho').length/leads.length)*100):0}%</div></div>`;
+      <div class="stat-card" style="padding:14px"><div class="stat-lbl" style="margin-bottom:6px">Leads no período</div><div class="stat-val" style="font-size:22px">${leadsPeriod.length}</div></div>
+      <div class="stat-card" style="padding:14px"><div class="stat-lbl" style="margin-bottom:6px">Tx. conversão est.</div><div class="stat-val" style="font-size:22px;color:var(--green)">${leadsPeriod.length?Math.round((leadsPeriod.filter(l=>l.dealStatus==='Ganho').length/leadsPeriod.length)*100):0}%</div></div>`;
   } else {
     if(pipeSection)pipeSection.style.display='none';
     if(!can('financas','view')&&chartsGrid)chartsGrid.style.display='none';
@@ -2847,34 +2970,607 @@ function saveConteudo(){
   closeModal();renderAprovacao();toast('Conteúdo adicionado ✓','#10B981');
 }
 
-// Esquemas
+// ═══ ESQUEMAS ═══
+const ESQUEMAS_DEFAULT=[
+  {id:'esq1',ico:'📋',nome:'Brief de Cliente',desc:'Template completo para briefing de novos clientes com perguntas sobre persona, objetivos e concorrência.',conteudo:`BRIEF DE CLIENTE
+═══════════════════════════════════
+
+DATA: ___/___/______
+RESPONSÁVEL: _______________________
+CLIENTE: __________________________
+
+━━━ 1. DADOS DA EMPRESA ━━━
+
+Nome fantasia: ______________________
+CNPJ: _____________________________
+Segmento: __________________________
+Site: ______________________________
+Redes sociais: ______________________
+
+━━━ 2. PRODUTO / SERVIÇO ━━━
+
+O que a empresa vende?
+______________________________________________
+
+Qual o principal diferencial?
+______________________________________________
+
+Ticket médio: R$ _______________________
+Forma de venda: ( ) Online  ( ) Presencial  ( ) Ambos
+
+━━━ 3. PÚBLICO-ALVO (PERSONA) ━━━
+
+Faixa etária: _________________________
+Gênero predominante: __________________
+Localização: __________________________
+Profissão / renda: ____________________
+Dores e problemas que o produto resolve:
+______________________________________________
+
+━━━ 4. OBJETIVOS DE MARKETING ━━━
+
+( ) Aumentar seguidores
+( ) Gerar leads
+( ) Vender mais
+( ) Fortalecer marca
+( ) Lançar produto/serviço
+( ) Outro: ____________________________
+
+Meta em 3 meses: ______________________
+
+━━━ 5. CONCORRÊNCIA ━━━
+
+Principais concorrentes:
+1. ___________________________________
+2. ___________________________________
+3. ___________________________________
+
+O que admira na concorrência?
+______________________________________________
+
+O que NÃO quer que faça?
+______________________________________________
+
+━━━ 6. TOM DE VOZ ━━━
+
+( ) Formal  ( ) Descontraído  ( ) Humorístico  ( ) Técnico
+( ) Inspirador  ( ) Educativo
+
+Referências de marcas que admira:
+______________________________________________
+
+━━━ 7. EXPECTATIVAS DO CLIENTE ━━━
+
+Resultado esperado em 30 dias:
+______________________________________________
+
+Disponibilidade para reuniões: _______________
+Forma de comunicação preferida: _____________`},
+  {id:'esq2',ico:'💰',nome:'Proposta Comercial',desc:'Modelo de proposta com escopo, investimento, prazo e condições de pagamento.',conteudo:`PROPOSTA COMERCIAL
+═══════════════════════════════════
+
+Data: ___/___/______
+Validade: 7 dias corridos
+
+PARA: _____________________________
+CNPJ: _____________________________
+CONTATO: _________________________
+
+━━━ SOBRE NÓS ━━━
+
+[Nome da agência] é uma agência especializada em marketing digital,
+com foco em resultados mensuráveis e crescimento orgânico e pago.
+
+━━━ ESCOPO DE SERVIÇOS ━━━
+
+✅ GESTÃO DE REDES SOCIAIS
+   • ___ posts por semana (Feed + Stories)
+   • Criação de legendas e artes
+   • Agendamento e publicação
+   • Relatório mensal de desempenho
+
+✅ TRÁFEGO PAGO (opcional)
+   • Gestão de campanhas Meta Ads / Google Ads
+   • Verba de mídia: R$ _______ (cliente investe à parte)
+   • Criação de anúncios e segmentação
+
+✅ ENTREGÁVEIS MENSAIS
+   • ___ artes para feed
+   • ___ stories
+   • ___ reels / vídeos curtos
+   • 1 relatório mensal de resultados
+
+━━━ INVESTIMENTO ━━━
+
+Plano Mensal:  R$ _______________ /mês
+Setup inicial: R$ _______________ (único)
+
+Forma de pagamento:
+( ) PIX  ( ) Boleto  ( ) Cartão (+ 3%)
+Vencimento: todo dia _____
+
+━━━ PRAZO E VIGÊNCIA ━━━
+
+Início: ___/___/______
+Contrato mínimo: 3 meses
+Rescisão: aviso prévio de 30 dias
+
+━━━ PRÓXIMOS PASSOS ━━━
+
+1. Aprovação da proposta
+2. Assinatura do contrato
+3. Reunião de briefing (até 3 dias após assinatura)
+4. Início da produção
+
+━━━ ACEITE ━━━
+
+Nome: _____________________________
+Assinatura: ________________________
+Data: ___/___/______`},
+  {id:'esq3',ico:'📝',nome:'Contrato de Prestação',desc:'Contrato padrão de prestação de serviços com cláusulas de NDA e propriedade intelectual.',conteudo:`CONTRATO DE PRESTAÇÃO DE SERVIÇOS
+═══════════════════════════════════
+
+Pelo presente instrumento particular, as partes abaixo qualificadas:
+
+CONTRATANTE:
+Razão Social: _______________________
+CNPJ: ______________________________
+Endereço: __________________________
+Representante: ______________________
+
+CONTRATADA:
+Razão Social: _______________________
+CNPJ: ______________________________
+Endereço: __________________________
+Representante: ______________________
+
+Resolvem celebrar o presente Contrato de Prestação de Serviços,
+mediante as cláusulas e condições seguintes:
+
+━━━ CLÁUSULA 1 — OBJETO ━━━
+
+A CONTRATADA se compromete a prestar os seguintes serviços:
+_______________________________________________
+_______________________________________________
+
+━━━ CLÁUSULA 2 — VIGÊNCIA ━━━
+
+O presente contrato tem vigência de ___ meses, com início em
+___/___/______, podendo ser renovado mediante acordo das partes.
+
+━━━ CLÁUSULA 3 — REMUNERAÇÃO ━━━
+
+Pelos serviços prestados, a CONTRATANTE pagará o valor mensal de
+R$ _____________ (___________________________), com vencimento
+todo dia ___ do mês corrente.
+
+━━━ CLÁUSULA 4 — RESCISÃO ━━━
+
+Qualquer das partes poderá rescindir o contrato mediante aviso
+prévio de 30 (trinta) dias. Em caso de rescisão sem aviso prévio,
+a parte infratora pagará multa de 1 (uma) mensalidade.
+
+━━━ CLÁUSULA 5 — PROPRIEDADE INTELECTUAL ━━━
+
+Todos os materiais produzidos pela CONTRATADA, após quitação
+integral dos pagamentos, passam a ser propriedade da CONTRATANTE.
+Durante a vigência do contrato, a propriedade permanece com a CONTRATADA.
+
+━━━ CLÁUSULA 6 — CONFIDENCIALIDADE (NDA) ━━━
+
+Ambas as partes se comprometem a manter sigilo sobre todas as
+informações confidenciais trocadas durante a vigência deste contrato
+e por 2 (dois) anos após seu encerramento.
+
+━━━ CLÁUSULA 7 — FORO ━━━
+
+As partes elegem o foro da comarca de ___________________ para
+dirimir quaisquer controvérsias oriundas deste contrato.
+
+Local e data: _________________, ___/___/______
+
+CONTRATANTE: ______________________
+CONTRATADA: _______________________`},
+  {id:'esq4',ico:'📊',nome:'Relatório Mensal',desc:'Template de relatório de performance com KPIs de redes sociais e tráfego pago.',conteudo:`RELATÓRIO MENSAL DE PERFORMANCE
+═══════════════════════════════════
+
+CLIENTE: __________________________
+PERÍODO: ___/___/____ a ___/___/____
+RESPONSÁVEL: _____________________
+
+━━━ RESUMO EXECUTIVO ━━━
+
+Principais conquistas do mês:
+• ____________________________________________
+• ____________________________________________
+• ____________________________________________
+
+━━━ REDES SOCIAIS ━━━
+
+INSTAGRAM
+  Seguidores início do mês: __________
+  Seguidores fim do mês:    __________
+  Crescimento:              __________ (+____%)
+
+  Alcance total:   ___________
+  Impressões:      ___________
+  Engajamento:     __________ (____%)
+
+  Posts publicados:  ___ feed / ___ stories / ___ reels
+  Post de maior alcance: _______________________
+
+FACEBOOK (se aplicável)
+  Curtidas na página: __________
+  Alcance:           __________
+  Engajamento:       __________
+
+━━━ TRÁFEGO PAGO ━━━
+
+Verba investida:    R$ __________
+Impressões:         __________
+Cliques:            __________
+CTR:                _____%
+CPC médio:          R$ __________
+Conversões:         __________
+Custo por conversão: R$ __________
+ROAS:               _____x
+
+━━━ SITE / E-COMMERCE ━━━
+
+Visitas:            __________
+Sessões novas:      __________
+Taxa de rejeição:   _____%
+Conversões:         __________
+
+━━━ ANÁLISE E PRÓXIMOS PASSOS ━━━
+
+O que funcionou bem:
+______________________________________________
+
+O que pode melhorar:
+______________________________________________
+
+Plano para o próximo mês:
+1. ____________________________________________
+2. ____________________________________________
+3. ____________________________________________
+
+━━━ OBSERVAÇÕES ━━━
+
+______________________________________________`},
+  {id:'esq5',ico:'🗓️',nome:'Cronograma de Conteúdo',desc:'Planilha de calendário editorial com slots para posts, stories e reels.',conteudo:`CRONOGRAMA DE CONTEÚDO MENSAL
+═══════════════════════════════════
+
+CLIENTE: __________________________
+MÊS/ANO: _________________________
+RESPONSÁVEL: _____________________
+
+━━━ SEMANA 1 ━━━
+
+SEG ___/___
+  Feed:    ________________________________
+  Stories: ________________________________
+  Reels:   ________________________________
+  Legenda: ________________________________
+
+TER ___/___
+  Feed:    ________________________________
+  Stories: ________________________________
+
+QUA ___/___
+  Feed:    ________________________________
+  Stories: ________________________________
+  Reels:   ________________________________
+
+QUI ___/___
+  Feed:    ________________________________
+  Stories: ________________________________
+
+SEX ___/___
+  Feed:    ________________________________
+  Stories: ________________________________
+  Reels:   ________________________________
+
+━━━ SEMANA 2 ━━━
+
+SEG ___/___ | Feed: _________________ | Stories: _________________
+TER ___/___ | Feed: _________________ | Stories: _________________
+QUA ___/___ | Feed: _________________ | Reels: ___________________
+QUI ___/___ | Feed: _________________ | Stories: _________________
+SEX ___/___ | Feed: _________________ | Reels: ___________________
+
+━━━ SEMANA 3 ━━━
+
+SEG ___/___ | Feed: _________________ | Stories: _________________
+TER ___/___ | Feed: _________________ | Stories: _________________
+QUA ___/___ | Feed: _________________ | Reels: ___________________
+QUI ___/___ | Feed: _________________ | Stories: _________________
+SEX ___/___ | Feed: _________________ | Reels: ___________________
+
+━━━ SEMANA 4 ━━━
+
+SEG ___/___ | Feed: _________________ | Stories: _________________
+TER ___/___ | Feed: _________________ | Stories: _________________
+QUA ___/___ | Feed: _________________ | Reels: ___________________
+QUI ___/___ | Feed: _________________ | Stories: _________________
+SEX ___/___ | Feed: _________________ | Reels: ___________________
+
+━━━ RESUMO DO MÊS ━━━
+
+Total feed:    _____ posts
+Total stories: _____ stories
+Total reels:   _____ reels
+Datas especiais: _________________________________`},
+  {id:'esq6',ico:'✅',nome:'Checklist de Entrega',desc:'Lista de verificação antes de entregar qualquer material ao cliente.',conteudo:`CHECKLIST DE ENTREGA
+═══════════════════════════════════
+
+CLIENTE: __________________________
+PROJETO: __________________________
+DATA DE ENTREGA: ___/___/______
+RESPONSÁVEL: _____________________
+
+━━━ ARTES E DESIGN ━━━
+
+( ) Ortografia revisada em todos os textos
+( ) Cores dentro do padrão da marca
+( ) Logo em alta resolução aplicada corretamente
+( ) Tamanhos corretos para cada formato
+    Feed 1080x1080 — Stories 1080x1920 — Reels cover 1080x1920
+( ) Arquivos exportados em PNG e PDF
+( ) Versão editável salva (PSD / AI / Figma)
+( ) Sem elementos cortados nas bordas de segurança
+
+━━━ TEXTOS E LEGENDAS ━━━
+
+( ) Legendas revisadas (gramática e ortografia)
+( ) CTAs claros e objetivos
+( ) Hashtags relevantes incluídas
+( ) Menções e marcações corretas
+( ) Link na bio atualizado (se necessário)
+
+━━━ VÍDEOS E REELS ━━━
+
+( ) Qualidade mínima 1080p
+( ) Áudio sem ruídos
+( ) Legendas/closed caption incluídas
+( ) Duração dentro do limite da plataforma
+( ) Thumbnail atrativa definida
+( ) Arquivo final exportado (MP4 H.264)
+
+━━━ APROVAÇÃO ━━━
+
+( ) Enviado para revisão interna
+( ) Ajustes feitos após revisão interna
+( ) Enviado ao cliente para aprovação
+( ) Aprovação do cliente recebida por escrito
+( ) Data e hora de publicação definidas
+
+━━━ PÓS-ENTREGA ━━━
+
+( ) Arquivos organizados na pasta do cliente
+( ) Backup realizado
+( ) Registro no sistema atualizado
+
+APROVADO POR: _____________________ DATA: ___/___/______`},
+  {id:'esq7',ico:'🎯',nome:'Plano de Campanha',desc:'Estrutura de planejamento para campanhas de lançamento e anúncios pagos.',conteudo:`PLANO DE CAMPANHA
+═══════════════════════════════════
+
+CLIENTE: __________________________
+CAMPANHA: ________________________
+PERÍODO: ___/___/____ a ___/___/____
+RESPONSÁVEL: _____________________
+
+━━━ OBJETIVO DA CAMPANHA ━━━
+
+( ) Awareness (reconhecimento de marca)
+( ) Geração de leads
+( ) Vendas / conversões
+( ) Tráfego para site
+( ) Engajamento
+
+Meta principal: ______________________________
+KPI de sucesso: ______________________________
+
+━━━ PÚBLICO-ALVO ━━━
+
+Faixa etária: _________________________
+Localização: _________________________
+Interesses: __________________________
+Comportamentos: ______________________
+Público personalizado: ( ) Sim ( ) Não
+  → Base: ( ) E-mail  ( ) Visitantes do site  ( ) Clientes
+
+━━━ ORÇAMENTO ━━━
+
+Verba total da campanha: R$ ____________
+Divisão por plataforma:
+  Meta Ads (FB+IG):  R$ ____________
+  Google Ads:        R$ ____________
+  TikTok Ads:        R$ ____________
+  Outros:            R$ ____________
+
+━━━ FORMATOS DE ANÚNCIO ━━━
+
+( ) Imagem estática  ( ) Carrossel  ( ) Vídeo curto
+( ) Story  ( ) Reels  ( ) Display  ( ) Busca  ( ) Shopping
+
+━━━ CRIATIVOS ━━━
+
+Quantidade de anúncios para teste A/B: _______
+Copy principal: ______________________________
+CTA: ________________________________________
+Landing page / destino: ______________________
+
+━━━ CRONOGRAMA ━━━
+
+Semana 1 — Configuração e aprovação de criativos
+Semana 2 — Lançamento e aquecimento
+Semana 3 — Otimização com base nos dados
+Semana 4 — Escalonamento e relatório final
+
+━━━ MÉTRICAS DE ACOMPANHAMENTO ━━━
+
+CPM (custo por mil): R$ __________
+CPC (custo por clique): R$ __________
+CPL (custo por lead): R$ __________
+ROAS esperado: _____x`},
+  {id:'esq8',ico:'🤝',nome:'Ata de Reunião',desc:'Modelo de ata com pauta, participantes, decisões e próximos passos.',conteudo:`ATA DE REUNIÃO
+═══════════════════════════════════
+
+DATA: ___/___/______
+HORÁRIO: ______h às ______h
+LOCAL / PLATAFORMA: _______________
+FACILITADOR: _____________________
+
+━━━ PARTICIPANTES ━━━
+
+Nome                    | Cargo / Empresa
+________________________|______________________
+________________________|______________________
+________________________|______________________
+________________________|______________________
+
+━━━ PAUTA ━━━
+
+1. ____________________________________________
+2. ____________________________________________
+3. ____________________________________________
+4. ____________________________________________
+
+━━━ DISCUSSÕES E DECISÕES ━━━
+
+PONTO 1: ______________________________________
+Discussão: ____________________________________
+Decisão tomada: ________________________________
+
+PONTO 2: ______________________________________
+Discussão: ____________________________________
+Decisão tomada: ________________________________
+
+PONTO 3: ______________________________________
+Discussão: ____________________________________
+Decisão tomada: ________________________________
+
+━━━ PRÓXIMOS PASSOS ━━━
+
+Ação                     | Responsável  | Prazo
+_________________________|______________|_________
+_________________________|______________|_________
+_________________________|______________|_________
+_________________________|______________|_________
+
+━━━ PRÓXIMA REUNIÃO ━━━
+
+Data: ___/___/______   Horário: ______h
+Pauta prevista: ________________________________
+
+━━━ APROVAÇÃO ━━━
+
+Ata elaborada por: ____________________________
+Revisada por: _________________________________
+Data: ___/___/______`},
+];
+
+function seedEsquemas(){
+  if(!DB.get('esquemas').length){
+    DB.set('esquemas',ESQUEMAS_DEFAULT);
+  }
+}
+
 function renderEsquemas(){
-  const esquemas=[
-    {ico:'📋',nome:'Brief de Cliente',desc:'Template completo para briefing de novos clientes com perguntas sobre persona, objetivos e concorrência.'},
-    {ico:'💰',nome:'Proposta Comercial',desc:'Modelo de proposta com escopo, investimento, prazo e condições de pagamento.'},
-    {ico:'📝',nome:'Contrato de Prestação',desc:'Contrato padrão de prestação de serviços com cláusulas de NDA e propriedade intelectual.'},
-    {ico:'📊',nome:'Relatório Mensal',desc:'Template de relatório de performance com KPIs de redes sociais e tráfego pago.'},
-    {ico:'🗓️',nome:'Cronograma de Conteúdo',desc:'Planilha de calendário editorial com slots para posts, stories e reels.'},
-    {ico:'✅',nome:'Checklist de Entrega',desc:'Lista de verificação antes de entregar qualquer material ao cliente.'},
-    {ico:'🎯',nome:'Plano de Campanha',desc:'Estrutura de planejamento para campanhas de lançamento e anúncios pagos.'},
-    {ico:'🤝',nome:'Ata de Reunião',desc:'Modelo de ata com pauta, participantes, decisões e próximos passos.'},
-  ];
+  seedEsquemas();
+  const esquemas=DB.get('esquemas');
+  const podeEditar=can('esquemas','edit');
+  const podeCriar=can('esquemas','create');
+  const podeExcluir=can('esquemas','delete');
   document.getElementById('proj-content').innerHTML=`
     <div class="page-header">
       <div><div class="page-title">🔗 Esquemas</div><div class="page-sub">Templates e modelos reutilizáveis para a agência</div></div>
-      <button class="btn btn-primary" onclick="toast('Em breve: criar esquemas personalizados','#7C3AED')">+ Novo Esquema</button>
+      ${podeCriar?`<button class="btn btn-primary" onclick="openModalEsquema()">+ Novo Esquema</button>`:''}
     </div>
     <div class="esquema-grid">
-      ${esquemas.map(e=>`<div class="esquema-card" onclick="toast('Abrindo ${e.nome}...','#7C3AED')">
+      ${esquemas.map(e=>`<div class="esquema-card">
         <div class="esquema-ico">${e.ico}</div>
         <div class="esquema-name">${e.nome}</div>
         <div class="esquema-desc">${e.desc}</div>
-        <div style="margin-top:12px;display:flex;gap:6px">
-          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();toast('Template copiado ✓','#10B981')">📋 Usar</button>
-          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation()">✏️ Editar</button>
+        <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" onclick="usarEsquema('${e.id}')">📋 Usar</button>
+          ${podeEditar?`<button class="btn btn-ghost btn-sm" onclick="openModalEsquema('${e.id}')">✏️ Editar</button>`:''}
+          ${podeExcluir&&!ESQUEMAS_DEFAULT.find(d=>d.id===e.id)?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="confirmDelete(()=>{DB.remove('esquemas','${e.id}');renderEsquemas();toast('Esquema removido','#EF4444')})">🗑️</button>`:''}
         </div>
       </div>`).join('')}
     </div>`;
+}
+
+function usarEsquema(id){
+  seedEsquemas();
+  const e=DB.get('esquemas').find(x=>x.id===id);
+  if(!e)return;
+  document.getElementById('modal-title').textContent=e.ico+' '+e.nome;
+  document.getElementById('modal-body').innerHTML=`
+    <div style="margin-bottom:10px;font-size:12px;color:var(--muted)">${e.desc}</div>
+    <textarea id="esq-viewer" style="width:100%;height:420px;font-family:monospace;font-size:12px;line-height:1.6;border:1px solid var(--border);border-radius:8px;padding:14px;resize:vertical;background:#FAFAFA;color:var(--txt)">${e.conteudo}</textarea>`;
+  document.getElementById('modal-footer').innerHTML=`
+    <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
+    <button class="btn btn-primary" onclick="copyEsquema()">📋 Copiar texto</button>`;
+  document.getElementById('modal-box').className='modal modal-lg';
+  document.getElementById('modal-ov').classList.add('open');
+}
+
+function copyEsquema(){
+  const ta=document.getElementById('esq-viewer');
+  if(!ta)return;
+  navigator.clipboard.writeText(ta.value).then(()=>toast('Template copiado ✓','#10B981')).catch(()=>{ta.select();document.execCommand('copy');toast('Template copiado ✓','#10B981')});
+}
+
+function openModalEsquema(id=null){
+  seedEsquemas();
+  const e=id?DB.get('esquemas').find(x=>x.id===id):null;
+  document.getElementById('modal-title').textContent=e?'Editar Esquema':'Novo Esquema';
+  const ICOS=['📋','💰','📝','📊','🗓️','✅','🎯','🤝','📌','🔖','💡','📎','🖇️','📂','📁'];
+  document.getElementById('modal-body').innerHTML=`
+    <div class="form-row">
+      <div class="form-group" style="flex:0 0 80px">
+        <label class="form-label">Ícone</label>
+        <select class="form-input" id="esq-ico" style="font-size:18px">
+          ${ICOS.map(i=>`<option ${e?.ico===i?'selected':''}>${i}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Nome *</label>
+        <input class="form-input" id="esq-nome" value="${e?.nome||''}" placeholder="Ex: Brief de Cliente">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Descrição</label>
+      <input class="form-input" id="esq-desc" value="${e?.desc||''}" placeholder="Breve descrição do template">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Conteúdo do template *</label>
+      <textarea class="form-input" id="esq-conteudo" style="height:320px;font-family:monospace;font-size:12px;line-height:1.6;resize:vertical" placeholder="Cole ou escreva o template aqui...">${e?.conteudo||''}</textarea>
+    </div>`;
+  document.getElementById('modal-footer').innerHTML=`
+    <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="saveEsquema('${id||''}')">Salvar</button>`;
+  document.getElementById('modal-box').className='modal modal-lg';
+  document.getElementById('modal-ov').classList.add('open');
+}
+
+function saveEsquema(id){
+  const nome=document.getElementById('esq-nome')?.value?.trim();
+  const conteudo=document.getElementById('esq-conteudo')?.value?.trim();
+  if(!nome){toast('Nome obrigatório','#EF4444');return}
+  if(!conteudo){toast('Conteúdo obrigatório','#EF4444');return}
+  const data={nome,desc:document.getElementById('esq-desc')?.value?.trim()||'',ico:document.getElementById('esq-ico')?.value||'📋',conteudo};
+  if(id){
+    DB.update('esquemas',id,data);
+    toast('Esquema atualizado ✓','#10B981');
+  } else {
+    DB.push('esquemas',{id:uid(),...data});
+    toast('Esquema criado ✓','#10B981');
+  }
+  closeModal();
+  renderEsquemas();
 }
 
 // Fornecedores
@@ -3187,7 +3883,14 @@ function editCurrentDeal(){
 }
 
 function setDealStatus(status){
-  DB.update('leads',currentDealId,{dealStatus:status});
+  const today=new Date().toISOString().slice(0,10);
+  const updateObj={dealStatus:status};
+  if(status==='Ganho'){
+    const lCheck=DB.find('leads',currentDealId);
+    if(!lCheck?.dataInicio) updateObj.dataInicio=today;
+    updateObj.dataFechamento=today;
+  }
+  DB.update('leads',currentDealId,updateObj);
   renderDealStatusBtns();
   if(status==='Ganho'){
     const l=DB.find('leads',currentDealId);
