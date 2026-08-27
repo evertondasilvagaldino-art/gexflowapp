@@ -2843,6 +2843,7 @@ function renderTarefasProj(){
   document.getElementById('proj-content').innerHTML=`
     <div class="page-header">
       <div><div class="page-title">✅ Tarefas</div><div class="page-sub">Todas as tarefas e agendamentos de clientes</div></div>
+      ${can('tarefas','create')?`<button class="btn btn-primary" onclick="openModalTarefaGlobal()">+ Nova Tarefa</button>`:''}
     </div>
     <div class="card">
       <div class="tbl-wrap"><table>
@@ -2850,10 +2851,11 @@ function renderTarefasProj(){
         <tbody>${tasks.length?tasks.sort((a,b)=>(a.prazo||'').localeCompare(b.prazo||'')).map(t=>`<tr>
           <td style="font-weight:500">${t.desc}</td>
           <td style="color:var(--muted)">${getName(t.clienteId)}</td>
-          <td style="color:var(--muted)">${t.prazo||'—'}</td>
+          <td style="color:var(--muted)">${t.prazo?new Date(t.prazo+'T00:00:00').toLocaleDateString('pt-BR'):'—'}</td>
           <td>${badge(t.status)}</td>
           <td><div class="td-actions">
             <button class="btn btn-ghost btn-sm" onclick="toggleTaskGlobal('${t.id}')">${t.status==='Concluída'?'↩ Reabrir':'✓ Concluir'}</button>
+            <button class="btn btn-ghost btn-sm btn-icon" onclick="openModalTarefaGlobal('${t.id}')">✏️</button>
             <button class="btn btn-ghost btn-sm btn-icon" onclick="confirmDelete(()=>{DB.remove('tarefas_cli','${t.id}');renderTarefasProj();toast('Removida','#EF4444')})">🗑️</button>
           </div></td>
         </tr>`).join(''):`<tr><td colspan="5"><div class="empty"><div class="empty-ico">✅</div><div class="empty-txt">Sem tarefas cadastradas</div></div></td></tr>`}
@@ -2867,6 +2869,43 @@ function toggleTaskGlobal(id){
   if(!t)return;
   DB.update('tarefas_cli',id,{status:t.status==='Concluída'?'Pendente':'Concluída'});
   renderTarefasProj();
+}
+
+function openModalTarefaGlobal(id=null){
+  const t=id?DB.find('tarefas_cli',id):null;
+  const cls=DB.get('clientes');
+  document.getElementById('modal-title').textContent=t?'Editar Tarefa':'Nova Tarefa';
+  document.getElementById('modal-body').innerHTML=`
+    <div class="form-group"><label class="form-label">Descrição da Tarefa *</label>
+      <input class="form-input" id="ftg-desc" placeholder="Ex: Enviar relatório mensal" value="${t?.desc||''}"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Cliente</label>
+        <select class="form-input" id="ftg-cliente">
+          <option value="">— Sem cliente —</option>
+          ${cls.map(c=>`<option value="${c.id}" ${t?.clienteId===c.id?'selected':''}>${c.nome}</option>`).join('')}
+        </select></div>
+      <div class="form-group"><label class="form-label">Prazo</label>
+        <input class="form-input" id="ftg-prazo" type="date" value="${t?.prazo||''}"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Status</label>
+      <select class="form-input" id="ftg-status">
+        ${['Pendente','Em andamento','Concluída'].map(s=>`<option ${(t?.status||'Pendente')===s?'selected':''}>${s}</option>`).join('')}
+      </select></div>`;
+  document.getElementById('modal-footer').innerHTML=`
+    <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="saveTarefaGlobal('${id||''}')">Salvar</button>`;
+  document.getElementById('modal-box').className='modal';
+  document.getElementById('modal-ov').classList.add('open');
+}
+
+function saveTarefaGlobal(id){
+  const desc=v('ftg-desc');
+  if(!desc){toast('Descrição obrigatória','#EF4444');return;}
+  const obj={desc,clienteId:v('ftg-cliente'),prazo:v('ftg-prazo'),status:v('ftg-status')||'Pendente'};
+  if(id) DB.update('tarefas_cli',id,obj);
+  else DB.push('tarefas_cli',{id:uid(),...obj});
+  closeModal();renderTarefasProj();renderInicio();
+  toast(id?'Tarefa atualizada ✓':'Tarefa criada ✓','#10B981');
 }
 
 // Agenda de Projetos
