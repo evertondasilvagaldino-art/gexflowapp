@@ -2499,6 +2499,8 @@ const GexSupabase = {
 // Observação: criação de usuários no Supabase Auth exige Edge Function.
 // Nunca coloque service_role no HTML/front-end.
 const GEX_USER_CREATE_FUNCTION = 'create-gex-user';
+// Função segura para criar/atualizar usuários e perfis no Supabase.
+// Mantemos o mesmo endpoint para não espalhar integrações no front-end.
 
 function normalizeProfileRole(role){
   const r=String(role||'').trim();
@@ -2859,15 +2861,528 @@ function buildUserPayloadForSupabase(obj,senha){
   };
 }
 
+function profilePayloadForSupabase(data={}){
+  const payload={updated_at:new Date().toISOString()};
+  if(data.nome!==undefined)payload.nome=data.nome;
+  if(data.name!==undefined&&payload.nome===undefined)payload.nome=data.name;
+  if(data.email!==undefined)payload.email=normalizeLoginEmail(data.email);
+  if(data.cargo!==undefined)payload.cargo=data.cargo||'';
+  if(data.telefone!==undefined)payload.telefone=data.telefone||null;
+  if(data.status!==undefined)payload.status=data.status||'Ativo';
+  if(data.permissao!==undefined)payload.permissao=normalizeProfileRole(data.permissao);
+  if(data.role!==undefined&&payload.permissao===undefined)payload.permissao=normalizeProfileRole(data.role);
+  if(data.permOverrides!==undefined)payload.perm_overrides=data.permOverrides||{};
+  if(data.perm_overrides!==undefined)payload.perm_overrides=data.perm_overrides||{};
+  if(data.avatarUrl!==undefined)payload.avatar_url=data.avatarUrl||'';
+  if(data.avatar_url!==undefined)payload.avatar_url=data.avatar_url||'';
+  if(data.avatarBase64!==undefined&&payload.avatar_url===undefined)payload.avatar_url=data.avatarBase64||'';
+  return payload;
+}
+
+function updateSessionStorageUser(){
+  if(!sessionUser)return;
+  try{
+    localStorage.setItem('gx2_session',JSON.stringify({
+      id:sessionUser.id,nome:sessionUser.nome,email:sessionUser.email,
+      permissao:sessionUser.permissao,cargo:sessionUser.cargo,
+      telefone:sessionUser.telefone||'',
+      avatarUrl:sessionUser.avatarUrl||'',
+      avatarBase64:sessionUser.avatarBase64||''
+    }));
+  }catch(e){}
+}
+
+// Atualiza public.profiles imediatamente pelo front-end quando o usuário edita o próprio perfil.
+// Para edição de terceiros, a Gestão de Usuários usa a Edge Function create-gex-user.
+async function syncOwnProfileToSupabase(updates={}){
+  if(!supabaseClient||!sessionUser?.id)return {ok:false,error:new Error('Supabase indisponível')};
+  const payload=profilePayloadForSupabase(updates);
+  const targetId=sessionUser.supabaseId||sessionUser.id;
+  const email=normalizeLoginEmail(sessionUser.email||updates.email);
+
+  let data=null;
+  let error=null;
+
+  try{
+    let res=await supabaseClient
+      .from('profiles')
+      .update(payload)
+      .eq('id',targetId)
+      .select('*')
+      .maybeSingle();
+
+    if((res.error||!res.data)&&email){
+      // Fallback por email para casos antigos em que id/supabaseId não estavam normalizados.
+      res=await supabaseClient
+        .from('profiles')
+        .update(payload)
+        .ilike('email',email)
+        .select('*')
+        .maybeSingle();
+    }
+
+    data=res.data||null;
+    error=res.error||null;
+
+    if(error)throw error;
+
+    if(data){
+      const normalized=normalizeSupabaseProfile(data,null);
+      upsertUsuarioCache(normalized);
+      if(normalizeLoginEmail(normalized.email)===normalizeLoginEmail(sessionUser.email)||normalized.id===sessionUser.id){
+        sessionUser={...sessionUser,...normalized};
+        updateSessionStorageUser();
+      }
+    }
+
+    // Atualiza metadata do Auth também para o fallback funcionar em qualquer navegador.
+    try{
+      await supabaseClient.auth.updateUser({
+        data:{
+          nome:updates.nome??sessionUser.nome,
+          name:updates.nome??sessionUser.nome,
+          cargo:updates.cargo??sessionUser.cargo,
+          telefone:updates.telefone??sessionUser.telefone,
+          permissao:updates.permissao??sessionUser.permissao,
+          role:updates.permissao??sessionUser.permissao,
+          status:updates.status??sessionUser.status,
+          avatar_url:updates.avatarUrl!==undefined?updates.avatarUrl:(updates.avatarBase64!==undefined?updates.avatarBase64:sessionUser.avatarUrl||''),
+          avatarUrl:updates.avatarUrl!==undefined?updates.avatarUrl:(updates.avatarBase64!==undefined?updates.avatarBase64:sessionUser.avatarUrl||''),
+          perm_overrides:sessionUser.permOverrides||{}
+        }
+      });
+    }catch(metaErr){
+      console.warn('[GexFlow] Metadata do Auth não foi atualizada, mas profiles foi salvo:',metaErr);
+    }
+
+    return {ok:true,data};
+  }catch(err){
+    console.error('[GexFlow] Falha ao atualizar public.profiles:',err);
+    return {ok:false,error:err};
+  }
+}
+
+// Atualiza/cria perfil de qualquer usuário via Edge Function com service_role no backend.
+// Necessário porque Fundador edita usuários de terceiros e RLS não deve expor tudo no front-end.
+async function upsertUserProfileViaEdge(userData={},senha=''){
+  if(!supabaseClient)throw new Error('Supabase SDK não está disponível.');
+  const accessToken=await getValidSupabaseAccessTokenForUserCreate();
+  const payload={
+    ...buildUserPayloadForSupabase(userData,senha),
+    id:userData.supabaseId||userData.id||'',
+    supabaseId:userData.supabaseId||userData.id||'',
+    action:(userData.id||userData.supabaseId)?'update':'create'
+  };
+
+  const response=await fetch(`${SUPABASE_URL}/functions/v1/${GEX_USER_CREATE_FUNCTION}`,{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'Authorization':`Bearer ${accessToken}`,
+      'apikey':SUPABASE_PUBLISHABLE_KEY
+    },
+    body:JSON.stringify(payload)
+  }).catch(err=>{
+    console.error('[GexFlow] Edge Function create-gex-user inacessível:',err);
+    throw new Error('Não consegui sincronizar no Supabase. Verifique a Edge Function create-gex-user.');
+  });
+
+  let body={};
+  try{body=await response.json();}catch(e){}
+  if(!response.ok||body.error){
+    throw new Error(body.error||body.message||`Erro ${response.status} ao sincronizar usuário no Supabase.`);
+  }
+  const normalized=normalizeSupabaseProfile(body.profile||body.user||body.data||payload,body.authUser||null);
+  upsertUsuarioCache(normalized);
+  return normalized;
+}
+
+let gexProfilesRealtimeChannel=null;
+function startProfilesRealtime(){
+  if(!supabaseClient||gexProfilesRealtimeChannel)return;
+  try{
+    gexProfilesRealtimeChannel=supabaseClient
+      .channel('gex-flow-profiles-realtime')
+      .on('postgres_changes',{event:'*',schema:'public',table:'profiles'},payload=>{
+        const row=payload.new||payload.old;
+        if(!row)return;
+
+        if(payload.eventType==='DELETE'){
+          const users=DB.get('usuarios')||[];
+          DB.set('usuarios',users.filter(u=>u.id!==row.id&&normalizeLoginEmail(u.email)!==normalizeLoginEmail(row.email)));
+        }else{
+          const normalized=normalizeSupabaseProfile(row,null);
+          upsertUsuarioCache(normalized);
+
+          if(sessionUser&&(normalized.id===sessionUser.id||normalizeLoginEmail(normalized.email)===normalizeLoginEmail(sessionUser.email))){
+            sessionUser={...sessionUser,...normalized};
+            updateSessionStorageUser();
+            applySession();
+            if(document.getElementById('perfil-content')?.innerHTML&&currentPage==='perfil')renderPerfil();
+          }
+        }
+
+        if(document.getElementById('usr-tbody')&&currentPage==='usuarios')renderUsuarios({skipSync:true});
+        if(document.getElementById('configContent')&&currentPage==='configuracoes')renderConfiguracoes?.();
+      })
+      .subscribe(status=>{
+        console.log('[GexFlow] Realtime profiles:',status);
+      });
+  }catch(err){
+    console.warn('[GexFlow] Não foi possível iniciar Realtime de profiles:',err);
+  }
+}
+
+async function refreshUsersFromSupabaseFast(){
+  try{
+    const rows=await syncUsuariosFromSupabase({silent:true,rerender:true});
+    return rows;
+  }catch(e){
+    console.warn('[GexFlow] refreshUsersFromSupabaseFast:',e);
+    return [];
+  }
+}
+
 // ═══ DATA ═══
+// Supabase como fonte principal, localStorage apenas como cache rápido.
+// V1 segura: usa public.gex_records (JSONB) para preservar 100% do formato atual dos dados,
+// sem reescrever todos os módulos do sistema de uma vez.
+const GEX_WORKSPACE_ID = 'gex_company';
+const GEX_CLOUD_TABLE = 'gex_records';
+const GEX_DB_COLLECTIONS = [
+  'clientes','projetos','leads','transacoes','squads','membros','usuarios','conteudos',
+  'fornecedores','creators','onboarding','atividades','followups','tarefas_cli','contratos',
+  'com_tasks','esquemas','commercial_funnels','produtos_comercial'
+];
+const GEX_KV_EXCLUDED = new Set([
+  'gx2_session','gx2_seeded','gx2_tasks_seeded','gx2_cloud_backfilled_v1'
+]);
+let gexCloudBooting = false;
+let gexCloudReady = false;
+let gexCloudRealtimeChannel = null;
+let gexCloudQueue = Promise.resolve();
+let gexApplyingCloudPayload = false;
+
+function gexCacheKey(collection){ return 'gx2_'+collection; }
+function gexJsonParse(value,fallback){
+  try{return JSON.parse(value)}catch(e){return fallback}
+}
+function gexReadLocalCollection(collection){
+  const data = gexJsonParse(localStorage.getItem(gexCacheKey(collection))||'[]',[]);
+  return Array.isArray(data) ? data : [];
+}
+function gexWriteLocalCollection(collection,value){
+  localStorage.setItem(gexCacheKey(collection),JSON.stringify(Array.isArray(value)?value:[]));
+}
+function gexNewLocalId(){
+  return 'gx_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+}
+function gexEnsureRecordId(item){
+  if(!item || typeof item!=='object')return gexNewLocalId();
+  if(!item.id)item.id=gexNewLocalId();
+  return String(item.id);
+}
+function gexCanCloudSync(){
+  return !!(supabaseClient && sessionUser && sessionUser.id && !gexApplyingCloudPayload);
+}
+function gexQueueCloud(task){
+  if(!gexCanCloudSync())return Promise.resolve(false);
+  gexCloudQueue = gexCloudQueue
+    .then(()=>task())
+    .catch(err=>{
+      console.error('[GexCloudDB] Falha ao sincronizar no Supabase:',err);
+      try{toast('Não confirmou no Supabase. Verifique conexão/RLS.','#F59E0B')}catch(e){}
+      return false;
+    });
+  return gexCloudQueue;
+}
+function gexRecordPayload(collection,item){
+  const recordId = gexEnsureRecordId(item);
+  const cleanData = {...item,id:recordId};
+  cleanData._updatedAt = cleanData._updatedAt || new Date().toISOString();
+  cleanData._updatedBy = cleanData._updatedBy || sessionUser?.id || null;
+  return {
+    workspace_id:GEX_WORKSPACE_ID,
+    collection,
+    record_id:recordId,
+    data:cleanData,
+    updated_by:sessionUser?.id||null,
+    deleted_at:null
+  };
+}
+async function gexCloudUpsertMany(collection,items){
+  if(!supabaseClient || !Array.isArray(items) || !items.length)return true;
+  const rows = items
+    .filter(x=>x && typeof x==='object')
+    .map(x=>gexRecordPayload(collection,x));
+  if(!rows.length)return true;
+  const {error}=await supabaseClient
+    .from(GEX_CLOUD_TABLE)
+    .upsert(rows,{onConflict:'workspace_id,collection,record_id'});
+  if(error)throw error;
+  return true;
+}
+async function gexCloudSoftDelete(collection,ids){
+  if(!supabaseClient)return true;
+  const list = Array.isArray(ids)?ids.filter(Boolean).map(String):[String(ids)].filter(Boolean);
+  if(!list.length)return true;
+  const {error}=await supabaseClient
+    .from(GEX_CLOUD_TABLE)
+    .update({deleted_at:new Date().toISOString(),updated_by:sessionUser?.id||null})
+    .eq('workspace_id',GEX_WORKSPACE_ID)
+    .eq('collection',collection)
+    .in('record_id',list);
+  if(error)throw error;
+  return true;
+}
+function gexCloudSyncCollection(collection,next,previous=[]){
+  if(!gexCanCloudSync())return;
+  const nextArr = Array.isArray(next)?next:[];
+  const prevArr = Array.isArray(previous)?previous:[];
+  const nextIds = new Set(nextArr.map(x=>x&&x.id).filter(Boolean).map(String));
+  const removedIds = prevArr
+    .map(x=>x&&x.id)
+    .filter(id=>id && !nextIds.has(String(id)))
+    .map(String);
+  gexQueueCloud(async()=>{
+    await gexCloudUpsertMany(collection,nextArr);
+    if(removedIds.length)await gexCloudSoftDelete(collection,removedIds);
+    return true;
+  });
+}
+function gexCloudSyncOne(collection,item){
+  if(!gexCanCloudSync() || !item)return;
+  gexQueueCloud(()=>gexCloudUpsertMany(collection,[item]));
+}
+function gexCloudRemoveOne(collection,id){
+  if(!gexCanCloudSync() || !id)return;
+  gexQueueCloud(()=>gexCloudSoftDelete(collection,id));
+}
+
 const DB={
-  get(k){try{return JSON.parse(localStorage.getItem('gx2_'+k)||'[]')}catch{return[]}},
-  set(k,v){localStorage.setItem('gx2_'+k,JSON.stringify(v))},
-  push(k,v){const d=DB.get(k);d.push(v);DB.set(k,d);return v},
-  remove(k,id){DB.set(k,DB.get(k).filter(x=>x.id!==id))},
-  update(k,id,data){DB.set(k,DB.get(k).map(x=>x.id===id?{...x,...data}:x))},
-  find(k,id){return DB.get(k).find(x=>x.id===id)}
+  get(k){return gexReadLocalCollection(k)},
+  set(k,v,opts={}){
+    const previous = gexReadLocalCollection(k);
+    const next = Array.isArray(v)?v:[];
+    next.forEach(x=>{if(x&&typeof x==='object')gexEnsureRecordId(x)});
+    gexWriteLocalCollection(k,next);
+    if(!opts.skipCloud)gexCloudSyncCollection(k,next,previous);
+    return next;
+  },
+  push(k,v){
+    if(v&&typeof v==='object')gexEnsureRecordId(v);
+    const d=DB.get(k);
+    d.push(v);
+    gexWriteLocalCollection(k,d);
+    gexCloudSyncOne(k,v);
+    return v;
+  },
+  remove(k,id){
+    const d=DB.get(k).filter(x=>String(x.id)!==String(id));
+    gexWriteLocalCollection(k,d);
+    gexCloudRemoveOne(k,id);
+  },
+  update(k,id,data){
+    let updated=null;
+    const d=DB.get(k).map(x=>{
+      if(String(x.id)===String(id)){
+        updated={...x,...data,id:x.id,_updatedAt:new Date().toISOString(),_updatedBy:sessionUser?.id||x._updatedBy||null};
+        return updated;
+      }
+      return x;
+    });
+    gexWriteLocalCollection(k,d);
+    if(updated)gexCloudSyncOne(k,updated);
+    return updated;
+  },
+  find(k,id){return DB.get(k).find(x=>String(x.id)===String(id))}
 };
+
+function gexShouldSyncKV(key){
+  return typeof key==='string'
+    && key.startsWith('gx2_')
+    && !GEX_KV_EXCLUDED.has(key)
+    && !key.startsWith('gx2_tmp_');
+}
+function gexCloudSyncKV(key,value,deleted=false){
+  if(!gexCanCloudSync() || !gexShouldSyncKV(key))return;
+  gexQueueCloud(async()=>{
+    if(deleted){
+      await gexCloudSoftDelete('kv',[key]);
+      return true;
+    }
+    const row={
+      workspace_id:GEX_WORKSPACE_ID,
+      collection:'kv',
+      record_id:key,
+      data:{key,value:String(value??''),updatedAt:new Date().toISOString()},
+      updated_by:sessionUser?.id||null,
+      deleted_at:null
+    };
+    const {error}=await supabaseClient
+      .from(GEX_CLOUD_TABLE)
+      .upsert(row,{onConflict:'workspace_id,collection,record_id'});
+    if(error)throw error;
+    return true;
+  });
+}
+
+// Espelha configurações salvas diretamente no localStorage para Supabase.
+// Ex.: integrações, webhook, api_key, dados da empresa, preferências etc.
+(function installGexLocalStorageCloudMirror(){
+  if(window.__gexStorageMirrorInstalled)return;
+  window.__gexStorageMirrorInstalled=true;
+  const nativeSet=Storage.prototype.setItem;
+  const nativeRemove=Storage.prototype.removeItem;
+  Storage.prototype.setItem=function(key,value){
+    nativeSet.call(this,key,value);
+    if(this===localStorage && !gexApplyingCloudPayload)gexCloudSyncKV(String(key),value,false);
+  };
+  Storage.prototype.removeItem=function(key){
+    nativeRemove.call(this,key);
+    if(this===localStorage && !gexApplyingCloudPayload)gexCloudSyncKV(String(key),'',true);
+  };
+})();
+
+function gexMergeById(localArr,cloudRows){
+  const map=new Map();
+  (Array.isArray(localArr)?localArr:[]).forEach(item=>{
+    if(item&&typeof item==='object'){
+      const id=gexEnsureRecordId(item);
+      map.set(String(id),item);
+    }
+  });
+  (cloudRows||[]).forEach(row=>{
+    if(row?.data && typeof row.data==='object'){
+      const data={...row.data,id:String(row.record_id||row.data.id||gexNewLocalId())};
+      const current=map.get(String(data.id));
+      const currentDate=Date.parse(current?._updatedAt||current?.updated_at||current?.updatedAt||0)||0;
+      const cloudDate=Date.parse(data?._updatedAt||data?.updated_at||data?.updatedAt||row.updated_at||0)||0;
+      if(!current || cloudDate>=currentDate)map.set(String(data.id),data);
+    }
+  });
+  return Array.from(map.values());
+}
+function rerenderActivePageAfterCloudSync(){
+  try{
+    const active=document.querySelector('.page.active')?.id?.replace(/^page-/,'')||'inicio';
+    if(active==='inicio')renderInicio?.();
+    else if(active==='clientes')renderClientes?.();
+    else if(active==='churn')renderChurn?.();
+    else if(active==='contratos')renderContratos?.();
+    else if(active==='comercial')renderComercial?.();
+    else if(active==='financas')renderFinancas?.();
+    else if(active==='projetos')renderProjView?.();
+    else if(active==='rh')renderRH?.();
+    else if(active==='usuarios')renderUsuarios?.({skipSync:true});
+    else if(active==='perfil')renderPerfil?.();
+    else if(active==='configuracoes')renderConfiguracoes?.(currentSubPage||undefined);
+  }catch(e){
+    console.warn('[GexCloudDB] Não foi possível re-renderizar a página ativa:',e);
+  }
+}
+async function initGexCloudDataSync(){
+  if(!supabaseClient || !sessionUser?.id || gexCloudBooting)return false;
+  gexCloudBooting=true;
+  try{
+    const {data,error}=await supabaseClient
+      .from(GEX_CLOUD_TABLE)
+      .select('collection,record_id,data,updated_at,deleted_at')
+      .eq('workspace_id',GEX_WORKSPACE_ID)
+      .is('deleted_at',null)
+      .limit(10000);
+    if(error)throw error;
+
+    const byCollection={};
+    (data||[]).forEach(row=>{
+      if(!byCollection[row.collection])byCollection[row.collection]=[];
+      byCollection[row.collection].push(row);
+    });
+
+    gexApplyingCloudPayload=true;
+
+    // 1) Aplica chaves de configuração/sistema.
+    (byCollection.kv||[]).forEach(row=>{
+      if(gexShouldSyncKV(row.record_id)){
+        localStorage.setItem(row.record_id,String(row.data?.value??''));
+      }
+    });
+
+    // 2) Aplica coleções principais preservando dados locais ainda não enviados.
+    GEX_DB_COLLECTIONS.forEach(collection=>{
+      const local=gexReadLocalCollection(collection);
+      const merged=gexMergeById(local,byCollection[collection]||[]);
+      gexWriteLocalCollection(collection,merged);
+    });
+
+    gexApplyingCloudPayload=false;
+
+    // 3) Primeiro acesso após atualização: envia para o Supabase o que já existia localmente,
+    // sem apagar nada da nuvem. Isso evita perda de dados históricos.
+    if(localStorage.getItem('gx2_cloud_backfilled_v1')!=='1'){
+      for(const collection of GEX_DB_COLLECTIONS){
+        const arr=gexReadLocalCollection(collection);
+        if(arr.length)await gexCloudUpsertMany(collection,arr);
+      }
+      localStorage.setItem('gx2_cloud_backfilled_v1','1');
+    }
+
+    gexCloudReady=true;
+    startGexRecordsRealtime();
+    rerenderActivePageAfterCloudSync();
+    console.log('[GexCloudDB] ✅ Dados carregados/sincronizados com Supabase:',(data||[]).length,'registros');
+    return true;
+  }catch(err){
+    gexApplyingCloudPayload=false;
+    console.error('[GexCloudDB] Erro ao iniciar banco em nuvem:',err);
+    try{toast('Banco em nuvem não carregou. Sistema usando cache local.','#F59E0B')}catch(e){}
+    return false;
+  }finally{
+    gexCloudBooting=false;
+  }
+}
+function startGexRecordsRealtime(){
+  if(!supabaseClient || gexCloudRealtimeChannel)return;
+  try{
+    gexCloudRealtimeChannel=supabaseClient
+      .channel('gex-records-realtime')
+      .on('postgres_changes',{
+        event:'*',
+        schema:'public',
+        table:GEX_CLOUD_TABLE,
+        filter:`workspace_id=eq.${GEX_WORKSPACE_ID}`
+      },payload=>{
+        const row=payload.new||payload.old;
+        if(!row || !row.collection || !row.record_id)return;
+        gexApplyingCloudPayload=true;
+        try{
+          if(row.collection==='kv'){
+            if(gexShouldSyncKV(row.record_id)){
+              if(row.deleted_at)localStorage.removeItem(row.record_id);
+              else localStorage.setItem(row.record_id,String(row.data?.value??''));
+            }
+          }else if(GEX_DB_COLLECTIONS.includes(row.collection)){
+            let arr=gexReadLocalCollection(row.collection);
+            if(row.deleted_at){
+              arr=arr.filter(x=>String(x.id)!==String(row.record_id));
+            }else{
+              const next={...(row.data||{}),id:String(row.record_id)};
+              const idx=arr.findIndex(x=>String(x.id)===String(row.record_id));
+              if(idx>=0)arr[idx]=next;
+              else arr.push(next);
+            }
+            gexWriteLocalCollection(row.collection,arr);
+          }
+        }finally{
+          gexApplyingCloudPayload=false;
+        }
+        rerenderActivePageAfterCloudSync();
+      })
+      .subscribe(status=>console.log('[GexCloudDB] Realtime:',status));
+  }catch(err){
+    console.warn('[GexCloudDB] Não foi possível iniciar realtime:',err);
+  }
+}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,5);
 const fmtBRL=n=>'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const initials=s=>s.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
@@ -4688,37 +5203,27 @@ async function saveModal(type,id=''){
 
       try{
         if(id){
-          // Edição local/cache. Se existir profile no Supabase e RLS permitir, também tenta atualizar.
-          const updateData={...obj,updatedAt:new Date().toISOString()};
+          // Atualização segura e rápida: primeiro confirma no Supabase via Edge Function,
+          // depois atualiza o cache local. Assim não fica divergente entre máquinas.
+          const updateData={...(target||{}),...obj,updatedAt:new Date().toISOString()};
           if(senha)updateData.senha=String(senha).trim();
-          DB.update('usuarios',id,updateData);
-          const targetAfter={...(target||{}),...updateData};
-          if(supabaseClient&&(targetAfter.supabaseId||targetAfter.authProvider==='supabase')){
-            try{
-              await GexSupabase.updateProfile(targetAfter.supabaseId||targetAfter.id,{
-                nome:obj.nome,
-                email:obj.email,
-                cargo:obj.cargo,
-                telefone:obj.telefone||null,
-                permissao:obj.permissao,
-                status:obj.status,
-                perm_overrides:obj.permOverrides,
-                updated_at:new Date().toISOString()
-              });
-            }catch(profileErr){
-              console.warn('[GexFlow] Não foi possível atualizar profile no Supabase via front-end/RLS:',profileErr);
-            }
+
+          let synced=updateData;
+          if(supabaseClient&&(updateData.supabaseId||updateData.authProvider==='supabase'||updateData.email)){
+            synced=await upsertUserProfileViaEdge(updateData,senha);
           }
+
+          DB.update('usuarios',id,{...updateData,...synced,updatedAt:new Date().toISOString()});
+
           if(sessionUser&&(sessionUser.id===id||String(sessionUser.email||'').toLowerCase()===String(obj.email||'').toLowerCase())){
-            sessionUser={...sessionUser,...obj};
-            try{localStorage.setItem('gx2_session',JSON.stringify({
-              id:sessionUser.id,nome:sessionUser.nome,email:sessionUser.email,
-              permissao:sessionUser.permissao,cargo:sessionUser.cargo,
-              telefone:sessionUser.telefone||'',avatarUrl:sessionUser.avatarUrl||'',avatarBase64:sessionUser.avatarBase64||''
-            }))}catch(e){}
+            sessionUser={...sessionUser,...updateData,...synced};
+            updateSessionStorageUser();
             applyNavPermissions();
+            renderUserAvatar();
           }
-          closeModal();renderUsuarios();toast('Usuário atualizado ✓','#10B981');
+
+          await refreshUsersFromSupabaseFast();
+          closeModal();renderUsuarios({skipSync:true});toast('Usuário atualizado no Supabase ✓','#10B981');
         }else{
           const payload=buildUserPayloadForSupabase(obj,senha);
           const created=await createUserInSupabase(payload);
@@ -6978,13 +7483,7 @@ function saveCurrentUser(data){
   saveProfileOverrideFor(merged,data);
   upsertLocalUserProfile(merged,data);
   sessionUser=mergeLocalUserProfile(merged)||merged;
-  localStorage.setItem('gx2_session',JSON.stringify({
-    id:sessionUser.id,nome:sessionUser.nome,email:sessionUser.email,
-    permissao:sessionUser.permissao,cargo:sessionUser.cargo,
-    telefone:sessionUser.telefone||'',
-    avatarUrl:sessionUser.avatarUrl||'',
-    avatarBase64:sessionUser.avatarBase64||''
-  }));
+  updateSessionStorageUser();
   return sessionUser;
 }
 function getUserAvatar(user){
@@ -7181,34 +7680,46 @@ function renderPerfil(){
     </div>`;
 }
 
-function savePerfilProprio(){
+async function savePerfilProprio(){
   if(!sessionUser)return;
   const nome=document.getElementById('perf-nome')?.value?.trim();
   const cargo=document.getElementById('perf-cargo')?.value?.trim();
   const telefone=document.getElementById('perf-telefone')?.value?.trim();
   const email=document.getElementById('perf-email')?.value?.trim();
   if(!nome){toast('Nome obrigatório','#EF4444');return}
+
+  const btn=[...document.querySelectorAll('button')].find(b=>b.getAttribute('onclick')==='savePerfilProprio()');
+  const oldTxt=btn?.textContent||'Salvar alterações';
+  if(btn){btn.disabled=true;btn.textContent='Salvando no Supabase...';}
+
   const upd={nome,cargo,telefone};
   const role=resolveRole(sessionUser.permissao||'Colaborador');
-  if(role==='Fundador'&&email)upd.email=email;
+  if(role==='Fundador'&&email)upd.email=normalizeLoginEmail(email);
   if(pendingUserAvatarData!==null){
     upd.avatarUrl=pendingUserAvatarData;
     upd.avatarBase64=pendingUserAvatarData;
   }
 
-  // Salva em duas camadas locais:
-  // 1) tabela local de usuários, quando existir;
-  // 2) override local por id/e-mail, para persistir mesmo em sessão Supabase após atualizar a página.
+  // 1) Atualiza imediatamente a UI/local para não perder experiência do usuário.
   saveCurrentUser(upd);
+  applySession();
 
-  // Futuro Supabase:
-  // await GexSupabase.updateProfile(sessionUser.id, upd);
-  // Se houver avatar, enviar para Supabase Storage e substituir Base64 por URL pública.
+  // 2) Confirma no Supabase em public.profiles + Auth metadata.
+  const sync=await syncOwnProfileToSupabase(upd);
 
   pendingUserAvatarData=null;
-  applySession();
-  renderPerfil();
-  toast('Perfil atualizado com sucesso ✓','#10B981');
+
+  if(sync.ok){
+    await refreshUsersFromSupabaseFast();
+    applySession();
+    renderPerfil();
+    toast('Perfil atualizado no Supabase ✓','#10B981');
+  }else{
+    renderPerfil();
+    toast('Salvo localmente, mas não confirmou no Supabase. Verifique RLS/conexão.','#F59E0B');
+  }
+
+  if(btn){btn.disabled=false;btn.textContent=oldTxt;}
 }
 
 function savePerfilSenha(){
@@ -10461,7 +10972,16 @@ function renderDealSidebar(){
 // ─── helper: após login bem-sucedido ───────────────────────────────────────
 function _onLoginSuccess(btn){
   applySession();
+  startProfilesRealtime();
+  refreshUsersFromSupabaseFast();
   renderInicio();
+  // Carrega/sincroniza todos os setores no Supabase sem travar o login.
+  initGexCloudDataSync?.().then(ok=>{
+    if(ok){
+      renderInicio();
+      toast('Banco em nuvem sincronizado ✓','#10B981');
+    }
+  });
   const ls=document.getElementById('login-screen');
   ls.classList.add('hidden');
   setTimeout(()=>{ls.style.display='none';if(btn){btn.textContent='Entrar no sistema';btn.disabled=false}},420);
@@ -10648,6 +11168,9 @@ async function checkSession(){
           setSupabaseSessionUser(profile,session.user);
           document.getElementById('login-screen').style.display='none';
           applySession();
+          startProfilesRealtime();
+          refreshUsersFromSupabaseFast();
+          initGexCloudDataSync?.();
           console.log('[GexFlow] ✅ Sessão Supabase restaurada:',sessionUser.nome,'Fonte profile:',profile._profileSource||'profiles');
           return true;
         }
