@@ -1761,6 +1761,97 @@ function normalizeSupabaseProfile(profile={},authUser=null){
   };
 }
 
+// ─── Perfil Supabase robusto ─────────────────────────────────────────────
+// Corrige o erro "Perfil não encontrado" quando o usuário existe no Auth,
+// mas a leitura do profile falha por RLS, diferença de campos ou cache antigo.
+const GEX_FOUNDER_EMAILS=[
+  'evertondasilvagaldino@gmail.com',
+  'evertongaldinoads@gmail.com',
+  'evertongaldino@gmail.com'
+];
+
+function isProfileActive(profile={}){
+  const st=String(profile.status||profile.Status||'Ativo').trim().toLowerCase();
+  return !['inativo','inactive','bloqueado','bloqueada','desativado','desativada'].includes(st);
+}
+
+function buildFounderFallbackProfile(authUser){
+  const email=String(authUser?.email||'').toLowerCase();
+  if(!GEX_FOUNDER_EMAILS.includes(email))return null;
+  return {
+    id:authUser?.id||email,
+    nome:'Everton Galdino',
+    email,
+    permissao:'Fundador',
+    cargo:'Fundador',
+    status:'Ativo',
+    perm_overrides:{},
+    authProvider:'supabase',
+    _profileSource:'founder-fallback'
+  };
+}
+
+async function fetchSupabaseProfileSafe(authUser){
+  if(!supabaseClient||!authUser)return {profile:null,error:new Error('Supabase indisponível')};
+  const email=String(authUser.email||'').toLowerCase();
+  let lastError=null;
+
+  // 1) Busca principal: id do usuário autenticado
+  try{
+    const byId=await supabaseClient
+      .from('profiles')
+      .select('*')
+      .eq('id',authUser.id)
+      .maybeSingle();
+    if(byId?.data)return {profile:{...byId.data,_profileSource:'id'},error:null};
+    if(byId?.error){lastError=byId.error;console.warn('[GexFlow] Profile por ID não encontrado:',byId.error);}
+  }catch(e){lastError=e;console.warn('[GexFlow] Falha ao buscar profile por ID:',e);}
+
+  // 2) Busca alternativa: email
+  try{
+    const byEmail=await supabaseClient
+      .from('profiles')
+      .select('*')
+      .ilike('email',email)
+      .maybeSingle();
+    if(byEmail?.data)return {profile:{...byEmail.data,_profileSource:'email'},error:null};
+    if(byEmail?.error){lastError=byEmail.error;console.warn('[GexFlow] Profile por email não encontrado:',byEmail.error);}
+  }catch(e){lastError=e;console.warn('[GexFlow] Falha ao buscar profile por email:',e);}
+
+  // 3) Cache local, caso o profile já tenha sido baixado alguma vez
+  try{
+    const cached=(DB.get('usuarios')||[]).find(u=>String(u.email||'').toLowerCase()===email||u.supabaseId===authUser.id||u.id===authUser.id);
+    if(cached)return {profile:{...cached,id:authUser.id,email,_profileSource:'local-cache'},error:null};
+  }catch(e){}
+
+  // 4) Fallback controlado para o Fundador já existente no Auth
+  const founderFallback=buildFounderFallbackProfile(authUser);
+  if(founderFallback){
+    console.warn('[GexFlow] Usando fallback seguro do Fundador. Verifique RLS/policies se quiser remover este fallback.');
+    return {profile:founderFallback,error:null};
+  }
+
+  return {profile:null,error:lastError};
+}
+
+function setSupabaseSessionUser(profile,authUser){
+  const normalizedProfile=normalizeSupabaseProfile(profile,authUser);
+  upsertUsuarioCache(normalizedProfile);
+  sessionUser=mergeLocalUserProfile(normalizedProfile)||normalizedProfile;
+  localStorage.setItem('gx2_session',JSON.stringify({
+    id:sessionUser.id,
+    nome:sessionUser.nome,
+    email:sessionUser.email,
+    permissao:sessionUser.permissao,
+    cargo:sessionUser.cargo,
+    telefone:sessionUser.telefone||'',
+    avatarUrl:sessionUser.avatarUrl||'',
+    avatarBase64:sessionUser.avatarBase64||''
+  }));
+  return sessionUser;
+}
+
+
 function normalizeLocalUserForSupabaseCache(user={}){
   return {
     id:user.id||user.supabaseId||uid(),
@@ -8506,31 +8597,23 @@ async function doLogin(){
       return;
     }
 
-    // Buscar perfil do usuário
-    const profCall=supabaseClient.from('profiles').select('*').eq('id',data.user.id).single();
-    const profTimeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('TIMEOUT')),8000));
-    const {data:profile,error:perr}=await Promise.race([profCall,profTimeout]);
+    // Buscar perfil do usuário com fallback por ID, email, cache e Fundador
+    const {profile,error:profileErr}=await fetchSupabaseProfileSafe(data.user);
 
-    if(perr||!profile){
-      loginErr('Perfil não encontrado. Contate o administrador.');
+    if(!profile){
+      console.error('[GexFlow] Perfil Supabase não encontrado para:',data.user?.id,data.user?.email,profileErr);
+      loginErr('Perfil não encontrado. Confira se existe uma linha em public.profiles com o mesmo id/email do usuário.');
       try{await supabaseClient.auth.signOut();}catch(e){}
       return;
     }
-    if((profile.status||'Ativo')!=='Ativo'){
+    if(!isProfileActive(profile)){
       loginErr('Usuário inativo. Contate o administrador.');
       try{await supabaseClient.auth.signOut();}catch(e){}
       return;
     }
 
-    const normalizedProfile=normalizeSupabaseProfile(profile,data.user);
-    upsertUsuarioCache(normalizedProfile);
-    sessionUser=mergeLocalUserProfile(normalizedProfile)||normalizedProfile;
-    localStorage.setItem('gx2_session',JSON.stringify({
-      id:sessionUser.id,nome:sessionUser.nome,email:sessionUser.email,
-      permissao:sessionUser.permissao,cargo:sessionUser.cargo,
-      telefone:sessionUser.telefone||'',avatarUrl:sessionUser.avatarUrl||'',avatarBase64:sessionUser.avatarBase64||''
-    }));
-    console.log('[GexFlow] ✅ Login bem-sucedido:',sessionUser.nome);
+    setSupabaseSessionUser(profile,data.user);
+    console.log('[GexFlow] ✅ Login bem-sucedido:',sessionUser.nome,'Fonte profile:',profile._profileSource||'profiles');
     _onLoginSuccess(btn);
 
   }catch(err){
@@ -8608,22 +8691,18 @@ async function checkSession(){
       const sessionTimeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),2000));
       const {data:{session},error}=await Promise.race([supabaseClient.auth.getSession(),sessionTimeout]);
       if(!error&&session){
-        const profTimeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),2000));
-        const profCall=supabaseClient.from('profiles').select('*').eq('id',session.user.id).single();
-        const {data:profile,error:perr}=await Promise.race([profCall,profTimeout]);
-        if(!perr&&profile&&(profile.status||'Ativo')==='Ativo'){
-          sessionUser=mergeLocalUserProfile({id:session.user.id,email:session.user.email,...profile})||{id:session.user.id,email:session.user.email,...profile};
-          localStorage.setItem('gx2_session',JSON.stringify({
-            id:sessionUser.id,nome:sessionUser.nome,email:sessionUser.email,
-            permissao:sessionUser.permissao,cargo:sessionUser.cargo,
-            telefone:sessionUser.telefone||'',avatarUrl:sessionUser.avatarUrl||'',avatarBase64:sessionUser.avatarBase64||''
-          }));
+        const profTimeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),4000));
+        const profCall=fetchSupabaseProfileSafe(session.user);
+        const {profile,error:perr}=await Promise.race([profCall,profTimeout]);
+        if(profile&&isProfileActive(profile)){
+          setSupabaseSessionUser(profile,session.user);
           document.getElementById('login-screen').style.display='none';
           applySession();
-          console.log('[GexFlow] ✅ Sessão Supabase restaurada:',sessionUser.nome);
+          console.log('[GexFlow] ✅ Sessão Supabase restaurada:',sessionUser.nome,'Fonte profile:',profile._profileSource||'profiles');
           return true;
         }
-        if(!perr&&profile) try{await supabaseClient.auth.signOut();}catch(e){}
+        if(profile&&!isProfileActive(profile)) try{await supabaseClient.auth.signOut();}catch(e){}
+        if(perr) console.warn('[GexFlow] Não foi possível restaurar profile Supabase:',perr);
       }
     }catch(err){
       console.warn('[GexFlow] checkSession Supabase indisponível (timeout/CSP):',err.message);
