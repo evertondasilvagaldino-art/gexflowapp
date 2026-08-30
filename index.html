@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gex Flow</title>
-<!-- Atualização: Configurações centralizadas + Gestão de Usuários dentro de Configurações -->
+<!-- Atualização: Sidebar inicia compacta + setores abrem apenas quando selecionados -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap">
 <!-- Supabase SDK -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -1600,6 +1600,92 @@ textarea.form-input{resize:vertical;min-height:75px}
 @media(max-width:1000px){.cfg-grid{grid-template-columns:1fr 1fr}.cfg-form-grid,.cfg-kv{grid-template-columns:1fr}}
 @media(max-width:640px){.cfg-grid{grid-template-columns:1fr}.cfg-hero{flex-direction:column;align-items:flex-start}}
 
+
+/* Pesquisa global premium */
+.search{z-index:40}
+.global-search-panel{
+  position:absolute;
+  top:calc(100% + 8px);
+  left:0;
+  right:0;
+  min-width:420px;
+  max-width:560px;
+  max-height:420px;
+  overflow:auto;
+  background:#fff;
+  border:1px solid rgba(124,58,237,.16);
+  border-radius:14px;
+  box-shadow:0 24px 70px rgba(17,24,39,.18);
+  padding:8px;
+  display:none;
+}
+.global-search-panel.open{display:block;animation:searchPop .12s ease-out}
+@keyframes searchPop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.gsearch-head{
+  padding:8px 10px;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:var(--muted);
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+}
+.gsearch-item{
+  width:100%;
+  border:0;
+  background:transparent;
+  padding:10px;
+  border-radius:10px;
+  cursor:pointer;
+  text-align:left;
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  font-family:'Inter',sans-serif;
+  color:var(--txt);
+}
+.gsearch-item:hover,.gsearch-item.active{background:rgba(124,58,237,.08)}
+.gsearch-ico{
+  width:30px;
+  height:30px;
+  border-radius:9px;
+  background:linear-gradient(135deg,rgba(124,58,237,.14),rgba(59,130,246,.10));
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+  font-size:15px;
+}
+.gsearch-title{font-size:13px;font-weight:700;line-height:1.25}
+.gsearch-sub{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.35}
+.gsearch-tag{
+  display:inline-flex;
+  align-items:center;
+  padding:2px 6px;
+  border-radius:999px;
+  background:#F3F0FF;
+  color:#6D28D9;
+  font-size:10px;
+  font-weight:700;
+  margin-top:5px;
+}
+.gsearch-empty{
+  padding:18px 12px;
+  text-align:center;
+  color:var(--muted);
+  font-size:12px;
+}
+.gsearch-mark{
+  outline:2px solid rgba(124,58,237,.35);
+  box-shadow:0 0 0 6px rgba(124,58,237,.08);
+  border-radius:12px;
+  transition:box-shadow .2s ease,outline .2s ease;
+}
+@media (max-width:720px){
+  .global-search-panel{min-width:calc(100vw - 28px);position:fixed;top:58px;left:14px;right:14px}
+}
+
 </style>
 </head>
 <body class="gex-premium-ui">
@@ -1647,10 +1733,10 @@ textarea.form-input{resize:vertical;min-height:75px}
         <svg class="nav-grp-ico" viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>
         Clientes
       </div>
-      <span class="nav-chv" id="grp-chv-clientes">▾</span>
+      <span class="nav-chv" id="grp-chv-clientes" class="closed">▾</span>
     </div>
-    <div class="nav-sub-wrap" id="grp-wrap-clientes">
-      <div class="nav-sub active" data-sub="clientes" onclick="navigateSub('clientes','clientes')">
+    <div class="nav-sub-wrap closed" id="grp-wrap-clientes">
+      <div class="nav-sub" data-sub="clientes" onclick="navigateSub('clientes','clientes')">
         <span class="nav-sub-ico">·</span>Gestão de clientes
       </div>
       <div class="nav-sub" data-sub="churn" onclick="navigateSub('churn','clientes')">
@@ -1667,9 +1753,9 @@ textarea.form-input{resize:vertical;min-height:75px}
         <svg class="nav-grp-ico" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-.293.707L13 10.414V15a1 1 0 01-.553.894l-4 2A1 1 0 017 17v-6.586L3.293 6.707A1 1 0 013 6V4z" clip-rule="evenodd"/></svg>
         Projetos
       </div>
-      <span class="nav-chv" id="grp-chv-projetos">▾</span>
+      <span class="nav-chv" id="grp-chv-projetos" class="closed">▾</span>
     </div>
-    <div class="nav-sub-wrap" id="grp-wrap-projetos">
+    <div class="nav-sub-wrap closed" id="grp-wrap-projetos">
       <div class="nav-sub" data-sub="onboarding" onclick="navigateSub('onboarding','projetos')">
         <span class="nav-sub-ico">·</span>Onboarding
       </div>
@@ -1767,7 +1853,11 @@ textarea.form-input{resize:vertical;min-height:75px}
       <div class="logo-icon"><svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2L13 6H11V10H13L9 15L5 10H7V6H5L9 2Z" fill="#F59E0B"/></svg></div>
       <span class="logo-txt">Gex<span>Flow</span></span>
     </div>
-    <div class="search"><span class="search-ico">⌕</span><input type="text" placeholder="Pesquisar..."></div>
+    <div class="search" id="globalSearchBox">
+      <span class="search-ico">⌕</span>
+      <input type="text" id="globalSearchInput" placeholder="Pesquisar..." autocomplete="off" aria-label="Pesquisar no sistema">
+      <div class="global-search-panel" id="globalSearchPanel"></div>
+    </div>
     <div class="tb-right">
       <div class="ico-btn" title="Configurar Webhook" onclick="openWebhookModal()" style="position:relative">
         <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clip-rule="evenodd"/></svg>
@@ -1779,7 +1869,7 @@ textarea.form-input{resize:vertical;min-height:75px}
       <div class="user-av" id="topbar-av" onclick="navigate('perfil')" title="Meu perfil">EG</div>
     </div>
   </header>
-  <div class="ann-bar" id="ann-bar"><svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" style="color:var(--p2);flex-shrink:0"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg><span>Feriados:</span> Independência (07/09) · N. Sra. Aparecida (12/10) · Finados (02/11)<span class="ann-close" onclick="this.parentElement.style.display='none'">×</span></div>
+  <div class="ann-bar" id="ann-bar"><svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" style="color:var(--p2);flex-shrink:0"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg><span id="ann-holiday-title">Feriados:</span> <span id="ann-holiday-text">Carregando feriados do ano...</span><span class="ann-close" onclick="this.parentElement.style.display='none'">×</span></div>
 
   <!-- INÍCIO -->
   <div class="page active" id="page-inicio">
@@ -3952,14 +4042,37 @@ function showAccessDeniedModal(mod){
 
 // ═══ ROUTER ═══
 // ═══ GROUP TOGGLE ═══
-function toggleGrp(grp){
+const SIDEBAR_GROUPS=['clientes','projetos','comercial','financas','configuracoes'];
+
+function setSidebarGroupState(grp,open){
   const wrap=document.getElementById('grp-wrap-'+grp);
   const chv=document.getElementById('grp-chv-'+grp);
   const hdr=document.getElementById('grp-hdr-'+grp);
   if(!wrap)return;
-  const closed=wrap.classList.toggle('closed');
-  chv.classList.toggle('closed',closed);
-  hdr.classList.toggle('active',!closed);
+  wrap.classList.toggle('closed',!open);
+  if(chv)chv.classList.toggle('closed',!open);
+  if(hdr)hdr.classList.toggle('active',!!open);
+}
+
+function closeAllSidebarGroups(exceptGrp=''){
+  SIDEBAR_GROUPS.forEach(g=>{
+    if(g!==exceptGrp)setSidebarGroupState(g,false);
+  });
+}
+
+function resetSidebarToHomeState(){
+  closeAllSidebarGroups('');
+  document.querySelectorAll('.nav-sub').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll('.nav-grp-hdr').forEach(n=>n.classList.remove('active'));
+}
+
+// Abre apenas um setor por vez. Evita Clientes/Projetos ficarem abertos ao iniciar.
+function toggleGrp(grp){
+  const wrap=document.getElementById('grp-wrap-'+grp);
+  if(!wrap)return;
+  const shouldOpen=wrap.classList.contains('closed');
+  closeAllSidebarGroups(grp);
+  setSidebarGroupState(grp,shouldOpen);
 }
 
 // ═══ SUB-NAV (sidebar sub-items) ═══
@@ -3977,6 +4090,8 @@ function navigateSub(sub,grp){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.nav-sub').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.nav-grp-hdr').forEach(n=>n.classList.remove('active'));
+  closeAllSidebarGroups(grp);
+  setSidebarGroupState(grp,true);
 
   const pg=document.getElementById('page-'+page);
   if(pg)pg.classList.add('active');
@@ -4051,6 +4166,7 @@ function navigate(page){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.nav-sub').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll('.nav-grp-hdr').forEach(n=>n.classList.remove('active'));
+  closeAllSidebarGroups('');
   const pageEl=document.getElementById('page-'+page);
   if(pageEl)pageEl.classList.add('active');
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
@@ -11450,6 +11566,8 @@ function _onLoginSuccess(btn){
   startProfilesRealtime();
   refreshUsersFromSupabaseFast();
   renderInicio();
+  resetSidebarToHomeState();
+  document.querySelector('[data-page="inicio"]')?.classList.add('active');
   // Carrega/sincroniza todos os setores no Supabase sem travar o login.
   initGexCloudDataSync?.().then(ok=>{
     if(ok){
@@ -11687,7 +11805,11 @@ if(IS_PREVIEW_ENV){
 
 // checkSession é async — aguarda e renderiza após resolução
 checkSession().then(loggedIn=>{
-  if(loggedIn) renderInicio();
+  if(loggedIn){
+    renderInicio();
+    resetSidebarToHomeState();
+    document.querySelector('[data-page="inicio"]')?.classList.add('active');
+  }
 });
 
 // Escuta mudanças de auth do Supabase (token refresh, logout externo, etc.)
@@ -14216,6 +14338,581 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       if(ripple && ripple.parentNode) ripple.parentNode.removeChild(ripple);
     }, 520);
   }, {passive:true});
+})();
+</script>
+
+
+<style id="gex-pipeline-owner-filter-fix-style-v1">
+/* Correção: filtro de responsável do Pipeline com dropdown estável.
+   Evita bug do select nativo abrindo/fechando quando Realtime re-renderiza a tela. */
+#funnel-selector-bar{position:relative;z-index:80}
+#funnel-selector-bar .funnel-select-wrap{position:relative;z-index:81}
+#pipe-responsavel-filter.gx-native-hidden{
+  position:absolute!important;
+  opacity:0!important;
+  width:1px!important;
+  height:1px!important;
+  pointer-events:none!important;
+  left:-9999px!important;
+}
+.gx-owner-filter{
+  position:relative;
+  min-width:220px;
+  max-width:320px;
+  z-index:90;
+}
+.gx-owner-filter-btn{
+  width:100%;
+  height:34px;
+  border:1.5px solid var(--border);
+  background:var(--card);
+  color:var(--txt);
+  border-radius:10px;
+  padding:7px 34px 7px 12px;
+  font-size:13px;
+  font-weight:650;
+  font-family:'Inter',sans-serif;
+  cursor:pointer;
+  text-align:left;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  box-shadow:0 8px 18px rgba(31,41,55,.04);
+}
+.gx-owner-filter-btn:hover,
+.gx-owner-filter.open .gx-owner-filter-btn{
+  border-color:var(--p2);
+  box-shadow:0 10px 24px rgba(124,58,237,.12);
+}
+.gx-owner-filter-caret{
+  position:absolute;
+  right:11px;
+  top:50%;
+  transform:translateY(-50%);
+  font-size:10px;
+  color:var(--muted);
+  pointer-events:none;
+}
+.gx-owner-filter-menu{
+  position:absolute;
+  top:calc(100% + 6px);
+  left:0;
+  right:0;
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:12px;
+  box-shadow:0 18px 50px rgba(17,24,39,.18);
+  padding:6px;
+  max-height:260px;
+  overflow:auto;
+  display:none;
+  z-index:9999;
+}
+.gx-owner-filter.open .gx-owner-filter-menu{display:block}
+.gx-owner-filter-option{
+  width:100%;
+  border:0;
+  background:transparent;
+  color:var(--txt);
+  border-radius:9px;
+  padding:9px 10px;
+  text-align:left;
+  font-size:12px;
+  font-weight:650;
+  font-family:'Inter',sans-serif;
+  cursor:pointer;
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  align-items:center;
+}
+.gx-owner-filter-option:hover{background:var(--p-light);color:var(--p2)}
+.gx-owner-filter-option.active{
+  background:linear-gradient(135deg,#7C3AED,#A855F7);
+  color:#fff;
+}
+.gx-owner-filter-option small{
+  color:inherit;
+  opacity:.72;
+  font-size:10px;
+  font-weight:700;
+}
+#pipe-responsavel-filter + .funnel-select-arrow{display:none!important}
+</style>
+
+<script id="gex-pipeline-owner-filter-fix-v1">
+(function(){
+  if(window.__GEX_PIPELINE_OWNER_FILTER_FIX_V1__) return;
+  window.__GEX_PIPELINE_OWNER_FILTER_FIX_V1__ = true;
+
+  let interactionUntil = 0;
+  let deferredRerenderTimer = null;
+
+  function now(){ return Date.now ? Date.now() : new Date().getTime(); }
+  function markInteraction(ms){
+    interactionUntil = Math.max(interactionUntil, now() + (ms || 1800));
+  }
+  function isInteracting(){
+    const active = document.activeElement;
+    const activeId = active && active.id;
+    const comboOpen = !!document.querySelector('.gx-owner-filter.open');
+    return comboOpen ||
+      now() < interactionUntil ||
+      activeId === 'pipe-responsavel-filter' ||
+      (active && active.closest && active.closest('#funnel-selector-bar .gx-owner-filter'));
+  }
+  window.gexMarkPipelineOwnerFilterInteraction = markInteraction;
+
+  function closeOwnerMenus(except){
+    document.querySelectorAll('.gx-owner-filter.open').forEach(el=>{
+      if(!except || el !== except) el.classList.remove('open');
+    });
+  }
+
+  function selectedLabel(select){
+    const opt = select.options[select.selectedIndex];
+    return opt ? (opt.textContent || 'Todos os responsáveis').trim() : 'Todos os responsáveis';
+  }
+
+  function rebuildOwnerFilterMenu(select, combo){
+    const btn = combo.querySelector('.gx-owner-filter-btn');
+    const menu = combo.querySelector('.gx-owner-filter-menu');
+    if(!btn || !menu) return;
+    btn.textContent = selectedLabel(select);
+    menu.innerHTML = '';
+
+    Array.from(select.options || []).forEach(opt=>{
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'gx-owner-filter-option' + (opt.value === select.value ? ' active' : '');
+      item.dataset.value = opt.value || '';
+      const label = (opt.textContent || 'Todos os responsáveis').trim();
+      item.innerHTML = '<span></span>' + (opt.value === select.value ? '<small>Selecionado</small>' : '');
+      item.querySelector('span').textContent = label;
+      item.addEventListener('mousedown', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        markInteraction(900);
+      });
+      item.addEventListener('click', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        markInteraction(900);
+
+        select.value = opt.value || '';
+        if(typeof window.saveOwnerFilter === 'function'){
+          window.saveOwnerFilter('pipe-responsavel-filter', select.value || '');
+        }
+
+        btn.textContent = label;
+        closeOwnerMenus();
+
+        window.setTimeout(function(){
+          if(typeof window.renderComercial === 'function') window.renderComercial();
+        }, 40);
+      });
+      menu.appendChild(item);
+    });
+  }
+
+  function enhancePipelineOwnerSelect(){
+    const select = document.getElementById('pipe-responsavel-filter');
+    if(!select || select.dataset.gxOwnerEnhanced === '1') return;
+
+    const wrap = select.closest('.funnel-select-wrap') || select.parentElement;
+    if(!wrap) return;
+
+    select.dataset.gxOwnerEnhanced = '1';
+    select.classList.add('gx-native-hidden');
+    select.setAttribute('tabindex','-1');
+
+    const combo = document.createElement('div');
+    combo.className = 'gx-owner-filter';
+    combo.innerHTML =
+      '<button type="button" class="gx-owner-filter-btn" aria-haspopup="listbox" aria-expanded="false"></button>' +
+      '<span class="gx-owner-filter-caret">▼</span>' +
+      '<div class="gx-owner-filter-menu" role="listbox"></div>';
+
+    wrap.insertBefore(combo, select.nextSibling);
+
+    const btn = combo.querySelector('.gx-owner-filter-btn');
+
+    btn.addEventListener('mousedown', function(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
+      markInteraction(2500);
+    });
+    btn.addEventListener('click', function(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
+      markInteraction(2500);
+      const willOpen = !combo.classList.contains('open');
+      closeOwnerMenus(combo);
+      combo.classList.toggle('open', willOpen);
+      btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      rebuildOwnerFilterMenu(select, combo);
+    });
+
+    select.addEventListener('focus', function(){ markInteraction(2500); });
+    select.addEventListener('mousedown', function(){ markInteraction(2500); });
+    select.addEventListener('click', function(){ markInteraction(2500); });
+    select.addEventListener('change', function(){
+      markInteraction(900);
+      if(typeof window.saveOwnerFilter === 'function'){
+        window.saveOwnerFilter('pipe-responsavel-filter', select.value || '');
+      }
+      window.setTimeout(function(){
+        if(typeof window.renderComercial === 'function') window.renderComercial();
+      }, 40);
+    });
+
+    rebuildOwnerFilterMenu(select, combo);
+  }
+
+  document.addEventListener('mousedown', function(ev){
+    const target = ev.target;
+    if(target && target.closest && target.closest('#funnel-selector-bar')){
+      markInteraction(2200);
+    }
+    if(!target || !target.closest || !target.closest('.gx-owner-filter')){
+      closeOwnerMenus();
+    }
+  }, true);
+
+  document.addEventListener('keydown', function(ev){
+    if(ev.key === 'Escape') closeOwnerMenus();
+  });
+
+  const originalRenderFunnelSelector = window.renderFunnelSelector;
+  if(typeof originalRenderFunnelSelector === 'function'){
+    window.renderFunnelSelector = function(){
+      const bar = document.getElementById('funnel-selector-bar');
+      if(bar && bar.dataset.gxStableRendered === '1' && isInteracting()){
+        return;
+      }
+      const result = originalRenderFunnelSelector.apply(this, arguments);
+      const nextBar = document.getElementById('funnel-selector-bar');
+      if(nextBar) nextBar.dataset.gxStableRendered = '1';
+      enhancePipelineOwnerSelect();
+      return result;
+    };
+  }
+
+  const originalSchedule = window.scheduleRerenderActivePageAfterCloudSync;
+  if(typeof originalSchedule === 'function'){
+    window.scheduleRerenderActivePageAfterCloudSync = function(delay){
+      if(isInteracting()){
+        window.clearTimeout(deferredRerenderTimer);
+        deferredRerenderTimer = window.setTimeout(function(){
+          if(!isInteracting()) originalSchedule.call(window, delay || 160);
+          else window.scheduleRerenderActivePageAfterCloudSync(delay || 160);
+        }, 650);
+        return;
+      }
+      return originalSchedule.apply(this, arguments);
+    };
+  }
+
+  const originalRerender = window.rerenderActivePageAfterCloudSync;
+  if(typeof originalRerender === 'function'){
+    window.rerenderActivePageAfterCloudSync = function(){
+      if(isInteracting()){
+        window.clearTimeout(deferredRerenderTimer);
+        deferredRerenderTimer = window.setTimeout(function(){
+          if(!isInteracting()) originalRerender.call(window);
+        }, 650);
+        return;
+      }
+      return originalRerender.apply(this, arguments);
+    };
+  }
+
+  const originalOwnerChange = window.onCommercialOwnerFilterChange;
+  window.onCommercialOwnerFilterChange = function(selectId, renderFnName){
+    markInteraction(800);
+    const sel = document.getElementById(selectId);
+    if(sel && typeof window.saveOwnerFilter === 'function'){
+      window.saveOwnerFilter(selectId, sel.value || '');
+    }
+
+    if(selectId === 'pipe-responsavel-filter'){
+      window.setTimeout(function(){
+        if(typeof window.renderComercial === 'function') window.renderComercial();
+      }, 40);
+      return;
+    }
+
+    if(typeof originalOwnerChange === 'function'){
+      return originalOwnerChange.apply(this, arguments);
+    }
+    if(renderFnName === 'relatorio' && typeof window.renderRelatorioComercial === 'function') return window.renderRelatorioComercial();
+    if(typeof window.renderComercial === 'function') return window.renderComercial();
+  };
+
+  function boot(){
+    enhancePipelineOwnerSelect();
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, {once:true});
+  }else{
+    boot();
+  }
+})();
+</script>
+
+
+<script>
+/* ═══ PESQUISA GLOBAL + FERIADOS DINÂMICOS ─ correção segura ═══ */
+(function(){
+  const GEX_HOLIDAY_ICON='<svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor" style="color:var(--p2);flex-shrink:0"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg>';
+
+  function pad2(n){return String(n).padStart(2,'0')}
+  function fmtDateBR(date){return pad2(date.getDate())+'/'+pad2(date.getMonth()+1)}
+  function addDays(date,days){const d=new Date(date);d.setDate(d.getDate()+days);return d}
+  function easterDate(year){
+    const a=year%19,b=Math.floor(year/100),c=year%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),month=Math.floor((h+l-7*m+114)/31),day=((h+l-7*m+114)%31)+1;
+    return new Date(year,month-1,day);
+  }
+  function holidayList(year){
+    const easter=easterDate(year);
+    return [
+      {nome:'Confraternização Universal',data:new Date(year,0,1),tipo:'feriado'},
+      {nome:'Carnaval',data:addDays(easter,-47),tipo:'ponto facultativo'},
+      {nome:'Paixão de Cristo',data:addDays(easter,-2),tipo:'feriado'},
+      {nome:'Tiradentes',data:new Date(year,3,21),tipo:'feriado'},
+      {nome:'Dia do Trabalho',data:new Date(year,4,1),tipo:'feriado'},
+      {nome:'Corpus Christi',data:addDays(easter,60),tipo:'ponto facultativo'},
+      {nome:'Independência',data:new Date(year,8,7),tipo:'feriado'},
+      {nome:'N. Sra. Aparecida',data:new Date(year,9,12),tipo:'feriado'},
+      {nome:'Finados',data:new Date(year,10,2),tipo:'feriado'},
+      {nome:'Proclamação da República',data:new Date(year,10,15),tipo:'feriado'},
+      {nome:'Consciência Negra',data:new Date(year,10,20),tipo:'feriado'},
+      {nome:'Natal',data:new Date(year,11,25),tipo:'feriado'}
+    ].sort((a,b)=>a.data-b.data);
+  }
+  window.gexGetHolidayList=function(year){return holidayList(Number(year||new Date().getFullYear()))};
+
+  function updateHolidayBanner(){
+    const bar=document.getElementById('ann-bar');
+    if(!bar)return;
+    const yearSel=document.getElementById('dash-ano');
+    const mesSel=document.getElementById('dash-mes');
+    const now=new Date();
+    const year=Number(yearSel?.value || window.dashFilter?.ano || now.getFullYear());
+    const month=Number(mesSel?.value || window.dashFilter?.mes || 0);
+    const list=holidayList(year);
+    let base;
+    if(year===now.getFullYear()){
+      base=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    }else{
+      base=new Date(year,month?month-1:0,1);
+    }
+    let items;
+    if(month){
+      items=list.filter(h=>h.data.getMonth()+1===month);
+      if(year===now.getFullYear() && month===now.getMonth()+1){
+        items=items.filter(h=>h.data>=base);
+      }
+    }else{
+      items=list.filter(h=>h.data>=base).slice(0,3);
+      if(!items.length)items=list.slice(-3);
+    }
+    const text=items.length
+      ?items.map(h=>`${h.nome} (${fmtDateBR(h.data)})`).join(' · ')
+      :'Nenhum feriado/ponto facultativo no período selecionado';
+    const label=month?`Feriados ${pad2(month)}/${year}:`:`Próximos feriados ${year}:`;
+    bar.innerHTML=`${GEX_HOLIDAY_ICON}<span id="ann-holiday-title">${label}</span> <span id="ann-holiday-text">${text}</span><span class="ann-close" onclick="this.parentElement.style.display='none'">×</span>`;
+  }
+  window.gexUpdateHolidayBanner=updateHolidayBanner;
+
+  const SEARCH_ROUTES={
+    clientes:{label:'Cliente',icon:'👥',open:()=>navigateSub('clientes','clientes')},
+    contratos:{label:'Contrato',icon:'📄',open:()=>navigateSub('contratos','clientes')},
+    projetos:{label:'Projeto',icon:'📁',open:()=>navigateSub('entregas','projetos')},
+    onboarding:{label:'Onboarding',icon:'🚀',open:()=>navigateSub('onboarding','projetos')},
+    conteudos:{label:'Aprovação de conteúdo',icon:'✅',open:()=>navigateSub('aprovacao','projetos')},
+    esquemas:{label:'Esquema',icon:'🧩',open:()=>navigateSub('esquemas','projetos')},
+    creators:{label:'Creator',icon:'🎥',open:()=>navigateSub('creators','projetos')},
+    leads:{label:'Lead / Oportunidade',icon:'💼',open:()=>{navigateSub('comercial','comercial');setTimeout(()=>{try{switchComTab('pipeline')}catch(e){}},30)}},
+    com_tasks:{label:'Tarefa comercial',icon:'📌',open:()=>{navigateSub('comercial','comercial');setTimeout(()=>{try{switchComTab('tarefas')}catch(e){}},30)}},
+    transacoes:{label:'Finanças',icon:'💰',open:()=>navigateSub('financas','financas')},
+    membros:{label:'RH / Membro',icon:'👤',open:()=>navigate('rh')},
+    usuarios:{label:'Usuário',icon:'🔐',open:()=>navigateSub('config-usuarios','configuracoes')},
+    fornecedores:{label:'Fornecedor',icon:'🏢',open:()=>navigate('inicio')},
+    squads:{label:'Squad',icon:'🧑‍💻',open:()=>navigate('rh')},
+    produtos_comercial:{label:'Produto comercial',icon:'🧾',open:()=>{navigateSub('comercial','comercial');setTimeout(()=>{try{switchComTab('pipeline')}catch(e){}},30)}},
+    atividades:{label:'Atividade',icon:'📝',open:()=>{navigateSub('comercial','comercial');setTimeout(()=>{try{switchComTab('pipeline')}catch(e){}},30)}},
+    followups:{label:'Follow-up',icon:'⏰',open:()=>{navigateSub('comercial','comercial');setTimeout(()=>{try{switchComTab('tarefas')}catch(e){}},30)}},
+    tarefas_cli:{label:'Tarefa de cliente',icon:'📋',open:()=>navigateSub('clientes','clientes')}
+  };
+  const SEARCH_KEYS=Object.keys(SEARCH_ROUTES);
+  const FIELD_PRIORITY=['nome','name','titulo','title','cliente','empresa','email','telefone','whatsapp','status','cargo','permissao','responsavelNome','responsavelEmail','ownerName','ownerEmail','vendedorNome','vendedorEmail','descricao','observacoes','desc','cat','tipo','estagio','stageName'];
+
+  function normText(v){
+    return String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  }
+  function escapeHTML(v){return String(v??'').replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]})}
+  function titleFor(item,key){
+    return item.nome||item.name||item.titulo||item.title||item.cliente||item.empresa||item.email||item.id||SEARCH_ROUTES[key].label;
+  }
+  function subtitleFor(item){
+    const parts=[];
+    ['empresa','email','telefone','whatsapp','status','cargo','responsavelNome','ownerName','vendedorNome','valor','data','prazo'].forEach(k=>{
+      if(item[k]!==undefined && item[k]!==null && String(item[k]).trim()!=='')parts.push(String(item[k]));
+    });
+    return parts.slice(0,3).join(' • ');
+  }
+  function searchableText(item,key){
+    const values=[SEARCH_ROUTES[key]?.label||key];
+    FIELD_PRIORITY.forEach(k=>{if(item[k]!=null)values.push(item[k])});
+    Object.keys(item||{}).forEach(k=>{
+      const v=item[k];
+      if(v==null)return;
+      if(typeof v==='string'||typeof v==='number')values.push(v);
+    });
+    return normText(values.join(' '));
+  }
+  function collectSearchResults(query){
+    if(!query || normText(query).length<2)return [];
+    const q=normText(query);
+    const out=[];
+    const staticRoutes=[
+      {title:'Início',sub:'Dashboard executivo',route:{label:'Página',icon:'🏠',open:()=>navigate('inicio')}},
+      {title:'Clientes',sub:'Gestão de clientes, churn e contratos',route:{label:'Setor',icon:'👥',open:()=>navigateSub('clientes','clientes')}},
+      {title:'Projetos',sub:'Onboarding, entregas, tarefas, agenda e aprovações',route:{label:'Setor',icon:'📁',open:()=>navigateSub('entregas','projetos')}},
+      {title:'Pipeline CRM',sub:'Leads, oportunidades e responsáveis',route:{label:'Comercial',icon:'💼',open:()=>{navigateSub('comercial','comercial');setTimeout(()=>{try{switchComTab('pipeline')}catch(e){}},30)}}},
+      {title:'Tarefas do Dia',sub:'Atividades comerciais e follow-ups',route:{label:'Comercial',icon:'📌',open:()=>{navigateSub('comercial','comercial');setTimeout(()=>{try{switchComTab('tarefas')}catch(e){}},30)}}},
+      {title:'Relatório Comercial',sub:'Funil, vendedores e performance',route:{label:'Comercial',icon:'📊',open:()=>{navigateSub('comercial','comercial');setTimeout(()=>{try{switchComTab('relatorio')}catch(e){}},30)}}},
+      {title:'Finanças',sub:'Controle financeiro',route:{label:'Setor',icon:'💰',open:()=>navigateSub('financas','financas')}},
+      {title:'Configurações',sub:'Integrações, Webhook, API, pagamentos, empresa e usuários',route:{label:'Setor',icon:'⚙️',open:()=>navigate('configuracoes')}},
+      {title:'Gestão de Usuários',sub:'Acessos, permissões e perfis',route:{label:'Configurações',icon:'🔐',open:()=>navigateSub('config-usuarios','configuracoes')}},
+      {title:'Perfil e Assinatura',sub:'Meu perfil, foto e assinatura',route:{label:'Página',icon:'👤',open:()=>navigate('perfil')}}
+    ];
+    staticRoutes.forEach(r=>{
+      if(normText(r.title+' '+r.sub+' '+r.route.label).includes(q)){
+        out.push({key:'_rota',item:{id:r.title},score:0,route:r.route,title:r.title,sub:r.sub});
+      }
+    });
+    SEARCH_KEYS.forEach(key=>{
+      let arr=[];
+      try{arr=(window.DB&&typeof DB.get==='function')?DB.get(key):[]}catch(e){arr=[]}
+      if(!Array.isArray(arr))return;
+      arr.forEach(item=>{
+        if(!item||typeof item!=='object')return;
+        const hay=searchableText(item,key);
+        if(hay.includes(q)){
+          out.push({key,item,score:hay.indexOf(q),route:SEARCH_ROUTES[key],title:titleFor(item,key),sub:subtitleFor(item)});
+        }
+      });
+    });
+    return out.sort((a,b)=>a.score-b.score || String(a.title).localeCompare(String(b.title))).slice(0,12);
+  }
+  function markResultContext(title){
+    const safe=normText(title);
+    setTimeout(()=>{
+      const active=document.querySelector('.page.active');
+      if(!active)return;
+      const nodes=active.querySelectorAll('.card,.metric-card,.table-card,tr,.pipe-card,.deal-card,.task-card,.content-card,.project-card,.user-row,.list-row');
+      for(const n of nodes){
+        if(normText(n.innerText||'').includes(safe.slice(0,60))){
+          n.classList.add('gsearch-mark');
+          n.scrollIntoView({behavior:'smooth',block:'center'});
+          setTimeout(()=>n.classList.remove('gsearch-mark'),2200);
+          break;
+        }
+      }
+    },220);
+  }
+  function initGlobalSearch(){
+    const input=document.getElementById('globalSearchInput')||document.querySelector('.topbar .search input');
+    const panel=document.getElementById('globalSearchPanel');
+    if(!input || !panel)return;
+    let results=[];
+    let active=-1;
+    function close(){panel.classList.remove('open');active=-1}
+    function render(){
+      const q=input.value.trim();
+      if(q.length<2){
+        panel.innerHTML='<div class="gsearch-empty">Digite pelo menos 2 letras para buscar em clientes, projetos, pipeline, tarefas e usuários.</div>';
+        panel.classList.toggle('open',document.activeElement===input);
+        return;
+      }
+      results=collectSearchResults(q);
+      active=results.length?0:-1;
+      if(!results.length){
+        panel.innerHTML='<div class="gsearch-empty">Nenhum resultado encontrado. Tente nome, e-mail, empresa, telefone, status ou responsável.</div>';
+        panel.classList.add('open');
+        return;
+      }
+      panel.innerHTML=`<div class="gsearch-head"><span>${results.length} resultado${results.length!==1?'s':''}</span><span>Enter para abrir</span></div>`+
+        results.map((r,i)=>`<button type="button" class="gsearch-item ${i===active?'active':''}" data-i="${i}">
+          <span class="gsearch-ico">${r.route.icon}</span>
+          <span style="min-width:0">
+            <div class="gsearch-title">${escapeHTML(String(r.title||'Resultado'))}</div>
+            <div class="gsearch-sub">${escapeHTML(r.sub||'Clique para abrir o setor correspondente')}</div>
+            <span class="gsearch-tag">${escapeHTML(r.route.label)}</span>
+          </span>
+        </button>`).join('');
+      panel.classList.add('open');
+    }
+    function openResult(index){
+      const r=results[index];
+      if(!r)return;
+      input.value='';
+      close();
+      try{r.route.open()}catch(e){console.warn('[GexFlow] rota da pesquisa falhou',e)}
+      markResultContext(r.title);
+    }
+    input.addEventListener('focus',render);
+    input.addEventListener('input',()=>{clearTimeout(input._gexSearchTimer);input._gexSearchTimer=setTimeout(render,90)});
+    input.addEventListener('keydown',ev=>{
+      if(!panel.classList.contains('open'))return;
+      if(ev.key==='Escape'){ev.preventDefault();close();return}
+      if(ev.key==='ArrowDown'){ev.preventDefault();active=Math.min(results.length-1,active+1);render();return}
+      if(ev.key==='ArrowUp'){ev.preventDefault();active=Math.max(0,active-1);render();return}
+      if(ev.key==='Enter'){ev.preventDefault();openResult(active>=0?active:0)}
+    });
+    panel.addEventListener('mousedown',ev=>{
+      const btn=ev.target.closest('.gsearch-item');
+      if(!btn)return;
+      ev.preventDefault();
+      openResult(Number(btn.dataset.i||0));
+    });
+    document.addEventListener('mousedown',ev=>{
+      if(!ev.target.closest('#globalSearchBox'))close();
+    });
+  }
+
+  function bootFixes(){
+    initGlobalSearch();
+    updateHolidayBanner();
+    const oldSetDash=window.setDashFilter;
+    if(typeof oldSetDash==='function' && !oldSetDash._gexHolidayWrapped){
+      const wrapped=function(){
+        const out=oldSetDash.apply(this,arguments);
+        setTimeout(updateHolidayBanner,0);
+        return out;
+      };
+      wrapped._gexHolidayWrapped=true;
+      window.setDashFilter=wrapped;
+    }
+    const oldRenderInicio=window.renderInicio;
+    if(typeof oldRenderInicio==='function' && !oldRenderInicio._gexHolidayWrapped){
+      const wrappedRender=function(){
+        const out=oldRenderInicio.apply(this,arguments);
+        setTimeout(updateHolidayBanner,0);
+        return out;
+      };
+      wrappedRender._gexHolidayWrapped=true;
+      window.renderInicio=wrappedRender;
+    }
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',bootFixes,{once:true});
+  }else{
+    bootFixes();
+  }
 })();
 </script>
 
