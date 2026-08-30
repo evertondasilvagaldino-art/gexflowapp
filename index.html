@@ -9412,13 +9412,23 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
     }catch(e){}
     const legacyCfg = legacy.config || {};
     const oauthConnected = !!(legacyCfg.oauthConnected && legacyCfg.oauthConnectionId);
+    const verified = !!(
+      own.connectionVerified ||
+      own.verifiedAt ||
+      own.oauthConnected ||
+      oauthConnected
+    );
     return {
       ...own,
       legacy,
       legacyCfg,
-      nativeConnected: !!own.nativeConnected || oauthConnected,
-      connectedAt: own.connectedAt || legacy.lastSyncAt || '',
-      lastStatus: own.lastStatus || (oauthConnected ? 'Conectado via OAuth' : ''),
+      oauthConnected: !!own.oauthConnected || oauthConnected,
+      connectionVerified: verified,
+      nativeConnected: verified,
+      pendingAuth: !!own.pendingAuth && !verified,
+      configured: !!own.configured || !!legacy.configured || Object.keys(own.fields||{}).length > 0,
+      connectedAt: (verified ? (own.connectedAt || legacy.lastSyncAt || own.verifiedAt || '') : ''),
+      lastStatus: own.lastStatus || (oauthConnected ? 'Conectado via OAuth nativo.' : ''),
       mode: own.mode || (oauthConnected ? 'OAuth nativo' : ''),
       fields: {...(own.fields||{}), ...(oauthConnected ? {
         businessName: legacyCfg.account || legacyCfg.oauthUserName || '',
@@ -9426,6 +9436,16 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
       } : {})}
     };
   }
+
+  function isNativeConnected(id, cfg){
+    const c = cfg || getNativeConfig(id);
+    return !!(c.connectionVerified || c.oauthConnected || c.verifiedAt);
+  }
+
+  function hasAnyNativeConfig(cfg){
+    return !!(cfg?.configured || cfg?.pendingAuth || cfg?.nativeConnected || cfg?.connectionVerified || Object.keys(cfg?.fields||{}).some(k => String(cfg.fields[k]||'').trim()));
+  }
+
   function saveNativeConfig(id, data){
     const store = readNativeStore();
     store[id] = {
@@ -9433,18 +9453,21 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
       ...data,
       updatedAt: new Date().toISOString()
     };
+    const verified = !!(store[id].connectionVerified || store[id].verifiedAt || store[id].oauthConnected);
+    store[id].nativeConnected = verified;
     writeNativeStore(store);
     try{
       if(typeof saveIntegration === 'function'){
         const app = NATIVE_INTEGRATIONS.find(x=>x.id===id);
         saveIntegration(id, {
-          connected: !!store[id].nativeConnected,
-          configured: !!store[id].nativeConnected,
-          lastTestStatus: store[id].nativeConnected ? 'success' : 'warn',
-          lastSyncAt: store[id].connectedAt || new Date().toISOString(),
+          connected: verified,
+          configured: verified || !!store[id].configured || Object.keys(store[id].fields||{}).length > 0,
+          lastTestStatus: verified ? 'success' : (store[id].pendingAuth ? 'warn' : 'neutral'),
+          lastSyncAt: verified ? (store[id].connectedAt || store[id].verifiedAt || new Date().toISOString()) : '',
           config: {
             ...(store[id].fields || {}),
-            nativeConnected: !!store[id].nativeConnected,
+            nativeConnected: verified,
+            connectionVerified: verified,
             nativeMode: store[id].mode || app?.auth || 'Nativo',
             account: store[id].fields?.businessName || store[id].fields?.providerName || store[id].fields?.accountId || app?.name
           }
@@ -9477,7 +9500,9 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
   window.copyNativeValue = copyNativeValue;
 
   function statusPill(cfg){
-    if(cfg.nativeConnected) return `<span class="native-pill on">● Conectado</span>`;
+    if(isNativeConnected(null, cfg)) return `<span class="native-pill on">● Conectado</span>`;
+    if(cfg.pendingAuth) return `<span class="native-pill warn">◐ Autenticação pendente</span>`;
+    if(cfg.configured || Object.keys(cfg.fields||{}).some(k=>String(cfg.fields[k]||'').trim())) return `<span class="native-pill warn">◐ Configurado</span>`;
     return `<span class="native-pill off">○ Não conectado</span>`;
   }
 
@@ -9492,29 +9517,89 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
     return s.slice(0,4) + '••••••••' + s.slice(-4);
   }
 
+  function getGexOutboundUrl(){
+    return localStorage.getItem('gx2_gex_outbound_webhook_url') || '';
+  }
+
+  function saveGexOutboundUrl(){
+    const input = document.getElementById('gex-outbound-url');
+    const value = (input?.value || '').trim();
+    if(value && !/^https?:\/\//i.test(value)){
+      notify('Informe uma URL válida começando com https://','#EF4444');
+      return;
+    }
+    localStorage.setItem('gx2_gex_outbound_webhook_url', value);
+    logNative('API Gex Flow atualizada', value ? 'Webhook de saída para parceiro salvo' : 'Webhook de saída removido', value ? 'ok' : 'warn');
+    notify(value ? 'Webhook de saída salvo ✓' : 'Webhook de saída removido','#10B981');
+    renderIntegracoes();
+  }
+  window.saveGexOutboundUrl = saveGexOutboundUrl;
+
+  async function testGexOutboundWebhook(){
+    const url = getGexOutboundUrl();
+    if(!url){
+      notify('Cadastre primeiro a URL do parceiro','#F59E0B');
+      return;
+    }
+    const payload = {
+      event:'gex.crm.test',
+      source:'Gex Flow',
+      sentAt:new Date().toISOString(),
+      data:{
+        message:'Teste de saída do CRM Gex Flow',
+        lead:{name:'Lead Exemplo', email:'lead@email.com', value:1500}
+      }
+    };
+    try{
+      await fetch(url,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-GexFlow-Event':'gex.crm.test'},
+        body:JSON.stringify(payload),
+        mode:'no-cors'
+      });
+      logNative('Teste enviado para parceiro', 'Webhook de saída do CRM disparado', 'ok');
+      notify('Teste enviado para parceiro ✓','#10B981');
+    }catch(err){
+      logNative('Erro no webhook de saída', err.message || 'Falha ao enviar dados ao parceiro', 'error');
+      notify('Falha ao enviar para parceiro','#EF4444');
+    }
+  }
+  window.testGexOutboundWebhook = testGexOutboundWebhook;
+
   function renderApiPanel(){
     const webhook = API_INFO.webhookUrl();
     const apiKey = API_INFO.apiKey();
     const apiBase = API_INFO.apiBase();
+    const outboundUrl = getGexOutboundUrl();
+    const apiOut = `${apiBase}/gex-api`;
     return `
       <section class="native-api-panel">
         <div class="native-section-head">
           <div>
             <div class="native-kicker">API do Sistema</div>
             <h2>Webhook & API Gex Flow</h2>
-            <p>Área separada para receber dados externos, consultar endpoints e copiar chaves. Não misture com as conexões nativas dos apps.</p>
+            <p>Área separada para integrações técnicas. Aqui ficam a entrada de leads/dados e a saída do CRM para parceiros externos.</p>
           </div>
           <span class="native-api-badge">Base técnica</span>
         </div>
 
         <div class="native-api-grid">
           <div class="native-api-card">
-            <label>Webhook de entrada</label>
+            <label>Webhook de entrada de leads e dados</label>
             <div class="native-copy-row">
               <code>${esc(webhook)}</code>
               <button onclick="copyNativeValue('${attr(webhook)}')">Copiar</button>
             </div>
-            <small>Recebe leads, vendas, tarefas, eventos e dados de sistemas externos via POST.</small>
+            <small>Use para receber leads, vendas, tarefas, eventos, investimento de mídia e dados externos via POST.</small>
+          </div>
+
+          <div class="native-api-card">
+            <label>API de saída do CRM para parceiros</label>
+            <div class="native-copy-row">
+              <code>${esc(apiOut)}</code>
+              <button onclick="copyNativeValue('${attr(apiOut)}')">Copiar</button>
+            </div>
+            <small>Base preparada para parceiros consultarem ou receberem dados do CRM via Edge Functions.</small>
           </div>
 
           <div class="native-api-card">
@@ -9523,31 +9608,46 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
               <code>${esc(apiKey)}</code>
               <button onclick="copyNativeValue('${attr(apiKey)}')">Copiar</button>
             </div>
-            <small>Envie no header <b>x-gex-key</b>. Use apenas para integrações técnicas controladas.</small>
-          </div>
-
-          <div class="native-api-card">
-            <label>Base API</label>
-            <div class="native-copy-row">
-              <code>${esc(apiBase)}</code>
-              <button onclick="copyNativeValue('${attr(apiBase)}')">Copiar</button>
-            </div>
-            <small>Base para futuras funções do Gex Flow: usuários, integrações, webhooks e sincronizações.</small>
+            <small>Entrada: envie no header <b>x-gex-key</b>. Saída: use para validar chamadas autorizadas.</small>
           </div>
         </div>
 
+        <div class="native-api-card native-api-card-wide">
+          <label>Webhooks de saída para parceiros</label>
+          <div class="native-copy-row">
+            <input id="gex-outbound-url" value="${attr(outboundUrl)}" placeholder="https://api.parceiro.com/webhooks/gex-flow">
+            <button onclick="saveGexOutboundUrl()">Salvar</button>
+            <button onclick="testGexOutboundWebhook()">Testar envio</button>
+          </div>
+          <small>Quando preenchido, o Gex Flow pode enviar eventos do CRM para outro parceiro: lead criado, lead ganho, tarefa criada, venda fechada e atualização de oportunidade.</small>
+        </div>
+
         <details class="native-docs">
-          <summary>Ver payload padrão do Webhook Gex Flow</summary>
+          <summary>Ver payloads padrão da API Gex Flow</summary>
           <pre>{
-  "event": "lead.created",
-  "source": "external_app",
-  "apiKey": "${esc(apiKey)}",
-  "data": {
-    "name": "Cliente Exemplo",
-    "email": "cliente@email.com",
-    "phone": "+55 11 99999-9999",
-    "value": 1500,
-    "origin": "Webhook externo"
+  "entrada_webhook": {
+    "event": "lead.created",
+    "source": "external_app",
+    "apiKey": "${esc(apiKey)}",
+    "data": {
+      "name": "Cliente Exemplo",
+      "email": "cliente@email.com",
+      "phone": "+55 11 99999-9999",
+      "value": 1500,
+      "origin": "Webhook externo"
+    }
+  },
+  "saida_crm": {
+    "event": "gex.crm.lead.updated",
+    "source": "Gex Flow",
+    "sentAt": "${esc(new Date().toISOString())}",
+    "data": {
+      "leadId": "lead_123",
+      "name": "Cliente Exemplo",
+      "stage": "Proposta",
+      "value": 1500,
+      "status": "Em andamento"
+    }
   }
 }</pre>
         </details>
@@ -9558,7 +9658,11 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
   window.renderIntegracoes = function(){
     const page = document.getElementById('page-integracoes');
     if(!page) return;
-    const connected = NATIVE_INTEGRATIONS.filter(app => getNativeConfig(app.id).nativeConnected).length;
+    const connected = NATIVE_INTEGRATIONS.filter(app => isNativeConnected(app.id)).length;
+    const configured = NATIVE_INTEGRATIONS.filter(app => {
+      const cfg = getNativeConfig(app.id);
+      return !isNativeConnected(app.id,cfg) && hasAnyNativeConfig(cfg);
+    }).length;
     const total = NATIVE_INTEGRATIONS.length;
     const categories = ['Todos', ...Array.from(new Set(NATIVE_INTEGRATIONS.map(a=>a.category)))];
 
@@ -9567,18 +9671,18 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
         <div>
           <div class="native-kicker">Central de Integrações</div>
           <h1>Conexões nativas, simples e diretas</h1>
-          <p>Cada app tem seu próprio botão de autenticação. O Webhook e a API do Gex Flow ficam separados em uma área técnica.</p>
+          <p>Cada app tem seu próprio botão de autenticação. O Webhook de entrada e a API de saída do Gex Flow ficam separados em uma área técnica.</p>
         </div>
         <div class="native-hero-actions">
           <button class="native-btn secondary" onclick="document.getElementById('gex-api-anchor')?.scrollIntoView({behavior:'smooth'})">🔗 Ver API/Webhook</button>
-          <button class="native-btn primary" onclick="openNativeIntegration('meta_ads')">📣 Conectar Meta</button>
         </div>
       </div>
 
       <div class="native-stats">
         <div><span>Apps nativos</span><b>${total}</b><small>Conexões diretas</small></div>
-        <div><span>Conectados</span><b>${connected}</b><small>Autenticados no sistema</small></div>
-        <div><span>Webhook/API</span><b>Separado</b><small>Uso técnico opcional</small></div>
+        <div><span>Conectados reais</span><b>${connected}</b><small>Somente integrações verificadas</small></div>
+        <div><span>Configurados</span><b>${configured}</b><small>Aguardando autenticação real</small></div>
+        <div><span>API/Webhook</span><b>Separado</b><small>Entrada e saída do CRM</small></div>
       </div>
 
       <div class="native-toolbar">
@@ -9586,7 +9690,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
         <select id="native-cat" onchange="renderNativeApps()">${categories.map(c=>`<option value="${attr(c)}">${esc(c)}</option>`).join('')}</select>
         <select id="native-status" onchange="renderNativeApps()">
           <option value="todos">Todos</option>
-          <option value="connected">Conectados</option>
+          <option value="connected">Conectados reais</option>
+          <option value="configured">Configurados</option>
           <option value="off">Não conectados</option>
         </select>
       </div>
@@ -9629,18 +9734,25 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
 
     const apps = NATIVE_INTEGRATIONS.filter(app=>{
       const cfg = getNativeConfig(app.id);
+      const connected = isNativeConnected(app.id, cfg);
+      const configured = hasAnyNativeConfig(cfg) && !connected;
       const mq = !q || `${app.name} ${app.category} ${app.provider} ${app.description}`.toLowerCase().includes(q);
       const mc = cat === 'Todos' || app.category === cat;
-      const ms = status === 'todos' || (status === 'connected' && cfg.nativeConnected) || (status === 'off' && !cfg.nativeConnected);
+      const ms = status === 'todos' ||
+        (status === 'connected' && connected) ||
+        (status === 'configured' && configured) ||
+        (status === 'off' && !connected && !configured);
       return mq && mc && ms;
     });
 
     grid.innerHTML = apps.map(app=>{
       const cfg = getNativeConfig(app.id);
+      const connected = isNativeConnected(app.id, cfg);
+      const configured = hasAnyNativeConfig(cfg);
       const fields = cfg.fields || {};
       const account = fields.businessName || fields.providerName || fields.accountId || fields.adAccountId || fields.calendarId || '';
       return `
-        <article class="native-app-card ${cfg.nativeConnected?'connected':''}" style="--accent:${app.accent}">
+        <article class="native-app-card ${connected?'connected':''}" style="--accent:${app.accent}">
           <div class="native-app-top">
             <div class="native-icon">${app.icon}</div>
             <div>
@@ -9655,11 +9767,13 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
             <span>${esc(cfg.mode || app.statusText)}</span>
           </div>
           ${account ? `<div class="native-account">Conta: <b>${esc(account)}</b></div>` : ''}
-          ${cfg.connectedAt ? `<div class="native-last">Última conexão: ${esc(new Date(cfg.connectedAt).toLocaleString('pt-BR'))}</div>` : ''}
+          ${connected && cfg.connectedAt ? `<div class="native-last">Última conexão real: ${esc(new Date(cfg.connectedAt).toLocaleString('pt-BR'))}</div>` : ''}
+          ${cfg.pendingAuth ? `<div class="native-last warn">Autenticação iniciada, aguardando retorno do app parceiro.</div>` : ''}
           <div class="native-card-actions">
-            <button class="native-btn primary" onclick="openNativeIntegration('${app.id}')">${cfg.nativeConnected ? 'Abrir conexão' : app.primary}</button>
+            <button class="native-btn primary" onclick="openNativeIntegration('${app.id}')">${connected ? 'Abrir conexão' : app.primary}</button>
             <button class="native-btn secondary" onclick="openNativeIntegration('${app.id}')">Configurar</button>
             <button class="native-btn ghost" onclick="syncNativeIntegration('${app.id}')">Sincronizar</button>
+            ${configured ? `<button class="native-btn danger" onclick="disconnectNativeIntegration('${app.id}')">Desconectar</button>` : ''}
           </div>
         </article>
       `;
@@ -9684,6 +9798,8 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
     const app = NATIVE_INTEGRATIONS.find(x=>x.id===id);
     if(!app) return;
     const cfg = getNativeConfig(id);
+    const connected = isNativeConnected(id, cfg);
+    const configured = hasAnyNativeConfig(cfg);
     const title = document.getElementById('modal-title');
     const box = document.getElementById('modal-box');
     const body = document.getElementById('modal-body');
@@ -9706,9 +9822,9 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
       <div class="native-auth-box">
         <div>
           <b>${esc(app.auth)}</b>
-          <span>Autenticação direta com o app parceiro. Webhook/API do Gex Flow ficam em área separada.</span>
+          <span>Autenticação direta com o app parceiro. O aviso “Conectado” só aparece depois de autenticação verificada ou retorno real do provedor.</span>
         </div>
-        <button class="native-btn primary" onclick="connectNativeIntegration('${app.id}')">${cfg.nativeConnected ? 'Reautenticar' : app.primary}</button>
+        <button class="native-btn primary" onclick="connectNativeIntegration('${app.id}')">${connected ? 'Reautenticar' : app.primary}</button>
       </div>
 
       <div class="native-scope-box">
@@ -9725,15 +9841,15 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
         <textarea id="native-notes" placeholder="Como essa integração será usada na operação...">${esc(cfg.notes || '')}</textarea>
       </label>
 
-      <div class="native-status-box ${cfg.nativeConnected?'success':'neutral'}">
-        <b>${cfg.nativeConnected ? 'Conexão ativa' : 'Aguardando autenticação'}</b>
+      <div class="native-status-box ${connected?'success':(cfg.pendingAuth||configured?'warn':'neutral')}">
+        <b>${connected ? 'Conexão real ativa' : (cfg.pendingAuth ? 'Autenticação pendente' : configured ? 'Configuração salva' : 'Aguardando autenticação')}</b>
         <span>${esc(cfg.lastStatus || app.statusText)}</span>
-        ${cfg.connectedAt ? `<small>${esc(new Date(cfg.connectedAt).toLocaleString('pt-BR'))}</small>` : ''}
+        ${connected && cfg.connectedAt ? `<small>${esc(new Date(cfg.connectedAt).toLocaleString('pt-BR'))}</small>` : ''}
       </div>
     `;
 
     footer.innerHTML = `
-      ${cfg.nativeConnected ? `<button class="btn btn-ghost" onclick="disconnectNativeIntegration('${app.id}')">Desconectar</button>` : ''}
+      ${configured ? `<button class="btn btn-ghost" onclick="disconnectNativeIntegration('${app.id}')">Desconectar</button>` : ''}
       <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveNativeIntegrationConfig('${app.id}')">Salvar configuração</button>
     `;
@@ -9757,12 +9873,16 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
     saveNativeConfig(id, {
       fields,
       notes,
-      nativeConnected: !!cfg.nativeConnected,
+      configured: true,
+      nativeConnected: isNativeConnected(id, cfg),
+      connectionVerified: !!cfg.connectionVerified,
+      verifiedAt: cfg.verifiedAt || '',
       connectedAt: cfg.connectedAt || '',
-      lastStatus: cfg.lastStatus || 'Configuração salva. Clique em conectar para autenticar.',
+      pendingAuth: !!cfg.pendingAuth,
+      lastStatus: cfg.lastStatus || 'Configuração salva. Clique em conectar para autenticar com o app parceiro.',
       mode: cfg.mode || app.auth
     });
-    logNative(`${app.name} configurado`, 'Configuração salva no Gex Flow', 'ok');
+    logNative(`${app.name} configurado`, 'Configuração salva. Ainda não está conectado até autenticar/testar de verdade.', 'warn');
     closeModal();
     renderIntegracoes();
     notify('Configuração salva ✓','#10B981');
@@ -9802,50 +9922,57 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
         saveNativeConfig(id, {
           ...cfg,
           mode: app.auth,
-          lastStatus: 'Autenticação iniciada. Finalize no app parceiro.',
-          pendingAuth: true
+          nativeConnected:false,
+          connectionVerified:false,
+          lastStatus: 'Autenticação iniciada. Finalize no app parceiro. O status só mudará para conectado após retorno real.',
+          pendingAuth: true,
+          configured:true
         });
-        logNative(`${app.name}: login iniciado`, `Autenticação direta via ${app.provider}`, 'warn');
+        logNative(`${app.name}: login iniciado`, `Aguardando autenticação direta via ${app.provider}`, 'warn');
         renderIntegracoes();
         return;
       }
     }
 
-    const fields = {};
-    (app.fields||[]).forEach(f=>{
-      fields[f.key] = cfg.fields?.[f.key] || '';
-    });
     const hasKeyField = (app.fields||[]).some(f=>f.secret);
     if(hasKeyField && !(cfg.fields||{}).apiKey){
       openNativeIntegration(id);
-      notify('Preencha a chave do provedor e salve para conectar','#F59E0B');
+      notify('Preencha a chave do provedor e salve para iniciar a autenticação','#F59E0B');
       return;
     }
 
     saveNativeConfig(id, {
-      nativeConnected:true,
-      connectedAt:new Date().toISOString(),
+      nativeConnected:false,
+      connectionVerified:false,
+      pendingAuth:true,
+      configured:true,
+      connectedAt:'',
       mode: app.auth,
-      lastStatus:'Conexão autenticada no Gex Flow.',
+      lastStatus:'Credenciais registradas. Para aparecer como conectado, o provedor precisa validar a autenticação ou responder com sucesso.',
       fields: cfg.fields || {}
     });
-    logNative(`${app.name} conectado`, `Autenticação direta cadastrada para ${app.provider}`, 'ok');
+    logNative(`${app.name}: autenticação pendente`, `Credenciais registradas para ${app.provider}. Ainda não há confirmação real.`, 'warn');
     renderIntegracoes();
-    notify(`${app.name} conectado ✓`,'#10B981');
+    notify('Configuração pronta. Aguardando validação real.','#F59E0B');
   };
 
   window.disconnectNativeIntegration = function(id){
     const app = NATIVE_INTEGRATIONS.find(x=>x.id===id);
     if(!app) return;
-    const cfg = getNativeConfig(id);
     saveNativeConfig(id, {
-      ...cfg,
+      fields:{},
+      notes:'',
+      configured:false,
       nativeConnected:false,
+      connectionVerified:false,
+      oauthConnected:false,
       pendingAuth:false,
+      verifiedAt:'',
       connectedAt:'',
+      mode:'',
       lastStatus:'Integração desconectada.'
     });
-    logNative(`${app.name} desconectado`, 'Conexão removida pelo usuário', 'warn');
+    logNative(`${app.name} desconectado`, 'Conexão e configuração removidas pelo usuário', 'warn');
     closeModal();
     renderIntegracoes();
     notify('Integração desconectada','#7C3AED');
@@ -9855,9 +9982,9 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
     const app = NATIVE_INTEGRATIONS.find(x=>x.id===id);
     const cfg = getNativeConfig(id);
     if(!app) return;
-    if(!cfg.nativeConnected){
+    if(!isNativeConnected(id, cfg)){
       openNativeIntegration(id);
-      notify('Conecte primeiro para sincronizar','#F59E0B');
+      notify('A integração ainda não está conectada de verdade. Finalize a autenticação primeiro.','#F59E0B');
       return;
     }
     saveNativeConfig(id, {
@@ -9988,6 +10115,18 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
   }, 0);
 })();
 </script>
+
+
+<style id="gex-native-integrations-final-fix-css">
+.native-pill.warn{background:#FEF3C7!important;color:#92400E!important;border-color:#FDE68A!important}
+.native-btn.danger{background:#FEF2F2!important;color:#DC2626!important;border-color:#FECACA!important}
+.native-btn.danger:hover{background:#FEE2E2!important;color:#991B1B!important}
+.native-status-box.warn{background:#FFFBEB!important;border-color:#FDE68A!important;color:#92400E!important}
+.native-last.warn{color:#92400E!important;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:6px 8px;margin-top:8px;font-size:11px}
+.native-api-card-wide{grid-column:1/-1}
+.native-api-card .native-copy-row input{flex:1;border:0;background:transparent;outline:0;font-family:'Inter',sans-serif;font-size:12px;color:var(--txt);min-width:180px}
+@media(max-width:900px){.native-stats{grid-template-columns:1fr 1fr}.native-api-grid{grid-template-columns:1fr}}
+</style>
 
 </body>
 </html>
