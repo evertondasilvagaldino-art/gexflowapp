@@ -4613,6 +4613,13 @@ function isWonOpportunity(o){
   return !!(stage&&stage.isWon);
 }
 
+function isLostOpportunity(o){
+  const status=_normReportTxt(o?.dealStatus||o?.status||o?.estagio||o?.stage||o?.etapa||o?.fase);
+  if(status==='perdido'||status==='lost'||status.includes('perd')||status.includes('lost')) return true;
+  const stage=getStageObjectForOpportunity(o);
+  return !!(stage&&stage.isLost);
+}
+
 function getOpportunityValue(o){return parseFloat(o.valor||o.value||o.amount||o.dealValue)||0;}
 
 function getOpportunityCreatedDate(o){
@@ -4766,11 +4773,13 @@ function renderRelatorioComercial(){
   if(respFilter) ops=ops.filter(o=>(o.responsavel||o.owner||o.vendedor||'').toLowerCase()===respFilter.toLowerCase());
 
   const wonOps=ops.filter(isWonOpportunity);
+  const lostOps=ops.filter(isLostOpportunity);
   const totalWon=calculateTotalWon(wonOps);
+  const totalLost=lostOps.reduce((a,o)=>a+getOpportunityValue(o),0);
   const ciclo=calculateAverageSalesCycle(wonOps);
-  const {cac,invest}=calculateCAC(wonOps,period);
   const funil=calculateFunnelMetrics(ops,funnelFilter);
   const txConv=ops.length?Math.round((wonOps.length/ops.length)*100):0;
+  const txLost=ops.length?Math.round((lostOps.length/ops.length)*100):0;
   const ticketMedio=wonOps.length?totalWon/wonOps.length:0;
 
   // Gargalo: maior queda
@@ -4784,8 +4793,9 @@ function renderRelatorioComercial(){
 
   // ── KPIs ──
   const kpis=[
-    {lbl:'CAC',ico:'💰',val:cac,fmt:'brl',accent:'#7C3AED',bg:'rgba(124,58,237,.1)',
-     sub:invest?`Invest.: ${fmtBRL(invest)}`:cac?'':'Sem dados de investimento',badge:null},
+    {lbl:'Negócios Perdidos',ico:'❌',val:lostOps.length,fmt:'num',accent:'#EF4444',bg:'rgba(239,68,68,.1)',
+     sub:`${fmtBRL(totalLost)} em oportunidade${lostOps.length!==1?'s':''} perdida${lostOps.length!==1?'s':''}`,
+     badge:lostOps.length?{cls:'neutral',txt:`${txLost}% perdidos`}:null},
     {lbl:'Valor Total Ganho',ico:'🏆',val:totalWon,fmt:'brl',accent:'#059669',bg:'rgba(5,150,105,.1)',
      sub:`${wonOps.length} negócio${wonOps.length!==1?'s':''} fechado${wonOps.length!==1?'s':''}`,badge:wonOps.length?{cls:'up',txt:`+${wonOps.length}`}:null},
     {lbl:'Clientes Ganhos',ico:'🤝',val:wonOps.length,fmt:'num',accent:'#0EA5E9',bg:'rgba(14,165,233,.1)',
@@ -4876,6 +4886,8 @@ function renderRelatorioComercial(){
     resumoEl.innerHTML=[
       {lbl:'Total de oportunidades',val:ops.length},
       {lbl:'Oportunidades ganhas',val:wonOps.length},
+      {lbl:'Oportunidades perdidas',val:lostOps.length},
+      {lbl:'Taxa de perda',val:txLost+'%'},
       {lbl:'Taxa de conversão final',val:txConv+'%'},
       {lbl:'Ticket médio (ganhos)',val:ticketMedio?fmtBRL(ticketMedio):'—'},
       {lbl:'Valor total no pipeline',val:fmtBRL(ops.reduce((a,o)=>a+getOpportunityValue(o),0))},
