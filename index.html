@@ -2717,23 +2717,131 @@ function normalizeLocalUserForSupabaseCache(user={}){
   };
 }
 
+// ─── Usuários: Supabase como fonte única ────────────────────────────────
+// Evita a tela mostrar "Local/Cache" misturado com public.profiles.
+// A lista final une registros por e-mail/id e sempre prioriza o usuário real do Supabase.
+const GEX_LEGACY_USER_IDS = new Set(['u1','u2']);
+const GEX_LEGACY_USER_EMAILS = new Set(['lucas@gex.com']);
+
+function isUuidLike(value){
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value||''));
+}
+function usuarioEmailKey(user){
+  return normalizeLoginEmail(user?.email||'');
+}
+function isSupabaseUsuario(user={}){
+  return user.authProvider==='supabase'
+    || String(user.origem||'').toLowerCase().includes('supabase')
+    || isUuidLike(user.supabaseId)
+    || isUuidLike(user.id);
+}
+function isLegacySeedUsuario(user={}){
+  const email=usuarioEmailKey(user);
+  return GEX_LEGACY_USER_IDS.has(String(user.id||''))
+    || GEX_LEGACY_USER_EMAILS.has(email)
+    || (email==='evertondasilvagaldino@gmail.com' && String(user.id||'')==='u1');
+}
+function usuarioRecordScore(user={}){
+  let score=0;
+  if(isSupabaseUsuario(user))score+=1000;
+  if(isUuidLike(user.id))score+=220;
+  if(isUuidLike(user.supabaseId))score+=180;
+  if(usuarioEmailKey(user))score+=80;
+  if(user.avatarUrl||user.avatar_url||user.avatarBase64)score+=30;
+  if(user.permOverrides&&Object.keys(user.permOverrides||{}).length)score+=25;
+  if(isFounderLikeRole(user.permissao||user.role||user.cargo))score+=20;
+  if(isLegacySeedUsuario(user))score-=700;
+  return score;
+}
+function mergeUsuarioRecords(a={},b={}){
+  const scoreA=usuarioRecordScore(a);
+  const scoreB=usuarioRecordScore(b);
+  const primary=scoreB>scoreA?b:a;
+  const secondary=scoreB>scoreA?a:b;
+  const merged={...secondary,...primary};
+
+  // Preserva dados úteis caso o registro preferido não tenha algum campo.
+  merged.nome=primary.nome||primary.name||secondary.nome||secondary.name||'Usuário';
+  merged.email=usuarioEmailKey(primary)||usuarioEmailKey(secondary);
+  merged.cargo=primary.cargo||secondary.cargo||'';
+  merged.telefone=primary.telefone||secondary.telefone||'';
+  merged.status=primary.status||secondary.status||'Ativo';
+  merged.permissao=normalizeProfileRole(primary.permissao||primary.role||secondary.permissao||secondary.role||'Colaborador');
+  merged.avatarUrl=primary.avatarUrl||primary.avatar_url||primary.avatarBase64||secondary.avatarUrl||secondary.avatar_url||secondary.avatarBase64||'';
+  merged.avatarBase64=primary.avatarBase64||secondary.avatarBase64||'';
+  merged.permOverrides=primary.permOverrides||primary.perm_overrides||secondary.permOverrides||secondary.perm_overrides||{};
+  merged.authProvider=isSupabaseUsuario(primary)||isSupabaseUsuario(secondary)?'supabase':(primary.authProvider||secondary.authProvider||'local');
+  merged.supabaseId=(isUuidLike(primary.supabaseId)&&primary.supabaseId)||(isUuidLike(primary.id)&&primary.id)||(isUuidLike(secondary.supabaseId)&&secondary.supabaseId)||(isUuidLike(secondary.id)&&secondary.id)||primary.supabaseId||secondary.supabaseId||'';
+  if(isUuidLike(merged.supabaseId))merged.id=merged.supabaseId;
+  return normalizeLocalUserForSupabaseCache(merged);
+}
+function dedupeUsuariosList(list=[],opts={}){
+  const byIdentity=new Map();
+
+  (Array.isArray(list)?list:[]).forEach(raw=>{
+    if(!raw||typeof raw!=='object')return;
+    const u=normalizeLocalUserForSupabaseCache(raw);
+    const email=usuarioEmailKey(u);
+    const key=email ? `email:${email}` : (u.supabaseId?`sid:${u.supabaseId}`:`id:${u.id}`);
+    const current=byIdentity.get(key);
+    byIdentity.set(key,current?mergeUsuarioRecords(current,u):u);
+  });
+
+  let out=Array.from(byIdentity.values());
+  const hasSupabase=out.some(isSupabaseUsuario);
+  const supabaseEmails=new Set(out.filter(isSupabaseUsuario).map(usuarioEmailKey).filter(Boolean));
+
+  // Quando já existe Supabase, registros seed/demo/local não devem aparecer como usuários reais.
+  if(hasSupabase && opts.keepLegacy!==true){
+    out=out.filter(u=>{
+      const email=usuarioEmailKey(u);
+      if(isSupabaseUsuario(u))return true;
+      if(supabaseEmails.has(email))return false;
+      if(isLegacySeedUsuario(u))return false;
+      return true;
+    });
+  }
+
+  out.sort((a,b)=>{
+    const ar=isFounderLikeRole(a.permissao||a.role||a.cargo)?0:1;
+    const br=isFounderLikeRole(b.permissao||b.role||b.cargo)?0:1;
+    if(ar!==br)return ar-br;
+    return String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR');
+  });
+
+  return out;
+}
+function sanitizeUsuariosCache(opts={}){
+  const before=gexReadLocalCollection('usuarios')||[];
+  const clean=dedupeUsuariosList(before,{keepLegacy:opts.keepLegacy});
+  const beforeKey=JSON.stringify(before.map(u=>({id:u.id,email:usuarioEmailKey(u),authProvider:u.authProvider,supabaseId:u.supabaseId})));
+  const cleanKey=JSON.stringify(clean.map(u=>({id:u.id,email:usuarioEmailKey(u),authProvider:u.authProvider,supabaseId:u.supabaseId})));
+  if(beforeKey!==cleanKey){
+    if(typeof DB!=='undefined'&&DB.set)DB.set('usuarios',clean,{skipCloud:true});
+    else gexWriteLocalCollection('usuarios',clean);
+  }
+  return clean;
+}
+function getUsuariosForDisplay(){
+  return sanitizeUsuariosCache({keepLegacy:false});
+}
+
 function upsertUsuarioCache(user){
   const normalized=normalizeLocalUserForSupabaseCache(user);
-  const users=DB.get('usuarios')||[];
-  const idx=users.findIndex(u=>
-    (normalized.id&&u.id===normalized.id)||
-    (normalized.supabaseId&&u.supabaseId===normalized.supabaseId)||
-    (normalized.email&&String(u.email||'').toLowerCase()===normalized.email)
-  );
-  if(idx>=0)users[idx]={...users[idx],...normalized};
-  else users.push(normalized);
-  DB.set('usuarios',users);
-  return idx>=0?users[idx]:normalized;
+  const current=DB.get('usuarios')||[];
+  const users=dedupeUsuariosList([...current,normalized],{keepLegacy:false});
+  DB.set('usuarios',users,{skipCloud:true});
+  return users.find(u=>
+    (normalized.email&&usuarioEmailKey(u)===normalized.email)||
+    (normalized.supabaseId&&String(u.supabaseId)===String(normalized.supabaseId))||
+    (normalized.id&&String(u.id)===String(normalized.id))
+  )||normalized;
 }
 
 function mergeUsuariosCache(usersToMerge=[]){
-  (usersToMerge||[]).forEach(upsertUsuarioCache);
-  return DB.get('usuarios')||[];
+  const merged=dedupeUsuariosList([...(DB.get('usuarios')||[]),...(usersToMerge||[])],{keepLegacy:false});
+  DB.set('usuarios',merged,{skipCloud:true});
+  return merged;
 }
 
 function getSessionAccessToken(){
@@ -3050,7 +3158,7 @@ async function refreshUsersFromSupabaseFast(){
 const GEX_WORKSPACE_ID = 'gex_company';
 const GEX_CLOUD_TABLE = 'gex_records';
 const GEX_DB_COLLECTIONS = [
-  'clientes','projetos','leads','transacoes','squads','membros','usuarios','conteudos',
+  'clientes','projetos','leads','transacoes','squads','membros','conteudos',
   'fornecedores','creators','onboarding','atividades','followups','tarefas_cli','contratos',
   'com_tasks','esquemas','commercial_funnels','produtos_comercial'
 ];
@@ -3187,36 +3295,40 @@ const DB={
   get(k){return gexReadLocalCollection(k)},
   set(k,v,opts={}){
     const previous = gexReadLocalCollection(k);
-    const next = Array.isArray(v)?v:[];
+    let next = Array.isArray(v)?v:[];
     next.forEach(x=>{if(x&&typeof x==='object')gexEnsureRecordId(x)});
+    if(k==='usuarios')next=dedupeUsuariosList(next,{keepLegacy:false});
     gexWriteLocalCollection(k,next);
-    if(!opts.skipCloud)gexCloudSyncCollection(k,next,previous);
+    // Usuários não são mais espelhados em gex_records: a fonte oficial é public.profiles + Supabase Auth.
+    if(!opts.skipCloud && k!=='usuarios')gexCloudSyncCollection(k,next,previous);
     return next;
   },
   push(k,v){
     if(v&&typeof v==='object')gexEnsureRecordId(v);
     const d=DB.get(k);
     d.push(v);
-    gexWriteLocalCollection(k,d);
-    gexCloudSyncOne(k,v);
+    const next=k==='usuarios'?dedupeUsuariosList(d,{keepLegacy:false}):d;
+    gexWriteLocalCollection(k,next);
+    if(k!=='usuarios')gexCloudSyncOne(k,v);
     return v;
   },
   remove(k,id){
     const d=DB.get(k).filter(x=>String(x.id)!==String(id));
-    gexWriteLocalCollection(k,d);
-    gexCloudRemoveOne(k,id);
+    gexWriteLocalCollection(k,k==='usuarios'?dedupeUsuariosList(d,{keepLegacy:false}):d);
+    if(k!=='usuarios')gexCloudRemoveOne(k,id);
   },
   update(k,id,data){
     let updated=null;
-    const d=DB.get(k).map(x=>{
+    let d=DB.get(k).map(x=>{
       if(String(x.id)===String(id)){
         updated={...x,...data,id:x.id,_updatedAt:new Date().toISOString(),_updatedBy:sessionUser?.id||x._updatedBy||null};
         return updated;
       }
       return x;
     });
+    if(k==='usuarios')d=dedupeUsuariosList(d,{keepLegacy:false});
     gexWriteLocalCollection(k,d);
-    if(updated)gexCloudSyncOne(k,updated);
+    if(updated && k!=='usuarios')gexCloudSyncOne(k,updated);
     return updated;
   },
   find(k,id){return DB.get(k).find(x=>String(x.id)===String(id))}
@@ -3350,6 +3462,9 @@ async function initGexCloudDataSync(){
       const merged=gexMergeById(local,byCollection[collection]||[]);
       gexWriteLocalCollection(collection,merged);
     });
+
+    // Usuários agora vêm de public.profiles/Supabase Auth, não da coleção genérica gex_records.
+    sanitizeUsuariosCache({keepLegacy:false});
 
     gexApplyingCloudPayload=false;
 
@@ -5223,7 +5338,7 @@ async function saveModal(type,id=''){
         toast('Não é permitido criar outro usuário Fundador pelo sistema.','#EF4444');
         return;
       }
-      const existingByEmail=(DB.get('usuarios')||[]).find(u=>normalizeLoginEmail(u.email)===obj.email && String(u.id)!==String(id||''));
+      const existingByEmail=(getUsuariosForDisplay()||[]).find(u=>normalizeLoginEmail(u.email)===obj.email && String(u.id)!==String(id||''));
       if(existingByEmail){toast('Já existe um usuário com este email','#EF4444');return}
 
       const curRole=resolveRole(sessionUser?.permissao||'Colaborador');
@@ -7362,7 +7477,7 @@ function switchUserTab(tab,el){
 function renderUsuarios(opts={}){
   if(!can('usuarios','view')){return}
   if(!opts.skipSync)syncUsuariosFromSupabase({silent:true,rerender:true});
-  const users=DB.get('usuarios');
+  const users=getUsuariosForDisplay();
   const currentRole=resolveRole(sessionUser?.permissao||'Colaborador');
   const isFundador=currentRole==='Fundador';
   document.getElementById('usr-tbody').innerHTML=users.length?users.map(u=>{
@@ -7402,7 +7517,7 @@ const MOD_LABELS={
 const ACT_LABELS={view:'Ver',create:'Criar',edit:'Editar',delete:'Excluir',approve:'Aprovar',export:'Exportar',manage:'Gerenciar'};
 
 function renderPermMatrix(){
-  const users=DB.get('usuarios');
+  const users=getUsuariosForDisplay();
   const currentRole=resolveRole(sessionUser?.permissao||'Colaborador');
   const canManage=can('usuarios','manage');
   const mainMods=['clientes','comercial','financas','projetos','rh','usuarios'];
