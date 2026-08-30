@@ -824,6 +824,28 @@ textarea.form-input{resize:vertical;min-height:75px}
 .sq-tab.active{background:var(--p2);color:#fff;border-color:var(--p2)}
 .sq-tab:hover:not(.active){background:var(--bg);border-color:var(--p3);color:var(--txt)}
 .sq-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px}
+
+/* META OAUTH NATIVE CONNECTION */
+.meta-oauth-card{border:1px solid rgba(124,58,237,.22);background:linear-gradient(135deg,#F5F3FF,#FFFFFF);border-radius:14px;padding:14px;margin:0 0 14px}
+.meta-oauth-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+.meta-oauth-title{font-size:13px;font-weight:800;color:var(--txt);display:flex;align-items:center;gap:7px}
+.meta-oauth-sub{font-size:11.5px;color:var(--muted);line-height:1.45;margin-top:3px}
+.meta-oauth-status{display:inline-flex;align-items:center;gap:5px;border-radius:20px;padding:3px 9px;font-size:10px;font-weight:800;white-space:nowrap}
+.meta-oauth-status.on{background:#D1FAE5;color:#047857}
+.meta-oauth-status.off{background:#F3F4F6;color:#6B7280}
+.meta-oauth-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:10px;padding:10px 14px;background:#1877F2;color:#fff;font-family:'Inter',sans-serif;font-weight:800;font-size:12px;cursor:pointer;transition:filter .15s,transform .15s}
+.meta-oauth-btn:hover{filter:brightness(.96);transform:translateY(-1px)}
+.meta-oauth-btn:disabled{opacity:.65;cursor:wait}
+.meta-oauth-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+@media(max-width:680px){.meta-oauth-grid{grid-template-columns:1fr}}
+.meta-oauth-mini{background:#fff;border:1px solid var(--border);border-radius:10px;padding:9px 10px}
+.meta-oauth-mini-lbl{font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.meta-oauth-mini-val{font-size:12px;font-weight:800;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta-oauth-select{width:100%;height:34px;border:1px solid var(--border);border-radius:9px;background:#fff;color:var(--txt);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;padding:0 10px;margin-top:8px}
+.meta-manual-details{margin-top:10px;border-top:1px dashed rgba(124,58,237,.28);padding-top:10px}
+.meta-manual-details summary{cursor:pointer;font-size:11.5px;font-weight:800;color:var(--p2)}
+.meta-oauth-note{font-size:11px;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:9px 10px;line-height:1.45;margin-top:10px}
+
 </style>
 </head>
 <body>
@@ -2511,11 +2533,37 @@ function integrationConfigFields(id){
     <div class="int-secret-note">Eventos já suportados: lead criado, lead movido, cliente criado, tarefa criada, teste de webhook e atualizações comerciais.</div>`;
   }
   if(id==='meta_ads'){
-    return `<div class="form-group"><label class="form-label">Conta / Workspace</label><input class="form-input" id="int-account" value="${escAttr(cfg.account||'')}" placeholder="GEX Company, cliente ou nome da conta"></div>
-    <div class="form-group"><label class="form-label">ID da conta de anúncios</label><input class="form-input" id="int-url" value="${escAttr(cfg.url||'')}" placeholder="Ex.: act_123456789012345"></div>
-    <div class="form-group"><label class="form-label">Access Token da Meta</label><input class="form-input" id="int-token" type="password" value="${escAttr(cfg.token||'')}" placeholder="Cole o Access Token com ads_read"></div>
+    const oauthOn=!!cfg.oauthConnected;
+    const adAccounts=Array.isArray(cfg.oauthAdAccounts)?cfg.oauthAdAccounts:[];
+    const selected=cfg.selectedAdAccount||cfg.url||'';
+    const accountOptions=adAccounts.length
+      ? adAccounts.map(a=>`<option value="${escAttr(a.id||'')}" ${(a.id===selected)?'selected':''}>${escHtml((a.name||a.id||'Conta')+' • '+(a.id||''))}</option>`).join('')
+      : `<option value="${escAttr(selected)}">${escHtml(selected||'Nenhuma conta recebida ainda')}</option>`;
+    return `<div class="meta-oauth-card">
+      <div class="meta-oauth-head">
+        <div>
+          <div class="meta-oauth-title">🔵 Conexão nativa com Facebook / Meta</div>
+          <div class="meta-oauth-sub">Clique para fazer login oficial na Meta, autorizar permissões e receber automaticamente páginas e contas de anúncios. O token fica seguro no Supabase Edge Function.</div>
+        </div>
+        <span class="meta-oauth-status ${oauthOn?'on':'off'}">${oauthOn?'● Conectado nativo':'○ Não conectado'}</span>
+      </div>
+      <button class="meta-oauth-btn" id="meta-oauth-connect-btn" onclick="connectMetaAdsOAuth()">Conectar com Facebook</button>
+      ${oauthOn?`<button class="btn btn-ghost btn-sm" style="margin-left:8px" onclick="disconnectMetaAdsOAuth()">Desconectar OAuth</button>`:''}
+      ${oauthOn?`<div class="meta-oauth-grid">
+        <div class="meta-oauth-mini"><div class="meta-oauth-mini-lbl">Usuário Meta</div><div class="meta-oauth-mini-val">${escHtml(cfg.oauthUserName||'Conectado')}</div></div>
+        <div class="meta-oauth-mini"><div class="meta-oauth-mini-lbl">Contas recebidas</div><div class="meta-oauth-mini-val">${adAccounts.length}</div></div>
+      </div>
+      <div class="form-group" style="margin-top:12px"><label class="form-label">Conta de anúncios para sincronizar</label><select class="meta-oauth-select" id="int-oauth-account">${accountOptions}</select></div>`:''}
+      <div class="meta-oauth-note"><b>Configuração Meta:</b> adicione no app o Facebook Login for Business e cadastre a URL de callback da Edge Function. Depois a conexão será feita por botão, sem copiar token manualmente.</div>
+    </div>
+    <div class="form-group"><label class="form-label">Conta / Workspace</label><input class="form-input" id="int-account" value="${escAttr(cfg.account||cfg.oauthBusinessName||cfg.oauthUserName||'')}" placeholder="GEX Company, cliente ou nome da conta"></div>
+    <div class="form-group"><label class="form-label">ID da conta de anúncios</label><input class="form-input" id="int-url" value="${escAttr(selected)}" placeholder="Ex.: act_123456789012345"></div>
+    <details class="meta-manual-details">
+      <summary>Configuração manual com token, se precisar</summary>
+      <div class="form-group" style="margin-top:10px"><label class="form-label">Access Token da Meta</label><input class="form-input" id="int-token" type="password" value="${escAttr(cfg.token||'')}" placeholder="Cole o Access Token com ads_read"></div>
+    </details>
     <div class="form-group"><label class="form-label">Observações</label><textarea class="form-input" id="int-notes" placeholder="Como essa integração será usada na operação...">${escHtml(cfg.notes||'')}</textarea></div>
-    <div class="int-secret-note"><b>Teste real:</b> ao clicar em “Testar”, o Gex Flow consulta a Graph API da Meta e tenta retornar conta, campanhas, investimento, cliques, impressões e leads do mês. Use o ID no formato <b>act_123...</b> e um token com permissão <b>ads_read</b>.</div>
+    <div class="int-secret-note"><b>Teste real:</b> se a conexão nativa estiver ativa, o teste usa Supabase Edge Function. Se não estiver, usa token manual. O retorno deve mostrar investimento, campanhas, cliques, impressões e leads.</div>
     ${renderIntegrationModalLastTest(id)}`;
   }
   return `<div class="form-group"><label class="form-label">Conta / Workspace</label><input class="form-input" id="int-account" value="${escAttr(cfg.account||'')}" placeholder="Nome da conta, workspace ou empresa"></div>
@@ -2560,6 +2608,18 @@ function saveIntegrationConfig(id){
     localStorage.setItem('gx2_api_key',config.apiKey||'');
     document.getElementById('wh-indicator')?.classList.toggle('active',!!config.url);
     if(!config.url){toast('Informe a URL do webhook','#EF4444');return}
+  }else if(id==='meta_ads'){
+    const current=(getIntegration('meta_ads').config||{});
+    const selectedOauthAccount=v('int-oauth-account')||current.selectedAdAccount||'';
+    config={
+      ...current,
+      account:v('int-account')||current.account||current.oauthUserName||'',
+      url:v('int-url')||selectedOauthAccount||current.url||'',
+      selectedAdAccount:selectedOauthAccount||v('int-url')||current.selectedAdAccount||'',
+      token:v('int-token')||current.token||'',
+      notes:v('int-notes')||current.notes||''
+    };
+    if(!config.oauthConnected&&!config.url&&!config.token){toast('Conecte com Facebook ou informe ID/token manual','#EF4444');return}
   }else{
     config={account:v('int-account'),url:v('int-url'),token:v('int-token'),notes:v('int-notes')};
     if(!config.account&&!config.url&&!config.token){toast('Preencha pelo menos um dado de conexão','#EF4444');return}
@@ -2720,13 +2780,138 @@ function setIntegrationTestingState(id,isTesting){
     }
   });
 }
+
+function getSupabaseFunctionUrl(fn){
+  return `${SUPABASE_URL.replace(/\/+$/,'')}/functions/v1/${fn}`;
+}
+async function getGexSupabaseToken(){
+  if(!supabaseClient)throw new Error('Supabase não carregado neste ambiente. Abra o sistema publicado, não no preview.');
+  const {data,error}=await supabaseClient.auth.getSession();
+  if(error||!data?.session?.access_token)throw new Error('Sessão Supabase não encontrada. Faça login novamente.');
+  return data.session.access_token;
+}
+function setMetaOAuthButtonState(loading){
+  const btn=document.getElementById('meta-oauth-connect-btn');
+  if(btn){btn.disabled=!!loading;btn.textContent=loading?'Abrindo Facebook...':'Conectar com Facebook';}
+}
+async function connectMetaAdsOAuth(){
+  try{
+    setMetaOAuthButtonState(true);
+    const token=await getGexSupabaseToken();
+    const origin=window.location.origin;
+    const returnTo=window.location.href.split('#')[0];
+    const res=await fetch(getSupabaseFunctionUrl('meta-oauth-start')+`?origin=${encodeURIComponent(origin)}&return_to=${encodeURIComponent(returnTo)}`,{
+      method:'GET',
+      headers:{'Authorization':`Bearer ${token}`}
+    });
+    const json=await res.json().catch(()=>({}));
+    if(!res.ok||!json.url)throw new Error(json.error||'Não foi possível iniciar a conexão Meta.');
+    const popup=window.open(json.url,'gex_meta_oauth','width=720,height=780,menubar=no,toolbar=no,location=yes,resizable=yes,scrollbars=yes');
+    if(!popup)throw new Error('O navegador bloqueou o popup. Libere popups para conectar com Facebook.');
+    addIntegrationLog('Conexão Meta iniciada','Login oficial do Facebook aberto em nova janela','warn');
+    toast('Finalize o login na janela do Facebook','#1877F2');
+  }catch(err){
+    toast(err.message||'Erro ao conectar Meta','#EF4444');
+    addIntegrationLog('Erro ao iniciar Meta OAuth',err.message||'Erro desconhecido','err');
+  }finally{
+    setMetaOAuthButtonState(false);
+  }
+}
+function applyMetaOAuthConnection(payload){
+  const data=payload?.connection||payload||{};
+  const adAccounts=Array.isArray(data.adAccounts)?data.adAccounts:[];
+  const selected=(adAccounts[0]&&adAccounts[0].id)||data.selectedAdAccount||'';
+  const previous=getIntegration('meta_ads').config||{};
+  saveIntegration('meta_ads',{
+    configured:true,
+    connected:true,
+    lastTestStatus:'success',
+    lastSyncAt:new Date().toISOString(),
+    config:{
+      ...previous,
+      oauthConnected:true,
+      oauthConnectionId:data.connectionId||data.id||previous.oauthConnectionId||'',
+      oauthUserName:data.metaUserName||data.userName||previous.oauthUserName||'',
+      oauthUserId:data.metaUserId||data.userId||previous.oauthUserId||'',
+      oauthAdAccounts:adAccounts,
+      oauthPages:Array.isArray(data.pages)?data.pages:[],
+      selectedAdAccount:selected||previous.selectedAdAccount||previous.url||'',
+      url:selected||previous.url||'',
+      account:(adAccounts[0]&&adAccounts[0].name)||data.metaUserName||previous.account||'Meta Ads',
+      token:'' // token nativo fica guardado no Supabase, não no navegador
+    }
+  });
+  saveIntegrationTestResult('meta_ads',{
+    status:'success',
+    message:`Conexão nativa concluída. Contas recebidas: ${adAccounts.length}. Clique em Testar para sincronizar investimento/campanhas.`,
+    metrics:{campaigns:0,spend:0,leads:0,adAccounts:adAccounts.length}
+  });
+  addIntegrationLog('Meta Ads conectado via Facebook',`Contas de anúncio recebidas: ${adAccounts.length}`,'ok');
+  closeModal();
+  renderIntegracoes();
+  toast('Meta Ads conectado via Facebook ✓','#10B981');
+}
+function handleMetaOAuthMessage(event){
+  const expectedOrigin=SUPABASE_URL.replace(/\/+$/,'');
+  if(event.origin!==expectedOrigin)return;
+  const data=event.data||{};
+  if(data.type==='gex_meta_oauth_success')applyMetaOAuthConnection(data);
+  if(data.type==='gex_meta_oauth_error'){
+    saveIntegrationTestResult('meta_ads',{status:'error',message:data.error||'Erro no login Meta'});
+    addIntegrationLog('Erro no OAuth Meta',data.error||'Erro desconhecido','err');
+    renderIntegracoes();
+    toast(data.error||'Erro ao conectar Meta','#EF4444');
+  }
+}
+window.addEventListener('message',handleMetaOAuthMessage);
+function disconnectMetaAdsOAuth(){
+  const current=getIntegration('meta_ads').config||{};
+  saveIntegration('meta_ads',{connected:false,configured:false,config:{notes:current.notes||''}});
+  addIntegrationLog('Meta Ads OAuth desconectado','Conexão nativa removida do Gex Flow','warn');
+  closeModal();
+  renderIntegracoes();
+  toast('Meta Ads desconectado','#7C3AED');
+}
+async function testMetaAdsOAuthConnection(cfg){
+  const connectionId=cfg.oauthConnectionId;
+  if(!connectionId)throw new Error('Conexão nativa sem ID. Conecte com Facebook novamente.');
+  const token=await getGexSupabaseToken();
+  const accountId=normalizeMetaAdAccountId(cfg.selectedAdAccount||cfg.url);
+  const res=await fetch(getSupabaseFunctionUrl('meta-sync'),{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+    body:JSON.stringify({connectionId,adAccountId:accountId,datePreset:'this_month'})
+  });
+  const json=await res.json().catch(()=>({}));
+  if(!res.ok||json.error)throw new Error(json.error||'Erro ao sincronizar Meta Ads via OAuth.');
+  const metrics=json.metrics||{};
+  saveIntegrationTestResult('meta_ads',{
+    status:'success',
+    message:`OAuth validado. Conta: ${metrics.accountName||accountId}. Dados do mês recebidos pelo Supabase.`,
+    metrics
+  });
+  saveIntegration('meta_ads',{
+    configured:true,
+    connected:true,
+    lastTestStatus:'success',
+    lastSyncAt:new Date().toISOString(),
+    lastMetrics:metrics,
+    config:{...cfg,url:metrics.accountId||accountId,selectedAdAccount:metrics.accountId||accountId,account:metrics.accountName||cfg.account}
+  });
+  addIntegrationLog('Meta Ads sincronizado via OAuth',`Investimento mês: ${fmtBRL(Number(metrics.spend||0))} • Campanhas: ${metrics.campaigns||0} • Leads: ${metrics.leads||0}`,'ok');
+  return metrics;
+}
+
 async function testMetaAdsIntegration(){
   const app=INTEGRATION_APPS.find(a=>a.id==='meta_ads')||{name:'Meta Ads'};
   const cfg=getIntegrationConfigDraft('meta_ads');
-  const accountId=normalizeMetaAdAccountId(cfg.url||cfg.account);
+  if(cfg.oauthConnected && cfg.oauthConnectionId && !String(cfg.token||'').trim()){
+    return await testMetaAdsOAuthConnection(cfg);
+  }
+  const accountId=normalizeMetaAdAccountId(cfg.url||cfg.account||cfg.selectedAdAccount);
   const token=String(cfg.token||'').trim();
   if(!accountId){throw new Error('Informe o ID da conta de anúncios. Exemplo: act_123456789012345.');}
-  if(!token){throw new Error('Informe o Access Token da Meta com permissão ads_read.');}
+  if(!token){throw new Error('Informe o Access Token da Meta com permissão ads_read ou use Conectar com Facebook.');}
 
   const baseParams={access_token:token};
   const account=await metaGraphFetch(`${accountId}`,{
