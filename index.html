@@ -2600,14 +2600,46 @@ function getSessionAccessToken(){
   return GexSupabase.getSession().then(session=>session?.access_token||'');
 }
 
+async function getValidSupabaseAccessTokenForUserCreate(){
+  if(!supabaseClient){
+    throw new Error('Supabase SDK não está disponível. Verifique a URL/anon key do projeto.');
+  }
+
+  let {data,error}=await supabaseClient.auth.getSession();
+  let session=data?.session||null;
+
+  // Se a sessão estiver expirada ou perto de expirar, força refresh antes de chamar a Edge Function.
+  const expiresAtMs=session?.expires_at ? session.expires_at*1000 : 0;
+  if(error || !session?.access_token || (expiresAtMs && expiresAtMs < Date.now()+60000)){
+    const refreshed=await supabaseClient.auth.refreshSession();
+    session=refreshed?.data?.session||session;
+  }
+
+  if(!session?.access_token){
+    throw new Error('Sessão Supabase não encontrada. Saia e entre novamente com o usuário Fundador/Adm Gerente.');
+  }
+
+  // Valida o token localmente antes de enviar para a Edge Function.
+  const userCheck=await supabaseClient.auth.getUser(session.access_token);
+  if(userCheck.error || !userCheck.data?.user){
+    const refreshed=await supabaseClient.auth.refreshSession();
+    const refreshedSession=refreshed?.data?.session||null;
+    if(!refreshedSession?.access_token){
+      console.error('[GexFlow] Token Supabase inválido ao criar usuário:',userCheck.error||refreshed.error);
+      throw new Error('Sessão inválida. Saia do sistema, entre novamente como Fundador e tente criar o usuário.');
+    }
+    session=refreshedSession;
+  }
+
+  return session.access_token;
+}
+
 async function createUserInSupabase(userData){
   if(!supabaseClient){
     throw new Error('Supabase SDK não está disponível. Verifique a URL/anon key do projeto.');
   }
-  const session=await GexSupabase.getSession();
-  if(!session?.access_token){
-    throw new Error('Entre com o usuário Fundador/Adm Gerente cadastrado no Supabase para criar usuários reais.');
-  }
+
+  const accessToken=await getValidSupabaseAccessTokenForUserCreate();
 
   const endpoint=`${SUPABASE_URL}/functions/v1/${GEX_USER_CREATE_FUNCTION}`;
   let response;
@@ -2616,7 +2648,8 @@ async function createUserInSupabase(userData){
       method:'POST',
       headers:{
         'Content-Type':'application/json',
-        'Authorization':`Bearer ${session.access_token}`
+        'Authorization':`Bearer ${accessToken}`,
+        'apikey':SUPABASE_PUBLISHABLE_KEY
       },
       body:JSON.stringify(userData)
     });
@@ -2628,7 +2661,11 @@ async function createUserInSupabase(userData){
   let payload={};
   try{payload=await response.json();}catch(e){payload={};}
   if(!response.ok||payload.error){
-    throw new Error(payload.error||payload.message||`Erro ${response.status} ao criar usuário no Supabase.`);
+    const msg=payload.error||payload.message||`Erro ${response.status} ao criar usuário no Supabase.`;
+    if(/sessão|session|jwt|token/i.test(msg)){
+      throw new Error(msg+' Faça logout, entre novamente como Fundador e tente de novo.');
+    }
+    throw new Error(msg);
   }
   const created=normalizeSupabaseProfile(payload.profile||payload.user||{
     id:payload.id,
