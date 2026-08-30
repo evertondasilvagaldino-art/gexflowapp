@@ -1513,8 +1513,168 @@ const GexSupabase = {
   },
 
   // ── Utilitários ───────────────────────────────────────────────────────
+
   isAvailable() { return !!this.client; },
 };
+
+// ═══ SUPABASE USER MANAGEMENT / GESTÃO DE USUÁRIOS ═══
+// Observação: criação de usuários no Supabase Auth exige Edge Function.
+// Nunca coloque service_role no HTML/front-end.
+const GEX_USER_CREATE_FUNCTION = 'create-gex-user';
+
+function normalizeProfileRole(role){
+  const r=String(role||'').trim();
+  if(!r)return 'Colaborador';
+  const lower=r.toLowerCase();
+  if(['admin','fundador','founder','owner','super_admin','super admin'].includes(lower))return 'Fundador';
+  if(lower==='gestor')return 'Adm Gerente';
+  return r;
+}
+
+function isFounderLikeRole(role){
+  const normalized=normalizeProfileRole(role);
+  const raw=String(role||'').trim().toLowerCase();
+  return normalized==='Fundador'||['admin','fundador','founder','owner','super_admin','super admin'].includes(raw);
+}
+
+function normalizeSupabaseProfile(profile={},authUser=null){
+  const metadata=authUser?.user_metadata||{};
+  const nome=profile.nome||profile.name||metadata.nome||metadata.name||authUser?.email||'Usuário';
+  const permissao=normalizeProfileRole(profile.permissao||profile.role||metadata.permissao||metadata.role||'Colaborador');
+  return {
+    id:profile.id||authUser?.id||uid(),
+    nome,
+    email:String(profile.email||authUser?.email||metadata.email||'').toLowerCase(),
+    cargo:profile.cargo||metadata.cargo||'',
+    telefone:profile.telefone||profile.phone||metadata.telefone||'',
+    permissao,
+    status:profile.status||'Ativo',
+    avatarUrl:profile.avatar_url||profile.avatarUrl||profile.avatarBase64||profile.fotoPerfil||'',
+    avatarBase64:profile.avatarBase64||'',
+    permOverrides:profile.perm_overrides||profile.permOverrides||{},
+    supabaseId:profile.id||authUser?.id||'',
+    authProvider:'supabase',
+    createdAt:profile.created_at||profile.createdAt||'',
+    updatedAt:profile.updated_at||profile.updatedAt||''
+  };
+}
+
+function normalizeLocalUserForSupabaseCache(user={}){
+  return {
+    id:user.id||user.supabaseId||uid(),
+    nome:user.nome||user.name||'Usuário',
+    email:String(user.email||'').toLowerCase(),
+    cargo:user.cargo||'',
+    telefone:user.telefone||'',
+    permissao:normalizeProfileRole(user.permissao||user.role||'Colaborador'),
+    status:user.status||'Ativo',
+    avatarUrl:user.avatarUrl||user.avatar_url||'',
+    avatarBase64:user.avatarBase64||'',
+    permOverrides:user.permOverrides||user.perm_overrides||{},
+    supabaseId:user.supabaseId||user.id||'',
+    authProvider:user.authProvider||'local',
+    createdAt:user.createdAt||user.created_at||new Date().toISOString(),
+    updatedAt:user.updatedAt||user.updated_at||new Date().toISOString()
+  };
+}
+
+function upsertUsuarioCache(user){
+  const normalized=normalizeLocalUserForSupabaseCache(user);
+  const users=DB.get('usuarios')||[];
+  const idx=users.findIndex(u=>
+    (normalized.id&&u.id===normalized.id)||
+    (normalized.supabaseId&&u.supabaseId===normalized.supabaseId)||
+    (normalized.email&&String(u.email||'').toLowerCase()===normalized.email)
+  );
+  if(idx>=0)users[idx]={...users[idx],...normalized};
+  else users.push(normalized);
+  DB.set('usuarios',users);
+  return idx>=0?users[idx]:normalized;
+}
+
+function mergeUsuariosCache(usersToMerge=[]){
+  (usersToMerge||[]).forEach(upsertUsuarioCache);
+  return DB.get('usuarios')||[];
+}
+
+function getSessionAccessToken(){
+  return GexSupabase.getSession().then(session=>session?.access_token||'');
+}
+
+async function createUserInSupabase(userData){
+  if(!supabaseClient){
+    throw new Error('Supabase SDK não está disponível. Publique o sistema fora do preview/local ou verifique a conexão.');
+  }
+  const session=await GexSupabase.getSession();
+  if(!session?.access_token){
+    throw new Error('Entre com o usuário Fundador/Administrador cadastrado no Supabase para criar usuários reais.');
+  }
+  const response=await fetch(`${SUPABASE_URL}/functions/v1/${GEX_USER_CREATE_FUNCTION}`,{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'Authorization':`Bearer ${session.access_token}`
+    },
+    body:JSON.stringify(userData)
+  });
+  let payload={};
+  try{payload=await response.json();}catch(e){payload={};}
+  if(!response.ok||payload.error){
+    throw new Error(payload.error||payload.message||`Erro ${response.status} ao criar usuário no Supabase.`);
+  }
+  const created=normalizeSupabaseProfile(payload.profile||payload.user||{
+    id:payload.id,
+    nome:userData.nome||userData.name,
+    email:userData.email,
+    cargo:userData.cargo,
+    telefone:userData.telefone,
+    permissao:userData.permissao||userData.role,
+    status:userData.status,
+    perm_overrides:userData.permOverrides||userData.perm_overrides
+  }, payload.authUser||null);
+  return created;
+}
+
+async function syncUsuariosFromSupabase(opts={}){
+  if(!supabaseClient||syncUsuariosFromSupabase._busy)return [];
+  syncUsuariosFromSupabase._busy=true;
+  try{
+    const session=await GexSupabase.getSession();
+    if(!session?.access_token)return [];
+    const profiles=await GexSupabase.listProfiles();
+    const normalized=(profiles||[]).map(p=>normalizeSupabaseProfile(p,null));
+    if(normalized.length){
+      mergeUsuariosCache(normalized);
+      if(opts.rerender){
+        renderUsuarios({skipSync:true});
+      }
+    }
+    return normalized;
+  }catch(err){
+    if(!opts.silent)toast('Não foi possível sincronizar usuários do Supabase','#EF4444');
+    console.warn('[GexFlow] syncUsuariosFromSupabase:',err);
+    return [];
+  }finally{
+    syncUsuariosFromSupabase._busy=false;
+  }
+}
+
+function buildUserPayloadForSupabase(obj,senha){
+  return {
+    name:obj.nome,
+    nome:obj.nome,
+    email:obj.email,
+    password:senha,
+    role:normalizeProfileRole(obj.permissao),
+    permissao:normalizeProfileRole(obj.permissao),
+    cargo:obj.cargo||'',
+    telefone:obj.telefone||'',
+    status:obj.status||'Ativo',
+    permissions:obj.permOverrides||{},
+    permOverrides:obj.permOverrides||{},
+    perm_overrides:obj.permOverrides||{}
+  };
+}
 
 // ═══ DATA ═══
 const DB={
@@ -2011,7 +2171,7 @@ function openModal(type,idOrData=null){
 function closeModal(){document.getElementById('modal-ov').classList.remove('open')}
 const v=id=>document.getElementById(id)?.value?.trim()||'';
 
-function saveModal(type,id=''){
+async function saveModal(type,id=''){
   const saves={
     cliente(){
       const obj={nome:v('f-nome'),email:v('f-email'),telefone:v('f-tel'),status:v('f-status'),squad:v('f-squad')||'—',ltv:v('f-ltv')||'—',health:parseInt(v('f-health'))||0,desc:v('f-desc')};
@@ -2081,40 +2241,96 @@ function saveModal(type,id=''){
       if(id)DB.update('membros',id,obj);else DB.push('membros',{id:uid(),...obj});
       closeModal();renderRH();renderInicio();toast(id?'Membro atualizado ✓':'Membro adicionado ✓','#10B981');
     },
-    usuario(){
+    async usuario(){
       const senha=v('f-senha');
-      const roleSelected=resolveRole(v('f-permissao')||'Colaborador');
-      const obj={nome:v('f-nome'),email:normalizeLoginEmail(v('f-email')),cargo:v('f-cargo'),permissao:v('f-permissao'),status:v('f-status')};
-      if(senha)obj.senha=String(senha).trim();
-      if(roleSelected==='Fundador'){
-        obj.permOverrides={};
-      }else{
-        obj.permOverrides=collectUserPermOverrides();
-      }
+      const roleSelected=normalizeProfileRole(v('f-permissao')||'Colaborador');
+      const obj={
+        nome:v('f-nome'),
+        email:normalizeLoginEmail(v('f-email')),
+        cargo:v('f-cargo'),
+        telefone:v('f-telefone')||'',
+        permissao:roleSelected,
+        status:v('f-status')||'Ativo'
+      };
+      obj.permOverrides=isFounderLikeRole(roleSelected)?{}:collectUserPermOverrides();
+
       if(!obj.nome||!obj.email){toast('Nome e email obrigatórios','#EF4444');return}
-      const emailExists=(DB.get('usuarios')||[]).some(u=>normalizeLoginEmail(u.email)===obj.email && String(u.id)!==String(id||''));
-      if(emailExists){toast('Já existe um usuário com este email','#EF4444');return}
-      // Block editing Fundador if not Fundador
+      if(!id&&!senha){toast('Informe uma senha para criar o usuário no Supabase','#EF4444');return}
+      if(!id&&isFounderLikeRole(roleSelected)){
+        toast('Não é permitido criar outro usuário Fundador pelo sistema.','#EF4444');
+        return;
+      }
+      const existingByEmail=(DB.get('usuarios')||[]).find(u=>normalizeLoginEmail(u.email)===obj.email && String(u.id)!==String(id||''));
+      if(existingByEmail){toast('Já existe um usuário com este email','#EF4444');return}
+
       const curRole=resolveRole(sessionUser?.permissao||'Colaborador');
-      if(id){
-        const target=DB.find('usuarios',id);
-        if(target&&resolveRole(target.permissao)==='Fundador'&&curRole!=='Fundador'){toast('Apenas Fundador pode editar este usuário','#EF4444');return}
+      const target=id?DB.find('usuarios',id):null;
+      const targetIsFounder=target&&isFounderLikeRole(target.permissao||target.role||target.cargo);
+      if(id&&targetIsFounder&&curRole!=='Fundador'){
+        toast('Apenas Fundador pode editar este usuário','#EF4444');
+        return;
       }
-      if(id){
-        DB.update('usuarios',id,obj);
-        if(sessionUser&&(sessionUser.id===id||String(sessionUser.email||'').toLowerCase()===String(obj.email||'').toLowerCase())){
-          sessionUser={...sessionUser,...obj};
-          try{localStorage.setItem('gx2_session',JSON.stringify({
-            id:sessionUser.id,nome:sessionUser.nome,email:sessionUser.email,
-            permissao:sessionUser.permissao,cargo:sessionUser.cargo,
-            telefone:sessionUser.telefone||'',avatarUrl:sessionUser.avatarUrl||'',avatarBase64:sessionUser.avatarBase64||''
-          }))}catch(e){}
-          applyNavPermissions();
+      if(id&&!targetIsFounder&&isFounderLikeRole(roleSelected)){
+        toast('Não é permitido transformar usuário comum em Fundador pelo sistema.','#EF4444');
+        return;
+      }
+
+      const saveBtn=[...document.querySelectorAll('#modal-footer .btn-primary')].pop();
+      const originalText=saveBtn?.textContent||'Salvar';
+      if(saveBtn){saveBtn.disabled=true;saveBtn.textContent=id?'Salvando...':'Criando no Supabase...';}
+
+      try{
+        if(id){
+          // Edição local/cache. Se existir profile no Supabase e RLS permitir, também tenta atualizar.
+          const updateData={...obj,updatedAt:new Date().toISOString()};
+          if(senha)updateData.senha=String(senha).trim();
+          DB.update('usuarios',id,updateData);
+          const targetAfter={...(target||{}),...updateData};
+          if(supabaseClient&&(targetAfter.supabaseId||targetAfter.authProvider==='supabase')){
+            try{
+              await GexSupabase.updateProfile(targetAfter.supabaseId||targetAfter.id,{
+                nome:obj.nome,
+                email:obj.email,
+                cargo:obj.cargo,
+                telefone:obj.telefone||null,
+                permissao:obj.permissao,
+                status:obj.status,
+                perm_overrides:obj.permOverrides,
+                updated_at:new Date().toISOString()
+              });
+            }catch(profileErr){
+              console.warn('[GexFlow] Não foi possível atualizar profile no Supabase via front-end/RLS:',profileErr);
+            }
+          }
+          if(sessionUser&&(sessionUser.id===id||String(sessionUser.email||'').toLowerCase()===String(obj.email||'').toLowerCase())){
+            sessionUser={...sessionUser,...obj};
+            try{localStorage.setItem('gx2_session',JSON.stringify({
+              id:sessionUser.id,nome:sessionUser.nome,email:sessionUser.email,
+              permissao:sessionUser.permissao,cargo:sessionUser.cargo,
+              telefone:sessionUser.telefone||'',avatarUrl:sessionUser.avatarUrl||'',avatarBase64:sessionUser.avatarBase64||''
+            }))}catch(e){}
+            applyNavPermissions();
+          }
+          closeModal();renderUsuarios();toast('Usuário atualizado ✓','#10B981');
+        }else{
+          const payload=buildUserPayloadForSupabase(obj,senha);
+          const created=await createUserInSupabase(payload);
+          upsertUsuarioCache({
+            ...obj,
+            id:created.id,
+            supabaseId:created.supabaseId||created.id,
+            authProvider:'supabase',
+            createdAt:new Date().toISOString(),
+            updatedAt:new Date().toISOString()
+          });
+          closeModal();renderUsuarios();toast('Usuário criado no Supabase com sucesso.','#10B981');
         }
-      }else{
-        DB.push('usuarios',{id:uid(),senha:obj.senha||'gex@2025',...obj,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
+      }catch(err){
+        console.error('[GexFlow] Erro ao salvar usuário:',err);
+        toast(err.message||'Erro ao criar usuário no Supabase.','#EF4444');
+      }finally{
+        if(saveBtn){saveBtn.disabled=false;saveBtn.textContent=originalText;}
       }
-      closeModal();renderUsuarios();toast(id?'Usuário atualizado ✓':'Usuário criado ✓','#10B981');
     },
     contrato(){
       const obj={titulo:v('f-cont-titulo'),clienteId:v('f-cont-cliente'),valor:v('f-cont-valor'),inicio:v('f-cont-inicio'),vencimento:v('f-cont-venc'),status:v('f-cont-status')};
@@ -2123,7 +2339,8 @@ function saveModal(type,id=''){
       closeModal();renderContratos();toast(id?'Atualizado ✓':'Contrato adicionado ✓','#10B981');
     },
   };
-  saves[type]?.();
+  const result=saves[type]?.();
+  if(result&&typeof result.then==='function')await result;
 }
 
 // ═══ FORMS ═══
@@ -2253,14 +2470,16 @@ function formMembro(d){
 }
 
 function formUsuario(d){
-  const roles=['Fundador','Adm Gerente','Gerente Comercial','Gerente Operacional','Financeiro','CS/Atendimento','Colaborador','Colaborador Vendedor','Visualizador'];
+  // Não permitimos criar novos usuários Fundador/Admin.
+  // O Fundador principal deve existir previamente no Supabase Auth.
+  const rolesBase=['Adm Gerente','Gerente Comercial','Gerente Operacional','Financeiro','CS/Atendimento','Colaborador','Colaborador Vendedor','Visualizador'];
   const curRole=resolveRole(sessionUser?.permissao||'Colaborador');
-  const isFundadorCur=curRole==='Fundador';
   const dRole=resolveRole(d?.permissao||'Colaborador');
   const isFundadorTarget=dRole==='Fundador';
+  const roles=isFundadorTarget?['Fundador',...rolesBase]:rolesBase;
   const roleOpts=roles.map(r=>{
-    const disabled=(!isFundadorCur&&r==='Fundador')||isFundadorTarget?'disabled':''
-    return`<option value="${r}" ${dRole===r?'selected':''} ${disabled}>${r}</option>`
+    const disabled=(r==='Fundador')?'disabled':'';
+    return`<option value="${r}" ${dRole===r?'selected':''} ${disabled}>${r}</option>`;
   }).join('');
   const newPwdHint=d?'<div style="font-size:11px;color:var(--muted);margin-top:5px">Deixe em branco para manter a senha atual</div>':'';
   return `<div class="form-row">
@@ -2269,9 +2488,13 @@ function formUsuario(d){
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Cargo</label><input class="form-input" id="f-cargo" value="${d?.cargo||''}"></div>
+    <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" id="f-telefone" value="${d?.telefone||''}" placeholder="(00) 0.0000-0000"></div>
+  </div>
+  <div class="form-row">
     <div class="form-group"><label class="form-label">Papel / Permissão</label>
-      <select class="form-input" id="f-permissao" onchange="onUserRoleChange()" ${isFundadorTarget&&!isFundadorCur?'disabled title="Apenas Fundador pode editar este papel"':''}>${roleOpts}</select>
+      <select class="form-input" id="f-permissao" onchange="onUserRoleChange()" ${isFundadorTarget?'disabled title="Fundador principal não pode ser criado/alterado pelo sistema"':''}>${roleOpts}</select>
     </div>
+    <div class="form-group"><label class="form-label">Origem</label><input class="form-input" value="${d?.authProvider==='supabase'?'Supabase Auth':'Local/Cache'}" disabled></div>
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-status"><option ${d?.status==='Ativo'?'selected':''}>Ativo</option><option ${d?.status==='Inativo'?'selected':''}>Inativo</option></select></div>
@@ -3485,8 +3708,9 @@ function switchUserTab(tab,el){
   if(tab==='matriz')renderPermMatrix();
 }
 
-function renderUsuarios(){
+function renderUsuarios(opts={}){
   if(!can('usuarios','view')){return}
+  if(!opts.skipSync)syncUsuariosFromSupabase({silent:true,rerender:true});
   const users=DB.get('usuarios');
   const currentRole=resolveRole(sessionUser?.permissao||'Colaborador');
   const isFundador=currentRole==='Fundador';
@@ -3501,6 +3725,7 @@ function renderUsuarios(){
         <div>
           <div style="font-weight:600;font-size:13px">${u.nome}</div>
           ${isFundadorUser?'<div style="font-size:9px;color:var(--p2);font-weight:700;letter-spacing:.04em;text-transform:uppercase">Fundador — acesso total</div>':''}
+          ${u.authProvider==='supabase'?'<div style="font-size:9px;color:#059669;font-weight:700;letter-spacing:.04em;text-transform:uppercase">Supabase Auth</div>':'<div style="font-size:9px;color:var(--light);font-weight:700;letter-spacing:.04em;text-transform:uppercase">Local/cache</div>'}
         </div>
       </div></td>
       <td style="color:var(--muted);font-size:12px">${u.email}</td>
@@ -6822,7 +7047,9 @@ async function doLogin(){
       return;
     }
 
-    sessionUser=mergeLocalUserProfile({id:data.user.id,email:data.user.email,...profile})||{id:data.user.id,email:data.user.email,...profile};
+    const normalizedProfile=normalizeSupabaseProfile(profile,data.user);
+    upsertUsuarioCache(normalizedProfile);
+    sessionUser=mergeLocalUserProfile(normalizedProfile)||normalizedProfile;
     localStorage.setItem('gx2_session',JSON.stringify({
       id:sessionUser.id,nome:sessionUser.nome,email:sessionUser.email,
       permissao:sessionUser.permissao,cargo:sessionUser.cargo,
