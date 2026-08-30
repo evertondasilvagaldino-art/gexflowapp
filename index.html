@@ -846,6 +846,50 @@ textarea.form-input{resize:vertical;min-height:75px}
 .meta-manual-details summary{cursor:pointer;font-size:11.5px;font-weight:800;color:var(--p2)}
 .meta-oauth-note{font-size:11px;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:10px;padding:9px 10px;line-height:1.45;margin-top:10px}
 
+
+/* ─── Performance Comercial por Vendedor ───────────────────────── */
+.sales-team-home{margin:0 0 14px 0}
+.sales-team-card{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 2px 14px rgba(0,0,0,.04)}
+.sales-team-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,#FFFFFF 0%,#FAF7FF 100%)}
+.sales-team-title{font-size:15px;font-weight:800;color:var(--txt);display:flex;align-items:center;gap:8px}
+.sales-team-sub{font-size:12px;color:var(--muted);margin-top:3px}
+.sales-team-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.sales-team-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:14px 18px;border-bottom:1px solid var(--border)}
+.sales-mini-kpi{background:#FAFAFD;border:1px solid var(--border);border-radius:12px;padding:12px 13px}
+.sales-mini-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px}
+.sales-mini-val{font-size:20px;font-weight:900;color:var(--txt);letter-spacing:-.4px}
+.sales-mini-sub{font-size:11px;color:var(--muted);margin-top:3px}
+.sales-rank-list{padding:8px 18px 14px}
+.sales-row{display:grid;grid-template-columns:36px 1.3fr .9fr .65fr .65fr .65fr .65fr;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid #F0F0F8}
+.sales-row:last-child{border-bottom:none}
+.sales-row.header{padding:8px 0;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:800}
+.sales-person{display:flex;align-items:center;gap:9px;min-width:0}
+.sales-av{width:32px;height:32px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
+.sales-av img{width:100%;height:100%;object-fit:cover;border-radius:inherit}
+.sales-name{font-size:13px;font-weight:800;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sales-role{font-size:10.5px;color:var(--muted);margin-top:1px}
+.sales-num{font-size:13px;font-weight:800;color:var(--txt)}
+.sales-muted{font-size:11px;color:var(--muted)}
+.sales-bar{height:7px;background:#EEEAFB;border-radius:999px;overflow:hidden;margin-top:5px}
+.sales-bar-fill{height:100%;background:linear-gradient(90deg,#7C3AED,#A78BFA);border-radius:999px;transition:width .5s ease}
+.sales-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;font-size:10.5px;font-weight:800}
+.sales-badge.green{background:#DCFCE7;color:#166534}.sales-badge.red{background:#FEE2E2;color:#991B1B}.sales-badge.purple{background:#EDE9FE;color:#5B21B6}.sales-badge.gray{background:#F3F4F6;color:#374151}
+.sales-team-empty{padding:26px 18px;text-align:center;color:var(--muted);font-size:13px}
+.sales-filter-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 12px}
+.sales-team-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.sales-seller-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:16px;transition:transform .18s,box-shadow .18s,border-color .18s}
+.sales-seller-card:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(124,58,237,.10);border-color:#DDD6FE}
+.sales-card-top{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.sales-card-name{font-size:14px;font-weight:900;color:var(--txt)}
+.sales-card-role{font-size:11px;color:var(--muted);margin-top:2px}
+.sales-card-kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sales-card-kpi{background:#FAFAFD;border:1px solid var(--border);border-radius:10px;padding:10px}
+.sales-card-kpi-lbl{font-size:9.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.sales-card-kpi-val{font-size:15px;font-weight:900;color:var(--txt);margin-top:4px}
+.sales-card-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:11px;color:var(--muted)}
+@media(max-width:1100px){.sales-team-summary{grid-template-columns:repeat(2,1fr)}.sales-row{grid-template-columns:34px 1.4fr .9fr .6fr .6fr}.sales-row .hide-sm{display:none}}
+@media(max-width:720px){.sales-team-summary{grid-template-columns:1fr}.sales-row{grid-template-columns:28px 1fr .8fr}.sales-row .hide-xs{display:none}.sales-team-head{flex-direction:column}.sales-team-actions{width:100%}.sales-team-actions .btn,.sales-team-actions select{flex:1}}
+
 </style>
 </head>
 <body>
@@ -953,6 +997,9 @@ textarea.form-input{resize:vertical;min-height:75px}
       </div>
       <div class="nav-sub" data-sub="relatorio-comercial" onclick="navigateSub('comercial','comercial');switchComTab('relatorio')">
         <span class="nav-sub-ico">·</span>Relatório Comercial
+      </div>
+      <div class="nav-sub" data-sub="equipe-comercial" onclick="navigateSub('comercial','comercial');switchComTab('equipe')">
+        <span class="nav-sub-ico">·</span>Equipe Comercial
       </div>
     </div>
 
@@ -1164,6 +1211,10 @@ textarea.form-input{resize:vertical;min-height:75px}
           <div id="rel-resumo"></div>
         </div>
       </div>
+    </div>
+    <!-- Equipe Comercial -->
+    <div id="com-tab-equipe" style="display:none">
+      <div id="sales-team-dashboard"></div>
     </div>
   </div>
 
@@ -3092,6 +3143,7 @@ async function saveModal(type,id=''){
         || (activeFunnel?.stages||[]).find(s=>s.id===oldLead?.stageId)
         || (activeFunnel?.stages||[]).find(s=>!s.isLost)
         || null;
+      const ownerPick=resolveLeadOwnerFromForm(oldLead);
       const obj={
         nome:v('f-nome'),empresa:v('f-empresa'),email:v('f-email'),telefone:v('f-tel'),
         valor:parseFloat(v('f-valor'))||0,
@@ -3099,6 +3151,12 @@ async function saveModal(type,id=''){
         funnelId:oldLead?.funnelId||activeFunnel?.id||'',
         stageId:selectedStage?.id||oldLead?.stageId||'',
         produto,
+        responsavelId:ownerPick.id,
+        responsavelNome:ownerPick.nome,
+        ownerId:ownerPick.id,
+        ownerName:ownerPick.nome,
+        vendedorId:ownerPick.id,
+        vendedorNome:ownerPick.nome,
         dataInicio:v('f-data-inicio')||today,
         dataFechamento:v('f-data-fecha'),
         desc:v('f-desc')
@@ -3306,6 +3364,7 @@ function formLead(d){
         ${stageObjs.map(s=>`<option value="${s.name}" ${(d?.stageId===s.id||d?.estagio===s.name)?'selected':''}>${s.name}</option>`).join('')}
       </select></div>
   </div>
+  ${renderLeadOwnerSelect(d)}
   <div class="form-row">
     <div class="form-group"><label class="form-label">Data início <span style="font-size:10px;color:var(--muted)">(auto)</span></label><input class="form-input" id="f-data-inicio" type="date" value="${d?.dataInicio||new Date().toISOString().slice(0,10)}"></div>
     <div class="form-group"><label class="form-label">Previsão fechamento</label><input class="form-input" id="f-data-fecha" type="date" value="${d?.dataFechamento||''}"></div>
@@ -3915,6 +3974,8 @@ function renderInicio(){
   document.getElementById('squad-list').innerHTML=ativs.length
     ?`<div style="padding:6px 16px 12px">${ativs.map(m=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)"><div style="width:30px;height:30px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">${initials(m.nome)}</div><div><div style="font-size:12px;font-weight:600">${m.nome}</div><div style="font-size:11px;color:var(--muted)">${m.cargo}</div></div></div>`).join('')}</div>`
     :`<div class="empty"><div class="empty-txt">Sem membros</div></div>`;
+
+  renderSalesTeamHome();
 }
 
 
@@ -3947,16 +4008,371 @@ function renderClientes(){
 function renderProjetos(){renderProjView();}
 
 /* ── Troca de aba interna do Comercial ── */
+
+/* ════════════════════════════════════════════
+   PERFORMANCE COMERCIAL POR VENDEDOR
+════════════════════════════════════════════ */
+function isSalesManagerView(){
+  const role=resolveRole(sessionUser?.permissao||sessionUser?.cargo||'Colaborador');
+  return ['Fundador','Adm Gerente','Gerente Comercial'].includes(role) || (can('usuarios','view')&&can('comercial','view'));
+}
+
+function normalizeSalesName(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
+
+function roleHasCommercialAccess(role){
+  const r=resolveRole(role||'Colaborador');
+  const perms=ROLE_PERMS[r]||{};
+  return !!(perms.comercial&&perms.comercial.view);
+}
+
+function isCommercialSellerUser(u){
+  if(!u||String(u.status||'Ativo').toLowerCase()==='inativo')return false;
+  const role=resolveRole(u.permissao||u.role||u.cargo||'Colaborador');
+  const hay=normalizeSalesName(`${role} ${u.cargo||''}`);
+  if(role==='Fundador')return false;
+  return hay.includes('vendedor') || hay.includes('comercial') || roleHasCommercialAccess(role);
+}
+
+function getCommercialTeamUsers(){
+  let users=(DB.get('usuarios')||[]).filter(isCommercialSellerUser);
+  if(sessionUser&&isCommercialSellerUser(sessionUser)&&!users.find(u=>sameSalesUser(u,sessionUser))){
+    users.unshift({...sessionUser});
+  }
+  // Se ainda não existir equipe cadastrada, usa o próprio usuário logado como fallback operacional.
+  if(!users.length&&sessionUser&&can('comercial','view')){
+    users=[{...sessionUser}];
+  }
+  const seen=new Set();
+  return users.filter(u=>{
+    const key=(u.id||u.supabaseId||u.email||u.nome||uid()).toString().toLowerCase();
+    if(seen.has(key))return false;seen.add(key);return true;
+  }).sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR'));
+}
+
+function sameSalesUser(a,b){
+  if(!a||!b)return false;
+  const aid=String(a.id||a.supabaseId||'');
+  const bid=String(b.id||b.supabaseId||'');
+  if(aid&&bid&&aid===bid)return true;
+  const ae=normalizeLoginEmail(a.email||'');
+  const be=normalizeLoginEmail(b.email||'');
+  return !!(ae&&be&&ae===be);
+}
+
+function getVisibleSalesUsers(){
+  const team=getCommercialTeamUsers();
+  if(isSalesManagerView())return team;
+  return team.filter(u=>sameSalesUser(u,sessionUser));
+}
+
+function getLeadOwnerId(lead){
+  if(!lead)return '';
+  return String(lead.responsavelId||lead.ownerId||lead.vendedorId||lead.assignedToId||lead.createdById||lead.userId||'');
+}
+
+function getLeadOwnerName(lead){
+  if(!lead)return '';
+  const explicit=lead.responsavelNome||lead.ownerName||lead.vendedorNome||lead.assignedTo||lead.responsavel||lead.vendedor||lead.usuario||'';
+  if(explicit)return explicit;
+  const oid=getLeadOwnerId(lead);
+  if(oid){
+    const u=(DB.get('usuarios')||[]).find(x=>String(x.id)===oid||String(x.supabaseId)===oid);
+    if(u)return u.nome||u.email||'';
+  }
+  return '';
+}
+
+function isLeadOwnedByUser(lead,user){
+  if(!lead||!user)return false;
+  const lid=getLeadOwnerId(lead);
+  if(lid&&(String(user.id||'')===lid||String(user.supabaseId||'')===lid))return true;
+  const lname=normalizeSalesName(getLeadOwnerName(lead));
+  const uname=normalizeSalesName(user.nome||user.name||'');
+  if(lname&&uname&&lname===uname)return true;
+  const uemail=normalizeLoginEmail(user.email||'');
+  const lemail=normalizeLoginEmail(lead.responsavelEmail||lead.ownerEmail||lead.vendedorEmail||'');
+  return !!(uemail&&lemail&&uemail===lemail);
+}
+
+function getVisibleCommercialLeads(leads){
+  leads=Array.isArray(leads)?leads:[];
+  if(isSalesManagerView())return leads;
+  if(!sessionUser)return [];
+  return leads.filter(l=>isLeadOwnedByUser(l,sessionUser));
+}
+
+function getUnassignedCommercialLeads(leads){
+  return (Array.isArray(leads)?leads:[]).filter(l=>!getLeadOwnerId(l)&&!getLeadOwnerName(l));
+}
+
+function renderLeadOwnerSelect(d={}){
+  const users=getCommercialTeamUsers();
+  const currentRole=resolveRole(sessionUser?.permissao||'Colaborador');
+  const manager=isSalesManagerView();
+  const fallbackId=sessionUser?.id||sessionUser?.supabaseId||'';
+  const selected=String(d?.responsavelId||d?.ownerId||d?.vendedorId||fallbackId||'');
+  const selectedName=normalizeSalesName(d?.responsavelNome||d?.ownerName||d?.vendedorNome||sessionUser?.nome||'');
+  const opts=users.map(u=>{
+    const uidv=String(u.id||u.supabaseId||'');
+    const isSel=(selected&&uidv===selected)||(!selected&&selectedName&&normalizeSalesName(u.nome)===selectedName);
+    return `<option value="${escAttr(uidv)}" ${isSel?'selected':''}>${escHtml(u.nome||u.email||'Usuário')} · ${escHtml(resolveRole(u.permissao||u.cargo||'Colaborador'))}</option>`;
+  }).join('');
+  const disabled=!manager?'disabled title="Vendedores só podem atribuir leads a si mesmos"':'';
+  return `<div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Responsável / Vendedor</label>
+      <select class="form-input" id="f-responsavel" ${disabled}>
+        ${opts||`<option value="${escAttr(fallbackId)}">${escHtml(sessionUser?.nome||'Usuário atual')}</option>`}
+      </select>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">${manager?'Fundador/Gerente pode atribuir leads para qualquer vendedor.':'Este lead ficará vinculado ao seu usuário.'}</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Visão da performance</label>
+      <input class="form-input" value="${manager?'Entra no ranking da equipe':'Entra na sua performance individual'}" disabled>
+    </div>
+  </div>`;
+}
+
+function resolveLeadOwnerFromForm(oldLead=null){
+  const users=getCommercialTeamUsers();
+  const fallback={id:sessionUser?.id||sessionUser?.supabaseId||'',nome:sessionUser?.nome||sessionUser?.email||'Usuário'};
+  let ownerId=v('f-responsavel');
+  if(!ownerId&&!isSalesManagerView())ownerId=fallback.id;
+  let owner=users.find(u=>String(u.id||u.supabaseId||'')===String(ownerId||''));
+  if(!owner&&oldLead){
+    const oldId=getLeadOwnerId(oldLead);
+    owner=users.find(u=>String(u.id||u.supabaseId||'')===oldId)||users.find(u=>normalizeSalesName(u.nome)===normalizeSalesName(getLeadOwnerName(oldLead)));
+  }
+  if(!owner&&sessionUser)owner=sessionUser;
+  return {id:String(owner?.id||owner?.supabaseId||fallback.id||''),nome:owner?.nome||fallback.nome};
+}
+
+function isLostOpportunityLocal(o){
+  const st=getStageObjectForOpportunity(o);
+  const txt=normalizeSalesName(o?.dealStatus||o?.status||o?.estagio||'');
+  return !!(st?.isLost||txt.includes('perdid')||txt.includes('lost'));
+}
+
+function salesDateInPeriod(raw,period){
+  if(!period||period==='todos')return true;
+  const d=_parseReportDate(raw);
+  if(!d)return period==='todos';
+  const now=new Date();
+  if(period==='mes')return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
+  if(period==='30dias'){const c=new Date(now);c.setDate(c.getDate()-30);return d>=c;}
+  if(period==='90dias'){const c=new Date(now);c.setDate(c.getDate()-90);return d>=c;}
+  if(period==='ano')return d.getFullYear()===now.getFullYear();
+  return true;
+}
+
+function leadInSalesPeriod(lead,period){
+  return salesDateInPeriod(lead?.dataInicio||lead?.createdAt||lead?.created_at||lead?.dataCriacao,period);
+}
+
+function getSalesTeamMetrics(period='mes'){
+  ensureDefaultCommercialFunnel();
+  migrateOldOpportunitiesToDefaultFunnel();
+
+  const allLeads=(DB.get('leads')||[]).filter(l=>leadInSalesPeriod(l,period));
+  const visibleLeads=getVisibleCommercialLeads(allLeads);
+  const users=getVisibleSalesUsers();
+  const activities=DB.get('atividades')||[];
+  const tasks=getCommercialTasks?getCommercialTasks():[];
+
+  const rows=users.map(u=>{
+    const userLeads=visibleLeads.filter(l=>isLeadOwnedByUser(l,u));
+    const ganhos=userLeads.filter(l=>{try{return isWonOpportunity(l)}catch(e){return normalizeSalesName(l.dealStatus||l.status).includes('ganh')}});
+    const perdidos=userLeads.filter(isLostOpportunityLocal);
+    const ativos=userLeads.filter(l=>!ganhos.includes(l)&&!perdidos.includes(l));
+    const valorGanho=ganhos.reduce((a,l)=>a+(+l.valor||0),0);
+    const pipelineAtivo=ativos.reduce((a,l)=>a+(+l.valor||0),0);
+    const ticket=ganhos.length?valorGanho/ganhos.length:0;
+    const conv=userLeads.length?Math.round((ganhos.length/userLeads.length)*100):0;
+    const cycles=ganhos.map(l=>{
+      const start=_parseReportDate(l.dataInicio||l.createdAt||l.created_at);
+      const end=_parseReportDate(l.dataFechamento||l.closedAt||l.wonAt||l.updatedAt||l.updated_at);
+      if(!start||!end)return null;
+      return Math.max(0,Math.round((end-start)/(1000*60*60*24)));
+    }).filter(v=>v!==null);
+    const ciclo=cycles.length?Math.round(cycles.reduce((a,b)=>a+b,0)/cycles.length):null;
+    const leadIds=new Set(userLeads.map(l=>l.id));
+    const atividades=activities.filter(a=>leadIds.has(a.leadId)||normalizeSalesName(a.usuario)===normalizeSalesName(u.nome)).length;
+    const tarefas=tasks.filter(t=>normalizeSalesName(t.assignedTo)===normalizeSalesName(u.nome)||leadIds.has(t.opportunityId));
+    const pendentes=tarefas.filter(t=>!t.completed).length;
+    const atrasadas=tarefas.filter(t=>!t.completed&&t.dueDate&&t.dueDate<_today()).length;
+    const lastAct=activities.filter(a=>leadIds.has(a.leadId)||normalizeSalesName(a.usuario)===normalizeSalesName(u.nome)).slice(-1)[0];
+    return {user:u,leads:userLeads.length,ativos:ativos.length,ganhos:ganhos.length,perdidos:perdidos.length,valorGanho,pipelineAtivo,ticket,conv,ciclo,atividades,pendentes,atrasadas,lastAct:lastAct?.data||''};
+  });
+
+  // Para o Fundador/Gerente, mostra também carteira sem responsável para não perder controle.
+  if(isSalesManagerView()){
+    const unassigned=getUnassignedCommercialLeads(allLeads);
+    if(unassigned.length){
+      const ganhos=unassigned.filter(l=>{try{return isWonOpportunity(l)}catch(e){return normalizeSalesName(l.dealStatus||l.status).includes('ganh')}});
+      const perdidos=unassigned.filter(isLostOpportunityLocal);
+      const ativos=unassigned.filter(l=>!ganhos.includes(l)&&!perdidos.includes(l));
+      rows.push({user:{id:'__sem_responsavel',nome:'Sem responsável',cargo:'Leads sem vendedor',permissao:'—'},leads:unassigned.length,ativos:ativos.length,ganhos:ganhos.length,perdidos:perdidos.length,valorGanho:ganhos.reduce((a,l)=>a+(+l.valor||0),0),pipelineAtivo:ativos.reduce((a,l)=>a+(+l.valor||0),0),ticket:ganhos.length?ganhos.reduce((a,l)=>a+(+l.valor||0),0)/ganhos.length:0,conv:unassigned.length?Math.round((ganhos.length/unassigned.length)*100):0,ciclo:null,atividades:0,pendentes:0,atrasadas:0,lastAct:''});
+    }
+  }
+
+  return rows.sort((a,b)=>b.valorGanho-a.valorGanho||b.ganhos-a.ganhos||b.leads-a.leads);
+}
+
+function getSalesSummary(rows){
+  rows=Array.isArray(rows)?rows:[];
+  const valor=rows.reduce((a,r)=>a+r.valorGanho,0);
+  const ganhos=rows.reduce((a,r)=>a+r.ganhos,0);
+  const leads=rows.reduce((a,r)=>a+r.leads,0);
+  const ativos=rows.reduce((a,r)=>a+r.ativos,0);
+  const atrasadas=rows.reduce((a,r)=>a+r.atrasadas,0);
+  const conv=leads?Math.round((ganhos/leads)*100):0;
+  return {valor,ganhos,leads,ativos,atrasadas,conv};
+}
+
+function salesPeriodLabel(period){
+  return {mes:'Este mês', '30dias':'Últimos 30 dias','90dias':'Últimos 90 dias',ano:'Ano atual',todos:'Todos os períodos'}[period]||'Este mês';
+}
+
+function renderSalesRows(rows,limit=5){
+  const max=Math.max(1,...rows.map(r=>r.valorGanho));
+  if(!rows.length)return `<div class="sales-team-empty">Nenhum vendedor com dados comerciais neste período.</div>`;
+  return `<div class="sales-rank-list">
+    <div class="sales-row header">
+      <div>#</div><div>Vendedor</div><div>Ganhos</div><div class="hide-xs">Negócios</div><div class="hide-xs">Conversão</div><div class="hide-sm">Pipeline</div><div class="hide-sm">Tarefas</div>
+    </div>
+    ${rows.slice(0,limit).map((r,i)=>`
+      <div class="sales-row">
+        <div><span class="sales-badge ${i===0?'purple':'gray'}">${i+1}º</span></div>
+        <div class="sales-person">
+          <div class="sales-av">${getAvatarInner(r.user)}</div>
+          <div style="min-width:0">
+            <div class="sales-name">${escHtml(r.user.nome||'Vendedor')}</div>
+            <div class="sales-role">${escHtml(resolveRole(r.user.permissao||r.user.cargo||'Vendedor'))}</div>
+          </div>
+        </div>
+        <div>
+          <div class="sales-num">${fmtBRL(r.valorGanho)}</div>
+          <div class="sales-bar"><div class="sales-bar-fill" style="width:${Math.max(4,Math.round((r.valorGanho/max)*100))}%"></div></div>
+        </div>
+        <div class="hide-xs"><div class="sales-num">${r.ganhos}</div><div class="sales-muted">ganhos</div></div>
+        <div class="hide-xs"><span class="sales-badge ${r.conv>=30?'green':'gray'}">${r.conv}%</span></div>
+        <div class="hide-sm"><div class="sales-num">${fmtBRL(r.pipelineAtivo)}</div><div class="sales-muted">${r.ativos} ativos</div></div>
+        <div class="hide-sm"><span class="sales-badge ${r.atrasadas?'red':'green'}">${r.atrasadas} atras.</span></div>
+      </div>`).join('')}
+  </div>`;
+}
+
+function renderSalesTeamHome(){
+  const page=document.getElementById('page-inicio');
+  if(!page||!can('comercial','view'))return;
+  let sec=document.getElementById('sales-team-home-section');
+  if(!sec){
+    sec=document.createElement('div');
+    sec.id='sales-team-home-section';
+    sec.className='sales-team-home';
+    const charts=page.querySelector('.grid-2[style*="margin-bottom:14px"]');
+    if(charts)charts.insertAdjacentElement('afterend',sec);
+    else page.appendChild(sec);
+  }
+  const period='mes';
+  const rows=getSalesTeamMetrics(period);
+  const sum=getSalesSummary(rows);
+  const title=isSalesManagerView()?'Performance Comercial por Vendedor':'Minha Performance Comercial';
+  const top=rows[0];
+  sec.innerHTML=`<div class="sales-team-card">
+    <div class="sales-team-head">
+      <div>
+        <div class="sales-team-title">🏆 ${title}</div>
+        <div class="sales-team-sub">${salesPeriodLabel(period)} · ${isSalesManagerView()?'visão de equipe para Fundador/Gerência':'visão individual do vendedor'}</div>
+      </div>
+      <div class="sales-team-actions">
+        ${top?`<span class="sales-badge purple">Top: ${escHtml(top.user.nome||'—')}</span>`:''}
+        <button class="btn btn-ghost btn-sm" onclick="navigateSub('comercial','comercial');switchComTab('equipe')">Ver equipe</button>
+      </div>
+    </div>
+    <div class="sales-team-summary">
+      <div class="sales-mini-kpi"><div class="sales-mini-lbl">Valor ganho</div><div class="sales-mini-val">${fmtBRL(sum.valor)}</div><div class="sales-mini-sub">${sum.ganhos} negócios ganhos</div></div>
+      <div class="sales-mini-kpi"><div class="sales-mini-lbl">Leads trabalhados</div><div class="sales-mini-val">${sum.leads}</div><div class="sales-mini-sub">${sum.ativos} ativos no pipeline</div></div>
+      <div class="sales-mini-kpi"><div class="sales-mini-lbl">Conversão</div><div class="sales-mini-val">${sum.conv}%</div><div class="sales-mini-sub">ganhos ÷ leads do período</div></div>
+      <div class="sales-mini-kpi"><div class="sales-mini-lbl">Tarefas atrasadas</div><div class="sales-mini-val" style="color:${sum.atrasadas?'var(--red)':'var(--green)'}">${sum.atrasadas}</div><div class="sales-mini-sub">follow-ups pendentes</div></div>
+    </div>
+    ${renderSalesRows(rows,5)}
+  </div>`;
+}
+
+function renderSalesTeamDashboard(){
+  const el=document.getElementById('sales-team-dashboard');
+  if(!el)return;
+  if(!can('comercial','view')){
+    el.innerHTML=`<div class="access-denied"><div class="access-denied-icon">🔒</div><div class="access-denied-title">Sem acesso ao Comercial</div><div class="access-denied-sub">Você não tem permissão para visualizar performance comercial.</div></div>`;
+    return;
+  }
+  const period=document.getElementById('sales-team-period')?.value||'mes';
+  const rows=getSalesTeamMetrics(period);
+  const sum=getSalesSummary(rows);
+  const title=isSalesManagerView()?'Equipe Comercial':'Minha Performance Comercial';
+
+  el.innerHTML=`<div class="page-header" style="margin-bottom:12px">
+    <div>
+      <div class="page-title">${title}</div>
+      <div class="page-sub">${isSalesManagerView()?'Ranking e números individuais dos vendedores.':'Seus próprios números comerciais.'}</div>
+    </div>
+  </div>
+  <div class="sales-filter-bar">
+    <span class="rel-filter-lbl">📅 Período</span>
+    <select id="sales-team-period" class="rel-sel" onchange="renderSalesTeamDashboard()">
+      ${['mes','30dias','90dias','ano','todos'].map(p=>`<option value="${p}" ${p===period?'selected':''}>${salesPeriodLabel(p)}</option>`).join('')}
+    </select>
+    <button class="btn btn-primary btn-sm" onclick="renderSalesTeamDashboard()">↻ Atualizar</button>
+  </div>
+  <div class="sales-team-card" style="margin-bottom:14px">
+    <div class="sales-team-summary">
+      <div class="sales-mini-kpi"><div class="sales-mini-lbl">Valor total ganho</div><div class="sales-mini-val">${fmtBRL(sum.valor)}</div><div class="sales-mini-sub">${sum.ganhos} negócios ganhos</div></div>
+      <div class="sales-mini-kpi"><div class="sales-mini-lbl">Leads no período</div><div class="sales-mini-val">${sum.leads}</div><div class="sales-mini-sub">${sum.ativos} em andamento</div></div>
+      <div class="sales-mini-kpi"><div class="sales-mini-lbl">Conversão geral</div><div class="sales-mini-val">${sum.conv}%</div><div class="sales-mini-sub">ganhos sobre leads</div></div>
+      <div class="sales-mini-kpi"><div class="sales-mini-lbl">Tarefas atrasadas</div><div class="sales-mini-val" style="color:${sum.atrasadas?'var(--red)':'var(--green)'}">${sum.atrasadas}</div><div class="sales-mini-sub">responsáveis do comercial</div></div>
+    </div>
+  </div>
+  <div class="sales-team-grid">
+    ${rows.length?rows.map((r,i)=>`
+      <div class="sales-seller-card">
+        <div class="sales-card-top">
+          <div class="sales-av" style="width:42px;height:42px;font-size:13px">${getAvatarInner(r.user)}</div>
+          <div style="min-width:0;flex:1">
+            <div class="sales-card-name">${escHtml(r.user.nome||'Vendedor')}</div>
+            <div class="sales-card-role">${escHtml(resolveRole(r.user.permissao||r.user.cargo||'Vendedor'))} ${i===0&&r.valorGanho>0?'· 🏆 Top vendedor':''}</div>
+          </div>
+          <span class="sales-badge ${r.atrasadas?'red':'green'}">${r.atrasadas?'Atenção':'Em dia'}</span>
+        </div>
+        <div class="sales-card-kpis">
+          <div class="sales-card-kpi"><div class="sales-card-kpi-lbl">Valor ganho</div><div class="sales-card-kpi-val">${fmtBRL(r.valorGanho)}</div></div>
+          <div class="sales-card-kpi"><div class="sales-card-kpi-lbl">Negócios ganhos</div><div class="sales-card-kpi-val">${r.ganhos}</div></div>
+          <div class="sales-card-kpi"><div class="sales-card-kpi-lbl">Conversão</div><div class="sales-card-kpi-val">${r.conv}%</div></div>
+          <div class="sales-card-kpi"><div class="sales-card-kpi-lbl">Ticket médio</div><div class="sales-card-kpi-val">${fmtBRL(r.ticket)}</div></div>
+          <div class="sales-card-kpi"><div class="sales-card-kpi-lbl">Pipeline ativo</div><div class="sales-card-kpi-val">${fmtBRL(r.pipelineAtivo)}</div></div>
+          <div class="sales-card-kpi"><div class="sales-card-kpi-lbl">Ciclo médio</div><div class="sales-card-kpi-val">${r.ciclo!==null?r.ciclo+' dias':'—'}</div></div>
+        </div>
+        <div class="sales-card-footer">
+          <span>${r.leads} leads · ${r.ativos} ativos · ${r.perdidos} perdidos</span>
+          <span>${r.pendentes} tarefas pend.</span>
+        </div>
+      </div>`).join(''):`<div class="sales-team-empty sales-team-card">Nenhum vendedor ou lead vinculado neste período.</div>`}
+  </div>`;
+}
+
 function switchComTab(tab){
   document.getElementById('com-tab-tarefas').style.display=tab==='tarefas'?'':'none';
   document.getElementById('com-tab-pipeline').style.display=tab==='pipeline'?'':'none';
   document.getElementById('com-tab-relatorio').style.display=tab==='relatorio'?'':'none';
+  const equipeTab=document.getElementById('com-tab-equipe');
+  if(equipeTab)equipeTab.style.display=tab==='equipe'?'':'none';
   // Sincroniza seleção no nav lateral
-  document.querySelectorAll('[data-sub="tarefas-dia"],[data-sub="comercial"],[data-sub="relatorio-comercial"]').forEach(el=>el.classList.remove('active'));
-  const subMap={tarefas:'tarefas-dia',pipeline:'comercial',relatorio:'relatorio-comercial'};
+  document.querySelectorAll('[data-sub="tarefas-dia"],[data-sub="comercial"],[data-sub="relatorio-comercial"],[data-sub="equipe-comercial"]').forEach(el=>el.classList.remove('active'));
+  const subMap={tarefas:'tarefas-dia',pipeline:'comercial',relatorio:'relatorio-comercial',equipe:'equipe-comercial'};
   document.querySelector(`[data-sub="${subMap[tab]}"]`)?.classList.add('active');
   if(tab==='relatorio') renderRelatorioComercial();
   if(tab==='tarefas') renderTarefasDia();
+  if(tab==='equipe') renderSalesTeamDashboard();
 }
 
 function renderComercial(){
@@ -3969,7 +4385,7 @@ function renderComercial(){
     ? activeFunnel.stages.slice().sort((a,b)=>a.order-b.order)
     : getActiveFunnelStages();
 
-  const allLeads=DB.get('leads')||[];
+  const allLeads=getVisibleCommercialLeads(DB.get('leads')||[]);
   const funnelLeads=activeFunnel
     ? allLeads.filter(l=>l.funnelId===activeFunnel.id||(activeFunnel.isDefault&&!l.funnelId))
     : allLeads;
@@ -4029,6 +4445,7 @@ function renderComercial(){
       ${items.map(l=>`<div class="pcard" draggable="true" ondragstart="dragStart(event,'${l.id}','lead')" ondragend="dragEnd(event)" onclick="openDealDetail('${l.id}')">
         <div class="pcard-name">${l.nome||'Lead sem nome'}</div>
         <div class="pcard-co">🏢 ${l.empresa||'—'}</div>
+        <div class="pcard-co">👤 ${getLeadOwnerName(l)||'Sem responsável'}</div>
         <div class="pcard-val">${fmtBRL(l.valor||0)}</div>
         <div style="display:flex;gap:5px;margin-top:6px">
           <button class="btn btn-ghost btn-sm btn-icon" title="Abrir detalhes" onclick="event.stopPropagation();openDealDetail('${l.id}')">👁</button>
@@ -4047,7 +4464,7 @@ function renderComercial(){
 function getCommercialOpportunities(){
   try{
     const leads=DB.get('leads');
-    return Array.isArray(leads)?leads:[];
+    return getVisibleCommercialLeads(Array.isArray(leads)?leads:[]);
   }catch(e){return []}
 }
 
