@@ -8542,5 +8542,693 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
 })();
 </script>
 
+
+<script>
+/* ═══ GEX FLOW — PATCH INTEGRAÇÕES PADRÃO MERCADO / SEM MÉTRICAS FALSAS ═══
+   Corrige a tela de integrações para um modelo simples, padrão SaaS:
+   conectar, configurar, copiar webhook, ver status e aguardar dados reais.
+   Remove exibição de "investimento/campanhas" em integrações que não são mídia.
+*/
+(function(){
+  const MARKET_INTEGRATIONS = [
+    {
+      id:'meta_ads',
+      name:'Meta Ads',
+      icon:'📣',
+      cat:'Anúncios',
+      accent:'#1877F2',
+      desc:'Receber investimento, campanhas, leads e eventos de Facebook/Instagram.',
+      provider:'Make + Meta Ads',
+      action:'Enviar métricas e leads para o Webhook Gex Flow',
+      payload:{
+        app:'meta_ads',
+        event:'ads.insights',
+        conta:'GEX Company',
+        account_id:'act_000000000000000',
+        periodo:'2026-08',
+        investimento:1250.50,
+        campanhas:8,
+        leads:32,
+        cliques:940,
+        impressoes:42000
+      }
+    },
+    {
+      id:'google_ads',
+      name:'Google Ads',
+      icon:'🎯',
+      cat:'Anúncios',
+      accent:'#4285F4',
+      desc:'Receber investimento, campanhas, conversões, cliques e custo por lead.',
+      provider:'Make + Google Ads',
+      action:'Enviar métricas do Google Ads para o Gex Flow',
+      payload:{
+        app:'google_ads',
+        event:'ads.insights',
+        conta:'GEX Company',
+        customer_id:'000-000-0000',
+        periodo:'2026-08',
+        investimento:980.30,
+        conversoes:19,
+        cliques:610,
+        impressoes:31000
+      }
+    },
+    {
+      id:'google_calendar',
+      name:'Google Agenda',
+      icon:'📅',
+      cat:'Agenda',
+      accent:'#34A853',
+      desc:'Criar reuniões, follow-ups, lembretes e tarefas a partir do Gex Flow.',
+      provider:'Make + Google Calendar',
+      action:'Criar ou atualizar evento na agenda usando dados recebidos do Gex',
+      payload:{
+        app:'google_calendar',
+        event:'calendar.event_created',
+        titulo:'Reunião com cliente',
+        data:'2026-08-31',
+        hora:'10:00',
+        responsavel:'Everton Galdino',
+        oportunidade:'Cliente Exemplo'
+      }
+    },
+    {
+      id:'sms_app',
+      name:'App de SMS',
+      icon:'📲',
+      cat:'Comunicação',
+      accent:'#0EA5E9',
+      desc:'Enviar lembretes, cobranças e confirmações via Zenvia, Twilio ou similar.',
+      provider:'Zenvia, Twilio ou TotalVoice + Make',
+      action:'Enviar SMS quando uma tarefa ou lembrete for criado',
+      payload:{
+        app:'sms_app',
+        event:'sms.send',
+        telefone:'+5511999999999',
+        mensagem:'Lembrete: reunião marcada para amanhã às 10h.',
+        contato:'Cliente Exemplo'
+      }
+    },
+    {
+      id:'whatsapp_app',
+      name:'App WhatsApp',
+      icon:'💬',
+      cat:'Comunicação',
+      accent:'#22C55E',
+      desc:'Conectar WhatsApp por provedor/API para follow-up, cobrança e atendimento.',
+      provider:'Evolution API, Z-API, 360dialog ou WABA + Make',
+      action:'Enviar ou receber mensagens via provedor WhatsApp',
+      payload:{
+        app:'whatsapp_app',
+        event:'whatsapp.message',
+        telefone:'+5511999999999',
+        mensagem:'Olá, passando para confirmar nosso próximo passo.',
+        contato:'Cliente Exemplo',
+        oportunidade:'Negócio Exemplo'
+      }
+    },
+    {
+      id:'webhook_gex_flow',
+      name:'Webhook Gex Flow',
+      icon:'🔗',
+      cat:'Automação',
+      accent:'#7C3AED',
+      desc:'URL única para receber leads, vendas, tarefas, eventos e dados externos.',
+      provider:'Gex Flow Webhook',
+      action:'Receber qualquer evento externo no Gex Flow',
+      payload:{
+        app:'webhook_gex_flow',
+        event:'lead.created',
+        nome:'Lead Exemplo',
+        email:'lead@email.com',
+        telefone:'+5511999999999',
+        origem:'Webhook',
+        valor:1500
+      }
+    },
+    {
+      id:'make',
+      name:'Make',
+      icon:'⚙️',
+      cat:'Automação',
+      accent:'#6D28D9',
+      desc:'Usar Make como ponte para conectar apps ao Webhook Gex Flow.',
+      provider:'Make HTTP',
+      action:'Criar cenário no Make e enviar dados para o webhook do Gex',
+      payload:{
+        app:'make',
+        event:'automation.sent',
+        cenario:'Novo lead para pipeline',
+        status:'ok',
+        origem:'Make'
+      }
+    },
+    {
+      id:'stripe',
+      name:'Stripe',
+      icon:'💳',
+      cat:'Financeiro',
+      accent:'#635BFF',
+      desc:'Receber pagamentos, assinaturas, cobranças, reembolsos e MRR.',
+      provider:'Stripe Webhooks',
+      action:'Enviar eventos de pagamento/assinatura para o Gex Flow',
+      payload:{
+        app:'stripe',
+        event:'payment.succeeded',
+        cliente:'Cliente Exemplo',
+        email:'cliente@email.com',
+        valor:497.00,
+        moeda:'BRL',
+        status:'paid'
+      }
+    }
+  ];
+
+  const h = (v) => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const a = h;
+  const brDate = () => (typeof now === 'function' ? now() : new Date().toLocaleString('pt-BR'));
+  const appById2 = (id) => MARKET_INTEGRATIONS.find(x => x.id === id) || MARKET_INTEGRATIONS[0];
+
+  function fallbackUid(){
+    return 'id_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  }
+
+  function safeGetIntegration(id){
+    if(typeof getIntegration === 'function') return getIntegration(id);
+    const all = JSON.parse(localStorage.getItem('gx2_integrations') || '{}');
+    return all[id] || {id, connected:false, configured:false, config:{}};
+  }
+
+  function safeSaveIntegration(id, data){
+    if(typeof saveIntegration === 'function') return saveIntegration(id, data);
+    const all = JSON.parse(localStorage.getItem('gx2_integrations') || '{}');
+    all[id] = {...(all[id] || {id}), ...data, id, updatedAt:new Date().toISOString()};
+    localStorage.setItem('gx2_integrations', JSON.stringify(all));
+    return all[id];
+  }
+
+  function safeLog(title, detail='', type='ok'){
+    if(typeof addIntegrationLog === 'function') return addIntegrationLog(title, detail, type);
+    const logs = JSON.parse(localStorage.getItem('gx2_integrations_log') || '[]');
+    logs.unshift({id:fallbackUid(), title, detail, type, ts:brDate()});
+    localStorage.setItem('gx2_integrations_log', JSON.stringify(logs.slice(0,30)));
+  }
+
+  function getWebhookUrl(){
+    const saved = localStorage.getItem('gx2_wh_url') || '';
+    if(saved) return saved;
+    const base = (typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL) ? String(SUPABASE_URL).replace(/\/+$/,'') : '';
+    return base ? `${base}/functions/v1/gex-webhook` : `${location.origin}/functions/v1/gex-webhook`;
+  }
+
+  function getApiKey(){
+    let key = localStorage.getItem('gx2_oneclick_api_key') || localStorage.getItem('gx2_api_key') || '';
+    if(!key){
+      key = 'gex_' + Math.random().toString(36).slice(2,10) + '_' + Math.random().toString(36).slice(2,8);
+      localStorage.setItem('gx2_oneclick_api_key', key);
+      localStorage.setItem('gx2_api_key', key);
+    }
+    return key;
+  }
+
+  function getTests(){
+    try{return JSON.parse(localStorage.getItem('gx2_integrations_test_results') || '{}')}catch{return{}}
+  }
+
+  function saveTest(id, result){
+    const tests = getTests();
+    tests[id] = {id, ...result, testedAt:new Date().toISOString(), testedAtLabel:brDate()};
+    localStorage.setItem('gx2_integrations_test_results', JSON.stringify(tests));
+    return tests[id];
+  }
+
+  function getTest(id){ return getTests()[id] || null; }
+
+  function latestTest(){
+    return Object.values(getTests()).sort((x,y)=>new Date(y.testedAt||0)-new Date(x.testedAt||0))[0] || null;
+  }
+
+  function integrationState(id){
+    const cfg = safeGetIntegration(id);
+    if(cfg.connected) return {label:'Conectado', cls:'on', dot:'●'};
+    if(cfg.configured) return {label:'Pronto para conectar', cls:'warn', dot:'◐'};
+    return {label:'Desconectado', cls:'off', dot:'○'};
+  }
+
+  function copyValue(id){
+    const el = document.getElementById(id);
+    if(!el) return;
+    try{
+      el.select();
+      document.execCommand('copy');
+      if(navigator.clipboard) navigator.clipboard.writeText(el.value).catch(()=>{});
+      if(typeof toast === 'function') toast('Copiado ✓','#10B981');
+    }catch(e){
+      if(typeof toast === 'function') toast('Copie manualmente','#F59E0B');
+    }
+  }
+
+  window.getOneClickApps = function(){ return MARKET_INTEGRATIONS.slice(); };
+  window.integrationCategories = function(){ return ['Todos', ...Array.from(new Set(MARKET_INTEGRATIONS.map(x=>x.cat)))]; };
+  window.integrationStatus = integrationState;
+  window.copyGexIntegrationValue = copyValue;
+
+  function cardLastEvent(id){
+    const r = getTest(id);
+    if(!r) return `<div class="std-last neutral">Nenhum teste executado</div>`;
+    const cls = r.status === 'success' ? 'success' : r.status === 'error' ? 'error' : 'warn';
+    const label = r.status === 'success' ? 'Pronto para receber dados' : r.status === 'error' ? 'Atenção necessária' : 'Aguardando primeiro evento';
+    return `<div class="std-last ${cls}"><b>${label}</b><span>${h(r.testedAtLabel || '')}</span></div>`;
+  }
+
+  window.renderIntegracoes = function(){
+    const page = document.getElementById('page-integracoes');
+    if(!page) return;
+    const store = (typeof getIntegrationsStore === 'function') ? getIntegrationsStore() : JSON.parse(localStorage.getItem('gx2_integrations') || '{}');
+    const total = MARKET_INTEGRATIONS.length;
+    const connected = MARKET_INTEGRATIONS.filter(app => store[app.id]?.connected).length;
+    const cats = window.integrationCategories();
+
+    page.innerHTML = `
+      <div class="std-int-hero">
+        <div>
+          <div class="std-kicker">Central de Integrações</div>
+          <div class="std-title">Conexões essenciais da GEX</div>
+          <div class="std-sub">Modelo simples, padrão mercado: conectar, configurar webhook, receber dados e acompanhar status. Sem tokens manuais obrigatórios e sem métricas falsas.</div>
+        </div>
+        <div class="std-hero-actions">
+          <button class="std-btn ghost" onclick="openIntegrationConfig('webhook_gex_flow')">🔗 Ver Webhook</button>
+          <button class="std-btn primary" onclick="oneClickConnectIntegration('make')">⚙️ Ativar Make</button>
+        </div>
+      </div>
+
+      <div class="std-summary">
+        <div class="std-summary-card"><span>Apps ativos</span><b>${connected}/${total}</b><small>Integrações essenciais</small></div>
+        <div class="std-summary-card"><span>Entrada de dados</span><b>${getApiKey() ? 'ON' : 'OFF'}</b><small>Webhook universal</small></div>
+        <div class="std-summary-card"><span>Modelo</span><b>1 clique</b><small>Make / Webhook / Provedor</small></div>
+      </div>
+
+      <div class="std-toolbar">
+        <input class="std-search" id="int-search" placeholder="Buscar integração..." oninput="renderIntegrationApps()">
+        <select class="std-select" id="int-cat" onchange="renderIntegrationApps()">${cats.map(c=>`<option value="${a(c)}">${h(c)}</option>`).join('')}</select>
+        <select class="std-select" id="int-status" onchange="renderIntegrationApps()">
+          <option value="todos">Todos</option>
+          <option value="connected">Conectadas</option>
+          <option value="off">Desconectadas</option>
+        </select>
+      </div>
+
+      <div class="std-main-grid">
+        <div class="std-app-grid" id="int-app-grid"></div>
+        <aside class="std-side">
+          <div class="std-panel">
+            <div class="std-panel-title">Como funciona</div>
+            <div class="std-steps">
+              <div><b>1</b><span>Clique em conectar</span></div>
+              <div><b>2</b><span>Copie URL e chave do webhook</span></div>
+              <div><b>3</b><span>Configure Make, Stripe ou provedor</span></div>
+              <div><b>4</b><span>Dados entram no Gex Flow</span></div>
+            </div>
+          </div>
+          <div class="std-panel">
+            <div class="std-panel-title">Resultado do último teste</div>
+            <div id="int-test-result"></div>
+          </div>
+          <div class="std-panel">
+            <div class="std-panel-title">Eventos recentes</div>
+            <div class="int-log" id="int-log"></div>
+          </div>
+        </aside>
+      </div>
+    `;
+    renderIntegrationApps();
+    if(typeof renderIntegrationLog === 'function') renderIntegrationLog();
+    renderIntegrationTestResult();
+  };
+
+  window.renderIntegrationApps = function(){
+    const grid = document.getElementById('int-app-grid');
+    if(!grid) return;
+    const q = (document.getElementById('int-search')?.value || '').toLowerCase().trim();
+    const cat = document.getElementById('int-cat')?.value || 'Todos';
+    const status = document.getElementById('int-status')?.value || 'todos';
+    const apps = MARKET_INTEGRATIONS.filter(app => {
+      const cfg = safeGetIntegration(app.id);
+      const mq = !q || `${app.name} ${app.cat} ${app.desc}`.toLowerCase().includes(q);
+      const mc = cat === 'Todos' || app.cat === cat;
+      const ms = status === 'todos' || (status === 'connected' && cfg.connected) || (status === 'off' && !cfg.connected);
+      return mq && mc && ms;
+    });
+
+    if(!apps.length){
+      grid.innerHTML = `<div class="std-empty">Nenhuma integração encontrada.</div>`;
+      return;
+    }
+
+    grid.innerHTML = apps.map(app => {
+      const cfg = safeGetIntegration(app.id);
+      const st = integrationState(app.id);
+      return `
+        <article class="std-app-card ${cfg.connected ? 'connected' : ''}" style="--accent:${app.accent}">
+          <div class="std-card-top">
+            <div class="std-logo">${app.icon}</div>
+            <div>
+              <h3>${h(app.name)}</h3>
+              <p>${h(app.cat)}</p>
+            </div>
+            <span class="std-status ${st.cls}">${st.dot} ${st.label}</span>
+          </div>
+          <div class="std-desc">${h(app.desc)}</div>
+          ${cardLastEvent(app.id)}
+          <div class="std-actions">
+            <button class="std-btn primary" onclick="oneClickConnectIntegration('${app.id}')">${cfg.connected ? 'Abrir conexão' : 'Conectar'}</button>
+            <button class="std-btn ghost" onclick="openIntegrationConfig('${app.id}')">Configurar</button>
+            <button class="std-btn ghost" onclick="testIntegration('${app.id}')">Testar</button>
+          </div>
+        </article>
+      `;
+    }).join('');
+  };
+
+  function payloadHtml(app){
+    const payload = {
+      ...app.payload,
+      apiKey:'SUA_CHAVE_GEX',
+      timestamp:new Date().toISOString()
+    };
+    return `<pre>${h(JSON.stringify(payload, null, 2))}</pre>`;
+  }
+
+  function configHtml(id){
+    const app = appById2(id);
+    const cfg = safeGetIntegration(id).config || {};
+    const url = cfg.webhookUrl || getWebhookUrl();
+    const key = cfg.apiKey || getApiKey();
+
+    return `
+      <div class="std-modal-connection">
+        <div class="std-connection-head">
+          <div class="std-logo big" style="--accent:${app.accent}">${app.icon}</div>
+          <div>
+            <h3>${h(app.name)}</h3>
+            <p>${h(app.desc)}</p>
+          </div>
+        </div>
+
+        <div class="std-oauth-box">
+          <div>
+            <b>Conectar em 1 clique</b>
+            <span>O Gex Flow cria a conexão e deixa URL + chave prontas. Depois conecte o app pelo Make, Stripe ou provedor.</span>
+          </div>
+          <button class="std-btn primary" onclick="oneClickConnectIntegration('${id}')">Ativar conexão</button>
+        </div>
+
+        <div class="std-form-grid">
+          <label>Nome da conexão
+            <input class="form-input" id="int-account" value="${a(cfg.account || app.name)}" placeholder="Ex.: GEX Company">
+          </label>
+          <label>Provedor
+            <input class="form-input" id="int-provider" value="${a(cfg.provider || app.provider)}" placeholder="Ex.: Make, Stripe, Z-API">
+          </label>
+          <label>ID externo opcional
+            <input class="form-input" id="int-external-id" value="${a(cfg.externalId || '')}" placeholder="Ex.: act_..., customer_id, calendar_id">
+          </label>
+          <label>Status operacional
+            <select class="form-input" id="int-mode">
+              <option value="webhook_oneclick" selected>Webhook / Make / Provedor</option>
+              <option value="native_future">Nativo futuro</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="std-copy-section">
+          <div class="std-copy-line">
+            <div>
+              <label>URL de entrada</label>
+              <input id="std-webhook-url" value="${a(url)}" readonly>
+            </div>
+            <button class="std-btn ghost" onclick="copyGexIntegrationValue('std-webhook-url')">Copiar</button>
+          </div>
+          <div class="std-copy-line">
+            <div>
+              <label>Chave de segurança</label>
+              <input id="std-api-key" value="${a(key)}" readonly>
+            </div>
+            <button class="std-btn ghost" onclick="copyGexIntegrationValue('std-api-key')">Copiar</button>
+          </div>
+          <small>Use a chave no header <b>x-gex-key</b> ou no corpo JSON como <b>apiKey</b>.</small>
+        </div>
+
+        <div class="std-instructions">
+          <b>Como conectar ${h(app.name)}</b>
+          <ol>
+            <li>Copie a URL e a chave acima.</li>
+            <li>No ${h(app.provider)}, crie uma automação usando o evento desejado.</li>
+            <li>Envie os dados por método <b>POST</b> para o Webhook Gex Flow.</li>
+            <li>Depois clique em <b>Testar</b> para registrar a verificação no sistema.</li>
+          </ol>
+        </div>
+
+        <details class="std-details">
+          <summary>Payload recomendado</summary>
+          <div class="std-code">${payloadHtml(app)}</div>
+        </details>
+
+        <details class="std-details">
+          <summary>Configuração avançada</summary>
+          <label>Token/API Key externa opcional
+            <input class="form-input" id="int-token" type="password" value="${a(cfg.token || '')}" placeholder="Evite salvar tokens sensíveis no navegador">
+          </label>
+        </details>
+
+        <label>Observações
+          <textarea class="form-input" id="int-notes" placeholder="Como essa integração será usada na operação...">${h(cfg.notes || '')}</textarea>
+        </label>
+
+        ${modalLastTest(id)}
+      </div>
+    `;
+  }
+
+  window.openIntegrationConfig = function(id){
+    const app = appById2(id);
+    const title = document.getElementById('modal-title');
+    const box = document.getElementById('modal-box');
+    const body = document.getElementById('modal-body');
+    const footer = document.getElementById('modal-footer');
+    if(title) title.textContent = `${app.icon} ${app.name}`;
+    if(box) box.className = 'modal modal-lg';
+    if(body) body.innerHTML = configHtml(id);
+    if(footer) footer.innerHTML = `
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-ghost" onclick="testIntegration('${id}')">Testar</button>
+      <button class="btn btn-primary" onclick="saveIntegrationConfig('${id}')">Salvar integração</button>
+    `;
+    if(typeof openModal === 'function') openModal();
+    else document.getElementById('modal-ov')?.classList.add('open');
+  };
+
+  window.saveIntegrationConfig = function(id){
+    const app = appById2(id);
+    const config = {
+      account: document.getElementById('int-account')?.value || app.name,
+      provider: document.getElementById('int-provider')?.value || app.provider,
+      externalId: document.getElementById('int-external-id')?.value || '',
+      mode: document.getElementById('int-mode')?.value || 'webhook_oneclick',
+      webhookUrl: document.getElementById('std-webhook-url')?.value || getWebhookUrl(),
+      apiKey: document.getElementById('std-api-key')?.value || getApiKey(),
+      token: document.getElementById('int-token')?.value || '',
+      notes: document.getElementById('int-notes')?.value || ''
+    };
+    localStorage.setItem('gx2_wh_url', config.webhookUrl);
+    localStorage.setItem('gx2_api_key', config.apiKey);
+    localStorage.setItem('gx2_oneclick_api_key', config.apiKey);
+    safeSaveIntegration(id, {connected:true, configured:true, config, lastConnectedAt:new Date().toISOString()});
+    saveTest(id, {status:'warn', message:`${app.name} configurado. Aguardando primeiro evento real pelo webhook.`, nextStep:`Configure ${app.provider} para enviar dados ao Gex Flow.`});
+    safeLog(`${app.name} configurado`, 'Conexão salva no modelo padrão de webhook', 'ok');
+    if(typeof closeModal === 'function') closeModal();
+    renderIntegracoes();
+    if(typeof toast === 'function') toast('Integração salva ✓', '#10B981');
+  };
+
+  window.oneClickConnectIntegration = function(id){
+    const app = appById2(id);
+    const cfg = safeGetIntegration(id).config || {};
+    const config = {
+      ...cfg,
+      account: cfg.account || app.name,
+      provider: cfg.provider || app.provider,
+      externalId: cfg.externalId || '',
+      mode: 'webhook_oneclick',
+      webhookUrl: cfg.webhookUrl || getWebhookUrl(),
+      apiKey: cfg.apiKey || getApiKey()
+    };
+    localStorage.setItem('gx2_wh_url', config.webhookUrl);
+    localStorage.setItem('gx2_api_key', config.apiKey);
+    localStorage.setItem('gx2_oneclick_api_key', config.apiKey);
+    safeSaveIntegration(id, {connected:true, configured:true, config, lastConnectedAt:new Date().toISOString()});
+    saveTest(id, {status:'warn', message:`${app.name} conectado. Aguardando primeiro evento real via webhook.`, nextStep:`Copie a URL e configure ${app.provider}.`});
+    safeLog(`${app.name} conectado`, 'Conexão em 1 clique ativada', 'ok');
+    renderIntegracoes();
+    openIntegrationConfig(id);
+    if(typeof toast === 'function') toast('Conexão ativada ✓', '#10B981');
+  };
+
+  window.toggleIntegration = function(id){
+    const cfg = safeGetIntegration(id);
+    safeSaveIntegration(id, {connected:!cfg.connected, configured:cfg.configured, config:cfg.config || {}});
+    safeLog(`${appById2(id).name} ${cfg.connected ? 'desativado' : 'ativado'}`, 'Alteração manual na central de integrações', cfg.connected ? 'warn' : 'ok');
+    renderIntegracoes();
+  };
+
+  window.testIntegration = function(id){
+    const app = appById2(id);
+    const cfg = safeGetIntegration(id);
+    if(!cfg.connected && !cfg.configured){
+      saveTest(id, {status:'warn', message:`${app.name} ainda não foi conectado. Clique em Conectar.`, nextStep:'Ative a conexão antes de testar.'});
+      safeLog(`Teste pendente: ${app.name}`, 'Integração ainda desconectada', 'warn');
+      renderIntegracoes();
+      if(typeof toast === 'function') toast('Conecte primeiro', '#F59E0B');
+      return;
+    }
+    saveTest(id, {
+      status:'success',
+      message:`${app.name} pronto para receber dados pelo Webhook Gex Flow.`,
+      nextStep:`Envie um evento real pelo ${app.provider}. O Gex Flow não exibirá métricas até receber dados reais.`
+    });
+    safeLog(`Teste concluído: ${app.name}`, 'Webhook e chave disponíveis. Aguardando evento real do app/provedor.', 'ok');
+    renderIntegracoes();
+    if(typeof toast === 'function') toast('Teste concluído ✓', '#10B981');
+  };
+
+  function modalLastTest(id){
+    const r = getTest(id);
+    if(!r) return `
+      <div class="std-test-box neutral">
+        <b>Último teste</b>
+        <span>Nenhum teste executado ainda.</span>
+      </div>`;
+    const cls = r.status === 'success' ? 'success' : r.status === 'error' ? 'error' : 'warn';
+    return `
+      <div class="std-test-box ${cls}">
+        <div>
+          <b>Último teste</b>
+          <span>${h(r.message || 'Teste registrado.')}</span>
+          ${r.nextStep ? `<small>${h(r.nextStep)}</small>` : ''}
+        </div>
+        <em>${h(r.testedAtLabel || '')}</em>
+      </div>`;
+  }
+
+  window.renderIntegrationTestResult = function(){
+    const el = document.getElementById('int-test-result');
+    if(!el) return;
+    const r = latestTest();
+    if(!r){
+      el.innerHTML = `<div class="std-empty-mini">Nenhum teste executado ainda.</div>`;
+      return;
+    }
+    const app = appById2(r.id);
+    const cls = r.status === 'success' ? 'success' : r.status === 'error' ? 'error' : 'warn';
+    const badge = r.status === 'success' ? 'Pronto' : r.status === 'error' ? 'Erro' : 'Aguardando';
+    el.innerHTML = `
+      <div class="std-result ${cls}">
+        <div class="std-result-top">
+          <b>${app.icon} ${h(app.name)}</b>
+          <span>${badge}</span>
+        </div>
+        <p>${h(r.message || 'Teste registrado.')}</p>
+        ${r.nextStep ? `<small>${h(r.nextStep)}</small>` : ''}
+        <em>${h(r.testedAtLabel || '')}</em>
+      </div>`;
+  };
+
+  const css = `
+    .std-int-hero{background:linear-gradient(135deg,#fff,#F5F3FF);border:1px solid var(--border);border-radius:18px;padding:22px;display:flex;justify-content:space-between;gap:18px;align-items:center;margin-bottom:16px}
+    .std-kicker{font-size:11px;font-weight:850;text-transform:uppercase;letter-spacing:.08em;color:#7C3AED;margin-bottom:6px}
+    .std-title{font-size:24px;font-weight:900;letter-spacing:-.6px;color:var(--txt)}
+    .std-sub{font-size:13px;color:var(--muted);line-height:1.45;max-width:780px;margin-top:4px}
+    .std-hero-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .std-btn{border:1px solid var(--border);background:#fff;color:var(--txt);border-radius:10px;padding:8px 13px;font-size:12px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap}
+    .std-btn:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(17,24,39,.08)}
+    .std-btn.primary{background:#7C3AED;color:#fff;border-color:#7C3AED}
+    .std-btn.ghost{background:#fff;color:var(--txt)}
+    .std-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+    .std-summary-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px}
+    .std-summary-card span{display:block;font-size:11px;font-weight:850;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px}
+    .std-summary-card b{font-size:24px;font-weight:900;color:var(--txt)}
+    .std-summary-card small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+    .std-toolbar{background:#fff;border:1px solid var(--border);border-radius:14px;padding:10px;display:flex;gap:8px;margin-bottom:14px}
+    .std-search,.std-select{height:36px;border:1px solid var(--border);border-radius:10px;background:#F8F8FC;color:var(--txt);font-family:'Inter',sans-serif;font-size:13px;padding:0 11px;outline:none}
+    .std-search{flex:1}
+    .std-main-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}
+    .std-app-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .std-app-card{background:#fff;border:1px solid var(--border);border-top:4px solid var(--accent);border-radius:18px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.025);overflow:hidden}
+    .std-app-card.connected{border-color:rgba(16,185,129,.45);border-top-color:#10B981}
+    .std-card-top{display:grid;grid-template-columns:46px minmax(0,1fr) auto;gap:12px;align-items:start}
+    .std-logo{width:46px;height:46px;border-radius:14px;background:color-mix(in srgb,var(--accent) 14%,#fff);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+    .std-logo.big{width:54px;height:54px;font-size:25px}
+    .std-card-top h3{font-size:15px;font-weight:900;color:var(--txt);margin:2px 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .std-card-top p{font-size:11px;color:var(--muted);font-weight:700;margin:0}
+    .std-status{font-size:10px;font-weight:850;border-radius:18px;padding:4px 8px;white-space:nowrap}
+    .std-status.on{background:#D1FAE5;color:#047857}.std-status.warn{background:#FEF3C7;color:#92400E}.std-status.off{background:#F3F4F6;color:#6B7280}
+    .std-desc{font-size:12.5px;color:var(--muted);line-height:1.45;margin:12px 0;min-height:38px}
+    .std-last{border-radius:10px;padding:9px 10px;font-size:11px;margin-bottom:12px;border:1px solid var(--border);background:#FAFAFD;color:var(--muted)}
+    .std-last b{display:block;color:var(--txt);margin-bottom:2px}
+    .std-last span{display:block}
+    .std-last.success{background:#ECFDF5;border-color:#A7F3D0}.std-last.warn{background:#FFFBEB;border-color:#FDE68A}.std-last.error{background:#FEF2F2;border-color:#FECACA}
+    .std-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px}
+    .std-side{display:flex;flex-direction:column;gap:14px}
+    .std-panel{background:#fff;border:1px solid var(--border);border-radius:18px;padding:16px}
+    .std-panel-title{font-size:13px;font-weight:900;color:var(--txt);margin-bottom:12px}
+    .std-steps{display:grid;gap:9px}
+    .std-steps div{display:flex;gap:9px;align-items:flex-start;font-size:12px;color:var(--muted);line-height:1.35}
+    .std-steps b{width:22px;height:22px;border-radius:50%;background:#EDE9FE;color:#6D28D9;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px}
+    .std-empty,.std-empty-mini{text-align:center;color:var(--muted);padding:22px;font-size:12px;border:1px dashed var(--border);border-radius:14px;background:#FAFAFD}
+    .std-modal-connection label{display:block;font-size:12px;font-weight:750;color:var(--muted);margin-bottom:10px}
+    .std-modal-connection label input,.std-modal-connection label textarea,.std-modal-connection label select{margin-top:5px}
+    .std-connection-head{display:flex;align-items:center;gap:13px;margin-bottom:14px}
+    .std-connection-head h3{font-size:17px;font-weight:900;margin:0;color:var(--txt)}
+    .std-connection-head p{font-size:12px;color:var(--muted);line-height:1.45;margin:3px 0 0}
+    .std-oauth-box{background:linear-gradient(135deg,#F5F3FF,#EEF2FF);border:1px solid #DDD6FE;border-radius:14px;padding:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+    .std-oauth-box b{display:block;font-size:13px;color:var(--txt);margin-bottom:4px}
+    .std-oauth-box span{font-size:12px;color:var(--muted);line-height:1.4}
+    .std-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .std-copy-section{background:#FAFAFD;border:1px solid var(--border);border-radius:14px;padding:12px;margin:8px 0 12px}
+    .std-copy-line{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end;margin-bottom:10px}
+    .std-copy-line label{font-size:11px;font-weight:850;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 5px}
+    .std-copy-line input{width:100%;border:1px solid var(--border);border-radius:10px;background:#fff;padding:10px 11px;font-size:12px;color:var(--txt)}
+    .std-copy-section small{font-size:11px;color:var(--muted)}
+    .std-instructions{background:#FFF7ED;border:1px solid #FDBA74;color:#92400E;border-radius:14px;padding:12px 14px;font-size:12px;line-height:1.45;margin:12px 0}
+    .std-instructions b{display:block;color:#78350F;margin-bottom:6px}
+    .std-instructions ol{padding-left:18px;margin:0}.std-instructions li{margin:3px 0}
+    .std-details{border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:#fff;margin:10px 0}
+    .std-details summary{font-size:12px;font-weight:850;color:#7C3AED;cursor:pointer}
+    .std-code{background:#101122;color:#EDE9FE;border-radius:10px;padding:12px;margin-top:10px;font-size:11px;overflow:auto}
+    .std-code pre{margin:0;white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+    .std-test-box,.std-result{border-radius:14px;border:1px solid var(--border);padding:12px;font-size:12px;background:#FAFAFD;color:var(--muted)}
+    .std-test-box{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-top:12px}
+    .std-test-box b{display:block;color:var(--txt);margin-bottom:4px}.std-test-box span,.std-test-box small{display:block;line-height:1.4}.std-test-box small{margin-top:4px}.std-test-box em{font-style:normal;color:var(--muted);font-size:11px;white-space:nowrap}
+    .std-test-box.success,.std-result.success{background:#ECFDF5;border-color:#A7F3D0}.std-test-box.warn,.std-result.warn{background:#FFFBEB;border-color:#FDE68A}.std-test-box.error,.std-result.error{background:#FEF2F2;border-color:#FECACA}
+    .std-result-top{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px}.std-result-top b{color:var(--txt)}.std-result-top span{font-size:10px;font-weight:850;border-radius:20px;padding:3px 8px;background:#fff}
+    .std-result p{margin:0 0 5px;line-height:1.4}.std-result small{display:block;line-height:1.4;margin-bottom:6px}.std-result em{font-style:normal;font-size:11px;color:var(--muted)}
+    @media(max-width:1100px){.std-main-grid{grid-template-columns:1fr}.std-app-grid{grid-template-columns:1fr 1fr}.std-side{display:grid;grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:760px){.std-int-hero,.std-oauth-box{flex-direction:column;align-items:flex-start}.std-summary,.std-app-grid,.std-side,.std-form-grid{grid-template-columns:1fr}.std-toolbar{flex-direction:column}.std-actions{grid-template-columns:1fr}.std-copy-line{grid-template-columns:1fr}}
+  `;
+  if(!document.getElementById('gex-std-integrations-css')){
+    const st = document.createElement('style');
+    st.id = 'gex-std-integrations-css';
+    st.textContent = css;
+    document.head.appendChild(st);
+  }
+
+  setTimeout(function(){
+    const page = document.getElementById('page-integracoes');
+    if(page && page.classList.contains('active')) renderIntegracoes();
+  }, 0);
+})();
+</script>
+
 </body>
 </html>
