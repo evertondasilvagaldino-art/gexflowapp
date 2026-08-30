@@ -1861,7 +1861,7 @@ textarea.form-input{resize:vertical;min-height:75px}
         <select id="rel-funil-filter" class="rel-sel" onchange="renderRelatorioComercial()">
           <option value="todos" selected>Todos os funis</option>
         </select>
-        <select id="rel-responsavel" class="rel-sel" onchange="renderRelatorioComercial()">
+        <select id="rel-responsavel" class="rel-sel" onchange="onCommercialOwnerFilterChange('rel-responsavel','relatorio')">
           <option value="">Todos os responsáveis</option>
         </select>
         <button class="btn btn-primary btn-sm" onclick="renderRelatorioComercial()" style="height:32px;font-size:12px">↻ Atualizar</button>
@@ -3156,10 +3156,14 @@ function resultadoWidget(resultado,projectId,clickable=true){
 }
 
 function setScore(id,score){
+  const p=DB.find('projetos',id);
+  if(!projectAccessGuard(p,'alterar este projeto'))return;
   DB.update('projetos',id,{score});renderEntregas();toast(`Relacionamento: ${starLabels[score]}`,'#7C3AED');
 }
 
 function setResultado(id,resultado){
+  const p=DB.find('projetos',id);
+  if(!projectAccessGuard(p,'alterar este projeto'))return;
   DB.update('projetos',id,{resultado});renderEntregas();toast(`Resultado: ${starLabels[resultado]}`,'#3B82F6');
 }
 
@@ -3180,6 +3184,8 @@ function drop(e,newVal){
   e.currentTarget.classList.remove('drag-over');
   if(!dragId) return;
   if(dragType==='projeto'){
+    const p=DB.find('projetos',dragId);
+    if(!projectAccessGuard(p,'mover este projeto')){dragId='';dragType='';return;}
     DB.update('projetos',dragId,{status:newVal});
     fireWebhook('projeto.movido',{id:dragId,novoStatus:newVal});
     renderEntregas();
@@ -4059,9 +4065,12 @@ async function saveModal(type,id=''){
       closeModal();renderClientes();renderInicio();
     },
     projeto(){
-      const obj={nome:v('f-nome'),cliente:v('f-cliente'),status:v('f-status'),prazo:v('f-prazo'),desc:v('f-desc'),score:parseInt(v('f-score'))||0,resultado:parseInt(v('f-resultado'))||0};
+      const oldProjeto=id?DB.find('projetos',id):null;
+      if(id&&!projectAccessGuard(oldProjeto,'editar este projeto'))return;
+      const ownerPick=resolveProjectResponsibleFromForm(oldProjeto);
+      const obj={nome:v('f-nome'),cliente:v('f-cliente'),status:v('f-status'),prazo:v('f-prazo'),desc:v('f-desc'),score:parseInt(v('f-score'))||0,resultado:parseInt(v('f-resultado'))||0,...projectOwnerFieldsFromPick(ownerPick)};
       if(!obj.nome){toast('Nome obrigatório','#EF4444');return}
-      if(id)DB.update('projetos',id,obj);else DB.push('projetos',{id:uid(),...obj});
+      if(id)DB.update('projetos',id,obj);else DB.push('projetos',{id:uid(),...obj,createdById:sessionUser?.id||'',createdByEmail:sessionUser?.email||'',createdBy:sessionUser?.nome||''});
       closeModal();renderProjetos();renderInicio();toast(id?'Projeto atualizado ✓':'Projeto criado ✓','#10B981');
     },
     lead(){
@@ -4258,6 +4267,7 @@ function formProjeto(d){
       <select class="form-input" id="f-resultado"><option value="0">— Não avaliado</option><option value="1" ${d?.resultado==1?'selected':''}>◆ Ruim</option><option value="2" ${d?.resultado==2?'selected':''}>◆◆ Bom</option><option value="3" ${d?.resultado==3?'selected':''}>◆◆◆ Ótimo</option><option value="4" ${d?.resultado==4?'selected':''}>◆◆◆◆ Excelente</option></select></div>
     <div style="display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:13px"><div style="font-size:11px;color:var(--muted)">★ = Relacionamento &nbsp;◆ = Resultado</div></div>
   </div>
+  ${renderProjectResponsibleSelect(d,'f-responsavel-projeto')}
   <div class="form-group"><label class="form-label">Descrição</label><textarea class="form-input" id="f-desc">${d?.desc||''}</textarea></div>`;
 }
 
@@ -5106,6 +5116,38 @@ function _ownerFilterValueFromLead(l){
 function _ownerFilterLabelFromLead(l){
   return getLeadOwnerName(l)||'Sem responsável';
 }
+
+/* ── Persistência do filtro de responsável ──
+   Corrige o bug em que o select era recriado pelo renderFunnelSelector()
+   e o filtro voltava para "Todos os responsáveis" antes do Kanban filtrar. */
+const GEX_PIPE_OWNER_FILTER_KEY='gx2_comercial_pipeline_owner_filter';
+const GEX_REL_OWNER_FILTER_KEY='gx2_comercial_relatorio_owner_filter';
+
+function _ownerFilterStorageKey(selectId){
+  if(selectId==='pipe-responsavel-filter') return GEX_PIPE_OWNER_FILTER_KEY;
+  if(selectId==='rel-responsavel') return GEX_REL_OWNER_FILTER_KEY;
+  return '';
+}
+function getSavedOwnerFilter(selectId){
+  const key=_ownerFilterStorageKey(selectId);
+  if(!key) return '';
+  try{return localStorage.getItem(key)||'';}catch(e){return '';}
+}
+function saveOwnerFilter(selectId,value){
+  const key=_ownerFilterStorageKey(selectId);
+  if(!key) return;
+  try{
+    if(value) localStorage.setItem(key,value);
+    else localStorage.removeItem(key);
+  }catch(e){}
+}
+function onCommercialOwnerFilterChange(selectId,renderFnName){
+  const sel=document.getElementById(selectId);
+  if(sel) saveOwnerFilter(selectId,sel.value||'');
+  if(renderFnName==='relatorio') renderRelatorioComercial();
+  else renderComercial();
+}
+
 function getCommercialOwnerOptions(ops){
   ops=Array.isArray(ops)?ops:[];
   const map=new Map();
@@ -5152,13 +5194,21 @@ function getCommercialOwnerOptions(ops){
 function populateCommercialOwnerSelect(selectId, ops, defaultLabel){
   const sel=document.getElementById(selectId);
   if(!sel) return '';
-  const previous=sel.value||'';
+
+  // Mantém a escolha do usuário mesmo quando a barra do funil é recriada.
+  const saved=getSavedOwnerFilter(selectId);
+  const previous=sel.value||saved||'';
+
   const opts=getCommercialOwnerOptions(ops);
   sel.innerHTML='';
   sel.appendChild(new Option(defaultLabel||'Todos os responsáveis',''));
   opts.forEach(o=>sel.appendChild(new Option(o.label,o.value)));
+
   const exists=[...sel.options].some(o=>o.value===previous);
   sel.value=exists?previous:'';
+
+  // Se a opção deixou de existir, limpa o filtro salvo para não travar a tela.
+  saveOwnerFilter(selectId,sel.value||'');
   return sel.value||'';
 }
 
@@ -5237,6 +5287,7 @@ function salesRowMatchesFilter(row,filterValue){
 }
 
 function openCommercialOwnerPipeline(filterValue){
+  saveOwnerFilter('pipe-responsavel-filter',filterValue||'');
   navigateSub('comercial','comercial');
   switchComTab('pipeline');
   setTimeout(()=>{
@@ -5250,6 +5301,7 @@ function openCommercialOwnerPipeline(filterValue){
 }
 
 function openCommercialOwnerReport(filterValue){
+  saveOwnerFilter('rel-responsavel',filterValue||'');
   navigateSub('comercial','relatorio-comercial');
   switchComTab('relatorio');
   setTimeout(()=>{
@@ -5929,10 +5981,16 @@ function renderRelatorioComercial(){
   const funnelFilter=renderRelatorioFunnelOptions();
   let ops=getCommercialOpportunities();
   ops=filterOpportunitiesByReportFunnel(ops,funnelFilter);
+
+  // O select de responsável é populado com todos os responsáveis do funil selecionado,
+  // não apenas com quem tem resultado no período. Assim, ao filtrar um vendedor sem
+  // oportunidades no período, o relatório mostra 0 em vez de voltar para "Todos".
+  const ownerOptionsSource=ops.slice();
+
   ops=filterOpportunitiesByPeriod(ops,period);
 
   // Popular e aplicar filtro de responsável/vendedor com suporte a ID, nome e leads antigos.
-  const respFilter=populateCommercialOwnerSelect('rel-responsavel', ops, 'Todos os responsáveis');
+  const respFilter=populateCommercialOwnerSelect('rel-responsavel', ownerOptionsSource, 'Todos os responsáveis');
   if(respFilter) ops=filterOpportunitiesByOwner(ops,respFilter);
 
   const wonOps=ops.filter(isWonOpportunity);
@@ -6622,6 +6680,171 @@ function savePerfilSenha(){
 
 // ═══ PROJETOS SUB-NAV ═══
 
+// ═══ PROJECT OWNER / VISIBILITY RULES ═══
+function isProjectFounderView(){
+  return isFounderTaskAdmin ? isFounderTaskAdmin() : _normTaskIdentity(sessionUser?.permissao||sessionUser?.cargo).includes('fundador');
+}
+
+function getProjectPeople(){
+  const people=[];
+  const add=(p,source='user')=>{
+    if(!p)return;
+    const id=p.id||p.user_id||p.uid||p.authId||'';
+    const nome=p.nome||p.name||p.full_name||p.responsavelNome||p.cargoNome||'';
+    const email=p.email||p.email_usuario||'';
+    const key=_normTaskIdentity(id||email||nome);
+    if(!key||people.some(x=>x._key===key))return;
+    people.push({id:String(id||key),nome:nome||email||'Usuário',email,source,_key:key,cargo:p.cargo||p.permissao||''});
+  };
+  (DB.get('usuarios')||[]).forEach(u=>add(u,'user'));
+  (DB.get('membros')||[]).forEach(m=>add(m,'membro'));
+  if(sessionUser)add(sessionUser,'session');
+  return people;
+}
+
+function currentProjectUserKeys(){
+  const keys=_currentTaskUserKeys ? _currentTaskUserKeys() : [
+    sessionUser?.id,sessionUser?.email,sessionUser?.nome,sessionUser?.name
+  ].map(_normTaskIdentity).filter(Boolean);
+
+  // Também procura registros em Usuários/Membros com mesmo nome ou e-mail do usuário logado.
+  const base=new Set(keys);
+  const su=sessionUser||{};
+  const suKeys=[
+    su.id,su.user_id,su.uid,su.authId,
+    su.email,su.email_usuario,
+    su.nome,su.name,su.full_name
+  ].map(_normTaskIdentity).filter(Boolean);
+
+  getProjectPeople().forEach(p=>{
+    const pKeys=[p.id,p.email,p.nome].map(_normTaskIdentity).filter(Boolean);
+    if(pKeys.some(k=>suKeys.includes(k))){
+      pKeys.forEach(k=>base.add(k));
+    }
+  });
+  return [...base].filter(Boolean);
+}
+
+function projectItemBelongsToCurrentUser(item){
+  if(!item)return false;
+  if(isProjectFounderView())return true;
+  const keys=currentProjectUserKeys();
+  if(!keys.length)return false;
+
+  const raw=[];
+  [
+    'responsavelId','responsavel_id','responsavel',
+    'responsavelNome','responsavel_name','responsavelEmail',
+    'ownerId','ownerName','ownerEmail',
+    'assignedToId','assignedTo','assignedToEmail',
+    'vendedorId','vendedorNome','vendedorEmail',
+    'createdById','createdBy','createdByEmail',
+    'userId','usuarioId','usuarioNome','email'
+  ].forEach(k=>raw.push(item[k]));
+
+  if(Array.isArray(item.responsaveis)) raw.push(...item.responsaveis);
+  if(Array.isArray(item.responsibles)) raw.push(...item.responsibles);
+  if(Array.isArray(item.steps)){
+    item.steps.forEach(s=>{
+      raw.push(s.responsavel,s.responsavelId,s.assignedTo,s.assignedToId,s.ownerId,s.ownerName);
+    });
+  }
+
+  const itemKeys=raw.map(_normTaskIdentity).filter(Boolean);
+  return itemKeys.some(k=>keys.includes(k));
+}
+
+function getVisibleProjects(){
+  const all=DB.get('projetos')||[];
+  return isProjectFounderView()?all:all.filter(projectItemBelongsToCurrentUser);
+}
+function getVisibleProjectTasks(){
+  const all=DB.get('tarefas_cli')||[];
+  return isProjectFounderView()?all:all.filter(projectItemBelongsToCurrentUser);
+}
+function getVisibleOnboardings(){
+  const all=DB.get('onboarding')||[];
+  return isProjectFounderView()?all:all.filter(projectItemBelongsToCurrentUser);
+}
+function getVisibleContents(){
+  const all=DB.get('conteudos')||[];
+  return isProjectFounderView()?all:all.filter(projectItemBelongsToCurrentUser);
+}
+function getVisibleClientsForProject(){
+  const all=DB.get('clientes')||[];
+  if(isProjectFounderView())return all;
+  // Clientes ligados aos projetos/tarefas/onboarding visíveis
+  const names=new Set(getVisibleProjects().map(p=>_normTaskIdentity(p.cliente)).filter(Boolean));
+  const ids=new Set([
+    ...getVisibleProjectTasks().map(t=>t.clienteId),
+    ...getVisibleOnboardings().map(o=>o.clienteId)
+  ].map(_normTaskIdentity).filter(Boolean));
+  return all.filter(c=>ids.has(_normTaskIdentity(c.id))||names.has(_normTaskIdentity(c.nome)));
+}
+
+function projectAccessGuard(item,action){
+  if(!item)return null;
+  if(projectItemBelongsToCurrentUser(item))return item;
+  toast(`Você só pode ${action||'acessar'} itens atribuídos a você.`,'#EF4444');
+  return null;
+}
+
+function resolveProjectResponsibleFromForm(oldItem){
+  const pick=v('f-responsavel-projeto')||v('ftg-responsavel')||v('f-resp-select')||'';
+  const people=getProjectPeople();
+  if(isProjectFounderView()&&pick){
+    const p=people.find(x=>String(x.id)===String(pick)||_normTaskIdentity(x.nome)===_normTaskIdentity(pick)||_normTaskIdentity(x.email)===_normTaskIdentity(pick));
+    if(p)return {id:p.id,nome:p.nome,email:p.email};
+  }
+  if(!isProjectFounderView()){
+    return {id:sessionUser?.id||'',nome:sessionUser?.nome||sessionUser?.name||'Usuário',email:sessionUser?.email||''};
+  }
+  if(oldItem){
+    return {
+      id:oldItem.responsavelId||oldItem.ownerId||oldItem.assignedToId||'',
+      nome:oldItem.responsavelNome||oldItem.ownerName||oldItem.assignedTo||oldItem.responsavel||'',
+      email:oldItem.responsavelEmail||oldItem.ownerEmail||oldItem.assignedToEmail||''
+    };
+  }
+  return {id:sessionUser?.id||'',nome:sessionUser?.nome||'Usuário',email:sessionUser?.email||''};
+}
+
+function renderProjectResponsibleSelect(d={}, inputId='f-responsavel-projeto'){
+  const current=resolveProjectResponsibleFromForm(d);
+  const people=getProjectPeople();
+  if(!isProjectFounderView()){
+    return `<div class="form-group"><label class="form-label">Responsável</label>
+      <input class="form-input" value="${escAttr(sessionUser?.nome||'Usuário')}" disabled>
+      <input type="hidden" id="${inputId}" value="${escAttr(sessionUser?.id||'')}">
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">Usuários não fundadores só podem criar itens para si mesmos.</div>
+    </div>`;
+  }
+  const opts=people.map(p=>{
+    const selected=String(current.id||'')===String(p.id)||_normTaskIdentity(current.nome)===_normTaskIdentity(p.nome)||_normTaskIdentity(current.email)===_normTaskIdentity(p.email);
+    return `<option value="${escAttr(p.id)}" ${selected?'selected':''}>${escHtml(p.nome)}${p.cargo?` · ${escHtml(p.cargo)}`:''}</option>`;
+  }).join('');
+  return `<div class="form-group"><label class="form-label">Responsável</label>
+    <select class="form-input" id="${inputId}">
+      <option value="">— Sem responsável —</option>${opts}
+    </select>
+  </div>`;
+}
+
+function projectOwnerFieldsFromPick(pick){
+  return {
+    responsavelId:pick.id||'',
+    responsavelNome:pick.nome||'',
+    responsavelEmail:pick.email||'',
+    ownerId:pick.id||'',
+    ownerName:pick.nome||'',
+    ownerEmail:pick.email||'',
+    assignedToId:pick.id||'',
+    assignedTo:pick.nome||'',
+    assignedToEmail:pick.email||''
+  };
+}
+
+
 function projNav(view){
   currentProjView=view;
   renderProjView();
@@ -6641,7 +6864,7 @@ function renderEntregas(){
   const cols=['A fazer','Em andamento','Em revisão','Concluído'];
   const colBg={'A fazer':'#F3F4F6','Em andamento':'#DBEAFE','Em revisão':'#FEF3C7','Concluído':'#DCFCE7'};
   const colDot={'A fazer':'#9CA3AF','Em andamento':'#3B82F6','Em revisão':'#F59E0B','Concluído':'#10B981'};
-  const pros=DB.get('projetos');
+  const pros=getVisibleProjects();
   document.getElementById('proj-content').innerHTML=`
     <div class="page-header">
       <div><div class="page-title">📦 Gestão de Entregas</div><div class="page-sub">Arraste os cards para mover entre etapas</div></div>
@@ -6658,7 +6881,7 @@ function renderEntregas(){
       </div>
       ${items.map(p=>`<div class="kcard" draggable="true" ondragstart="dragStart(event,'${p.id}','projeto')" ondragend="dragEnd(event)">
         <div class="kcard-title">${p.nome}</div>
-        <div class="kcard-sub">${p.cliente||'Sem cliente'}</div>
+        <div class="kcard-sub">${p.cliente||'Sem cliente'}${p.responsavelNome?` · 👤 ${p.responsavelNome}`:''}</div>
         <div class="scores-row">
           <div class="score-line"><span class="score-prefix">🤝 Relacionam.</span>${starWidget(p.score,p.id)}</div>
           <div class="score-line"><span class="score-prefix">📈 Resultado</span>${resultadoWidget(p.resultado,p.id)}</div>
@@ -6667,7 +6890,7 @@ function renderEntregas(){
           <div class="kcard-date">📅 ${p.prazo||'—'}</div>
           <div style="display:flex;gap:4px">
             <span style="cursor:pointer;font-size:13px" onclick="event.stopPropagation();openModal('projeto','${p.id}')">✏️</span>
-            <span style="cursor:pointer;font-size:13px" onclick="event.stopPropagation();confirmDelete(()=>{DB.remove('projetos','${p.id}');renderEntregas();toast('Removido','#EF4444')})">🗑</span>
+            <span style="cursor:pointer;font-size:13px" onclick="event.stopPropagation();confirmDelete(()=>{if(!projectAccessGuard(p,'excluir este projeto'))return;DB.remove('projetos','${p.id}');renderEntregas();toast('Removido','#EF4444')})">🗑</span>
           </div>
         </div>
       </div>`).join('')}
@@ -6702,8 +6925,8 @@ function sendToOperacional(clienteId){
   const novaOb={
     id:uid(),clienteId,
     estagio:'Aguardando',
-    responsaveis:[],
-    steps:OB_DEFAULT_STEPS.map(s=>({id:uid(),label:s.label,done:false,responsavel:''}))
+    responsaveis:isProjectFounderView()?[]:[sessionUser?.id||sessionUser?.nome||''],
+    steps:OB_DEFAULT_STEPS.map(s=>({id:uid(),label:s.label,done:false,responsavel:isProjectFounderView()?'':(sessionUser?.nome||'')}))
   };
   obs.push(novaOb);DB.set('onboarding',obs);
   navigateSub('onboarding','projetos');
@@ -6712,7 +6935,7 @@ function sendToOperacional(clienteId){
 
 
 function renderOnboarding(){
-  const obs=DB.get('onboarding');
+  const obs=getVisibleOnboardings();
   const clientes=DB.get('clientes');
   const membros=DB.get('membros');
   document.getElementById('proj-content').innerHTML=`
@@ -6751,6 +6974,8 @@ function renderOnboarding(){
 }
 
 function openObModal(obId){
+  const ob=DB.get('onboarding').find(o=>o.id===obId);
+  if(!projectAccessGuard(ob,'abrir este onboarding'))return;
   currentObId=obId;
   document.getElementById('ob-ov').classList.add('open');
   renderObDetail();
@@ -6763,7 +6988,7 @@ function closeObModal(){
 
 function renderObDetail(){
   const ob=DB.get('onboarding').find(o=>o.id===currentObId);
-  if(!ob){closeObModal();return;}
+  if(!ob||!projectAccessGuard(ob,'abrir este onboarding')){closeObModal();return;}
   const cli=DB.get('clientes').find(c=>c.id===ob.clienteId)||{nome:'?'};
   const membros=DB.get('membros');
   const steps=ob.steps||[];
@@ -6777,11 +7002,11 @@ function renderObDetail(){
   const respChips=respIds.map(rid=>{
     const m=membros.find(m=>m.id===rid);
     if(!m)return'';
-    return `<div class="ob-chip" style="background:var(--p-light);color:var(--p2);border-color:var(--p3)">👤 ${m.nome}<span style="cursor:pointer;margin-left:4px;opacity:.6" onclick="removeObResp('${rid}')">×</span></div>`;
+    return `<div class="ob-chip" style="background:var(--p-light);color:var(--p2);border-color:var(--p3)">👤 ${m.nome}${isProjectFounderView()?`<span style="cursor:pointer;margin-left:4px;opacity:.6" onclick="removeObResp('${rid}')">×</span>`:''}</div>`;
   }).join('');
 
   const membrosDisponiveis=membros.filter(m=>!respIds.includes(m.id));
-  const addRespBtn=membrosDisponiveis.length?`
+  const addRespBtn=(isProjectFounderView()&&membrosDisponiveis.length)?`
     <select class="form-input" style="width:auto;padding:3px 8px;font-size:11px" onchange="addObResp(this.value);this.value=''">
       <option value="">+ Adicionar responsável</option>
       ${membrosDisponiveis.map(m=>`<option value="${m.id}">${m.nome} (${m.cargo||'—'})</option>`).join('')}
@@ -6839,6 +7064,7 @@ function toggleObStep2(idx){
   const obs=DB.get('onboarding');
   const ob=obs.find(o=>o.id===currentObId);
   if(!ob)return;
+  if(!projectAccessGuard(ob,'alterar este onboarding'))return;
   ob.steps[idx].done=!ob.steps[idx].done;
   DB.set('onboarding',obs);
   renderObDetail();
@@ -6849,6 +7075,7 @@ function updateObStepLabel(idx,val){
   const obs=DB.get('onboarding');
   const ob=obs.find(o=>o.id===currentObId);
   if(!ob)return;
+  if(!projectAccessGuard(ob,'editar este onboarding'))return;
   ob.steps[idx].label=val;
   DB.set('onboarding',obs);
 }
@@ -6857,6 +7084,7 @@ function updateObStepResp(idx,val){
   const obs=DB.get('onboarding');
   const ob=obs.find(o=>o.id===currentObId);
   if(!ob)return;
+  if(!projectAccessGuard(ob,'editar este onboarding'))return;
   ob.steps[idx].responsavel=val;
   DB.set('onboarding',obs);
 }
@@ -6865,7 +7093,8 @@ function addObStep(){
   const obs=DB.get('onboarding');
   const ob=obs.find(o=>o.id===currentObId);
   if(!ob)return;
-  ob.steps.push({id:uid(),label:'Nova etapa',done:false,responsavel:''});
+  if(!projectAccessGuard(ob,'editar este onboarding'))return;
+  ob.steps.push({id:uid(),label:'Nova etapa',done:false,responsavel:isProjectFounderView()?'':(sessionUser?.nome||'')});
   DB.set('onboarding',obs);
   renderObDetail();
 }
@@ -6874,6 +7103,7 @@ function removeObStep(idx){
   const obs=DB.get('onboarding');
   const ob=obs.find(o=>o.id===currentObId);
   if(!ob)return;
+  if(!projectAccessGuard(ob,'editar este onboarding'))return;
   ob.steps.splice(idx,1);
   DB.set('onboarding',obs);
   renderObDetail();
@@ -6884,6 +7114,7 @@ function addObResp(membId){
   const obs=DB.get('onboarding');
   const ob=obs.find(o=>o.id===currentObId);
   if(!ob)return;
+  if(!projectAccessGuard(ob,'editar este onboarding'))return;
   if(!ob.responsaveis)ob.responsaveis=[];
   if(!ob.responsaveis.includes(membId))ob.responsaveis.push(membId);
   DB.set('onboarding',obs);
@@ -6894,6 +7125,7 @@ function removeObResp(membId){
   const obs=DB.get('onboarding');
   const ob=obs.find(o=>o.id===currentObId);
   if(!ob)return;
+  if(!projectAccessGuard(ob,'editar este onboarding'))return;
   ob.responsaveis=(ob.responsaveis||[]).filter(r=>r!==membId);
   DB.set('onboarding',obs);
   renderObDetail();
@@ -6903,6 +7135,7 @@ function moveObStage(stage){
   const obs=DB.get('onboarding');
   const ob=obs.find(o=>o.id===currentObId);
   if(!ob)return;
+  if(!projectAccessGuard(ob,'mover este onboarding'))return;
   ob.estagio=stage;
   DB.set('onboarding',obs);
   renderObDetail();
@@ -6915,28 +7148,29 @@ function toggleObStep(clienteId,idx){toggleObStep2(idx);}
 
 // Tarefas de Projetos
 function renderTarefasProj(){
-  const tasks=DB.get('tarefas_cli');
+  const tasks=getVisibleProjectTasks();
   const cls=DB.get('clientes');
   const getName=id=>cls.find(c=>c.id===id)?.nome||'—';
   document.getElementById('proj-content').innerHTML=`
     <div class="page-header">
-      <div><div class="page-title">✅ Tarefas</div><div class="page-sub">Todas as tarefas e agendamentos de clientes</div></div>
+      <div><div class="page-title">✅ Tarefas</div><div class="page-sub">${isProjectFounderView()?'Todas as tarefas e agendamentos de clientes':'Somente suas tarefas atribuídas'}</div></div>
       ${can('tarefas','create')?`<button class="btn btn-primary" onclick="openModalTarefaGlobal()">+ Nova Tarefa</button>`:''}
     </div>
     <div class="card">
       <div class="tbl-wrap"><table>
-        <thead><tr><th>Tarefa</th><th>Cliente</th><th>Prazo</th><th>Status</th><th>Ações</th></tr></thead>
+        <thead><tr><th>Tarefa</th><th>Cliente</th><th>Responsável</th><th>Prazo</th><th>Status</th><th>Ações</th></tr></thead>
         <tbody>${tasks.length?tasks.sort((a,b)=>(a.prazo||'').localeCompare(b.prazo||'')).map(t=>`<tr>
           <td style="font-weight:500">${t.desc}</td>
           <td style="color:var(--muted)">${getName(t.clienteId)}</td>
+          <td style="color:var(--muted)">${t.responsavelNome||t.assignedTo||t.responsavel||'—'}</td>
           <td style="color:var(--muted)">${t.prazo?new Date(t.prazo+'T00:00:00').toLocaleDateString('pt-BR'):'—'}</td>
           <td>${badge(t.status)}</td>
           <td><div class="td-actions">
             <button class="btn btn-ghost btn-sm" onclick="toggleTaskGlobal('${t.id}')">${t.status==='Concluída'?'↩ Reabrir':'✓ Concluir'}</button>
             <button class="btn btn-ghost btn-sm btn-icon" onclick="openModalTarefaGlobal('${t.id}')">✏️</button>
-            <button class="btn btn-ghost btn-sm btn-icon" onclick="confirmDelete(()=>{DB.remove('tarefas_cli','${t.id}');renderTarefasProj();toast('Removida','#EF4444')})">🗑️</button>
+            <button class="btn btn-ghost btn-sm btn-icon" onclick="confirmDelete(()=>{if(!projectAccessGuard(t,'excluir esta tarefa'))return;DB.remove('tarefas_cli','${t.id}');renderTarefasProj();toast('Removida','#EF4444')})">🗑️</button>
           </div></td>
-        </tr>`).join(''):`<tr><td colspan="5"><div class="empty"><div class="empty-ico">✅</div><div class="empty-txt">Sem tarefas cadastradas</div></div></td></tr>`}
+        </tr>`).join(''):`<tr><td colspan="6"><div class="empty"><div class="empty-ico">✅</div><div class="empty-txt">Sem tarefas cadastradas</div></div></td></tr>`}
         </tbody>
       </table></div>
     </div>`;
@@ -6945,13 +7179,15 @@ function renderTarefasProj(){
 function toggleTaskGlobal(id){
   const t=DB.find('tarefas_cli',id);
   if(!t)return;
+  if(!projectAccessGuard(t,'alterar esta tarefa'))return;
   DB.update('tarefas_cli',id,{status:t.status==='Concluída'?'Pendente':'Concluída'});
   renderTarefasProj();
 }
 
 function openModalTarefaGlobal(id=null){
   const t=id?DB.find('tarefas_cli',id):null;
-  const cls=DB.get('clientes');
+  if(id&&!projectAccessGuard(t,'editar esta tarefa'))return;
+  const cls=getVisibleClientsForProject();
   document.getElementById('modal-title').textContent=t?'Editar Tarefa':'Nova Tarefa';
   document.getElementById('modal-body').innerHTML=`
     <div class="form-group"><label class="form-label">Descrição da Tarefa *</label>
@@ -6965,6 +7201,7 @@ function openModalTarefaGlobal(id=null){
       <div class="form-group"><label class="form-label">Prazo</label>
         <input class="form-input" id="ftg-prazo" type="date" value="${t?.prazo||''}"></div>
     </div>
+    ${renderProjectResponsibleSelect(t,'ftg-responsavel')}
     <div class="form-group"><label class="form-label">Status</label>
       <select class="form-input" id="ftg-status">
         ${['Pendente','Em andamento','Concluída'].map(s=>`<option ${(t?.status||'Pendente')===s?'selected':''}>${s}</option>`).join('')}
@@ -6979,16 +7216,19 @@ function openModalTarefaGlobal(id=null){
 function saveTarefaGlobal(id){
   const desc=v('ftg-desc');
   if(!desc){toast('Descrição obrigatória','#EF4444');return;}
-  const obj={desc,clienteId:v('ftg-cliente'),prazo:v('ftg-prazo'),status:v('ftg-status')||'Pendente'};
+  const oldTask=id?DB.find('tarefas_cli',id):null;
+  if(id&&!projectAccessGuard(oldTask,'editar esta tarefa'))return;
+  const ownerPick=resolveProjectResponsibleFromForm(oldTask);
+  const obj={desc,clienteId:v('ftg-cliente'),prazo:v('ftg-prazo'),status:v('ftg-status')||'Pendente',...projectOwnerFieldsFromPick(ownerPick)};
   if(id) DB.update('tarefas_cli',id,obj);
-  else DB.push('tarefas_cli',{id:uid(),...obj});
+  else DB.push('tarefas_cli',{id:uid(),...obj,createdById:sessionUser?.id||'',createdByEmail:sessionUser?.email||'',createdBy:sessionUser?.nome||''});
   closeModal();renderTarefasProj();renderInicio();
   toast(id?'Tarefa atualizada ✓':'Tarefa criada ✓','#10B981');
 }
 
 // Agenda de Projetos
 function renderAgendaProj(){
-  const pros=DB.get('projetos').filter(p=>p.prazo).sort((a,b)=>a.prazo.localeCompare(b.prazo));
+  const pros=getVisibleProjects().filter(p=>p.prazo).sort((a,b)=>a.prazo.localeCompare(b.prazo));
   const months=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
   const grouped={};
   pros.forEach(p=>{
@@ -7026,7 +7266,7 @@ function renderAgendaProj(){
 
 // Aprovação de Conteúdo
 function renderAprovacao(){
-  const conts=DB.get('conteudos');
+  const conts=getVisibleContents();
   const pend=conts.filter(c=>c.status==='Pendente'||c.status==='Em revisão');
   const aprov=conts.filter(c=>c.status==='Aprovado');
   const reprov=conts.filter(c=>c.status==='Reprovado');
@@ -7040,7 +7280,7 @@ function renderAprovacao(){
           ${c.status!=='Aprovado'?`<button class="btn btn-sm" style="background:#DCFCE7;color:#166534;border:none" onclick="setConteudo('${c.id}','Aprovado')">✓ Aprovar</button>`:''}
           ${c.status!=='Reprovado'?`<button class="btn btn-sm" style="background:#FEE2E2;color:#991B1B;border:none" onclick="setConteudo('${c.id}','Reprovado')">✕ Reprovar</button>`:''}
           ${c.status==='Reprovado'||c.status==='Aprovado'?`<button class="btn btn-ghost btn-sm" onclick="setConteudo('${c.id}','Pendente')">↩ Pendente</button>`:''}
-          <button class="btn btn-ghost btn-sm btn-icon" onclick="confirmDelete(()=>{DB.remove('conteudos','${c.id}');renderAprovacao();toast('Removido','#EF4444')})">🗑️</button>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="confirmDelete(()=>{if(!projectAccessGuard(c,'excluir este conteúdo'))return;DB.remove('conteudos','${c.id}');renderAprovacao();toast('Removido','#EF4444')})">🗑️</button>
         </div>
       </div>`).join('')||`<div style="text-align:center;padding:20px;color:var(--light);font-size:12px">Nenhum</div>`}
     </div>`;
@@ -7057,12 +7297,14 @@ function renderAprovacao(){
 }
 
 function setConteudo(id,status){
+  const c=DB.find('conteudos',id);
+  if(!projectAccessGuard(c,'alterar este conteúdo'))return;
   DB.update('conteudos',id,{status});renderAprovacao();
   toast(status==='Aprovado'?'Conteúdo aprovado ✓':'Status atualizado','#10B981');
 }
 
 function openModalConteudo(){
-  const cls=DB.get('clientes').map(c=>`<option>${c.nome}</option>`).join('');
+  const cls=getVisibleClientsForProject().map(c=>`<option>${c.nome}</option>`).join('');
   document.getElementById('modal-title').textContent='Novo Conteúdo';
   document.getElementById('modal-body').innerHTML=`
     <div class="form-row">
@@ -7072,7 +7314,7 @@ function openModalConteudo(){
     </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Cliente</label><select class="form-input" id="f-cliente">${cls}</select></div>
-      <div class="form-group"><label class="form-label">Responsável</label><input class="form-input" id="f-resp" placeholder="Nome do responsável"></div>
+      ${renderProjectResponsibleSelect({},'f-resp-select')}
     </div>
     <div class="form-group"><label class="form-label">Data de entrega</label><input class="form-input" id="f-data" type="date" value="${new Date().toISOString().slice(0,10)}"></div>`;
   document.getElementById('modal-footer').innerHTML=`<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveConteudo()">Salvar</button>`;
@@ -7083,7 +7325,8 @@ function openModalConteudo(){
 function saveConteudo(){
   const titulo=document.getElementById('f-titulo')?.value?.trim();
   if(!titulo){toast('Título obrigatório','#EF4444');return}
-  DB.push('conteudos',{id:uid(),titulo,tipo:v('f-tipo'),cliente:v('f-cliente'),responsavel:v('f-resp')||'—',status:'Pendente',data:v('f-data')});
+  const ownerPick=resolveProjectResponsibleFromForm({});
+  DB.push('conteudos',{id:uid(),titulo,tipo:v('f-tipo'),cliente:v('f-cliente'),responsavel:ownerPick.nome||'—',...projectOwnerFieldsFromPick(ownerPick),status:'Pendente',data:v('f-data'),createdById:sessionUser?.id||'',createdByEmail:sessionUser?.email||'',createdBy:sessionUser?.nome||''});
   closeModal();renderAprovacao();toast('Conteúdo adicionado ✓','#10B981');
 }
 
@@ -8195,7 +8438,7 @@ function renderFunnelSelector(){
   ${active&&active.isDefault?'<span class="funnel-default-badge">Padrão</span>':''}`;
 
   const ownerFilterHtml=`<div class="funnel-select-wrap">
-    <select class="funnel-select" id="pipe-responsavel-filter" onchange="renderComercial()" style="min-width:220px">
+    <select class="funnel-select" id="pipe-responsavel-filter" onchange="onCommercialOwnerFilterChange('pipe-responsavel-filter','pipeline')" style="min-width:220px">
       <option value="">Todos os responsáveis</option>
     </select>
     <span class="funnel-select-arrow">▼</span>
@@ -8945,13 +9188,71 @@ const TASK_PRI_CLS={Baixa:'baixa',Média:'media',Alta:'alta',Urgente:'urgente'};
 function getCommercialTasks(){try{return DB.get('com_tasks')||[];}catch{return[];}}
 function saveCommercialTasks(tasks){DB.set('com_tasks',tasks);}
 
+/* ── Segurança de tarefas por usuário ─────────────────────────
+   Fundador visualiza todas as tarefas.
+   Qualquer outro usuário visualiza/edita apenas tarefas atribuídas a ele. */
+function _normTaskIdentity(v){
+  return String(v||'')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+function isFounderTaskAdmin(){
+  try{
+    const role=sessionUser?.permissao||sessionUser?.cargo||sessionUser?.role||'';
+    return isFounderLikeRole ? isFounderLikeRole(role) : _normTaskIdentity(role).includes('fundador');
+  }catch{
+    return _normTaskIdentity(sessionUser?.permissao||sessionUser?.cargo).includes('fundador');
+  }
+}
+function _currentTaskUserKeys(){
+  const u=sessionUser||{};
+  return [
+    u.id,u.user_id,u.uid,u.authId,
+    u.email,u.email_usuario,
+    u.nome,u.name,u.full_name,u.cargoNome
+  ].map(_normTaskIdentity).filter(Boolean);
+}
+function taskBelongsToCurrentUser(task){
+  if(!task) return false;
+  if(isFounderTaskAdmin()) return true;
+  const keys=_currentTaskUserKeys();
+  if(!keys.length) return false;
+  const taskKeys=[
+    task.assignedToId,task.assigned_to_id,task.responsavelId,task.ownerId,task.vendedorId,
+    task.assignedToEmail,task.assigned_to_email,task.responsavelEmail,task.ownerEmail,task.vendedorEmail,
+    task.assignedTo,task.assigned_to,task.responsavel,task.responsavelNome,task.ownerName,task.vendedorNome,
+    task.createdById,task.created_by_id,task.createdByEmail,task.createdBy
+  ].map(_normTaskIdentity).filter(Boolean);
+  return taskKeys.some(k=>keys.includes(k));
+}
+function getVisibleCommercialTasks(){
+  const all=getCommercialTasks();
+  return isFounderTaskAdmin() ? all : all.filter(taskBelongsToCurrentUser);
+}
+function _taskAccessGuard(taskId, action){
+  const task=getCommercialTasks().find(t=>t.id===taskId);
+  if(!task) return null;
+  if(!taskBelongsToCurrentUser(task)){
+    toast(`Você só pode ${action||'acessar'} suas próprias tarefas`,'#EF4444');
+    return null;
+  }
+  return task;
+}
+
 function createCommercialTask(data){
+  const assignedTo=data.assignedTo||sessionUser?.nome||'Usuário';
   const t={id:uid(),title:data.title||'Lembrete',description:data.description||'',
     opportunityId:data.opportunityId||'',opportunityName:data.opportunityName||'',
     contactName:data.contactName||'',companyName:data.companyName||'',
     type:data.type||'Nota',priority:data.priority||'Média',
     dueDate:data.dueDate||'',dueTime:data.dueTime||'',
-    assignedTo:data.assignedTo||sessionUser?.nome||'Everton Galdino',
+    assignedTo,
+    assignedToId:data.assignedToId||data.responsavelId||((assignedTo===sessionUser?.nome)?sessionUser?.id:'')||'',
+    assignedToEmail:data.assignedToEmail||((assignedTo===sessionUser?.nome)?sessionUser?.email:'')||'',
+    createdById:sessionUser?.id||'',
+    createdByEmail:sessionUser?.email||'',
+    createdBy:sessionUser?.nome||'',
     status:'pendente',completed:false,completedAt:null,
     createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
   DB.push('com_tasks',t);
@@ -8960,6 +9261,13 @@ function createCommercialTask(data){
 }
 
 function updateCommercialTask(taskId,data){
+  if(!_taskAccessGuard(taskId,'editar')) return;
+  // Vendedor comum não pode reatribuir tarefa para outro usuário.
+  if(!isFounderTaskAdmin()){
+    data.assignedTo=sessionUser?.nome||data.assignedTo||'Usuário';
+    data.assignedToId=sessionUser?.id||'';
+    data.assignedToEmail=sessionUser?.email||'';
+  }
   const tasks=getCommercialTasks().map(t=>t.id===taskId?{...t,...data,updatedAt:new Date().toISOString()}:t);
   saveCommercialTasks(tasks);
   renderCommercialReminders();
@@ -8967,7 +9275,7 @@ function updateCommercialTask(taskId,data){
 }
 
 function completeCommercialTask(taskId){
-  const task=getCommercialTasks().find(t=>t.id===taskId);
+  const task=_taskAccessGuard(taskId,'concluir');
   if(!task) return;
   updateCommercialTask(taskId,{completed:true,completedAt:new Date().toISOString(),status:'concluida'});
   // Registra no histórico da oportunidade
@@ -8979,11 +9287,13 @@ function completeCommercialTask(taskId){
 }
 
 function reopenCommercialTask(taskId){
+  if(!_taskAccessGuard(taskId,'reabrir')) return;
   updateCommercialTask(taskId,{completed:false,completedAt:null,status:'pendente'});
   toast('Lembrete reaberto','#7C3AED');
 }
 
 function deleteCommercialTask(taskId){
+  if(!_taskAccessGuard(taskId,'excluir')) return;
   const tasks=getCommercialTasks().filter(t=>t.id!==taskId);
   saveCommercialTasks(tasks);
   renderCommercialReminders();
@@ -8992,31 +9302,31 @@ function deleteCommercialTask(taskId){
 }
 
 function getTasksByOpportunity(opportunityId){
-  return getCommercialTasks().filter(t=>t.opportunityId===opportunityId);
+  return getVisibleCommercialTasks().filter(t=>t.opportunityId===opportunityId);
 }
 
 function _today(){return new Date().toISOString().slice(0,10);}
 
 function getTodayTasks(){
   const td=_today();
-  return getCommercialTasks().filter(t=>!t.completed&&t.dueDate===td)
+  return getVisibleCommercialTasks().filter(t=>!t.completed&&t.dueDate===td)
     .sort((a,b)=>(a.dueTime||'').localeCompare(b.dueTime||''));
 }
 
 function getOverdueTasks(){
   const td=_today();
-  return getCommercialTasks().filter(t=>!t.completed&&t.dueDate&&t.dueDate<td)
+  return getVisibleCommercialTasks().filter(t=>!t.completed&&t.dueDate&&t.dueDate<td)
     .sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
 }
 
 function getUpcomingTasks(){
   const td=_today();
-  return getCommercialTasks().filter(t=>!t.completed&&t.dueDate&&t.dueDate>td)
+  return getVisibleCommercialTasks().filter(t=>!t.completed&&t.dueDate&&t.dueDate>td)
     .sort((a,b)=>a.dueDate.localeCompare(b.dueDate));
 }
 
 function getCompletedTasks(){
-  return getCommercialTasks().filter(t=>t.completed)
+  return getVisibleCommercialTasks().filter(t=>t.completed)
     .sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
 }
 
@@ -9185,7 +9495,7 @@ function renderTarefasDia(){
 
 /* ── Modal edição de tarefa ── */
 function openTaskEditModal(taskId){
-  const t=getCommercialTasks().find(x=>x.id===taskId);
+  const t=_taskAccessGuard(taskId,'abrir');
   if(!t) return;
   currentTaskEditId=taskId;
   const members=(DB.get('membros')||[]).map(m=>m.nome).filter(Boolean);
@@ -9205,10 +9515,13 @@ function openTaskEditModal(taskId){
         <select class="form-input" id="te-prio">${TASK_PRIOS.map(p=>`<option ${t.priority===p?'selected':''}>${p}</option>`).join('')}</select></div>
     </div>
     <div class="form-group"><label class="form-label">Responsável</label>
-      <select class="form-input" id="te-resp">
-        <option value="${t.assignedTo||''}">${t.assignedTo||'Everton Galdino'}</option>
-        ${members.filter(m=>m!==(t.assignedTo||'')).map(m=>`<option>${m}</option>`).join('')}
-      </select></div>
+      ${isFounderTaskAdmin()
+        ? `<select class="form-input" id="te-resp">
+            <option value="${t.assignedTo||''}">${t.assignedTo||'Everton Galdino'}</option>
+            ${members.filter(m=>m!==(t.assignedTo||'')).map(m=>`<option>${m}</option>`).join('')}
+          </select>`
+        : `<input class="form-input" id="te-resp" value="${sessionUser?.nome||t.assignedTo||'Usuário'}" readonly>`}
+    </div>
     <div class="form-group"><label class="form-label">Descrição</label>
       <textarea class="form-input" id="te-desc" rows="2">${t.description||''}</textarea></div>
     ${can('comercial','delete')?`<button class="btn btn-ghost" style="color:var(--red);margin-top:4px;font-size:12px" onclick="deleteCommercialTask('${taskId}');closeTaskEditModal()">🗑 Excluir tarefa</button>`:''}`;
@@ -9250,7 +9563,9 @@ function openQuickTaskModal(forceDealId){
   const l=dealId?DB.find('leads',dealId)||{}:{};
   const leads=DB.get('leads')||[];
   const members=(DB.get('membros')||[]).map(m=>m.nome).filter(Boolean);
-  const respOptions=[sessionUser?.nome||'Everton Galdino',...members.filter(m=>m!==(sessionUser?.nome||'Everton Galdino'))];
+  const respOptions=isFounderTaskAdmin()
+    ? [sessionUser?.nome||'Everton Galdino',...members.filter(m=>m!==(sessionUser?.nome||'Everton Galdino'))]
+    : [sessionUser?.nome||'Usuário'];
   const today=new Date().toISOString().slice(0,10);
 
   // Seletor de oportunidade (aparece quando não há deal fixo)
@@ -9283,7 +9598,10 @@ function openQuickTaskModal(forceDealId){
         <select class="form-input" id="qt-prio">${TASK_PRIOS.map(p=>`<option>${p}</option>`).join('')}</select></div>
     </div>
     <div class="form-group"><label class="form-label">Responsável</label>
-      <select class="form-input" id="qt-resp">${respOptions.map(r=>`<option>${r}</option>`).join('')}</select></div>
+      ${isFounderTaskAdmin()
+        ? `<select class="form-input" id="qt-resp">${respOptions.map(r=>`<option>${r}</option>`).join('')}</select>`
+        : `<input class="form-input" id="qt-resp" value="${sessionUser?.nome||'Usuário'}" readonly>`}
+    </div>
     <div class="form-group"><label class="form-label">Descrição</label>
       <textarea class="form-input" id="qt-desc" rows="2" placeholder="Detalhes adicionais..."></textarea></div>`;
   document.getElementById('modal-footer').innerHTML=`
@@ -9315,7 +9633,11 @@ function saveQuickTask(fixedDealId){
     priority:document.getElementById('qt-prio')?.value||'Média',
     dueDate:date,
     dueTime:document.getElementById('qt-time')?.value||'',
-    assignedTo:document.getElementById('qt-resp')?.value||sessionUser?.nome||'Everton Galdino',
+    assignedTo:isFounderTaskAdmin()
+      ? (document.getElementById('qt-resp')?.value||sessionUser?.nome||'Everton Galdino')
+      : (sessionUser?.nome||'Usuário'),
+    assignedToId:isFounderTaskAdmin() ? '' : (sessionUser?.id||''),
+    assignedToEmail:isFounderTaskAdmin() ? '' : (sessionUser?.email||''),
   });
   closeModal();
   renderTarefasDia();
@@ -9376,7 +9698,11 @@ function addDealActivity(){
       priority:document.getElementById('lem-task-prio')?.value||'Média',
       dueDate:lemDate,
       dueTime:document.getElementById('lem-task-time')?.value||'',
-      assignedTo:document.getElementById('lem-task-resp')?.value||sessionUser?.nome||'Everton Galdino',
+      assignedTo:isFounderTaskAdmin()
+        ? (document.getElementById('lem-task-resp')?.value||sessionUser?.nome||'Everton Galdino')
+        : (sessionUser?.nome||'Usuário'),
+      assignedToId:isFounderTaskAdmin() ? '' : (sessionUser?.id||''),
+      assignedToEmail:isFounderTaskAdmin() ? '' : (sessionUser?.email||''),
     });
     renderTarefasDia();
     toast('Atividade salva e lembrete criado ✓','#10B981');
@@ -9450,7 +9776,9 @@ function renderDealMain(){
   const dealTasks=getTasksByOpportunity(currentDealId);
   const pendingDealTasks=dealTasks.filter(t=>!t.completed);
   const members=(DB.get('membros')||[]).map(m=>m.nome).filter(Boolean);
-  const respOptions=[sessionUser?.nome||'Everton Galdino',...members.filter(m=>m!==(sessionUser?.nome||'Everton Galdino'))];
+  const respOptions=isFounderTaskAdmin()
+    ? [sessionUser?.nome||'Everton Galdino',...members.filter(m=>m!==(sessionUser?.nome||'Everton Galdino'))]
+    : [sessionUser?.nome||'Usuário'];
 
   const dealTasksHtml=dealTasks.length?`<div class="deal-tasks-section">
     ${dealTasks.map(tk=>{
@@ -9507,9 +9835,9 @@ function renderDealMain(){
         <div class="form-row" style="gap:10px">
           <div class="form-group" style="flex:1">
             <label class="form-label">Responsável</label>
-            <select class="form-input" id="lem-task-resp">
-              ${respOptions.map(r=>`<option>${r}</option>`).join('')}
-            </select>
+            ${isFounderTaskAdmin()
+              ? `<select class="form-input" id="lem-task-resp">${respOptions.map(r=>`<option>${r}</option>`).join('')}</select>`
+              : `<input class="form-input" id="lem-task-resp" value="${sessionUser?.nome||'Usuário'}" readonly>`}
           </div>
           <div class="form-group" style="flex:2">
             <label class="form-label">Observação</label>
