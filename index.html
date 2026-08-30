@@ -947,6 +947,219 @@ textarea.form-input{resize:vertical;min-height:75px}
 @media(max-width:1100px){.sales-team-summary{grid-template-columns:repeat(2,1fr)}.sales-row{grid-template-columns:34px 1.4fr .9fr .6fr .6fr}.sales-row .hide-sm{display:none}}
 @media(max-width:720px){.sales-team-summary{grid-template-columns:1fr}.sales-row{grid-template-columns:28px 1fr .8fr}.sales-row .hide-xs{display:none}.sales-team-head{flex-direction:column}.sales-team-actions{width:100%}.sales-team-actions .btn,.sales-team-actions select{flex:1}}
 
+
+/* PERMISSÕES V3 — layout limpo, sem corte lateral */
+.modal.modal-permissions{
+  width:min(920px,96vw)!important;
+  max-width:min(920px,96vw)!important;
+  overflow:hidden!important;
+}
+.modal.modal-permissions .modal-body{
+  max-height:calc(92vh - 130px)!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  padding:18px 22px!important;
+}
+.perm-editor-v3{
+  margin-top:14px;
+  padding:14px;
+  background:#F8F7FF;
+  border:1px solid #DDD6FE;
+  border-radius:16px;
+  overflow:hidden;
+}
+.perm-v3-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:14px;
+}
+.perm-v3-title{
+  font-size:11px;
+  font-weight:850;
+  color:#4C1D95;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+}
+.perm-v3-sub{
+  font-size:11px;
+  color:var(--muted);
+  margin-top:4px;
+  line-height:1.45;
+  max-width:620px;
+}
+.perm-v3-actions{
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+.perm-v3-list{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  max-height:560px;
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding-right:4px;
+}
+.perm-v3-section{
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:14px;
+  overflow:hidden;
+}
+.perm-v3-section.active{
+  border-color:rgba(124,58,237,.45);
+  box-shadow:0 5px 18px rgba(124,58,237,.09);
+}
+.perm-v3-section-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 14px;
+  background:#fff;
+  border-bottom:1px solid #F1F1F8;
+}
+.perm-v3-section-left{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-width:0;
+}
+.perm-v3-dot{
+  width:9px;
+  height:9px;
+  border-radius:999px;
+  flex-shrink:0;
+}
+.perm-v3-section-name{
+  font-size:13px;
+  font-weight:850;
+  color:var(--txt);
+  line-height:1.25;
+}
+.perm-v3-count{
+  font-size:10.5px;
+  color:var(--muted);
+  font-weight:650;
+  margin-top:2px;
+}
+.perm-v3-section-actions{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  flex-shrink:0;
+}
+.perm-v3-body{
+  display:none;
+  background:#FAFAFD;
+}
+.perm-v3-body.open{display:block}
+.perm-v3-tab{
+  display:block;
+  padding:12px 14px;
+  border-bottom:1px solid #EFEFF7;
+}
+.perm-v3-tab:last-child{border-bottom:none}
+.perm-v3-tab.on{
+  background:linear-gradient(90deg,rgba(124,58,237,.07),rgba(124,58,237,.015));
+}
+.perm-v3-tab-main{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  width:100%;
+  cursor:pointer;
+  user-select:none;
+}
+.perm-v3-tab-main input{
+  width:17px;
+  height:17px;
+  accent-color:var(--p2);
+  cursor:pointer;
+  flex-shrink:0;
+  margin-top:1px;
+}
+.perm-v3-tab-title{
+  font-size:12.8px;
+  font-weight:850;
+  color:var(--txt);
+  line-height:1.3;
+}
+.perm-v3-tab-desc{
+  font-size:10.8px;
+  color:var(--muted);
+  font-weight:600;
+  margin-top:2px;
+}
+.perm-v3-tab-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin:10px 0 0 27px;
+  max-width:100%;
+}
+.perm-v3-tab:not(.on) .perm-v3-tab-actions{
+  display:none;
+}
+.perm-v3-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  font-size:10.5px;
+  font-weight:800;
+  color:var(--muted);
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:5px 8px;
+  cursor:pointer;
+  user-select:none;
+  line-height:1;
+  white-space:nowrap;
+}
+.perm-v3-chip input{
+  width:12px;
+  height:12px;
+  accent-color:var(--p2);
+  cursor:pointer;
+  flex-shrink:0;
+}
+.perm-v3-chip.on{
+  background:var(--p-light);
+  color:var(--p2);
+  border-color:#DDD6FE;
+}
+.perm-v3-chip.disabled{
+  opacity:.45;
+  cursor:not-allowed;
+  background:#F3F4F6;
+}
+.perm-v3-summary{
+  margin-top:12px;
+  padding:10px 12px;
+  background:#fff;
+  border:1px solid var(--border);
+  border-radius:10px;
+  font-size:11px;
+  color:var(--muted);
+  line-height:1.45;
+}
+.perm-v3-summary b{color:var(--txt)}
+@media(max-width:700px){
+  .modal.modal-permissions{width:98vw!important;max-width:98vw!important}
+  .modal.modal-permissions .modal-body{padding:14px!important}
+  .perm-v3-head{flex-direction:column}
+  .perm-v3-actions,.perm-v3-section-actions{justify-content:flex-start}
+  .perm-v3-section-head{align-items:flex-start;flex-direction:column}
+  .perm-v3-tab-actions{margin-left:0}
+}
+
 </style>
 </head>
 <body>
@@ -3890,91 +4103,89 @@ function togglePermSection(sectionId){
 function renderUserAccessEditor(){
   const wrap=document.getElementById('user-access-editor');
   if(!wrap)return;
+
   const role=resolveRole(document.getElementById('f-permissao')?.value||'Colaborador');
   const isFundadorRole=role==='Fundador';
   const canManage=can('usuarios','manage')||resolveRole(sessionUser?.permissao)==='Fundador';
+
   if(!userPermDraft)userPermDraft=clonePermStateForRole(role,{});
   if(!window.userPermOpenSections)window.userPermOpenSections={};
 
   const disabledAll=isFundadorRole||!canManage;
   const totalTabs=PERMISSION_SECTIONS.reduce((sum,s)=>sum+(s.tabs||[]).length,0);
   const activeTabs=PERMISSION_SECTIONS.reduce((sum,s)=>sum+(s.tabs||[]).filter(t=>!!userPermDraft[t.id]?.view||isFundadorRole).length,0);
-
   const actions=ACTIONS.filter(a=>a!=='view');
+
   const sectionHtml=PERMISSION_SECTIONS.map(section=>{
     const tabs=section.tabs||[];
     const allowedTabs=tabs.filter(t=>!!userPermDraft[t.id]?.view||isFundadorRole).length;
-    const sectionAll=tabs.length && tabs.every(tab=>ACTIONS.every(act=>!!userPermDraft[tab.id]?.[act])) || isFundadorRole;
-    const sectionAny=allowedTabs>0 || isFundadorRole;
+    const sectionAll=!!tabs.length && tabs.every(tab=>!!userPermDraft[tab.id]?.view||isFundadorRole);
+    const sectionAny=allowedTabs>0||isFundadorRole;
     const open=(window.userPermOpenSections[section.id]!==undefined) ? !!window.userPermOpenSections[section.id] : sectionAny;
-    const body=tabs.length ? tabs.map(tab=>{
+
+    const body=tabs.length?tabs.map(tab=>{
       const st=userPermDraft[tab.id]||{};
       const view=!!st.view||isFundadorRole;
-      return `<div class="perm-tab-row ${view?'on':''}">
-        <label class="perm-tab-main">
+      const actHtml=actions.map(act=>{
+        const checked=!!st[act]||isFundadorRole;
+        const disabled=disabledAll||!view;
+        return `<label class="perm-v3-chip ${checked?'on':''} ${disabled?'disabled':''}">
+          <input type="checkbox" data-mod="${tab.id}" data-act="${act}" ${checked?'checked':''} ${disabled?'disabled':''} onchange="onUserPermInputChange(this)">
+          ${ACT_LABELS[act]||act}
+        </label>`;
+      }).join('');
+
+      return `<div class="perm-v3-tab ${view?'on':''}">
+        <label class="perm-v3-tab-main">
           <input type="checkbox" data-mod="${tab.id}" data-act="view" ${view?'checked':''} ${disabledAll?'disabled':''} onchange="onUserPermInputChange(this)">
           <span>
-            ${tab.label}
-            <small>${view?'Aba visível no menu do usuário':'Aba oculta para o usuário'}</small>
+            <div class="perm-v3-tab-title">${tab.label}</div>
+            <div class="perm-v3-tab-desc">${view?'Aba aparece no menu do usuário':'Aba fica oculta para o usuário'}</div>
           </span>
         </label>
-        <div class="perm-tab-actions">
-          ${actions.map(act=>{
-            const checked=!!st[act]||isFundadorRole;
-            const disabled=disabledAll||!view;
-            return `<label class="perm-chip-check ${checked?'on':''} ${disabled?'disabled':''}" title="${ACT_LABELS[act]||act}">
-              <input type="checkbox" data-mod="${tab.id}" data-act="${act}" ${checked?'checked':''} ${disabled?'disabled':''} onchange="onUserPermInputChange(this)">
-              ${ACT_LABELS[act]||act}
-            </label>`;
-          }).join('')}
-        </div>
+        <div class="perm-v3-tab-actions">${actHtml}</div>
       </div>`;
-    }).join('') : `<div class="perm-empty-section">Nenhuma aba cadastrada neste setor.</div>`;
+    }).join(''):`<div class="perm-empty-section">Nenhuma aba cadastrada neste setor.</div>`;
 
-    return `<div class="perm-section-card ${sectionAny?'active':'locked'}">
-      <div class="perm-section-head">
-        <div class="perm-section-name">
-          <span class="perm-dot" style="background:${section.color||'#7C3AED'}"></span>
+    return `<div class="perm-v3-section ${sectionAny?'active':''}">
+      <div class="perm-v3-section-head">
+        <div class="perm-v3-section-left">
+          <span class="perm-v3-dot" style="background:${section.color||'#7C3AED'}"></span>
           <div>
-            <div>${section.label}</div>
-            <small>${allowedTabs}/${tabs.length} abas liberadas</small>
+            <div class="perm-v3-section-name">${section.label}</div>
+            <div class="perm-v3-count">${allowedTabs}/${tabs.length} abas liberadas</div>
           </div>
         </div>
-        <div class="perm-section-actions">
-          <button type="button" class="perm-toggle-btn" onclick="togglePermSection('${section.id}')">${open?'Recolher':'Ver abas'}</button>
-          ${!disabledAll?`<button type="button" class="perm-total-btn" onclick="selectUserSectionAll('${section.id}',${!sectionAll})">${sectionAll?'Limpar setor':'Liberar setor'}</button>`:''}
+        <div class="perm-v3-section-actions">
+          <button type="button" class="perm-mini-btn" onclick="togglePermSection('${section.id}')">${open?'Recolher':'Ver abas'}</button>
+          ${!disabledAll?`<button type="button" class="perm-mini-btn" onclick="selectUserSectionAll('${section.id}',${!sectionAll})">${sectionAll?'Limpar setor':'Liberar setor'}</button>`:''}
         </div>
       </div>
-      <div class="perm-section-body ${open?'open':''}">
+      <div class="perm-v3-body ${open?'open':''}">
         ${body}
       </div>
     </div>`;
   }).join('');
 
   wrap.innerHTML=`
-    <div class="perm-editor perm-editor-v2">
-      <div class="perm-editor-head">
+    <div class="perm-editor-v3">
+      <div class="perm-v3-head">
         <div>
-          <div class="perm-editor-title">Permissões por setor e abas</div>
-          <div class="perm-editor-sub">
-            Selecione exatamente quais <b>setores</b> e <b>abas</b> aparecem para o usuário. 
-            O menu lateral mostrará somente o que estiver liberado — nada aparece bloqueado com cadeado.
+          <div class="perm-v3-title">Permissões por setor e abas</div>
+          <div class="perm-v3-sub">
+            Libere somente as abas que o usuário deve enxergar. O menu lateral vai mostrar apenas o que estiver marcado.
             ${isFundadorRole?'<br><b>Fundador possui acesso total fixo.</b>':''}
           </div>
         </div>
-        <div class="perm-editor-actions">
+        <div class="perm-v3-actions">
           ${!disabledAll?`<button type="button" class="perm-mini-btn" onclick="selectAllUserAccess(true)">Liberar tudo</button>
           <button type="button" class="perm-mini-btn" onclick="resetUserAccessByRole()">Padrão do papel</button>
           <button type="button" class="perm-mini-btn" onclick="selectAllUserAccess(false)">Bloquear tudo</button>`:''}
         </div>
       </div>
-
-      <div class="perm-section-list">
-        ${sectionHtml}
-      </div>
-
-      <div class="perm-editor-summary">
-        <b>${activeTabs}</b> de <b>${totalTabs}</b> abas liberadas. Usuários verão somente as abas permitidas no menu.
+      <div class="perm-v3-list">${sectionHtml}</div>
+      <div class="perm-v3-summary">
+        <b>${activeTabs}</b> de <b>${totalTabs}</b> abas liberadas. O usuário verá somente as abas permitidas no menu.
         ${disabledAll&&!isFundadorRole?' Você não tem permissão para alterar estes acessos.':''}
       </div>
     </div>`;
