@@ -331,6 +331,7 @@ textarea.form-input{resize:vertical;min-height:75px}
 .user-list-av{width:30px;height:30px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .profile-photo-card{display:flex;align-items:center;gap:18px;padding:16px;border:1px solid var(--border);border-radius:14px;background:linear-gradient(135deg,#fff 0%,#FAFAFF 100%);margin-bottom:18px}
 .profile-photo-preview{width:86px;height:86px;border-radius:50%;background:linear-gradient(135deg,var(--p2),#4C1D95);color:#fff;font-size:26px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:4px solid #fff;box-shadow:0 10px 28px rgba(124,58,237,.18);transition:transform .2s,box-shadow .2s}
+.profile-photo-preview img{width:100%;height:100%;object-fit:cover;display:block;border-radius:50%}
 .profile-photo-preview:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(124,58,237,.24)}
 .profile-photo-info{flex:1;min-width:0}
 .profile-photo-name{font-size:17px;font-weight:800;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -3354,13 +3355,84 @@ function escHtml(v){
 }
 function escAttr(v){return escHtml(v).replace(/`/g,'&#96;')}
 
+function getProfileOverrides(){
+  try{return JSON.parse(localStorage.getItem('gx2_profile_overrides')||'{}')||{}}catch(e){return{}}
+}
+function saveProfileOverrides(overrides){
+  localStorage.setItem('gx2_profile_overrides',JSON.stringify(overrides||{}));
+}
+function profileKeysFor(user){
+  const keys=[];
+  if(user?.id)keys.push('id:'+user.id);
+  if(user?.email)keys.push('email:'+String(user.email).toLowerCase());
+  return keys;
+}
+function getProfileOverrideFor(user){
+  const overrides=getProfileOverrides();
+  const keys=profileKeysFor(user);
+  for(const key of keys){
+    if(overrides[key])return overrides[key];
+  }
+  return {};
+}
+function saveProfileOverrideFor(user,data){
+  const overrides=getProfileOverrides();
+  const keys=profileKeysFor(user);
+  const clean={...getProfileOverrideFor(user),...data,updatedAt:new Date().toISOString()};
+  keys.forEach(key=>{overrides[key]=clean});
+  saveProfileOverrides(overrides);
+  return clean;
+}
+function getLocalUserByIdentity(user){
+  if(!user)return null;
+  const users=DB.get('usuarios')||[];
+  return users.find(u=>u.id===user.id)||users.find(u=>u.email&&user.email&&String(u.email).toLowerCase()===String(user.email).toLowerCase())||null;
+}
+function upsertLocalUserProfile(user,data){
+  if(!user)return null;
+  const users=DB.get('usuarios')||[];
+  const idx=users.findIndex(u=>u.id===user.id||(u.email&&user.email&&String(u.email).toLowerCase()===String(user.email).toLowerCase()));
+  const base=idx>=0?users[idx]:{
+    id:user.id||uid(),
+    nome:user.nome||'Usuário',
+    email:user.email||'',
+    cargo:user.cargo||'',
+    permissao:user.permissao||'Colaborador',
+    status:user.status||'Ativo'
+  };
+  const merged={...base,...data,updatedAt:new Date().toISOString()};
+  if(idx>=0)users[idx]=merged; else users.push(merged);
+  DB.set('usuarios',users);
+  return merged;
+}
+function mergeLocalUserProfile(user){
+  if(!user)return null;
+  const localUser=getLocalUserByIdentity(user)||{};
+  const override=getProfileOverrideFor({...user,...localUser});
+  return {...user,...localUser,...override};
+}
 function getCurrentUser(){
   if(!sessionUser)return null;
-  const dbUser=DB.find('usuarios',sessionUser.id);
-  return dbUser?{...sessionUser,...dbUser}:{...sessionUser};
+  return mergeLocalUserProfile(sessionUser);
+}
+function saveCurrentUser(data){
+  if(!sessionUser)return null;
+  const merged={...sessionUser,...data,updatedAt:new Date().toISOString()};
+  saveProfileOverrideFor(merged,data);
+  upsertLocalUserProfile(merged,data);
+  sessionUser=mergeLocalUserProfile(merged)||merged;
+  localStorage.setItem('gx2_session',JSON.stringify({
+    id:sessionUser.id,nome:sessionUser.nome,email:sessionUser.email,
+    permissao:sessionUser.permissao,cargo:sessionUser.cargo,
+    telefone:sessionUser.telefone||'',
+    avatarUrl:sessionUser.avatarUrl||'',
+    avatarBase64:sessionUser.avatarBase64||''
+  }));
+  return sessionUser;
 }
 function getUserAvatar(user){
-  return user?.avatarUrl||user?.avatarBase64||user?.fotoPerfil||user?.photoURL||user?.foto||'';
+  const merged=user?mergeLocalUserProfile(user):null;
+  return merged?.avatarUrl||merged?.avatarBase64||merged?.fotoPerfil||merged?.photoURL||merged?.foto||'';
 }
 function getUserInitials(name){
   const parts=String(name||'U').trim().split(/\s+/).filter(Boolean).slice(0,2);
@@ -3472,8 +3544,7 @@ function removeUserAvatar(){
 
 function renderPerfil(){
   if(!sessionUser)return;
-  const dbUser=DB.find('usuarios',sessionUser.id);
-  if(dbUser)sessionUser={...sessionUser,...dbUser};
+  sessionUser=mergeLocalUserProfile(sessionUser)||sessionUser;
   pendingUserAvatarData=null;
   const role=resolveRole(sessionUser.permissao||sessionUser.cargo||'Colaborador');
   const n=DB.get('clientes').length;
@@ -3568,17 +3639,15 @@ function savePerfilProprio(){
     upd.avatarBase64=pendingUserAvatarData;
   }
 
-  DB.update('usuarios',sessionUser.id,upd);
+  // Salva em duas camadas locais:
+  // 1) tabela local de usuários, quando existir;
+  // 2) override local por id/e-mail, para persistir mesmo em sessão Supabase após atualizar a página.
+  saveCurrentUser(upd);
 
   // Futuro Supabase:
   // await GexSupabase.updateProfile(sessionUser.id, upd);
+  // Se houver avatar, enviar para Supabase Storage e substituir Base64 por URL pública.
 
-  sessionUser={...sessionUser,...upd};
-  localStorage.setItem('gx2_session',JSON.stringify({
-    id:sessionUser.id,nome:sessionUser.nome,email:sessionUser.email,
-    permissao:sessionUser.permissao,cargo:sessionUser.cargo,
-    telefone:sessionUser.telefone,avatarUrl:sessionUser.avatarUrl||''
-  }));
   pendingUserAvatarData=null;
   applySession();
   renderPerfil();
@@ -6293,7 +6362,13 @@ async function doLogin(){
     const u=users.find(u=>u.email.toLowerCase()===email&&(u.senha||'gex@2025')===pass&&u.status==='Ativo');
     if(!u){loginErr('Email ou senha incorretos.');return}
     sessionUser={...u};
-    localStorage.setItem('gx2_session',JSON.stringify({id:u.id,nome:u.nome,permissao:u.permissao,cargo:u.cargo}));
+    const savedUser=mergeLocalUserProfile(u)||u;
+    sessionUser={...savedUser};
+    localStorage.setItem('gx2_session',JSON.stringify({
+      id:savedUser.id,nome:savedUser.nome,email:savedUser.email,
+      permissao:savedUser.permissao,cargo:savedUser.cargo,
+      telefone:savedUser.telefone||'',avatarUrl:savedUser.avatarUrl||'',avatarBase64:savedUser.avatarBase64||''
+    }));
     _onLoginSuccess(btn);
     return;
   }
@@ -6326,10 +6401,11 @@ async function doLogin(){
       return;
     }
 
-    sessionUser={id:data.user.id,email:data.user.email,...profile};
+    sessionUser=mergeLocalUserProfile({id:data.user.id,email:data.user.email,...profile})||{id:data.user.id,email:data.user.email,...profile};
     localStorage.setItem('gx2_session',JSON.stringify({
-      id:sessionUser.id,nome:sessionUser.nome,
-      permissao:sessionUser.permissao,cargo:sessionUser.cargo
+      id:sessionUser.id,nome:sessionUser.nome,email:sessionUser.email,
+      permissao:sessionUser.permissao,cargo:sessionUser.cargo,
+      telefone:sessionUser.telefone||'',avatarUrl:sessionUser.avatarUrl||'',avatarBase64:sessionUser.avatarBase64||''
     }));
     console.log('[GexFlow] ✅ Login bem-sucedido:',sessionUser.nome);
     _onLoginSuccess(btn);
@@ -6361,8 +6437,7 @@ async function doLogout(){
 
 function applySession(){
   if(!sessionUser)return;
-  const dbUser=DB.find('usuarios',sessionUser.id);
-  if(dbUser)sessionUser={...sessionUser,...dbUser};
+  sessionUser=mergeLocalUserProfile(sessionUser)||sessionUser;
 
   const nome=sessionUser.nome||'Usuário';
   const role=resolveRole(sessionUser.permissao||sessionUser.cargo||'Colaborador');
@@ -6413,7 +6488,12 @@ async function checkSession(){
         const profCall=supabaseClient.from('profiles').select('*').eq('id',session.user.id).single();
         const {data:profile,error:perr}=await Promise.race([profCall,profTimeout]);
         if(!perr&&profile&&(profile.status||'Ativo')==='Ativo'){
-          sessionUser={id:session.user.id,email:session.user.email,...profile};
+          sessionUser=mergeLocalUserProfile({id:session.user.id,email:session.user.email,...profile})||{id:session.user.id,email:session.user.email,...profile};
+          localStorage.setItem('gx2_session',JSON.stringify({
+            id:sessionUser.id,nome:sessionUser.nome,email:sessionUser.email,
+            permissao:sessionUser.permissao,cargo:sessionUser.cargo,
+            telefone:sessionUser.telefone||'',avatarUrl:sessionUser.avatarUrl||'',avatarBase64:sessionUser.avatarBase64||''
+          }));
           document.getElementById('login-screen').style.display='none';
           applySession();
           console.log('[GexFlow] ✅ Sessão Supabase restaurada:',sessionUser.nome);
