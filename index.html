@@ -4223,6 +4223,181 @@ function getUnassignedCommercialLeads(leads){
   return (Array.isArray(leads)?leads:[]).filter(l=>!getLeadOwnerId(l)&&!getLeadOwnerName(l));
 }
 
+
+/* ── Filtros de responsável/vendedor para Comercial ── */
+function _ownerFilterNorm(v){return normalizeSalesName(v||'');}
+function _ownerFilterValueFromUser(u){
+  if(!u) return '';
+  const id=String(u.id||u.supabaseId||'').trim();
+  if(id) return 'id:'+id;
+  const name=_ownerFilterNorm(u.nome||u.name||u.email||'');
+  return name?'name:'+encodeURIComponent(name):'';
+}
+function _ownerFilterValueFromLead(l){
+  const id=getLeadOwnerId(l);
+  if(id) return 'id:'+id;
+  const name=_ownerFilterNorm(getLeadOwnerName(l));
+  return name?'name:'+encodeURIComponent(name):'';
+}
+function _ownerFilterLabelFromLead(l){
+  return getLeadOwnerName(l)||'Sem responsável';
+}
+function getCommercialOwnerOptions(ops){
+  ops=Array.isArray(ops)?ops:[];
+  const map=new Map();
+
+  // usuários comerciais cadastrados
+  getCommercialTeamUsers().forEach(u=>{
+    const value=_ownerFilterValueFromUser(u);
+    if(value&&!map.has(value)){
+      map.set(value,{
+        value,
+        label:`${u.nome||u.email||'Usuário'}${u.cargo||u.permissao?' · '+resolveRole(u.permissao||u.cargo):''}`,
+        nome:u.nome||u.email||'Usuário'
+      });
+    }
+  });
+
+  // responsável logado, mesmo se for Fundador e não estiver na lista de vendedores
+  if(sessionUser){
+    const value=_ownerFilterValueFromUser(sessionUser);
+    if(value&&!map.has(value)){
+      map.set(value,{
+        value,
+        label:`${sessionUser.nome||sessionUser.email||'Usuário atual'} · ${resolveRole(sessionUser.permissao||sessionUser.cargo||'Usuário')}`,
+        nome:sessionUser.nome||sessionUser.email||'Usuário atual'
+      });
+    }
+  }
+
+  // responsáveis que já aparecem nas oportunidades
+  ops.forEach(l=>{
+    const value=_ownerFilterValueFromLead(l);
+    if(value&&!map.has(value)){
+      const label=_ownerFilterLabelFromLead(l);
+      map.set(value,{value,label:`${label} · Responsável no CRM`,nome:label});
+    }
+  });
+
+  const hasUnassigned=ops.some(l=>!getLeadOwnerId(l)&&!getLeadOwnerName(l));
+  if(hasUnassigned) map.set('__unassigned',{value:'__unassigned',label:'Sem responsável',nome:'Sem responsável'});
+
+  return [...map.values()].sort((a,b)=>String(a.nome||a.label).localeCompare(String(b.nome||b.label),'pt-BR'));
+}
+
+function populateCommercialOwnerSelect(selectId, ops, defaultLabel){
+  const sel=document.getElementById(selectId);
+  if(!sel) return '';
+  const previous=sel.value||'';
+  const opts=getCommercialOwnerOptions(ops);
+  sel.innerHTML='';
+  sel.appendChild(new Option(defaultLabel||'Todos os responsáveis',''));
+  opts.forEach(o=>sel.appendChild(new Option(o.label,o.value)));
+  const exists=[...sel.options].some(o=>o.value===previous);
+  sel.value=exists?previous:'';
+  return sel.value||'';
+}
+
+function leadMatchesOwnerFilter(lead,filterValue){
+  if(!filterValue) return true;
+  if(filterValue==='__unassigned') return !getLeadOwnerId(lead)&&!getLeadOwnerName(lead);
+
+  const leadId=getLeadOwnerId(lead);
+  const leadName=_ownerFilterNorm(getLeadOwnerName(lead));
+
+  if(filterValue.startsWith('id:')){
+    const target=filterValue.slice(3);
+    if(leadId&&String(leadId)===String(target)) return true;
+    const u=(DB.get('usuarios')||[]).find(x=>String(x.id||x.supabaseId||'')===String(target));
+    if(u&&leadName&&leadName===_ownerFilterNorm(u.nome||u.email||'')) return true;
+    if(sessionUser&&String(sessionUser.id||sessionUser.supabaseId||'')===String(target)&&leadName===_ownerFilterNorm(sessionUser.nome||sessionUser.email||'')) return true;
+    return false;
+  }
+
+  if(filterValue.startsWith('name:')){
+    const target=decodeURIComponent(filterValue.slice(5));
+    return !!(leadName&&leadName===target);
+  }
+
+  // compatibilidade com versões antigas que salvavam o nome puro no select
+  return !!(leadName&&leadName===_ownerFilterNorm(filterValue));
+}
+
+function filterOpportunitiesByOwner(ops,filterValue){
+  ops=Array.isArray(ops)?ops:[];
+  if(!filterValue) return ops;
+  return ops.filter(o=>leadMatchesOwnerFilter(o,filterValue));
+}
+
+function getVisibleSalesUsersForMetrics(leads){
+  let users=getVisibleSalesUsers().slice();
+  const seen=new Set(users.map(u=>String(u.id||u.supabaseId||u.email||u.nome||'').toLowerCase()));
+
+  // Para visão de Fundador/Gerência, adiciona responsáveis encontrados nos leads,
+  // inclusive Fundador ou nomes importados, para o ranking não ficar zerado.
+  if(isSalesManagerView()){
+    (Array.isArray(leads)?leads:[]).forEach(l=>{
+      const id=getLeadOwnerId(l);
+      const nome=getLeadOwnerName(l);
+      if(!id&&!nome)return;
+      const key=String(id||nome).toLowerCase();
+      if(seen.has(key))return;
+      seen.add(key);
+      users.push({
+        id:id||('owner_'+_ownerFilterNorm(nome).replace(/\s+/g,'_')),
+        nome:nome||'Responsável sem nome',
+        cargo:'Responsável no CRM',
+        permissao:'Vendedor'
+      });
+    });
+  }
+
+  return users;
+}
+
+function salesRowFilterValue(user){
+  return _ownerFilterValueFromUser(user);
+}
+function salesRowMatchesFilter(row,filterValue){
+  if(!filterValue) return true;
+  const u=row?.user||{};
+  if(filterValue==='__unassigned') return String(u.id)==='__sem_responsavel';
+  const asUser=salesRowFilterValue(u);
+  if(asUser&&asUser===filterValue) return true;
+  if(filterValue.startsWith('name:')){
+    const target=decodeURIComponent(filterValue.slice(5));
+    return _ownerFilterNorm(u.nome||u.email||'')===target;
+  }
+  if(filterValue.startsWith('id:')&&String(u.id||u.supabaseId||'')===filterValue.slice(3))return true;
+  return false;
+}
+
+function openCommercialOwnerPipeline(filterValue){
+  navigateSub('comercial','comercial');
+  switchComTab('pipeline');
+  setTimeout(()=>{
+    const sel=document.getElementById('pipe-responsavel-filter');
+    if(sel){
+      const exists=[...sel.options].some(o=>o.value===filterValue);
+      if(exists) sel.value=filterValue;
+    }
+    renderComercial();
+  },0);
+}
+
+function openCommercialOwnerReport(filterValue){
+  navigateSub('comercial','relatorio-comercial');
+  switchComTab('relatorio');
+  setTimeout(()=>{
+    const sel=document.getElementById('rel-responsavel');
+    if(sel){
+      const exists=[...sel.options].some(o=>o.value===filterValue);
+      if(exists) sel.value=filterValue;
+    }
+    renderRelatorioComercial();
+  },0);
+}
+
 function renderLeadOwnerSelect(d={}){
   const users=getCommercialTeamUsers();
   const currentRole=resolveRole(sessionUser?.permissao||'Colaborador');
@@ -4287,13 +4462,13 @@ function leadInSalesPeriod(lead,period){
   return salesDateInPeriod(lead?.dataInicio||lead?.createdAt||lead?.created_at||lead?.dataCriacao,period);
 }
 
-function getSalesTeamMetrics(period='mes'){
+function getSalesTeamMetrics(period='todos'){
   ensureDefaultCommercialFunnel();
   migrateOldOpportunitiesToDefaultFunnel();
 
   const allLeads=(DB.get('leads')||[]).filter(l=>leadInSalesPeriod(l,period));
   const visibleLeads=getVisibleCommercialLeads(allLeads);
-  const users=getVisibleSalesUsers();
+  const users=getVisibleSalesUsersForMetrics(visibleLeads);
   const activities=DB.get('atividades')||[];
   const tasks=getCommercialTasks?getCommercialTasks():[];
 
@@ -4392,7 +4567,7 @@ function renderSalesTeamHome(){
     if(charts)charts.insertAdjacentElement('afterend',sec);
     else page.appendChild(sec);
   }
-  const period='mes';
+  const period='todos';
   const rows=getSalesTeamMetrics(period);
   const sum=getSalesSummary(rows);
   const title=isSalesManagerView()?'Performance Comercial por Vendedor':'Minha Performance Comercial';
@@ -4425,8 +4600,10 @@ function renderSalesTeamDashboard(){
     el.innerHTML=`<div class="access-denied"><div class="access-denied-icon">🔒</div><div class="access-denied-title">Sem acesso ao Comercial</div><div class="access-denied-sub">Você não tem permissão para visualizar performance comercial.</div></div>`;
     return;
   }
-  const period=document.getElementById('sales-team-period')?.value||'mes';
-  const rows=getSalesTeamMetrics(period);
+  const period=document.getElementById('sales-team-period')?.value||'todos';
+  const userFilter=document.getElementById('sales-team-user-filter')?.value||'';
+  const allRows=getSalesTeamMetrics(period);
+  const rows=userFilter?allRows.filter(r=>salesRowMatchesFilter(r,userFilter)):allRows;
   const sum=getSalesSummary(rows);
   const title=isSalesManagerView()?'Equipe Comercial':'Minha Performance Comercial';
 
@@ -4439,8 +4616,12 @@ function renderSalesTeamDashboard(){
   <div class="sales-filter-bar">
     <span class="rel-filter-lbl">📅 Período</span>
     <select id="sales-team-period" class="rel-sel" onchange="renderSalesTeamDashboard()">
-      ${['mes','30dias','90dias','ano','todos'].map(p=>`<option value="${p}" ${p===period?'selected':''}>${salesPeriodLabel(p)}</option>`).join('')}
+      ${['todos','mes','30dias','90dias','ano'].map(p=>`<option value="${p}" ${p===period?'selected':''}>${salesPeriodLabel(p)}</option>`).join('')}
     </select>
+    ${isSalesManagerView()?`<select id="sales-team-user-filter" class="rel-sel" onchange="renderSalesTeamDashboard()">
+      <option value="">Todos os vendedores</option>
+      ${allRows.map(r=>`<option value="${escAttr(salesRowFilterValue(r.user))}" ${userFilter===salesRowFilterValue(r.user)?'selected':''}>${escHtml(r.user.nome||'Vendedor')}</option>`).join('')}
+    </select>`:''}
     <button class="btn btn-primary btn-sm" onclick="renderSalesTeamDashboard()">↻ Atualizar</button>
   </div>
   <div class="sales-team-card" style="margin-bottom:14px">
@@ -4470,9 +4651,13 @@ function renderSalesTeamDashboard(){
           <div class="sales-card-kpi"><div class="sales-card-kpi-lbl">Pipeline ativo</div><div class="sales-card-kpi-val">${fmtBRL(r.pipelineAtivo)}</div></div>
           <div class="sales-card-kpi"><div class="sales-card-kpi-lbl">Ciclo médio</div><div class="sales-card-kpi-val">${r.ciclo!==null?r.ciclo+' dias':'—'}</div></div>
         </div>
-        <div class="sales-card-footer">
+        <div class="sales-card-footer" style="flex-wrap:wrap">
           <span>${r.leads} leads · ${r.ativos} ativos · ${r.perdidos} perdidos</span>
           <span>${r.pendentes} tarefas pend.</span>
+          ${isSalesManagerView()?`<div style="display:flex;gap:6px;width:100%;margin-top:6px">
+            <button class="btn btn-ghost btn-sm" style="font-size:11px;flex:1;justify-content:center" onclick="openCommercialOwnerPipeline('${escAttr(salesRowFilterValue(r.user))}')">Ver oportunidades</button>
+            <button class="btn btn-ghost btn-sm" style="font-size:11px;flex:1;justify-content:center" onclick="openCommercialOwnerReport('${escAttr(salesRowFilterValue(r.user))}')">Ver relatório</button>
+          </div>`:''}
         </div>
       </div>`).join(''):`<div class="sales-team-empty sales-team-card">Nenhum vendedor ou lead vinculado neste período.</div>`}
   </div>`;
@@ -4504,9 +4689,11 @@ function renderComercial(){
     : getActiveFunnelStages();
 
   const allLeads=getVisibleCommercialLeads(DB.get('leads')||[]);
-  const funnelLeads=activeFunnel
+  const ownerFilter=populateCommercialOwnerSelect('pipe-responsavel-filter', allLeads, 'Todos os responsáveis');
+  const funnelLeadsBase=activeFunnel
     ? allLeads.filter(l=>l.funnelId===activeFunnel.id||(activeFunnel.isDefault&&!l.funnelId))
     : allLeads;
+  const funnelLeads=filterOpportunitiesByOwner(funnelLeadsBase, ownerFilter);
 
   const total=funnelLeads.reduce((a,l)=>a+(+l.valor||0),0);
   const wonStage=stages.find(s=>s.isWon)||stages.find(s=>String(s.name).toLowerCase().includes('fecha'))||stages[stages.length-1];
@@ -4845,23 +5032,13 @@ function renderRelatorioComercial(){
 
   const period=document.getElementById('rel-periodo')?.value||'todos';
   const funnelFilter=renderRelatorioFunnelOptions();
-  const respFilter=document.getElementById('rel-responsavel')?.value||'';
-
   let ops=getCommercialOpportunities();
   ops=filterOpportunitiesByReportFunnel(ops,funnelFilter);
   ops=filterOpportunitiesByPeriod(ops,period);
 
-  // Popular select de responsáveis com base no funil/período selecionado
-  const relResp=document.getElementById('rel-responsavel');
-  if(relResp){
-    const cur=relResp.value;
-    const resps=[...new Set(ops.map(o=>o.responsavel||o.owner||o.vendedor||'').filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),'pt-BR'));
-    relResp.innerHTML='<option value="">Todos os responsáveis</option>'+resps.map(r=>`<option value="${r}" ${cur===r?'selected':''}>${r}</option>`).join('');
-    if(cur&&resps.includes(cur)) relResp.value=cur;
-    else relResp.value='';
-  }
-
-  if(respFilter) ops=ops.filter(o=>(o.responsavel||o.owner||o.vendedor||'').toLowerCase()===respFilter.toLowerCase());
+  // Popular e aplicar filtro de responsável/vendedor com suporte a ID, nome e leads antigos.
+  const respFilter=populateCommercialOwnerSelect('rel-responsavel', ops, 'Todos os responsáveis');
+  if(respFilter) ops=filterOpportunitiesByOwner(ops,respFilter);
 
   const wonOps=ops.filter(isWonOpportunity);
   const lostOps=ops.filter(isLostOpportunity);
@@ -7121,6 +7298,13 @@ function renderFunnelSelector(){
   </div>
   ${active&&active.isDefault?'<span class="funnel-default-badge">Padrão</span>':''}`;
 
+  const ownerFilterHtml=`<div class="funnel-select-wrap">
+    <select class="funnel-select" id="pipe-responsavel-filter" onchange="renderComercial()" style="min-width:220px">
+      <option value="">Todos os responsáveis</option>
+    </select>
+    <span class="funnel-select-arrow">▼</span>
+  </div>`;
+
   const btnsHtml=`<div class="funnel-bar-btns">
     ${canCreate?`<button class="fbtn fbtn-primary" onclick="openFunnelModal('new')">+ Novo Funil</button>`:''}
     ${canEdit&&active?`<button class="fbtn" onclick="openFunnelModal('edit','${active.id}')">✏️ Editar Funil</button>`:''}
@@ -7129,7 +7313,8 @@ function renderFunnelSelector(){
     ${canEdit?`<button class="fbtn" onclick="openArchivedFunnelsModal()">🗂️ Arquivados ${getCommercialFunnels().filter(f=>f&&f.isArchived).length?`(${getCommercialFunnels().filter(f=>f&&f.isArchived).length})`:''}</button>`:''}
   </div>`;
 
-  bar.innerHTML=selectHtml+btnsHtml;
+  bar.innerHTML=selectHtml+ownerFilterHtml+btnsHtml;
+  populateCommercialOwnerSelect('pipe-responsavel-filter', getVisibleCommercialLeads(DB.get('leads')||[]), 'Todos os responsáveis');
 }
 
 function onFunnelSelectChange(id){
