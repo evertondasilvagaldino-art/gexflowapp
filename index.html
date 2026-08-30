@@ -5746,14 +5746,18 @@ async function doLogin(){
   // ── 1. Supabase Auth (com timeout de 4s para evitar trava em ambientes com CSP) ──
   if(supabaseClient){
     try{
-      const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),2000));
+      const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000));
       const authCall=supabaseClient.auth.signInWithPassword({email,password:pass});
       const {data,error}=await Promise.race([authCall,timeout]);
       if(error){
-        console.warn('[GexFlow] Supabase auth falhou, tentando demo local:',error.message);
+        // Supabase respondeu com erro de autenticação — mostrar e parar (não cair no demo local)
+        errEl.textContent='Email ou senha incorretos. Verifique suas credenciais.';
+        errEl.classList.add('show');
+        if(btn){btn.textContent='Entrar no sistema';btn.disabled=false}
+        return;
       } else {
         // Buscar perfil na tabela profiles (também com timeout)
-        const profTimeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),2000));
+        const profTimeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000));
         const profCall=supabaseClient.from('profiles').select('*').eq('id',data.user.id).single();
         const {data:profile,error:perr}=await Promise.race([profCall,profTimeout]);
         if(perr||!profile){
