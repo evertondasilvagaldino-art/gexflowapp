@@ -629,6 +629,15 @@ textarea.form-input{resize:vertical;min-height:75px}
 .fm-color-swatch{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .12s}
 .fm-color-swatch:hover{transform:scale(1.2);border-color:rgba(0,0,0,.2)}
 .fm-color-swatch.selected{border-color:#1A1A2E}
+
+/* ─── Funis Arquivados ─── */
+.archived-funnel-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#FAFAFD;border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+.archived-funnel-info{min-width:0}
+.archived-funnel-name{font-size:13px;font-weight:800;color:var(--txt);display:flex;align-items:center;gap:6px}
+.archived-funnel-meta{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.35}
+.archived-funnel-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.archived-empty{padding:26px 16px;text-align:center;color:var(--muted);background:#FAFAFD;border:1px dashed var(--border);border-radius:12px}
+
 /* pipe-col animation */
 @keyframes colEnter{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .pipe-col{animation:colEnter .22s ease both}
@@ -1386,6 +1395,24 @@ textarea.form-input{resize:vertical;min-height:75px}
     <div class="fm-footer">
       <button class="btn btn-ghost" onclick="closeFunnelModal()">Cancelar</button>
       <button class="btn btn-primary" id="fm-save-btn" onclick="saveFunnelModal()">Criar Funil</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- FUNIS ARQUIVADOS MODAL -->
+<div class="fm-overlay" id="archived-funnels-ov" onclick="if(event.target===this)closeArchivedFunnelsModal()">
+  <div class="fm-box" onclick="event.stopPropagation()">
+    <div class="fm-header">
+      <div>
+        <div class="fm-title">📦 Funis Arquivados</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:3px">Restaure ou exclua definitivamente funis que foram arquivados.</div>
+      </div>
+      <button class="modal-close" onclick="closeArchivedFunnelsModal()">✕</button>
+    </div>
+    <div class="fm-body" id="archived-funnels-body"></div>
+    <div class="fm-footer">
+      <button class="btn btn-ghost" onclick="closeArchivedFunnelsModal()">Fechar</button>
     </div>
   </div>
 </div>
@@ -6996,6 +7023,7 @@ function renderFunnelSelector(){
     ${canEdit&&active?`<button class="fbtn" onclick="openFunnelModal('edit','${active.id}')">✏️ Editar Funil</button>`:''}
     ${canCreate&&active?`<button class="fbtn" onclick="duplicateCommercialFunnel('${active.id}')">⧉ Duplicar</button>`:''}
     ${canEdit&&active&&!active.isDefault?`<button class="fbtn fbtn-danger" onclick="confirmArchiveFunnel('${active.id}')">📦 Arquivar</button>`:''}
+    ${canEdit?`<button class="fbtn" onclick="openArchivedFunnelsModal()">🗂️ Arquivados ${getCommercialFunnels().filter(f=>f&&f.isArchived).length?`(${getCommercialFunnels().filter(f=>f&&f.isArchived).length})`:''}</button>`:''}
   </div>`;
 
   bar.innerHTML=selectHtml+btnsHtml;
@@ -7012,6 +7040,146 @@ function confirmArchiveFunnel(id){
   if(!f) return;
   if(confirm(`Arquivar "${f.name}"? O funil ficará oculto mas as oportunidades serão mantidas.`)) archiveCommercialFunnel(id);
 }
+
+
+function getFunnelLeadCount(funnelId){
+  try{
+    return (DB.get('leads')||[]).filter(l=>l&&l.funnelId===funnelId).length;
+  }catch(e){return 0;}
+}
+
+function openArchivedFunnelsModal(){
+  renderArchivedFunnelsModal();
+  const ov=document.getElementById('archived-funnels-ov');
+  if(ov) ov.classList.add('open');
+}
+
+function closeArchivedFunnelsModal(){
+  const ov=document.getElementById('archived-funnels-ov');
+  if(ov) ov.classList.remove('open');
+}
+
+function renderArchivedFunnelsModal(){
+  const body=document.getElementById('archived-funnels-body');
+  if(!body) return;
+
+  const archived=getCommercialFunnels()
+    .filter(f=>f&&f.isArchived)
+    .sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+
+  const canEditFunnel=can('comercial','edit');
+  const canDeleteFunnel=can('comercial','delete');
+
+  if(!archived.length){
+    body.innerHTML=`<div class="archived-empty">
+      <div style="font-size:28px;margin-bottom:8px">🗂️</div>
+      <div style="font-weight:800;color:var(--txt);margin-bottom:3px">Nenhum funil arquivado</div>
+      <div>Quando você arquivar um funil no Comercial, ele aparecerá aqui para restaurar ou excluir.</div>
+    </div>`;
+    return;
+  }
+
+  body.innerHTML=`
+    <div style="font-size:12px;color:var(--muted);line-height:1.45;margin-bottom:10px">
+      Funis arquivados ficam ocultos no Pipeline e no Relatório Comercial. Você pode restaurar ou excluir definitivamente.
+      Se houver oportunidades dentro de um funil excluído, elas serão movidas para o funil padrão.
+    </div>
+    ${archived.map(f=>{
+      const count=getFunnelLeadCount(f.id);
+      const stages=Array.isArray(f.stages)?f.stages.length:0;
+      const updated=f.updatedAt?new Date(f.updatedAt).toLocaleString('pt-BR'):'—';
+      return `<div class="archived-funnel-summary">
+        <div class="archived-funnel-info">
+          <div class="archived-funnel-name">📦 ${f.name||'Funil sem nome'}</div>
+          <div class="archived-funnel-meta">${count} oportunidade(s) • ${stages} etapa(s) • arquivado/atualizado em ${updated}</div>
+        </div>
+        <div class="archived-funnel-actions">
+          ${canEditFunnel?`<button class="btn btn-ghost btn-sm" onclick="restoreArchivedFunnel('${f.id}')">↩ Restaurar</button>`:''}
+          ${canDeleteFunnel?`<button class="btn btn-danger btn-sm" onclick="confirmDeleteArchivedFunnel('${f.id}')">🗑️ Excluir</button>`:''}
+        </div>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+function restoreArchivedFunnel(funnelId){
+  if(!can('comercial','edit')){
+    toast('Você não tem permissão para restaurar funis','#EF4444');
+    return;
+  }
+  const funnels=getCommercialFunnels();
+  const f=funnels.find(x=>x.id===funnelId);
+  if(!f){toast('Funil não encontrado','#EF4444');return;}
+  f.isArchived=false;
+  f.updatedAt=new Date().toISOString();
+  saveCommercialFunnels(funnels);
+  setActiveFunnelId(funnelId);
+  toast('Funil restaurado ✓','#10B981');
+  renderArchivedFunnelsModal();
+  renderFunnelSelector();
+  renderComercial();
+}
+
+function confirmDeleteArchivedFunnel(funnelId){
+  const f=getCommercialFunnels().find(x=>x.id===funnelId);
+  if(!f){toast('Funil não encontrado','#EF4444');return;}
+  const leadCount=getFunnelLeadCount(funnelId);
+  const msg=leadCount
+    ? `Excluir definitivamente "${f.name}"?\n\nEsse funil tem ${leadCount} oportunidade(s). Elas serão movidas para o funil padrão antes da exclusão.`
+    : `Excluir definitivamente "${f.name}"?\n\nEssa ação não pode ser desfeita.`;
+  if(confirm(msg)) deleteArchivedFunnel(funnelId,{moveLeadsToDefault:true});
+}
+
+function deleteArchivedFunnel(funnelId,opts={}){
+  if(!can('comercial','delete')){
+    toast('Você não tem permissão para excluir funis','#EF4444');
+    return;
+  }
+
+  let funnels=getCommercialFunnels();
+  const target=funnels.find(f=>f.id===funnelId);
+  if(!target){toast('Funil não encontrado','#EF4444');return;}
+  if(target.isDefault){toast('Não é possível excluir o funil padrão','#F59E0B');return;}
+  if(!target.isArchived){toast('Arquive o funil antes de excluir definitivamente','#F59E0B');return;}
+
+  const defaultFunnel=funnels.find(f=>f.isDefault&&!f.isArchived) || funnels.find(f=>!f.isArchived&&f.id!==funnelId);
+  if(!defaultFunnel){
+    toast('Crie ou restaure um funil ativo antes de excluir este funil','#EF4444');
+    return;
+  }
+
+  const defaultStage=(defaultFunnel.stages||[]).find(s=>!s.isLost) || (defaultFunnel.stages||[])[0];
+  if(!defaultStage){
+    toast('O funil padrão não possui etapas válidas','#EF4444');
+    return;
+  }
+
+  const leads=DB.get('leads')||[];
+  let moved=0;
+  leads.forEach(l=>{
+    if(l&&l.funnelId===funnelId){
+      l.funnelId=defaultFunnel.id;
+      l.stageId=defaultStage.id;
+      l.estagio=defaultStage.name;
+      l.stage=defaultStage.name;
+      l.status=defaultStage.name;
+      l.updatedAt=new Date().toISOString();
+      moved++;
+    }
+  });
+  if(moved) DB.set('leads',leads);
+
+  funnels=funnels.filter(f=>f.id!==funnelId);
+  saveCommercialFunnels(funnels);
+
+  if(getActiveFunnelId()===funnelId) setActiveFunnelId(defaultFunnel.id);
+
+  toast(moved?`Funil excluído. ${moved} oportunidade(s) movida(s) para "${defaultFunnel.name}".`:'Funil excluído definitivamente','#EF4444');
+  renderArchivedFunnelsModal();
+  renderFunnelSelector();
+  renderComercial();
+}
+
 
 // ── Funnel Manager Modal ──────────────────────────────────────
 
