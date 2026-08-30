@@ -8235,8 +8235,6 @@ function renderPerfil(){
   const telefone=sessionUser.telefone||sessionUser.phone||'';
   const avatarInner=getAvatarInner(sessionUser);
   const hasAvatar=!!getUserAvatar(sessionUser);
-  const accountStatus=sessionUser.status||'Ativo';
-  const canOpenBilling = typeof canViewConfigTab==='function' ? canViewConfigTab('config-pagamentos') : isFundador;
 
   document.getElementById('perfil-content').innerHTML=`
     <div class="page-header">
@@ -8249,7 +8247,7 @@ function renderPerfil(){
         Sair da conta
       </button>
     </div>
-    <div class="grid-2">
+    <div class="grid-2" style="grid-template-columns:minmax(0,1fr);max-width:980px">
       <div>
         <div class="card card-pad" style="margin-bottom:14px">
           <div class="profile-photo-card">
@@ -8283,33 +8281,6 @@ function renderPerfil(){
           </div>
           <button class="btn btn-ghost" onclick="savePerfilSenha()" style="width:100%;justify-content:center;margin-bottom:8px">Alterar senha</button>
           <button class="btn btn-danger" onclick="doLogout()" style="width:100%;justify-content:center">Sair da conta</button>
-        </div>
-      </div>
-      <div>
-        <div class="card card-pad" style="margin-bottom:14px">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px">
-            <div>
-              <div style="font-size:14px;font-weight:800">Conta do usuário</div>
-              <div style="font-size:12px;color:var(--muted)">Informações reais do acesso logado</div>
-            </div>
-            <span class="badge ok">Supabase</span>
-          </div>
-          <div class="cfg-kv" style="grid-template-columns:1fr">
-            <div class="cfg-kv-card"><div class="cfg-kv-lbl">Tipo de acesso</div><div class="cfg-kv-val">${escHtml(role)}</div></div>
-            <div class="cfg-kv-card"><div class="cfg-kv-lbl">Status</div><div class="cfg-kv-val">${escHtml(accountStatus)}</div></div>
-            <div class="cfg-kv-card"><div class="cfg-kv-lbl">Fonte dos dados</div><div class="cfg-kv-val">Auth + profiles</div></div>
-            <div class="cfg-kv-card"><div class="cfg-kv-lbl">Sincronização</div><div class="cfg-kv-val">Banco em nuvem</div></div>
-          </div>
-        </div>
-        <div class="card card-pad">
-          <div style="font-size:14px;font-weight:800;margin-bottom:8px">Cobrança e venda de acessos</div>
-          <div style="font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:14px">
-            Removi o cartão de plano fictício, os dias de teste e a barrinha de clientes desta tela.
-            A cobrança real ficará centralizada em <b>Configurações → Pagamentos</b>, preparada para quando você começar a vender acessos.
-          </div>
-          <button class="btn btn-primary" onclick="navigateSub('config-pagamentos','configuracoes')" ${canOpenBilling?'':'disabled'} style="width:100%;justify-content:center">
-            Abrir configurações de pagamento
-          </button>
         </div>
       </div>
     </div>`;
