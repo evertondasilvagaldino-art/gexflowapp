@@ -1160,6 +1160,146 @@ textarea.form-input{resize:vertical;min-height:75px}
   .perm-v3-tab-actions{margin-left:0}
 }
 
+
+/* =========================================================
+   FIX DEFINITIVO — MODAL DE PERMISSÕES COM SCROLL LATERAL
+   Mantém cabeçalho e rodapé visíveis e cria uma barra de
+   rolagem interna no card de permissões.
+   ========================================================= */
+.modal.modal-permissions{
+  width:min(1040px,96vw)!important;
+  max-width:min(1040px,96vw)!important;
+  max-height:94vh!important;
+  display:flex!important;
+  flex-direction:column!important;
+  overflow:hidden!important;
+}
+
+.modal.modal-permissions .modal-header,
+.modal.modal-permissions .modal-footer{
+  flex:0 0 auto!important;
+  position:relative!important;
+  z-index:5!important;
+}
+
+.modal.modal-permissions .modal-body{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  padding:18px 22px!important;
+  scrollbar-gutter:stable!important;
+}
+
+/* O card de permissões passa a ter rolagem própria e visível */
+.modal.modal-permissions .perm-editor-v3{
+  display:flex!important;
+  flex-direction:column!important;
+  max-height:calc(94vh - 285px)!important;
+  min-height:360px!important;
+  overflow:hidden!important;
+}
+
+.modal.modal-permissions .perm-v3-head{
+  flex:0 0 auto!important;
+}
+
+.modal.modal-permissions .perm-v3-list{
+  flex:1 1 auto!important;
+  min-height:260px!important;
+  max-height:none!important;
+  overflow-y:scroll!important;
+  overflow-x:hidden!important;
+  padding-right:10px!important;
+  margin-right:-4px!important;
+  scrollbar-gutter:stable!important;
+}
+
+.modal.modal-permissions .perm-v3-summary{
+  flex:0 0 auto!important;
+}
+
+/* Barra lateral mais visível */
+.modal.modal-permissions .modal-body::-webkit-scrollbar,
+.modal.modal-permissions .perm-v3-list::-webkit-scrollbar{
+  width:10px;
+}
+
+.modal.modal-permissions .modal-body::-webkit-scrollbar-track,
+.modal.modal-permissions .perm-v3-list::-webkit-scrollbar-track{
+  background:#F1F0FA;
+  border-radius:999px;
+}
+
+.modal.modal-permissions .modal-body::-webkit-scrollbar-thumb,
+.modal.modal-permissions .perm-v3-list::-webkit-scrollbar-thumb{
+  background:#BFA7FF;
+  border-radius:999px;
+  border:2px solid #F1F0FA;
+}
+
+.modal.modal-permissions .modal-body::-webkit-scrollbar-thumb:hover,
+.modal.modal-permissions .perm-v3-list::-webkit-scrollbar-thumb:hover{
+  background:#7C3AED;
+}
+
+/* Firefox */
+.modal.modal-permissions .modal-body,
+.modal.modal-permissions .perm-v3-list{
+  scrollbar-width:thin;
+  scrollbar-color:#BFA7FF #F1F0FA;
+}
+
+/* Evita corte lateral nos botões/chips */
+.modal.modal-permissions .perm-v3-section-head{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  align-items:center!important;
+}
+
+.modal.modal-permissions .perm-v3-section-left,
+.modal.modal-permissions .perm-v3-tab-main span{
+  min-width:0!important;
+}
+
+.modal.modal-permissions .perm-v3-section-actions,
+.modal.modal-permissions .perm-v3-tab-actions,
+.modal.modal-permissions .perm-v3-actions{
+  max-width:100%!important;
+  flex-wrap:wrap!important;
+}
+
+.modal.modal-permissions .perm-v3-tab-actions{
+  justify-content:flex-start!important;
+}
+
+.modal.modal-permissions .perm-v3-chip{
+  white-space:nowrap!important;
+}
+
+/* Mobile/tablet: modal usa a altura da tela e a lista fica menor */
+@media(max-width:760px){
+  .modal.modal-permissions{
+    width:98vw!important;
+    max-width:98vw!important;
+    max-height:96vh!important;
+  }
+  .modal.modal-permissions .modal-body{
+    padding:14px!important;
+  }
+  .modal.modal-permissions .perm-editor-v3{
+    max-height:calc(96vh - 330px)!important;
+    min-height:320px!important;
+  }
+  .modal.modal-permissions .perm-v3-section-head{
+    grid-template-columns:1fr!important;
+  }
+  .modal.modal-permissions .perm-v3-section-actions{
+    justify-content:flex-start!important;
+  }
+}
+
 </style>
 </head>
 <body>
