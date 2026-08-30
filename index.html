@@ -362,6 +362,32 @@ tr:hover td{background:#FAFAFD}
 @media(max-width:1120px){.int-layout{grid-template-columns:1fr}.int-core-grid{grid-template-columns:1fr 1fr}.int-stats{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:720px){.int-hero-in{flex-direction:column;align-items:flex-start}.int-core-grid,.int-stats,.int-form-grid{grid-template-columns:1fr}.int-toolbar{align-items:stretch}.int-search,.int-select{width:100%;min-width:0}}
 
+
+/* RESULTADO REAL DOS TESTES DE INTEGRAÇÃO */
+.int-test-result{padding:14px}
+.int-test-empty{padding:22px 14px;text-align:center;color:var(--muted);font-size:12px;line-height:1.45}
+.int-test-card{border:1px solid var(--border);border-radius:14px;background:linear-gradient(180deg,#fff,#FAFAFF);padding:14px;margin-bottom:10px}
+.int-test-card.success{border-color:#A7F3D0;background:linear-gradient(180deg,#F0FDF4,#fff)}
+.int-test-card.error{border-color:#FECACA;background:linear-gradient(180deg,#FEF2F2,#fff)}
+.int-test-card.warn{border-color:#FED7AA;background:linear-gradient(180deg,#FFF7ED,#fff)}
+.int-test-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}
+.int-test-title{font-size:13px;font-weight:850;color:var(--txt)}
+.int-test-time{font-size:10.5px;color:var(--muted);white-space:nowrap}
+.int-test-msg{font-size:12px;color:var(--muted);line-height:1.45;margin-bottom:10px}
+.int-test-metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.int-test-metric{background:#fff;border:1px solid var(--border);border-radius:10px;padding:9px 10px}
+.int-test-metric-lbl{font-size:9.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.int-test-metric-val{font-size:14px;font-weight:850;color:var(--txt);line-height:1.1;word-break:break-word}
+.int-test-badge{display:inline-flex;align-items:center;gap:5px;border-radius:20px;padding:3px 9px;font-size:10.5px;font-weight:850}
+.int-test-badge.success{background:#D1FAE5;color:#047857}
+.int-test-badge.error{background:#FEE2E2;color:#DC2626}
+.int-test-badge.warn{background:#FEF3C7;color:#92400E}
+.int-mini-result{font-size:10.5px;color:var(--muted);line-height:1.35;margin-top:7px;padding:7px 8px;border-radius:9px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.1)}
+.int-mini-result.success{background:#ECFDF5;border-color:#A7F3D0;color:#047857}
+.int-mini-result.error{background:#FEF2F2;border-color:#FECACA;color:#DC2626}
+.int-mini-result.warn{background:#FFF7ED;border-color:#FED7AA;color:#92400E}
+.int-mini-result b{color:inherit}
+
 /* FORM / MODAL */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:none;align-items:center;justify-content:center;padding:16px}
 .overlay.open{display:flex}
@@ -2358,6 +2384,14 @@ function renderIntegracoes(){
 
         <div class="int-section-card">
           <div class="int-sec-head">
+            <div><div class="int-sec-title">✅ Resultado do último teste</div><div class="int-sec-sub">Confirme se a API respondeu com dados reais</div></div>
+            <button class="int-mini-btn" onclick="renderIntegrationTestResult()">Atualizar</button>
+          </div>
+          <div class="int-test-result" id="int-test-result"></div>
+        </div>
+
+        <div class="int-section-card">
+          <div class="int-sec-head">
             <div><div class="int-sec-title">📡 Eventos recentes</div><div class="int-sec-sub">Histórico das integrações</div></div>
             <button class="int-mini-btn" onclick="clearIntegrationLog()">Limpar</button>
           </div>
@@ -2375,6 +2409,7 @@ function renderIntegracoes(){
   renderIntegrationCore();
   renderIntegrationApps();
   renderIntegrationLog();
+  renderIntegrationTestResult();
 }
 
 function renderIntegrationCore(){
@@ -2395,6 +2430,7 @@ function renderIntegrationCore(){
         <span class="int-pill ${st.cls}">${st.dot} ${st.label}</span>
         ${cfg.updatedAt?`<span class="int-pill">Atualizado ${new Date(cfg.updatedAt).toLocaleDateString('pt-BR')}</span>`:''}
       </div>
+      ${renderIntegrationMiniTest(id)}
       <div class="int-core-actions">
         <button class="int-mini-btn primary" onclick="openIntegrationConfig('${id}')">Configurar</button>
         <button class="int-mini-btn" onclick="testIntegration('${id}')">Testar</button>
@@ -2432,8 +2468,10 @@ function renderIntegrationApps(){
       </div>
       <div class="int-app-desc">${app.desc}</div>
       <div class="int-badges"><span class="int-pill ${st.cls}">${st.dot} ${st.label}</span></div>
+      ${renderIntegrationMiniTest(app.id)}
       <div class="int-app-foot">
         <button class="int-mini-btn" onclick="openIntegrationConfig('${app.id}')">Configurar</button>
+        <button class="int-mini-btn" onclick="testIntegration('${app.id}')">Testar</button>
         <button class="int-switch ${cfg.connected?'on':''}" title="${cfg.connected?'Desativar':'Ativar'}" onclick="toggleIntegration('${app.id}')"></button>
       </div>
     </div>`;
@@ -2471,6 +2509,14 @@ function integrationConfigFields(id){
     <div class="form-group"><label class="form-label">Chave API interna</label><div class="int-copy-box"><input id="int-api-key-field" value="${escAttr(cfg.apiKey||localStorage.getItem('gx2_api_key')||('gex_'+uid()))}" readonly><button class="int-mini-btn" onclick="copyIntegrationField('int-api-key-field')">Copiar</button></div></div>
     <div class="form-group"><label class="form-label">Eventos para enviar</label><select class="form-input" id="int-events"><option ${cfg.events==='todos'?'selected':''} value="todos">Todos os eventos</option><option ${cfg.events==='comercial'?'selected':''} value="comercial">Somente Comercial</option><option ${cfg.events==='projetos'?'selected':''} value="projetos">Somente Projetos</option></select></div>
     <div class="int-secret-note">Eventos já suportados: lead criado, lead movido, cliente criado, tarefa criada, teste de webhook e atualizações comerciais.</div>`;
+  }
+  if(id==='meta_ads'){
+    return `<div class="form-group"><label class="form-label">Conta / Workspace</label><input class="form-input" id="int-account" value="${escAttr(cfg.account||'')}" placeholder="GEX Company, cliente ou nome da conta"></div>
+    <div class="form-group"><label class="form-label">ID da conta de anúncios</label><input class="form-input" id="int-url" value="${escAttr(cfg.url||'')}" placeholder="Ex.: act_123456789012345"></div>
+    <div class="form-group"><label class="form-label">Access Token da Meta</label><input class="form-input" id="int-token" type="password" value="${escAttr(cfg.token||'')}" placeholder="Cole o Access Token com ads_read"></div>
+    <div class="form-group"><label class="form-label">Observações</label><textarea class="form-input" id="int-notes" placeholder="Como essa integração será usada na operação...">${escHtml(cfg.notes||'')}</textarea></div>
+    <div class="int-secret-note"><b>Teste real:</b> ao clicar em “Testar”, o Gex Flow consulta a Graph API da Meta e tenta retornar conta, campanhas, investimento, cliques, impressões e leads do mês. Use o ID no formato <b>act_123...</b> e um token com permissão <b>ads_read</b>.</div>
+    ${renderIntegrationModalLastTest(id)}`;
   }
   return `<div class="form-group"><label class="form-label">Conta / Workspace</label><input class="form-input" id="int-account" value="${escAttr(cfg.account||'')}" placeholder="Nome da conta, workspace ou empresa"></div>
   <div class="form-group"><label class="form-label">URL / ID da integração</label><input class="form-input" id="int-url" value="${escAttr(cfg.url||'')}" placeholder="URL, ID, endpoint ou workspace"></div>
@@ -2548,17 +2594,226 @@ function disconnectIntegration(id){
   toast('Integração desconectada','#EF4444');
 }
 
-function testIntegration(id){
+
+function getIntegrationTestStore(){
+  try{return JSON.parse(localStorage.getItem('gx2_integrations_test_results')||'{}')}catch{return{}}
+}
+function setIntegrationTestStore(v){
+  localStorage.setItem('gx2_integrations_test_results',JSON.stringify(v||{}));
+}
+function getIntegrationTestResult(id){
+  return getIntegrationTestStore()[id]||null;
+}
+function saveIntegrationTestResult(id,result){
+  const all=getIntegrationTestStore();
+  all[id]={id,...result,testedAt:new Date().toISOString(),testedAtLabel:now()};
+  setIntegrationTestStore(all);
+  return all[id];
+}
+function latestIntegrationTestResult(){
+  const all=Object.values(getIntegrationTestStore());
+  return all.sort((a,b)=>new Date(b.testedAt||0)-new Date(a.testedAt||0))[0]||null;
+}
+function renderIntegrationMiniTest(id){
+  const r=getIntegrationTestResult(id);
+  if(!r)return '';
+  const cls=r.status==='success'?'success':r.status==='error'?'error':'warn';
+  const label=r.status==='success'?'API validada':r.status==='error'?'Erro no teste':'Teste registrado';
+  const extra=r.status==='success'&&r.metrics?` • ${fmtBRL(r.metrics.spend||0)} invest.`:'';
+  return `<div class="int-mini-result ${cls}"><b>${label}</b>${extra}<br>${escHtml(r.testedAtLabel||'')}</div>`;
+}
+function renderIntegrationModalLastTest(id){
+  const r=getIntegrationTestResult(id);
+  if(!r)return '';
+  const cls=r.status==='success'?'success':r.status==='error'?'error':'warn';
+  const msg=r.message||'';
+  return `<div class="int-test-card ${cls}" style="margin-top:12px">
+    <div class="int-test-top">
+      <div><div class="int-test-title">Último teste</div><div class="int-test-msg" style="margin:4px 0 0">${escHtml(msg)}</div></div>
+      <span class="int-test-badge ${cls}">${r.status==='success'?'✅ Sucesso':r.status==='error'?'❌ Erro':'⚠️ Atenção'}</span>
+    </div>
+    ${r.metrics?`<div class="int-test-metrics">
+      <div class="int-test-metric"><div class="int-test-metric-lbl">Investimento</div><div class="int-test-metric-val">${fmtBRL(r.metrics.spend||0)}</div></div>
+      <div class="int-test-metric"><div class="int-test-metric-lbl">Campanhas</div><div class="int-test-metric-val">${Number(r.metrics.campaigns||0)}</div></div>
+    </div>`:''}
+  </div>`;
+}
+function renderIntegrationTestResult(){
+  const el=document.getElementById('int-test-result');
+  if(!el)return;
+  const r=latestIntegrationTestResult();
+  if(!r){
+    el.innerHTML=`<div class="int-test-empty">Nenhum teste real executado ainda.<br>Clique em <b>Testar</b> na integração Meta Ads para validar a API.</div>`;
+    return;
+  }
+  const app=INTEGRATION_APPS.find(a=>a.id===r.id)||{name:r.id,icon:'🔌'};
+  const cls=r.status==='success'?'success':r.status==='error'?'error':'warn';
+  const badge=r.status==='success'?'✅ Sucesso':r.status==='error'?'❌ Erro':'⚠️ Atenção';
+  const m=r.metrics||{};
+  el.innerHTML=`<div class="int-test-card ${cls}">
+    <div class="int-test-top">
+      <div>
+        <div class="int-test-title">${app.icon} ${escHtml(app.name||r.id)}</div>
+        <div class="int-test-msg">${escHtml(r.message||'Teste registrado.')}</div>
+      </div>
+      <div style="text-align:right">
+        <span class="int-test-badge ${cls}">${badge}</span>
+        <div class="int-test-time">${escHtml(r.testedAtLabel||'')}</div>
+      </div>
+    </div>
+    ${r.status==='success'?`<div class="int-test-metrics">
+      <div class="int-test-metric"><div class="int-test-metric-lbl">Conta</div><div class="int-test-metric-val">${escHtml(m.accountName||m.accountId||'—')}</div></div>
+      <div class="int-test-metric"><div class="int-test-metric-lbl">Investimento mês</div><div class="int-test-metric-val">${fmtBRL(m.spend||0)}</div></div>
+      <div class="int-test-metric"><div class="int-test-metric-lbl">Campanhas</div><div class="int-test-metric-val">${Number(m.campaigns||0)}</div></div>
+      <div class="int-test-metric"><div class="int-test-metric-lbl">Leads</div><div class="int-test-metric-val">${Number(m.leads||0)}</div></div>
+      <div class="int-test-metric"><div class="int-test-metric-lbl">Cliques</div><div class="int-test-metric-val">${Number(m.clicks||0).toLocaleString('pt-BR')}</div></div>
+      <div class="int-test-metric"><div class="int-test-metric-lbl">Impressões</div><div class="int-test-metric-val">${Number(m.impressions||0).toLocaleString('pt-BR')}</div></div>
+    </div>`:''}
+    ${r.status==='error'?`<div class="int-test-msg" style="margin-top:8px"><b>O que verificar:</b> ID da conta no formato act_..., token válido, permissão ads_read e acesso do usuário à conta de anúncios.</div>`:''}
+  </div>`;
+}
+function getIntegrationConfigDraft(id){
+  const saved=(getIntegration(id).config)||{};
+  if(document.getElementById('int-account')||document.getElementById('int-webhook-url')){
+    if(id==='webhook_api')return {url:v('int-webhook-url')||saved.url,apiKey:v('int-api-key-field')||saved.apiKey,events:v('int-events')||saved.events};
+    if(id==='email_smtp')return {host:v('int-host')||saved.host,port:v('int-port')||saved.port,user:v('int-user')||saved.user,secret:v('int-secret')||saved.secret,fromEmail:v('int-from-email')||saved.fromEmail};
+    if(id==='google_calendar')return {clientId:v('int-client-id')||saved.clientId,calendarId:v('int-calendar-id')||saved.calendarId};
+    return {account:v('int-account')||saved.account,url:v('int-url')||saved.url,token:v('int-token')||saved.token,notes:v('int-notes')||saved.notes};
+  }
+  return saved;
+}
+function normalizeMetaAdAccountId(raw){
+  const txt=String(raw||'').trim();
+  if(!txt)return '';
+  if(/^act_\d+$/i.test(txt))return txt.replace(/^ACT_/,'act_');
+  const act=txt.match(/act[_-]?(\d{5,})/i);
+  if(act)return `act_${act[1]}`;
+  const num=txt.match(/(\d{5,})/);
+  if(num)return `act_${num[1]}`;
+  return txt;
+}
+function extractMetaLeadCount(actions){
+  if(!Array.isArray(actions))return 0;
+  return actions.reduce((sum,a)=>{
+    const type=String(a.action_type||'').toLowerCase();
+    const value=Number(a.value||0);
+    return type.includes('lead')?sum+value:sum;
+  },0);
+}
+async function metaGraphFetch(path,params={}){
+  const qs=new URLSearchParams(params);
+  const url=`https://graph.facebook.com/v20.0/${path.replace(/^\/+/,'')}?${qs.toString()}`;
+  const res=await fetch(url,{method:'GET'});
+  const json=await res.json().catch(()=>({}));
+  if(!res.ok||json.error){
+    const err=json.error||{};
+    throw new Error(err.message||`Erro HTTP ${res.status}`);
+  }
+  return json;
+}
+function setIntegrationTestingState(id,isTesting){
+  document.querySelectorAll('button').forEach(btn=>{
+    const on=btn.getAttribute('onclick')||'';
+    if(on.includes(`testIntegration('${id}')`)||on.includes(`testIntegration("${id}")`)){
+      btn.disabled=!!isTesting;
+      btn.textContent=isTesting?'Testando...':'Testar';
+    }
+  });
+}
+async function testMetaAdsIntegration(){
+  const app=INTEGRATION_APPS.find(a=>a.id==='meta_ads')||{name:'Meta Ads'};
+  const cfg=getIntegrationConfigDraft('meta_ads');
+  const accountId=normalizeMetaAdAccountId(cfg.url||cfg.account);
+  const token=String(cfg.token||'').trim();
+  if(!accountId){throw new Error('Informe o ID da conta de anúncios. Exemplo: act_123456789012345.');}
+  if(!token){throw new Error('Informe o Access Token da Meta com permissão ads_read.');}
+
+  const baseParams={access_token:token};
+  const account=await metaGraphFetch(`${accountId}`,{
+    ...baseParams,
+    fields:'id,name,account_status,currency,timezone_name'
+  });
+  const insights=await metaGraphFetch(`${accountId}/insights`,{
+    ...baseParams,
+    fields:'spend,impressions,clicks,reach,cpc,cpm,ctr,actions',
+    date_preset:'this_month',
+    level:'account'
+  });
+  const campaigns=await metaGraphFetch(`${accountId}/campaigns`,{
+    ...baseParams,
+    fields:'id,name,status,effective_status',
+    limit:'100'
+  });
+  const row=(insights.data&&insights.data[0])||{};
+  const metrics={
+    accountId,
+    accountName:account.name||accountId,
+    currency:account.currency||'BRL',
+    accountStatus:account.account_status||'—',
+    spend:Number(row.spend||0),
+    impressions:Number(row.impressions||0),
+    clicks:Number(row.clicks||0),
+    reach:Number(row.reach||0),
+    cpc:Number(row.cpc||0),
+    cpm:Number(row.cpm||0),
+    ctr:Number(row.ctr||0),
+    leads:extractMetaLeadCount(row.actions),
+    campaigns:Array.isArray(campaigns.data)?campaigns.data.length:0
+  };
+  const result=saveIntegrationTestResult('meta_ads',{
+    status:'success',
+    message:`API respondeu com sucesso. Conta encontrada: ${metrics.accountName}. Dados do mês atual recebidos.`,
+    metrics
+  });
+  saveIntegration('meta_ads',{
+    configured:true,
+    connected:true,
+    lastTestStatus:'success',
+    lastSyncAt:new Date().toISOString(),
+    lastMetrics:metrics,
+    config:{...cfg,url:accountId,account:cfg.account||metrics.accountName,token}
+  });
+  addIntegrationLog('Meta Ads validado com sucesso',`Conta: ${metrics.accountName} • Investimento mês: ${fmtBRL(metrics.spend)} • Campanhas: ${metrics.campaigns} • Leads: ${metrics.leads}`,'ok');
+  return result;
+}
+async function testIntegration(id){
   const app=INTEGRATION_APPS.find(a=>a.id===id);
   const cfg=getIntegration(id);
-  if(id==='webhook_api'||id==='make'||id==='zapier'||id==='n8n'){
-    const url=(cfg.config&&cfg.config.url)||localStorage.getItem('gx2_wh_url')||'';
-    if(!url){toast('Configure a URL do webhook antes de testar','#EF4444');return}
-    fireWebhook('integracao.teste',{app:app?.name||id,user:sessionUser?.email||''});
+  setIntegrationTestingState(id,true);
+  try{
+    if(id==='meta_ads'){
+      await testMetaAdsIntegration();
+      closeModal();
+      renderIntegracoes();
+      toast('Meta Ads validado com dados reais ✓','#10B981');
+      return;
+    }
+    if(id==='webhook_api'||id==='make'||id==='zapier'||id==='n8n'){
+      const draft=getIntegrationConfigDraft(id);
+      const url=(draft&&draft.url)||(cfg.config&&cfg.config.url)||localStorage.getItem('gx2_wh_url')||'';
+      if(!url){toast('Configure a URL do webhook antes de testar','#EF4444');return}
+      fireWebhook('integracao.teste',{app:app?.name||id,user:sessionUser?.email||''});
+      saveIntegrationTestResult(id,{status:'warn',message:'Teste de webhook enviado. Como alguns webhooks usam no-cors, confirme também no Make/Zapier/n8n se o evento chegou.'});
+    }else{
+      saveIntegrationTestResult(id,{status:'warn',message:'Teste manual registrado. Esta integração ainda precisa de conector real/OAuth para validar dados externos.'});
+    }
+    addIntegrationLog(`Teste registrado: ${app?.name||id}`,'Teste manual registrado no Gex Flow','warn');
+    renderIntegrationLog();
+    renderIntegrationTestResult();
+    renderIntegrationApps();
+    toast('Teste registrado','#7C3AED');
+  }catch(err){
+    const msg=err?.message||'Erro desconhecido ao testar integração.';
+    saveIntegrationTestResult(id,{status:'error',message:msg});
+    saveIntegration(id,{lastTestStatus:'error',lastError:msg,lastSyncAt:new Date().toISOString()});
+    addIntegrationLog(`Erro no teste: ${app?.name||id}`,msg,'err');
+    renderIntegrationLog();
+    renderIntegrationTestResult();
+    renderIntegrationApps();
+    toast('Falha no teste da integração','#EF4444');
+  }finally{
+    setIntegrationTestingState(id,false);
   }
-  addIntegrationLog(`Teste enviado: ${app?.name||id}`,'Validação manual iniciada na interface','ok');
-  renderIntegrationLog();
-  toast('Teste registrado ✓','#10B981');
 }
 
 function copyIntegrationField(fieldId){
