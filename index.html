@@ -1242,13 +1242,11 @@ const SUPABASE_URL = "https://kghgmraezxcssipccodn.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_1nq7msqmkcg73__QjSuoTA_-MNW8Ro5";
 
 // Detectar ambiente de preview (claude.ai bloqueia CDN externo via CSP)
-// Em produção/deploy real, IS_PREVIEW_ENV = false e Supabase funciona normalmente
+// APENAS claude.ai — em qualquer outro servidor, Supabase funciona normalmente
 const IS_PREVIEW_ENV = (function() {
   try {
     const h = window.location.hostname;
-    const href = window.location.href;
-    return h.includes('claude.ai') || h.includes('anthropic') ||
-           href.includes('artifact') || h === '' || h === 'null';
+    return h === 'claude.ai' || h.endsWith('.claude.ai');
   } catch(e) { return false; }
 })();
 
