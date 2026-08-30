@@ -970,6 +970,9 @@ textarea.form-input{resize:vertical;min-height:75px}
           <option value="ano">Ano atual</option>
           <option value="todos" selected>Todos</option>
         </select>
+        <select id="rel-funil-filter" class="rel-sel" onchange="renderRelatorioComercial()">
+          <option value="todos" selected>Todos os funis</option>
+        </select>
         <select id="rel-responsavel" class="rel-sel" onchange="renderRelatorioComercial()">
           <option value="">Todos os responsáveis</option>
         </select>
@@ -2727,21 +2730,48 @@ function getReportFunnels(){
     .sort((a,b)=>(b.isDefault?1:0)-(a.isDefault?1:0)||String(a.name||'').localeCompare(String(b.name||''),'pt-BR'));
 }
 
+function ensureRelatorioFunnelFilter(){
+  // Garante que o filtro de funil exista no TOPO do relatório.
+  // Importante: NÃO usar o id "rel-funil", pois ele é o container do gráfico do funil.
+  let sel=document.getElementById('rel-funil-filter');
+  if(sel) return sel;
+
+  const bar=document.querySelector('#com-tab-relatorio .rel-filter-bar');
+  if(!bar) return null;
+
+  sel=document.createElement('select');
+  sel.id='rel-funil-filter';
+  sel.className='rel-sel';
+  sel.onchange=()=>renderRelatorioComercial();
+  sel.innerHTML='<option value="todos">Todos os funis</option>';
+
+  const periodo=document.getElementById('rel-periodo');
+  if(periodo && periodo.parentNode===bar){
+    periodo.insertAdjacentElement('afterend', sel);
+  }else{
+    const btn=bar.querySelector('button');
+    if(btn) bar.insertBefore(sel,btn);
+    else bar.appendChild(sel);
+  }
+  return sel;
+}
+
 function renderRelatorioFunnelOptions(){
-  const sel=document.getElementById('rel-funil');
+  const sel=ensureRelatorioFunnelFilter();
   if(!sel) return 'todos';
 
   const funnels=getReportFunnels();
   const previous=sel.value||'todos';
-  sel.innerHTML='';
 
+  sel.innerHTML='';
   sel.appendChild(new Option('Todos os funis','todos'));
+
   funnels.forEach(f=>{
     const label=(f.name||'Funil sem nome')+(f.isDefault?' ★':'');
     sel.appendChild(new Option(label,f.id));
   });
 
-  const exists=[...sel.options].some(o=>o.value===previous);
+  const exists=Array.from(sel.options||[]).some(o=>o.value===previous);
   sel.value=exists?previous:'todos';
   return sel.value||'todos';
 }
