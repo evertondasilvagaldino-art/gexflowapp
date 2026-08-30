@@ -1602,7 +1602,7 @@ textarea.form-input{resize:vertical;min-height:75px}
 
 </style>
 </head>
-<body>
+<body class="gex-premium-ui">
 
 <!-- LOGIN SCREEN -->
 <div class="login-screen" id="login-screen">
@@ -2505,16 +2505,42 @@ const GEX_USER_CREATE_FUNCTION = 'create-gex-user';
 function normalizeProfileRole(role){
   const r=String(role||'').trim();
   if(!r)return 'Colaborador';
-  const lower=r.toLowerCase();
-  if(['admin','fundador','founder','owner','super_admin','super admin'].includes(lower))return 'Fundador';
-  if(lower==='gestor')return 'Adm Gerente';
+
+  // Normalização forte: alguns registros antigos vieram como
+  // "FUNDADOR — ACESSO TOTAL", "Fundador - acesso total", "Admin", etc.
+  // Isso não pode esconder o setor Configurações do dono da conta.
+  const lower=r
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase()
+    .replace(/[–—]/g,'-')
+    .trim();
+
+  if(
+    lower.includes('fundador') ||
+    lower.includes('founder') ||
+    lower.includes('owner') ||
+    lower.includes('super_admin') ||
+    lower.includes('super admin') ||
+    lower === 'admin'
+  ) return 'Fundador';
+
+  if(
+    lower.includes('adm gerente') ||
+    lower.includes('administrador') ||
+    lower.includes('gerente geral') ||
+    lower === 'gestor' ||
+    lower === 'gerente'
+  ) return 'Adm Gerente';
+
+  if(lower.includes('vendedor') || lower.includes('sdr')) return 'Colaborador Vendedor';
+  if(lower.includes('visualizador')) return 'Visualizador';
+  if(lower.includes('colaborador')) return 'Colaborador';
+
   return r;
 }
 
 function isFounderLikeRole(role){
-  const normalized=normalizeProfileRole(role);
-  const raw=String(role||'').trim().toLowerCase();
-  return normalized==='Fundador'||['admin','fundador','founder','owner','super_admin','super admin'].includes(raw);
+  return normalizeProfileRole(role)==='Fundador';
 }
 
 function normalizeSupabaseProfile(profile={},authUser=null){
@@ -3672,9 +3698,7 @@ if(localStorage.getItem('gx2_tasks_seeded')!=='v2'){
 
 // Resolve legacy role names
 function resolveRole(permissao){
-  if(permissao==='Admin')return'Fundador';
-  if(permissao==='Gestor')return'Adm Gerente';
-  return permissao;
+  return normalizeProfileRole(permissao);
 }
 
 // Central permission gate
@@ -3819,8 +3843,10 @@ function applyNavPermissions(){
     return el;
   };
 
+  const rootIsFounder = resolveRole(sessionUser?.permissao||sessionUser?.cargo||sessionUser?.role||'')==='Fundador';
+
   singleItems.forEach(item=>{
-    const allowed=can(item.mod,'view');
+    const allowed=rootIsFounder ? true : can(item.mod,'view');
     const el=setVisible(item.selector,allowed);
     if(allowed&&!firstAllowed&&el) firstAllowed={type:'page', page:item.mod};
   });
@@ -3829,7 +3855,7 @@ function applyNavPermissions(){
     const group=groups[groupId];
     let any=false;
     group.items.forEach(item=>{
-      const allowed=can(item.mod,'view');
+      const allowed=rootIsFounder ? true : can(item.mod,'view');
       const el=setVisible(item.selector,allowed);
       if(allowed){
         any=true;
@@ -3857,6 +3883,9 @@ function applyNavPermissions(){
 
   // Se a página ativa ficou escondida, leva para a primeira área permitida.
   const activeNav=document.querySelector('.nav-item.active:not([style*="display: none"]), .nav-sub.active:not([style*="display: none"])');
+  // Garantia final: Fundador nunca perde o setor Configurações por causa de cache/permissão legada.
+  try{ repairConfiguracoesMenuVisibility(); }catch(e){}
+
   if(!activeNav && firstAllowed){
     setTimeout(()=>{
       if(firstAllowed.type==='page') navigate(firstAllowed.page);
@@ -3869,6 +3898,36 @@ function applyNavPermissions(){
     },0);
   }
 }
+
+function repairConfiguracoesMenuVisibility(){
+  const isFounder = resolveRole(sessionUser?.permissao||sessionUser?.cargo||sessionUser?.role||'')==='Fundador';
+  const hasCfg =
+    isFounder ||
+    can('configuracoes','view') ||
+    can('config_integracoes','view') ||
+    can('config_webhook_api','view') ||
+    can('config_pagamentos','view') ||
+    can('config_empresa','view') ||
+    can('usuarios','view') ||
+    can('config_seguranca','view') ||
+    can('config_preferencias','view');
+
+  const hdr=document.getElementById('grp-hdr-configuracoes');
+  const wrap=document.getElementById('grp-wrap-configuracoes');
+  if(hdr) hdr.style.display=hasCfg?'':'none';
+  if(wrap) wrap.style.display=hasCfg?'':'none';
+
+  if(isFounder){
+    [
+      'config-integracoes','config-webhook-api','config-pagamentos',
+      'config-empresa','config-usuarios','config-seguranca','config-preferencias'
+    ].forEach(k=>{
+      const el=document.querySelector(`[data-sub="${k}"]`);
+      if(el) el.style.display='';
+    });
+  }
+}
+
 
 // Listener legado mantido apenas por segurança. Itens sem permissão agora ficam ocultos.
 document.addEventListener('click',function(e){
@@ -7520,7 +7579,7 @@ function renderPermMatrix(){
   const users=getUsuariosForDisplay();
   const currentRole=resolveRole(sessionUser?.permissao||'Colaborador');
   const canManage=can('usuarios','manage');
-  const mainMods=['clientes','comercial','financas','projetos','rh','usuarios'];
+  const mainMods=['clientes','comercial','financas','projetos','configuracoes','rh','usuarios'];
   const mainActs=['view','create','edit','delete','manage'];
   let html=`<div class="perm-matrix"><div class="perm-matrix-scroll"><table class="perm-table">
     <thead><tr><th>Usuário / Papel</th>${mainMods.map(m=>`<th colspan="${mainActs.length}" style="text-align:center;border-left:1px solid var(--border)">${MOD_LABELS[m]}</th>`).join('')}</tr>
@@ -13476,6 +13535,438 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
 @media(max-width:640px){.cfg-grid{grid-template-columns:1fr}.cfg-hero{flex-direction:column;align-items:flex-start}}
 
 </style>
+
+
+<!-- ═══ GEX FLOW — UI PREMIUM OTIMIZADA V1 ═══ -->
+<style id="gex-premium-ui-v1">
+/*
+  Camada visual segura:
+  - Não altera lógica, Supabase, permissões ou estrutura de dados.
+  - Usa apenas CSS + microinterações leves.
+  - Evita animações repetidas no Kanban para não voltar o bug de piscada.
+*/
+body.gex-premium-ui{
+  --bg:#F6F4FF;
+  --card:#FFFFFF;
+  --border:#E7E2F6;
+  --txt:#17142B;
+  --muted:#686179;
+  --light:#9A92B2;
+  --p:#6D35D8;
+  --p2:#7C3AED;
+  --p3:#A855F7;
+  --p-light:#F1EAFF;
+  --shadow-sm:0 8px 24px rgba(28,18,66,.06);
+  --shadow-md:0 16px 42px rgba(28,18,66,.10);
+  --shadow-lg:0 24px 70px rgba(28,18,66,.16);
+  --ring:0 0 0 4px rgba(124,58,237,.14);
+  background:
+    radial-gradient(circle at 18% 0%, rgba(124,58,237,.12), transparent 28%),
+    radial-gradient(circle at 88% 14%, rgba(168,85,247,.10), transparent 24%),
+    linear-gradient(180deg,#FBFAFF 0%,#F6F4FF 52%,#F7F7FB 100%);
+  color:var(--txt);
+  text-rendering:optimizeLegibility;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* App shell */
+body.gex-premium-ui .sidebar{
+  background:
+    radial-gradient(circle at 35% 0%, rgba(124,58,237,.34), transparent 28%),
+    linear-gradient(180deg,#171331 0%,#111024 48%,#0D0C1C 100%);
+  border-right:1px solid rgba(255,255,255,.08);
+  box-shadow:14px 0 42px rgba(23,19,49,.18);
+}
+body.gex-premium-ui .sb-company{
+  border-bottom:1px solid rgba(255,255,255,.08);
+  background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,0));
+}
+body.gex-premium-ui .sb-av,
+body.gex-premium-ui .logo-icon,
+body.gex-premium-ui .login-logo-icon{
+  background:linear-gradient(135deg,#7C3AED 0%,#A855F7 100%);
+  box-shadow:0 12px 26px rgba(124,58,237,.28);
+}
+body.gex-premium-ui .nav-item,
+body.gex-premium-ui .nav-grp-hdr,
+body.gex-premium-ui .nav-sub{
+  position:relative;
+  transition:background .16s ease,color .16s ease,transform .16s ease,border-color .16s ease;
+}
+body.gex-premium-ui .nav-item:hover,
+body.gex-premium-ui .nav-grp-hdr:hover,
+body.gex-premium-ui .nav-sub:hover{
+  transform:translateX(2px);
+}
+body.gex-premium-ui .nav-item.active,
+body.gex-premium-ui .nav-sub.active{
+  background:linear-gradient(135deg,rgba(124,58,237,.22),rgba(168,85,247,.14));
+  color:#fff;
+  box-shadow:inset 3px 0 0 #A855F7;
+}
+body.gex-premium-ui .nav-grp-hdr.active{
+  color:#fff;
+}
+body.gex-premium-ui .nav-sub-wrap{
+  border-left:1px solid rgba(255,255,255,.08);
+}
+
+/* Topbar */
+body.gex-premium-ui .topbar{
+  height:58px;
+  background:rgba(255,255,255,.84);
+  backdrop-filter:saturate(160%) blur(14px);
+  -webkit-backdrop-filter:saturate(160%) blur(14px);
+  border-bottom:1px solid rgba(231,226,246,.92);
+  box-shadow:0 10px 32px rgba(28,18,66,.05);
+}
+body.gex-premium-ui .logo-txt{
+  letter-spacing:-.7px;
+}
+body.gex-premium-ui .search input{
+  background:#FFFFFF;
+  border-color:#E8E2F7;
+  box-shadow:0 6px 18px rgba(28,18,66,.04);
+  transition:border-color .16s ease,box-shadow .16s ease,background .16s ease;
+}
+body.gex-premium-ui .search input:focus{
+  border-color:rgba(124,58,237,.55);
+  box-shadow:var(--ring),0 10px 28px rgba(28,18,66,.06);
+}
+body.gex-premium-ui .trial-badge,
+body.gex-premium-ui .badge{
+  border:1px solid rgba(255,255,255,.6);
+  box-shadow:0 6px 18px rgba(28,18,66,.05);
+}
+
+/* Pages and headers */
+body.gex-premium-ui .page{
+  padding:26px 28px;
+  scroll-behavior:smooth;
+}
+body.gex-premium-ui .page-header{
+  background:linear-gradient(135deg,rgba(255,255,255,.72),rgba(255,255,255,.40));
+  border:1px solid rgba(231,226,246,.82);
+  border-radius:20px;
+  padding:18px 20px;
+  box-shadow:var(--shadow-sm);
+  margin-bottom:18px;
+}
+body.gex-premium-ui .page-title{
+  font-size:22px;
+  font-weight:850;
+  letter-spacing:-.75px;
+}
+body.gex-premium-ui .page-sub{
+  color:#766E8B;
+  line-height:1.4;
+}
+
+/* Cards */
+body.gex-premium-ui .card,
+body.gex-premium-ui .stat-card,
+body.gex-premium-ui .welcome-box,
+body.gex-premium-ui .filters,
+body.gex-premium-ui .fin-summary,
+body.gex-premium-ui .config-card,
+body.gex-premium-ui .cfg-card,
+body.gex-premium-ui .cfg-hero,
+body.gex-premium-ui .cfg-section,
+body.gex-premium-ui .cfg-kv-card,
+body.gex-premium-ui .perm-editor-v2,
+body.gex-premium-ui .perm-section-card{
+  border-color:rgba(231,226,246,.95);
+  background:rgba(255,255,255,.92);
+  box-shadow:var(--shadow-sm);
+}
+body.gex-premium-ui .card,
+body.gex-premium-ui .stat-card,
+body.gex-premium-ui .welcome-box,
+body.gex-premium-ui .cfg-card,
+body.gex-premium-ui .cfg-section,
+body.gex-premium-ui .perm-section-card{
+  border-radius:18px;
+}
+body.gex-premium-ui .card,
+body.gex-premium-ui .stat-card,
+body.gex-premium-ui .cfg-card,
+body.gex-premium-ui .perm-section-card{
+  transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease;
+}
+body.gex-premium-ui .card:hover,
+body.gex-premium-ui .stat-card:hover,
+body.gex-premium-ui .cfg-card:hover,
+body.gex-premium-ui .perm-section-card:hover{
+  transform:translateY(-1px);
+  border-color:rgba(124,58,237,.22);
+  box-shadow:var(--shadow-md);
+}
+body.gex-premium-ui .stat-val{
+  letter-spacing:-1.2px;
+  background:linear-gradient(135deg,#17142B 0%,#6D35D8 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+
+/* Buttons */
+body.gex-premium-ui .btn{
+  border-radius:11px;
+  transition:transform .14s ease,box-shadow .14s ease,background .14s ease,border-color .14s ease,opacity .14s ease;
+  position:relative;
+  overflow:hidden;
+  will-change:transform;
+}
+body.gex-premium-ui .btn:hover{
+  opacity:1;
+  transform:translateY(-1px);
+}
+body.gex-premium-ui .btn:active{
+  transform:translateY(0) scale(.99);
+}
+body.gex-premium-ui .btn-primary{
+  background:linear-gradient(135deg,#7C3AED 0%,#9333EA 48%,#A855F7 100%);
+  box-shadow:0 12px 24px rgba(124,58,237,.22);
+}
+body.gex-premium-ui .btn-primary:hover{
+  box-shadow:0 16px 30px rgba(124,58,237,.30);
+}
+body.gex-premium-ui .btn-ghost{
+  background:#fff;
+  border-color:#E8E2F7;
+  box-shadow:0 8px 18px rgba(28,18,66,.04);
+}
+body.gex-premium-ui .btn-danger{
+  box-shadow:0 12px 24px rgba(239,68,68,.16);
+}
+body.gex-premium-ui .gx-ripple{
+  position:absolute;
+  border-radius:999px;
+  pointer-events:none;
+  transform:translate(-50%,-50%) scale(0);
+  background:rgba(255,255,255,.42);
+  animation:gxRipple .45s ease-out forwards;
+}
+
+/* Forms */
+body.gex-premium-ui input,
+body.gex-premium-ui select,
+body.gex-premium-ui textarea,
+body.gex-premium-ui .form-input,
+body.gex-premium-ui .form-select,
+body.gex-premium-ui .form-textarea{
+  border-radius:12px;
+  border-color:#E8E2F7;
+  background:#fff;
+  transition:border-color .16s ease,box-shadow .16s ease,background .16s ease;
+}
+body.gex-premium-ui input:focus,
+body.gex-premium-ui select:focus,
+body.gex-premium-ui textarea:focus,
+body.gex-premium-ui .form-input:focus,
+body.gex-premium-ui .form-select:focus,
+body.gex-premium-ui .form-textarea:focus{
+  outline:none;
+  border-color:rgba(124,58,237,.60);
+  box-shadow:var(--ring);
+}
+
+/* Tables */
+body.gex-premium-ui table{
+  border-collapse:separate;
+  border-spacing:0;
+}
+body.gex-premium-ui th{
+  color:#5F5774;
+  letter-spacing:.06em;
+}
+body.gex-premium-ui tr{
+  transition:background .14s ease;
+}
+body.gex-premium-ui tbody tr:hover{
+  background:#FBFAFF;
+}
+
+/* Pipeline/Kanban: visual melhorado sem animação de entrada para não piscar */
+body.gex-premium-ui .pipe-col{
+  border-radius:16px;
+  border-color:rgba(231,226,246,.9);
+  background:linear-gradient(180deg,rgba(255,255,255,.80),rgba(255,255,255,.55));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.75);
+  transition:border-color .12s ease,background .12s ease;
+}
+body.gex-premium-ui .pipe-col.drag-over{
+  box-shadow:var(--ring);
+}
+body.gex-premium-ui .pcard{
+  border-radius:14px;
+  border-color:#ECE7F7;
+  background:#fff;
+  box-shadow:0 8px 18px rgba(28,18,66,.06);
+  transition:box-shadow .12s ease,border-color .12s ease,transform .12s ease,opacity .12s ease;
+}
+body.gex-premium-ui .pcard:hover{
+  transform:translateY(-1px);
+  border-color:rgba(124,58,237,.26);
+  box-shadow:0 14px 28px rgba(28,18,66,.10);
+}
+body.gex-premium-ui .pcard.dragging{
+  opacity:.55;
+  transform:scale(.985);
+}
+
+/* Modais e overlays */
+body.gex-premium-ui .overlay,
+body.gex-premium-ui .modal-overlay{
+  background:rgba(13,12,28,.50);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+body.gex-premium-ui .modal,
+body.gex-premium-ui .deal-ov-box,
+body.gex-premium-ui .lem-panel{
+  border-radius:22px;
+  border:1px solid rgba(255,255,255,.60);
+  box-shadow:var(--shadow-lg);
+}
+body.gex-premium-ui .modal-header{
+  border-bottom-color:#EEE8F8;
+}
+
+/* Login */
+body.gex-premium-ui .login-screen{
+  background:
+    radial-gradient(circle at 18% 8%, rgba(255,255,255,.20), transparent 22%),
+    radial-gradient(circle at 85% 18%, rgba(168,85,247,.28), transparent 26%),
+    linear-gradient(135deg,#32146B 0%,#5B21B6 46%,#7C3AED 100%);
+}
+body.gex-premium-ui .login-box{
+  border-radius:26px;
+  box-shadow:0 34px 90px rgba(17,12,44,.34);
+  border:1px solid rgba(255,255,255,.55);
+}
+body.gex-premium-ui .login-brand{
+  letter-spacing:-.9px;
+}
+
+/* Configurações */
+body.gex-premium-ui .cfg-hero{
+  background:
+    radial-gradient(circle at top right,rgba(168,85,247,.18),transparent 34%),
+    linear-gradient(135deg,#fff 0%,#F8F4FF 100%);
+}
+body.gex-premium-ui .cfg-tab.active,
+body.gex-premium-ui .tab-nav .active,
+body.gex-premium-ui .tab.active{
+  background:linear-gradient(135deg,#7C3AED,#A855F7);
+  color:#fff;
+  border-color:transparent;
+  box-shadow:0 12px 24px rgba(124,58,237,.20);
+}
+
+/* Scrollbar leve */
+body.gex-premium-ui *{
+  scrollbar-width:thin;
+  scrollbar-color:rgba(124,58,237,.35) transparent;
+}
+body.gex-premium-ui *::-webkit-scrollbar{
+  width:8px;
+  height:8px;
+}
+body.gex-premium-ui *::-webkit-scrollbar-track{
+  background:transparent;
+}
+body.gex-premium-ui *::-webkit-scrollbar-thumb{
+  background:rgba(124,58,237,.24);
+  border-radius:999px;
+}
+body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
+  background:rgba(124,58,237,.38);
+}
+
+/* Microanimações controladas */
+@keyframes gxRipple{
+  to{transform:translate(-50%,-50%) scale(2.8);opacity:0}
+}
+@keyframes gxShellIn{
+  from{opacity:.0;transform:translateY(8px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@media (prefers-reduced-motion:no-preference){
+  body.gex-premium-ui.gx-mounted .main{
+    animation:gxShellIn .34s ease-out both;
+  }
+  body.gex-premium-ui.gx-mounted .sidebar{
+    animation:gxShellIn .26s ease-out both;
+  }
+}
+@media (prefers-reduced-motion:reduce){
+  body.gex-premium-ui *,
+  body.gex-premium-ui *::before,
+  body.gex-premium-ui *::after{
+    animation:none!important;
+    transition:none!important;
+    scroll-behavior:auto!important;
+  }
+}
+
+/* Responsivo */
+@media(max-width:900px){
+  body.gex-premium-ui .page{
+    padding:18px;
+  }
+  body.gex-premium-ui .page-header{
+    border-radius:16px;
+    padding:15px;
+  }
+  body.gex-premium-ui .topbar{
+    height:auto;
+    min-height:58px;
+    flex-wrap:wrap;
+    padding-top:10px;
+    padding-bottom:10px;
+  }
+}
+</style>
+
+<script id="gex-premium-ui-script-v1">
+(function(){
+  if(window.__GEX_PREMIUM_UI_V1__) return;
+  window.__GEX_PREMIUM_UI_V1__ = true;
+
+  function mount(){
+    document.body.classList.add('gex-premium-ui');
+    requestAnimationFrame(function(){
+      document.body.classList.add('gx-mounted');
+    });
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', mount, {once:true});
+  }else{
+    mount();
+  }
+
+  document.addEventListener('click', function(ev){
+    const btn = ev.target && ev.target.closest ? ev.target.closest('.btn') : null;
+    if(!btn || btn.disabled) return;
+    if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const rect = btn.getBoundingClientRect();
+    const ripple = document.createElement('span');
+    ripple.className = 'gx-ripple';
+    const size = Math.max(rect.width, rect.height);
+    ripple.style.width = size + 'px';
+    ripple.style.height = size + 'px';
+    ripple.style.left = (ev.clientX - rect.left) + 'px';
+    ripple.style.top = (ev.clientY - rect.top) + 'px';
+    btn.appendChild(ripple);
+    window.setTimeout(function(){
+      if(ripple && ripple.parentNode) ripple.parentNode.removeChild(ripple);
+    }, 520);
+  }, {passive:true});
+})();
+</script>
 
 </body>
 </html>
