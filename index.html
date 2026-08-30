@@ -9657,7 +9657,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
           ${account ? `<div class="native-account">Conta: <b>${esc(account)}</b></div>` : ''}
           ${cfg.connectedAt ? `<div class="native-last">Última conexão: ${esc(new Date(cfg.connectedAt).toLocaleString('pt-BR'))}</div>` : ''}
           <div class="native-card-actions">
-            <button class="native-btn primary" onclick="connectNativeIntegration('${app.id}')">${cfg.nativeConnected ? 'Abrir conexão' : app.primary}</button>
+            <button class="native-btn primary" onclick="openNativeIntegration('${app.id}')">${cfg.nativeConnected ? 'Abrir conexão' : app.primary}</button>
             <button class="native-btn secondary" onclick="openNativeIntegration('${app.id}')">Configurar</button>
             <button class="native-btn ghost" onclick="syncNativeIntegration('${app.id}')">Sincronizar</button>
           </div>
@@ -9688,7 +9688,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
     const box = document.getElementById('modal-box');
     const body = document.getElementById('modal-body');
     const footer = document.getElementById('modal-footer');
-    const overlay = document.getElementById('modal');
+    const overlay = document.getElementById('modal-ov') || document.getElementById('modal');
     if(!title || !body || !footer || !overlay) return;
 
     if(box) box.className = 'modal modal-lg';
