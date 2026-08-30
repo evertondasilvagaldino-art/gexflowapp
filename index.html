@@ -4071,8 +4071,23 @@ function toast(msg,color='#1A1A2E'){const t=document.getElementById('toast');t.t
 
 // ═══ CONFIRM ═══
 function confirmDelete(cb){
-  const ov=document.getElementById('confirm-ov');ov.classList.add('open');
-  document.getElementById('confirm-ok').onclick=()=>{ov.classList.remove('open');cb()};
+  const ov=document.getElementById('confirm-ov');
+  if(!ov){
+    try{ if(typeof cb==='function')cb(); }catch(err){console.error('[GexFlow] Erro ao confirmar exclusão:',err);toast('Não foi possível excluir. Veja o console.','#EF4444')}
+    return;
+  }
+  ov.classList.add('open');
+  const ok=document.getElementById('confirm-ok');
+  if(!ok)return;
+  ok.onclick=()=>{
+    ov.classList.remove('open');
+    try{
+      if(typeof cb==='function')cb();
+    }catch(err){
+      console.error('[GexFlow] Erro ao executar exclusão:',err);
+      toast('Não foi possível excluir. Atualize a página e tente novamente.','#EF4444');
+    }
+  };
 }
 
 // ═══ BADGE ═══
@@ -5338,11 +5353,13 @@ async function saveModal(type,id=''){
       const produto=prodSel==='__outro__'?prodCustom:(prodSel||'');
       const oldLead=id?DB.find('leads',id):null;
       const activeFunnel=getActiveFunnel();
-      const selectedStageName=v('f-estagio');
-      const selectedStage=(activeFunnel?.stages||[]).find(s=>s.name===selectedStageName)
+      const selectedStageValue=v('f-estagio');
+      const selectedStage=(activeFunnel?.stages||[]).find(s=>s.id===selectedStageValue)
+        || (activeFunnel?.stages||[]).find(s=>s.name===selectedStageValue)
         || (activeFunnel?.stages||[]).find(s=>s.id===oldLead?.stageId)
         || (activeFunnel?.stages||[]).find(s=>!s.isLost)
         || null;
+      const selectedStageName=selectedStage?.name||selectedStageValue;
       const ownerPick=resolveLeadOwnerFromForm(oldLead);
       const obj={
         nome:v('f-nome'),empresa:v('f-empresa'),email:v('f-email'),telefone:v('f-tel'),
@@ -5353,10 +5370,16 @@ async function saveModal(type,id=''){
         produto,
         responsavelId:ownerPick.id,
         responsavelNome:ownerPick.nome,
+        responsavelEmail:ownerPick.email||'',
         ownerId:ownerPick.id,
         ownerName:ownerPick.nome,
+        ownerEmail:ownerPick.email||'',
         vendedorId:ownerPick.id,
         vendedorNome:ownerPick.nome,
+        vendedorEmail:ownerPick.email||'',
+        assignedToId:ownerPick.id,
+        assignedTo:ownerPick.nome,
+        assignedToEmail:ownerPick.email||'',
         dataInicio:v('f-data-inicio')||today,
         dataFechamento:v('f-data-fecha'),
         desc:v('f-desc')
@@ -5555,7 +5578,7 @@ function formLead(d){
     <div class="form-group"><label class="form-label">Valor (R$)</label><input class="form-input" id="f-valor" type="number" value="${d?.valor||''}"></div>
     <div class="form-group"><label class="form-label">Estágio</label>
       <select class="form-input" id="f-estagio">
-        ${stageObjs.map(s=>`<option value="${s.name}" ${(d?.stageId===s.id||d?.estagio===s.name)?'selected':''}>${s.name}</option>`).join('')}
+        ${stageObjs.map(s=>`<option value="${s.id}" ${(d?.stageId===s.id||d?.estagio===s.name)?'selected':''}>${s.name}</option>`).join('')}
       </select></div>
   </div>
   ${renderLeadOwnerSelect(d)}
@@ -6287,19 +6310,55 @@ function isCommercialSellerUser(u){
 }
 
 function getCommercialTeamUsers(){
-  let users=(DB.get('usuarios')||[]).filter(isCommercialSellerUser);
-  if(sessionUser&&isCommercialSellerUser(sessionUser)&&!users.find(u=>sameSalesUser(u,sessionUser))){
+  // Fonte oficial: usuários já sincronizados de public.profiles/Auth.
+  // Não usa mais sementes LOCAL/CACHE como fonte comercial.
+  const source=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[]);
+  let users=(source||[]).filter(isCommercialSellerUser);
+
+  // Fundador/Gerente também precisa aparecer como opção operacional quando estiver criando/editando lead,
+  // principalmente quando quer atribuir para si ou quando ainda não há vendedor cadastrado.
+  if(sessionUser&&isSalesManagerView()&&!users.find(u=>sameSalesUser(u,sessionUser))){
+    users.unshift({...sessionUser});
+  }else if(sessionUser&&isCommercialSellerUser(sessionUser)&&!users.find(u=>sameSalesUser(u,sessionUser))){
     users.unshift({...sessionUser});
   }
+
+  // Responsáveis já usados nos leads precisam continuar aparecendo mesmo que o usuário tenha sido atualizado
+  // de Local/Cache para Supabase Auth, evitando sumir filtros antigos.
+  (DB.get('leads')||[]).forEach(l=>{
+    const oid=getLeadOwnerId(l);
+    const email=getLeadOwnerEmail(l);
+    const nome=getLeadOwnerName(l);
+    if(!oid&&!email&&!nome)return;
+    const exists=users.some(u=>
+      (oid&&(String(u.id||'')===String(oid)||String(u.supabaseId||'')===String(oid))) ||
+      (email&&normalizeLoginEmail(u.email||'')===email) ||
+      (nome&&normalizeSalesName(u.nome||u.name||'')===normalizeSalesName(nome))
+    );
+    if(!exists){
+      users.push({
+        id:oid||email||('owner_'+normalizeSalesName(nome).replace(/\s+/g,'_')),
+        supabaseId:isUuidLike(oid)?oid:'',
+        nome:nome||email||'Responsável no CRM',
+        email:email||'',
+        cargo:'Responsável no CRM',
+        permissao:'Colaborador Vendedor',
+        status:'Ativo',
+        authProvider:isUuidLike(oid)?'supabase':'crm'
+      });
+    }
+  });
+
   // Se ainda não existir equipe cadastrada, usa o próprio usuário logado como fallback operacional.
   if(!users.length&&sessionUser&&can('comercial','view')){
     users=[{...sessionUser}];
   }
+
   const seen=new Set();
   return users.filter(u=>{
-    const key=(u.id||u.supabaseId||u.email||u.nome||uid()).toString().toLowerCase();
+    const key=(normalizeLoginEmail(u.email||'')||u.supabaseId||u.id||u.nome||uid()).toString().toLowerCase();
     if(seen.has(key))return false;seen.add(key);return true;
-  }).sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR'));
+  }).sort((a,b)=>String(a.nome||a.email||'').localeCompare(String(b.nome||b.email||''),'pt-BR'));
 }
 
 function sameSalesUser(a,b){
@@ -6323,13 +6382,23 @@ function getLeadOwnerId(lead){
   return String(lead.responsavelId||lead.ownerId||lead.vendedorId||lead.assignedToId||lead.createdById||lead.userId||'');
 }
 
+function getLeadOwnerEmail(lead){
+  if(!lead)return '';
+  return normalizeLoginEmail(lead.responsavelEmail||lead.ownerEmail||lead.vendedorEmail||lead.assignedToEmail||lead.createdByEmail||lead.userEmail||'');
+}
+
 function getLeadOwnerName(lead){
   if(!lead)return '';
   const explicit=lead.responsavelNome||lead.ownerName||lead.vendedorNome||lead.assignedTo||lead.responsavel||lead.vendedor||lead.usuario||'';
   if(explicit)return explicit;
   const oid=getLeadOwnerId(lead);
-  if(oid){
-    const u=(DB.get('usuarios')||[]).find(x=>String(x.id)===oid||String(x.supabaseId)===oid);
+  const email=getLeadOwnerEmail(lead);
+  const users=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[]);
+  if(oid||email){
+    const u=(users||[]).find(x=>
+      (oid&&(String(x.id)===String(oid)||String(x.supabaseId)===String(oid))) ||
+      (email&&normalizeLoginEmail(x.email||'')===email)
+    );
     if(u)return u.nome||u.email||'';
   }
   return '';
@@ -6337,14 +6406,24 @@ function getLeadOwnerName(lead){
 
 function isLeadOwnedByUser(lead,user){
   if(!lead||!user)return false;
-  const lid=getLeadOwnerId(lead);
-  if(lid&&(String(user.id||'')===lid||String(user.supabaseId||'')===lid))return true;
+  const lid=String(getLeadOwnerId(lead)||'');
+  const uid=String(user.id||'');
+  const usid=String(user.supabaseId||'');
+  if(lid&&(uid===lid||usid===lid))return true;
+
+  const uemail=normalizeLoginEmail(user.email||'');
+  const lemail=getLeadOwnerEmail(lead);
+  if(uemail&&lemail&&uemail===lemail)return true;
+
   const lname=normalizeSalesName(getLeadOwnerName(lead));
   const uname=normalizeSalesName(user.nome||user.name||'');
   if(lname&&uname&&lname===uname)return true;
-  const uemail=normalizeLoginEmail(user.email||'');
-  const lemail=normalizeLoginEmail(lead.responsavelEmail||lead.ownerEmail||lead.vendedorEmail||'');
-  return !!(uemail&&lemail&&uemail===lemail);
+
+  // Compatibilidade: alguns registros antigos salvaram email/nome dentro do campo de id.
+  if(lid&&uemail&&normalizeLoginEmail(lid)===uemail)return true;
+  if(lid&&uname&&normalizeSalesName(lid)===uname)return true;
+
+  return false;
 }
 
 function getVisibleCommercialLeads(leads){
@@ -6363,9 +6442,15 @@ function getUnassignedCommercialLeads(leads){
 function _ownerFilterNorm(v){return normalizeSalesName(v||'');}
 function _ownerFilterValueFromUser(u){
   if(!u) return '';
-  const id=String(u.id||u.supabaseId||'').trim();
-  if(id) return 'id:'+id;
-  const name=_ownerFilterNorm(u.nome||u.name||u.email||'');
+  // Usa sempre o identificador mais estável possível.
+  // Prioridade: supabaseId UUID > id UUID > supabaseId/id comum > email > nome.
+  const sid=String(u.supabaseId||'').trim();
+  const id=String(u.id||'').trim();
+  const stableId=(isUuidLike(sid)&&sid) || (isUuidLike(id)&&id) || sid || id;
+  if(stableId) return 'id:'+stableId;
+  const email=normalizeLoginEmail(u.email||'');
+  if(email) return 'email:'+encodeURIComponent(email);
+  const name=_ownerFilterNorm(u.nome||u.name||'');
   return name?'name:'+encodeURIComponent(name):'';
 }
 function _ownerFilterValueFromLead(l){
@@ -6376,6 +6461,42 @@ function _ownerFilterValueFromLead(l){
 }
 function _ownerFilterLabelFromLead(l){
   return getLeadOwnerName(l)||'Sem responsável';
+}
+
+function getUserByOwnerIdOrEmail(id='',email=''){
+  const users=getCommercialTeamUsers();
+  const targetId=String(id||'');
+  const targetEmail=normalizeLoginEmail(email||'');
+  return users.find(u=>
+    (targetId&&(String(u.id||'')===targetId||String(u.supabaseId||'')===targetId)) ||
+    (targetEmail&&normalizeLoginEmail(u.email||'')===targetEmail)
+  )||null;
+}
+
+function getUserFromOwnerFilterValue(filterValue){
+  if(!filterValue||filterValue==='__unassigned')return null;
+  if(filterValue.startsWith('id:')){
+    const target=filterValue.slice(3);
+    return getUserByOwnerIdOrEmail(target,'');
+  }
+  if(filterValue.startsWith('email:')){
+    return getUserByOwnerIdOrEmail('',decodeURIComponent(filterValue.slice(6)));
+  }
+  if(filterValue.startsWith('name:')){
+    const target=decodeURIComponent(filterValue.slice(5));
+    return getCommercialTeamUsers().find(u=>normalizeSalesName(u.nome||u.email||'')===target)||null;
+  }
+  return getCommercialTeamUsers().find(u=>normalizeSalesName(u.nome||u.email||'')===normalizeSalesName(filterValue))||null;
+}
+
+function getOwnerLabelFromFilterValue(filterValue){
+  const u=getUserFromOwnerFilterValue(filterValue);
+  if(u)return `${u.nome||u.email||'Responsável'} · ${resolveRole(u.permissao||u.cargo||'Colaborador')}`;
+  if(filterValue==='__unassigned')return 'Sem responsável';
+  if(filterValue?.startsWith('email:'))return decodeURIComponent(filterValue.slice(6));
+  if(filterValue?.startsWith('name:'))return decodeURIComponent(filterValue.slice(5));
+  if(filterValue?.startsWith('id:'))return 'Responsável selecionado';
+  return filterValue||'Responsável selecionado';
 }
 
 /* ── Persistência do filtro de responsável ──
@@ -6456,7 +6577,8 @@ function populateCommercialOwnerSelect(selectId, ops, defaultLabel){
   const sel=document.getElementById(selectId);
   if(!sel) return '';
 
-  // Mantém a escolha do usuário mesmo quando a barra do funil é recriada.
+  // Mantém a escolha do usuário mesmo quando a barra do funil é recriada
+  // ou quando os usuários do Supabase ainda estão sincronizando.
   const saved=getSavedOwnerFilter(selectId);
   const previous=sel.value||saved||'';
 
@@ -6466,27 +6588,48 @@ function populateCommercialOwnerSelect(selectId, ops, defaultLabel){
   opts.forEach(o=>sel.appendChild(new Option(o.label,o.value)));
 
   const exists=[...sel.options].some(o=>o.value===previous);
-  sel.value=exists?previous:'';
+  if(exists){
+    sel.value=previous;
+  }else if(previous){
+    // Não apaga filtro válido só porque o Supabase ainda não terminou de carregar profiles.
+    const opt=new Option(getOwnerLabelFromFilterValue(previous)+' · filtro ativo',previous);
+    opt.setAttribute('data-preserved-filter','1');
+    sel.appendChild(opt);
+    sel.value=previous;
+  }else{
+    sel.value='';
+  }
 
-  // Se a opção deixou de existir, limpa o filtro salvo para não travar a tela.
   saveOwnerFilter(selectId,sel.value||'');
   return sel.value||'';
 }
 
 function leadMatchesOwnerFilter(lead,filterValue){
   if(!filterValue) return true;
-  if(filterValue==='__unassigned') return !getLeadOwnerId(lead)&&!getLeadOwnerName(lead);
+  if(filterValue==='__unassigned') return !getLeadOwnerId(lead)&&!getLeadOwnerName(lead)&&!getLeadOwnerEmail(lead);
 
-  const leadId=getLeadOwnerId(lead);
+  const leadId=String(getLeadOwnerId(lead)||'');
+  const leadEmail=getLeadOwnerEmail(lead);
   const leadName=_ownerFilterNorm(getLeadOwnerName(lead));
 
   if(filterValue.startsWith('id:')){
     const target=filterValue.slice(3);
     if(leadId&&String(leadId)===String(target)) return true;
-    const u=(DB.get('usuarios')||[]).find(x=>String(x.id||x.supabaseId||'')===String(target));
-    if(u&&leadName&&leadName===_ownerFilterNorm(u.nome||u.email||'')) return true;
+    const u=getUserByOwnerIdOrEmail(target,'');
+    if(u){
+      const uemail=normalizeLoginEmail(u.email||'');
+      const uname=_ownerFilterNorm(u.nome||u.email||'');
+      if(leadEmail&&uemail&&leadEmail===uemail)return true;
+      if(leadName&&uname&&leadName===uname)return true;
+      if(leadId&&uemail&&normalizeLoginEmail(leadId)===uemail)return true;
+    }
     if(sessionUser&&String(sessionUser.id||sessionUser.supabaseId||'')===String(target)&&leadName===_ownerFilterNorm(sessionUser.nome||sessionUser.email||'')) return true;
     return false;
+  }
+
+  if(filterValue.startsWith('email:')){
+    const target=normalizeLoginEmail(decodeURIComponent(filterValue.slice(6)));
+    return !!(target && ((leadEmail&&leadEmail===target) || normalizeLoginEmail(leadId)===target));
   }
 
   if(filterValue.startsWith('name:')){
@@ -6576,25 +6719,60 @@ function openCommercialOwnerReport(filterValue){
 }
 
 function renderLeadOwnerSelect(d={}){
-  const users=getCommercialTeamUsers();
-  const currentRole=resolveRole(sessionUser?.permissao||'Colaborador');
+  let users=getCommercialTeamUsers();
   const manager=isSalesManagerView();
-  const fallbackId=sessionUser?.id||sessionUser?.supabaseId||'';
-  const selected=String(d?.responsavelId||d?.ownerId||d?.vendedorId||fallbackId||'');
-  const selectedName=normalizeSalesName(d?.responsavelNome||d?.ownerName||d?.vendedorNome||sessionUser?.nome||'');
+  const fallbackId=(isUuidLike(sessionUser?.supabaseId)&&sessionUser.supabaseId)||(isUuidLike(sessionUser?.id)&&sessionUser.id)||sessionUser?.supabaseId||sessionUser?.id||'';
+
+  const savedPipeFilter=getSavedOwnerFilter('pipe-responsavel-filter');
+  const filterUser=manager?getUserFromOwnerFilterValue(savedPipeFilter):null;
+
+  let selected=String(
+    d?.responsavelId||d?.ownerId||d?.vendedorId||d?.assignedToId||
+    filterUser?.supabaseId||filterUser?.id||
+    (!manager?fallbackId:'')||
+    ''
+  );
+  const selectedEmail=normalizeLoginEmail(d?.responsavelEmail||d?.ownerEmail||d?.vendedorEmail||filterUser?.email||(!manager?sessionUser?.email:'')||'');
+  const selectedName=normalizeSalesName(d?.responsavelNome||d?.ownerName||d?.vendedorNome||filterUser?.nome||(!manager?sessionUser?.nome:'')||'');
+
+  if(manager&&!selected&&!selectedEmail&&users.length){
+    // Em criação sem filtro, deixa selecionado o primeiro responsável comercial real.
+    selected=String(users[0].supabaseId||users[0].id||'');
+  }
+
+  // Garante que o responsável já gravado no lead apareça mesmo se ainda não veio do Supabase.
+  if((selected||selectedEmail||selectedName)&&!users.some(u=>
+    (selected&&(String(u.id||'')===selected||String(u.supabaseId||'')===selected)) ||
+    (selectedEmail&&normalizeLoginEmail(u.email||'')===selectedEmail) ||
+    (selectedName&&normalizeSalesName(u.nome||u.email||'')===selectedName)
+  )){
+    users.unshift({
+      id:selected||selectedEmail||'',
+      supabaseId:isUuidLike(selected)?selected:'',
+      nome:d?.responsavelNome||d?.ownerName||d?.vendedorNome||filterUser?.nome||sessionUser?.nome||selectedEmail||'Responsável selecionado',
+      email:selectedEmail||'',
+      permissao:'Colaborador Vendedor',
+      cargo:'Responsável no CRM',
+      status:'Ativo'
+    });
+  }
+
   const opts=users.map(u=>{
-    const uidv=String(u.id||u.supabaseId||'');
-    const isSel=(selected&&uidv===selected)||(!selected&&selectedName&&normalizeSalesName(u.nome)===selectedName);
-    return `<option value="${escAttr(uidv)}" ${isSel?'selected':''}>${escHtml(u.nome||u.email||'Usuário')} · ${escHtml(resolveRole(u.permissao||u.cargo||'Colaborador'))}</option>`;
+    const uidv=String((isUuidLike(u.supabaseId)&&u.supabaseId)||(isUuidLike(u.id)&&u.id)||u.supabaseId||u.id||u.email||'');
+    const uemail=normalizeLoginEmail(u.email||'');
+    const uname=normalizeSalesName(u.nome||u.email||'');
+    const isSel=(selected&&uidv===selected)||(!selected&&selectedEmail&&uemail===selectedEmail)||(!selected&&!selectedEmail&&selectedName&&uname===selectedName);
+    return `<option value="${escAttr(uidv)}" data-email="${escAttr(uemail)}" ${isSel?'selected':''}>${escHtml(u.nome||u.email||'Usuário')} · ${escHtml(resolveRole(u.permissao||u.cargo||'Colaborador'))}</option>`;
   }).join('');
+
   const disabled=!manager?'disabled title="Vendedores só podem atribuir leads a si mesmos"':'';
   return `<div class="form-row">
     <div class="form-group">
       <label class="form-label">Responsável / Vendedor</label>
       <select class="form-input" id="f-responsavel" ${disabled}>
-        ${opts||`<option value="${escAttr(fallbackId)}">${escHtml(sessionUser?.nome||'Usuário atual')}</option>`}
+        ${opts||`<option value="${escAttr(fallbackId)}" data-email="${escAttr(sessionUser?.email||'')}">${escHtml(sessionUser?.nome||'Usuário atual')}</option>`}
       </select>
-      <div style="font-size:11px;color:var(--muted);margin-top:5px">${manager?'Fundador/Gerente pode atribuir leads para qualquer vendedor.':'Este lead ficará vinculado ao seu usuário.'}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">${manager?'Fundador/Gerente pode atribuir leads para qualquer responsável comercial.':'Este lead ficará vinculado ao seu usuário.'}</div>
     </div>
     <div class="form-group">
       <label class="form-label">Visão da performance</label>
@@ -6605,16 +6783,46 @@ function renderLeadOwnerSelect(d={}){
 
 function resolveLeadOwnerFromForm(oldLead=null){
   const users=getCommercialTeamUsers();
-  const fallback={id:sessionUser?.id||sessionUser?.supabaseId||'',nome:sessionUser?.nome||sessionUser?.email||'Usuário'};
-  let ownerId=v('f-responsavel');
-  if(!ownerId&&!isSalesManagerView())ownerId=fallback.id;
-  let owner=users.find(u=>String(u.id||u.supabaseId||'')===String(ownerId||''));
+  const fallback={
+    id:(isUuidLike(sessionUser?.supabaseId)&&sessionUser.supabaseId)||(isUuidLike(sessionUser?.id)&&sessionUser.id)||sessionUser?.supabaseId||sessionUser?.id||'',
+    nome:sessionUser?.nome||sessionUser?.email||'Usuário',
+    email:normalizeLoginEmail(sessionUser?.email||'')
+  };
+
+  const sel=document.getElementById('f-responsavel');
+  let ownerId=sel?.value||'';
+  let ownerEmail=sel?.selectedOptions?.[0]?.dataset?.email||'';
+
+  if(!ownerId&&!ownerEmail&&!isSalesManagerView()){
+    ownerId=fallback.id;
+    ownerEmail=fallback.email;
+  }
+
+  let owner=users.find(u=>
+    (ownerId&&(String(u.id||'')===String(ownerId)||String(u.supabaseId||'')===String(ownerId)||normalizeLoginEmail(u.email||'')===normalizeLoginEmail(ownerId))) ||
+    (ownerEmail&&normalizeLoginEmail(u.email||'')===normalizeLoginEmail(ownerEmail))
+  );
+
   if(!owner&&oldLead){
     const oldId=getLeadOwnerId(oldLead);
-    owner=users.find(u=>String(u.id||u.supabaseId||'')===oldId)||users.find(u=>normalizeSalesName(u.nome)===normalizeSalesName(getLeadOwnerName(oldLead)));
+    const oldEmail=getLeadOwnerEmail(oldLead);
+    const oldName=getLeadOwnerName(oldLead);
+    owner=users.find(u=>
+      (oldId&&(String(u.id||u.supabaseId||'')===String(oldId))) ||
+      (oldEmail&&normalizeLoginEmail(u.email||'')===oldEmail) ||
+      (oldName&&normalizeSalesName(u.nome||u.email||'')===normalizeSalesName(oldName))
+    ) || {
+      id:oldId||oldEmail||fallback.id,
+      nome:oldName||oldEmail||fallback.nome,
+      email:oldEmail||fallback.email
+    };
   }
+
   if(!owner&&sessionUser)owner=sessionUser;
-  return {id:String(owner?.id||owner?.supabaseId||fallback.id||''),nome:owner?.nome||fallback.nome};
+
+  const stableId=(isUuidLike(owner?.supabaseId)&&owner.supabaseId)||(isUuidLike(owner?.id)&&owner.id)||owner?.supabaseId||owner?.id||ownerId||fallback.id||'';
+  const email=normalizeLoginEmail(owner?.email||ownerEmail||fallback.email||'');
+  return {id:String(stableId||''),nome:owner?.nome||owner?.name||email||fallback.nome,email};
 }
 
 function isLostOpportunityLocal(o){
@@ -6894,10 +7102,12 @@ function renderComercial(){
     : getActiveFunnelStages();
 
   const allLeads=getVisibleCommercialLeads(DB.get('leads')||[]);
-  const ownerFilter=populateCommercialOwnerSelect('pipe-responsavel-filter', allLeads, 'Todos os responsáveis');
   const funnelLeadsBase=activeFunnel
     ? allLeads.filter(l=>l.funnelId===activeFunnel.id||(activeFunnel.isDefault&&!l.funnelId))
     : allLeads;
+  // Popula com base no funil atual + equipe comercial oficial.
+  // Assim o filtro não traz ruído de outros funis e não some antes da sync do Supabase terminar.
+  const ownerFilter=populateCommercialOwnerSelect('pipe-responsavel-filter', funnelLeadsBase, 'Todos os responsáveis');
   const funnelLeads=filterOpportunitiesByOwner(funnelLeadsBase, ownerFilter);
 
   const total=funnelLeads.reduce((a,l)=>a+(+l.valor||0),0);
@@ -8166,7 +8376,7 @@ function renderEntregas(){
           <div class="kcard-date">📅 ${p.prazo||'—'}</div>
           <div style="display:flex;gap:4px">
             <span style="cursor:pointer;font-size:13px" onclick="event.stopPropagation();openModal('projeto','${p.id}')">✏️</span>
-            <span style="cursor:pointer;font-size:13px" onclick="event.stopPropagation();confirmDelete(()=>{if(!projectAccessGuard(p,'excluir este projeto'))return;DB.remove('projetos','${p.id}');renderEntregas();toast('Removido','#EF4444')})">🗑</span>
+            <span style="cursor:pointer;font-size:13px" onclick="event.stopPropagation();confirmDelete(function(){deleteProjetoSafe('${p.id}')})">🗑</span>
           </div>
         </div>
       </div>`).join('')}
@@ -8423,6 +8633,47 @@ function moveObStage(stage){
 function toggleObStep(clienteId,idx){toggleObStep2(idx);}
 
 // Tarefas de Projetos
+
+
+function deleteProjetoSafe(id){
+  const item=DB.find('projetos',id);
+  if(!item){
+    toast('Projeto não encontrado. Atualizando lista...','#F59E0B');
+    renderEntregas();
+    return;
+  }
+  if(!projectAccessGuard(item,'excluir este projeto'))return;
+  DB.remove('projetos',id);
+  renderEntregas();
+  toast('Projeto removido do sistema e sincronizado com o Supabase.','#EF4444');
+}
+
+function deleteTarefaProjetoSafe(id){
+  const item=DB.find('tarefas_cli',id);
+  if(!item){
+    toast('Tarefa não encontrada. Atualizando lista...','#F59E0B');
+    renderTarefasProj();
+    return;
+  }
+  if(!projectAccessGuard(item,'excluir esta tarefa'))return;
+  DB.remove('tarefas_cli',id);
+  renderTarefasProj();
+  toast('Tarefa removida do sistema e sincronizada com o Supabase.','#EF4444');
+}
+
+function deleteConteudoProjetoSafe(id){
+  const item=DB.find('conteudos',id);
+  if(!item){
+    toast('Conteúdo não encontrado. Atualizando lista...','#F59E0B');
+    renderAprovacao();
+    return;
+  }
+  if(!projectAccessGuard(item,'excluir este conteúdo'))return;
+  DB.remove('conteudos',id);
+  renderAprovacao();
+  toast('Conteúdo removido do sistema e sincronizado com o Supabase.','#EF4444');
+}
+
 function renderTarefasProj(){
   const tasks=getVisibleProjectTasks();
   const cls=DB.get('clientes');
@@ -8444,7 +8695,7 @@ function renderTarefasProj(){
           <td><div class="td-actions">
             <button class="btn btn-ghost btn-sm" onclick="toggleTaskGlobal('${t.id}')">${t.status==='Concluída'?'↩ Reabrir':'✓ Concluir'}</button>
             <button class="btn btn-ghost btn-sm btn-icon" onclick="openModalTarefaGlobal('${t.id}')">✏️</button>
-            <button class="btn btn-ghost btn-sm btn-icon" onclick="confirmDelete(()=>{if(!projectAccessGuard(t,'excluir esta tarefa'))return;DB.remove('tarefas_cli','${t.id}');renderTarefasProj();toast('Removida','#EF4444')})">🗑️</button>
+            <button class="btn btn-ghost btn-sm btn-icon" onclick="confirmDelete(function(){deleteTarefaProjetoSafe('${t.id}')})">🗑️</button>
           </div></td>
         </tr>`).join(''):`<tr><td colspan="6"><div class="empty"><div class="empty-ico">✅</div><div class="empty-txt">Sem tarefas cadastradas</div></div></td></tr>`}
         </tbody>
@@ -8556,7 +8807,7 @@ function renderAprovacao(){
           ${c.status!=='Aprovado'?`<button class="btn btn-sm" style="background:#DCFCE7;color:#166534;border:none" onclick="setConteudo('${c.id}','Aprovado')">✓ Aprovar</button>`:''}
           ${c.status!=='Reprovado'?`<button class="btn btn-sm" style="background:#FEE2E2;color:#991B1B;border:none" onclick="setConteudo('${c.id}','Reprovado')">✕ Reprovar</button>`:''}
           ${c.status==='Reprovado'||c.status==='Aprovado'?`<button class="btn btn-ghost btn-sm" onclick="setConteudo('${c.id}','Pendente')">↩ Pendente</button>`:''}
-          <button class="btn btn-ghost btn-sm btn-icon" onclick="confirmDelete(()=>{if(!projectAccessGuard(c,'excluir este conteúdo'))return;DB.remove('conteudos','${c.id}');renderAprovacao();toast('Removido','#EF4444')})">🗑️</button>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="confirmDelete(function(){deleteConteudoProjetoSafe('${c.id}')})">🗑️</button>
         </div>
       </div>`).join('')||`<div style="text-align:center;padding:20px;color:var(--light);font-size:12px">Nenhum</div>`}
     </div>`;
