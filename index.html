@@ -436,49 +436,6 @@ textarea.form-input{resize:vertical;min-height:75px}
 .stage-del-btn{background:none;border:none;color:var(--light);cursor:pointer;font-size:14px;padding:0 2px;transition:color .15s}
 .stage-del-btn:hover{color:var(--red)}
 .stage-add-row{display:flex;gap:8px}
-/* ─── Multi-Funnel Selector ─── */
-.funnel-bar{display:flex;align-items:center;gap:10px;padding:10px 0 18px;flex-wrap:wrap}
-.funnel-select-wrap{position:relative;display:flex;align-items:center}
-.funnel-select{appearance:none;border:1.5px solid var(--border);background:var(--card);border-radius:10px;padding:7px 36px 7px 12px;font-size:13px;font-weight:600;color:var(--txt);font-family:'Inter',sans-serif;cursor:pointer;transition:border-color .15s;min-width:200px;max-width:280px}
-.funnel-select:focus{outline:none;border-color:var(--p2)}
-.funnel-select-arrow{position:absolute;right:10px;pointer-events:none;font-size:10px;color:var(--muted)}
-.funnel-default-badge{background:#EDE9FE;color:#6D28D9;border:1px solid #DDD6FE;border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700;letter-spacing:.03em}
-.funnel-archived-badge{background:#FEE2E2;color:#991B1B;border:1px solid #FECACA;border-radius:20px;padding:2px 9px;font-size:10px;font-weight:700}
-.funnel-bar-btns{display:flex;gap:6px;flex-wrap:wrap}
-.fbtn{padding:6px 13px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);background:var(--card);color:var(--txt);font-family:'Inter',sans-serif;transition:all .15s;display:flex;align-items:center;gap:5px}
-.fbtn:hover{border-color:var(--p2);color:var(--p2);background:var(--p-light)}
-.fbtn.fbtn-primary{background:var(--p2);color:#fff;border-color:var(--p2)}
-.fbtn.fbtn-primary:hover{background:#6D28D9;border-color:#6D28D9}
-.fbtn.fbtn-danger:hover{border-color:#EF4444;color:#EF4444;background:#FEF2F2}
-/* ─── Funnel Manager Modal ─── */
-.fm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1100;display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
-.fm-overlay.open{display:flex;animation:fadeIn .18s ease}
-.fm-box{background:var(--card);border-radius:18px;width:min(660px,95vw);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.18)}
-.fm-header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
-.fm-title{font-size:17px;font-weight:800;color:var(--txt)}
-.fm-body{padding:20px 24px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:16px}
-.fm-section-lbl{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
-.fm-stages-list{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto}
-.fm-stage-row{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:9px 12px;transition:box-shadow .15s}
-.fm-stage-row:hover{box-shadow:0 2px 8px rgba(0,0,0,.07)}
-.fm-stage-handle{color:var(--light);cursor:grab;font-size:14px;flex-shrink:0;user-select:none}
-.fm-stage-color-btn{width:20px;height:20px;border-radius:50%;border:2px solid rgba(0,0,0,.1);cursor:pointer;flex-shrink:0;transition:transform .15s}
-.fm-stage-color-btn:hover{transform:scale(1.2)}
-.fm-stage-name{flex:1;border:none;background:transparent;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;color:var(--txt);outline:none;min-width:0}
-.fm-stage-name:focus{background:#fff;border-radius:6px;padding:2px 6px;outline:1px solid var(--p3)}
-.fm-stage-prob{width:52px;border:1px solid var(--border);border-radius:6px;padding:3px 6px;font-size:12px;text-align:center;background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif}
-.fm-stage-type{font-size:11px;padding:3px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;cursor:pointer}
-.fm-stage-del{background:none;border:none;color:var(--light);cursor:pointer;font-size:15px;padding:0 3px;transition:color .15s;flex-shrink:0}
-.fm-stage-del:hover{color:var(--red)}
-.fm-stage-lock{font-size:12px;color:var(--muted);flex-shrink:0}
-.fm-add-stage-row{display:flex;gap:8px;align-items:center}
-.fm-footer{padding:14px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
-/* color picker inline */
-.fm-color-picker-wrap{position:relative}
-.fm-color-popup{position:absolute;top:26px;left:0;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px;display:flex;flex-wrap:wrap;gap:5px;width:150px;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,.12)}
-.fm-color-swatch{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:transform .12s}
-.fm-color-swatch:hover{transform:scale(1.2);border-color:rgba(0,0,0,.2)}
-.fm-color-swatch.selected{border-color:#1A1A2E}
 /* pipe-col animation */
 @keyframes colEnter{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .pipe-col{animation:colEnter .22s ease both}
@@ -954,7 +911,6 @@ textarea.form-input{resize:vertical;min-height:75px}
     </div>
     <!-- Pipeline -->
     <div id="com-tab-pipeline">
-      <div id="funnel-selector-bar" class="funnel-bar"></div>
       <div class="grid-3" style="margin-bottom:16px" id="com-stats"></div>
       <div class="pipeline" id="pipeline-board"></div>
     </div>
@@ -1149,21 +1105,6 @@ textarea.form-input{resize:vertical;min-height:75px}
   </div>
 </div>
 
-<!-- FUNNEL MANAGER MODAL -->
-<div class="fm-overlay" id="fm-overlay" onclick="if(event.target===this)closeFunnelModal()">
-  <div class="fm-box" onclick="event.stopPropagation()">
-    <div class="fm-header">
-      <div class="fm-title" id="fm-title">Novo Funil</div>
-      <button class="modal-close" onclick="closeFunnelModal()">✕</button>
-    </div>
-    <div class="fm-body" id="fm-body"></div>
-    <div class="fm-footer">
-      <button class="btn btn-ghost" onclick="closeFunnelModal()">Cancelar</button>
-      <button class="btn btn-primary" id="fm-save-btn" onclick="saveFunnelModal()">Criar Funil</button>
-    </div>
-  </div>
-</div>
-
 <!-- PRODUTOS MODAL -->
 <div class="overlay" id="produtos-ov" onclick="if(event.target===this)closeProdutosModal()">
   <div class="modal" onclick="event.stopPropagation()">
@@ -1247,10 +1188,6 @@ let cliFilter = 'todos';
 let rhSquadFilter = 'todos';
 let currentProjView = 'entregas';
 let currentObId = '';
-let fmDraft = {name:'',description:'',isDefault:false,stages:[]};
-let fmEditId = null;
-let fmStageDragIdx = null;
-let fmColorPickerStageIdx = null;
 let stageDraft = [];
 let stageDragIdx = null;
 let currentDealId = '';
@@ -1598,9 +1535,6 @@ if(localStorage.getItem('gx2_tasks_seeded')!=='v2'){
   localStorage.setItem('gx2_tasks_seeded','v2');
 }
 
-// ── Initialize multi-funnel system ──
-ensureDefaultCommercialFunnel();
-
 // ═══ PERMISSION SYSTEM ═══
 // (MODULES, ACTIONS e ROLE_PERMS foram movidos para o topo do script)
 
@@ -1854,39 +1788,21 @@ function dragOver(e){e.preventDefault();e.dataTransfer.dropEffect='move'}
 function dragEnter(e){e.currentTarget.classList.add('drag-over')}
 function dragLeave(e){e.currentTarget.classList.remove('drag-over')}
 
-function drop(e,newVal){
+function drop(e,stageIdOrStatus,stageName){
   e.preventDefault();
   e.currentTarget.classList.remove('drag-over');
   if(!dragId) return;
   if(dragType==='projeto'){
-    DB.update('projetos',dragId,{status:newVal});
-    fireWebhook('projeto.movido',{id:dragId,novoStatus:newVal});
+    DB.update('projetos',dragId,{status:stageIdOrStatus});
+    fireWebhook('projeto.movido',{id:dragId,novoStatus:stageIdOrStatus});
     renderEntregas();
-    toast(`Movido para "${newVal}" ✓`,'#10B981');
+    toast(`Movido para "${stageIdOrStatus}" ✓`,'#10B981');
   } else if(dragType==='lead'){
-    DB.update('leads',dragId,{estagio:newVal});
-    fireWebhook('lead.movido',{id:dragId,novoEstagio:newVal});
+    DB.update('leads',dragId,{estagio:stageName||stageIdOrStatus,stageId:stageIdOrStatus});
+    fireWebhook('lead.movido',{id:dragId,novoEstagio:stageName||stageIdOrStatus});
     renderComercial();
-    toast(`Lead → ${newVal} ✓`,'#10B981');
+    toast(`Lead → ${stageName||stageIdOrStatus} ✓`,'#10B981');
   }
-  dragId='';dragType='';
-}
-
-function dropLead(e,stageId,stageName){
-  e.preventDefault();
-  e.currentTarget.classList.remove('drag-over');
-  if(!dragId||dragType!=='lead') return;
-  const activeFunnel=getActiveFunnel();
-  const stage=activeFunnel?(activeFunnel.stages||[]).find(s=>s.id===stageId):null;
-  const updates={estagio:stageName,stageId};
-  if(stage){
-    if(stage.isWon){updates.dealStatus='Ganho';updates.wonAt=new Date().toISOString();}
-    if(stage.isLost){updates.dealStatus='Perdido';updates.lostAt=new Date().toISOString();}
-  }
-  DB.update('leads',dragId,updates);
-  fireWebhook('lead.movido',{id:dragId,novoEstagio:stageName,stageId});
-  renderComercial();
-  toast(`Lead → ${stageName} ✓`,'#10B981');
   dragId='';dragType='';
 }
 
@@ -2578,16 +2494,11 @@ function switchComTab(tab){
 }
 
 function renderComercial(){
-  renderFunnelSelector();
-  const activeFunnel=getActiveFunnel();
-  const stages=activeFunnel?activeFunnel.stages.slice().sort((a,b)=>a.order-b.order):getStages().map((name,i)=>({id:'legacy_'+i,name,order:i,color:STAGE_COLORS[i%STAGE_COLORS.length]}));
+  const stages=getStages();
   const allLeads=DB.get('leads');
-  // Show only leads matching active funnel (or legacy leads with no funnelId → show in default)
-  const funnelLeads=activeFunnel?allLeads.filter(l=>l.funnelId===activeFunnel.id||(activeFunnel.isDefault&&!l.funnelId)):allLeads;
-  const total=funnelLeads.reduce((a,l)=>a+(+l.valor||0),0);
-  const wonStage=stages.find(s=>s.isWon);
-  const wonLeads=wonStage?funnelLeads.filter(l=>l.stageId===wonStage.id||l.estagio===wonStage.name):[];
-  const fechados=wonLeads.reduce((a,l)=>a+(+l.valor||0),0);
+  const total=allLeads.reduce((a,l)=>a+(+l.valor||0),0);
+  const lastStage=stages[stages.length-1];
+  const fechados=allLeads.filter(l=>l.stageId===lastStage?.id||l.estagio===lastStage?.name).reduce((a,l)=>a+(+l.valor||0),0);
 
   const actEl=document.getElementById('comercial-header-actions');
   if(actEl&&can('comercial','create')){
@@ -2602,25 +2513,23 @@ function renderComercial(){
   const comStats=document.getElementById('com-stats');
   if(comStats) comStats.innerHTML=`
     <div class="stat-card"><div class="stat-lbl">Pipeline Total</div><div class="stat-val" style="font-size:18px">${fmtBRL(total)}</div></div>
-    <div class="stat-card"><div class="stat-lbl">${wonStage?wonStage.name:'Fechamento'}</div><div class="stat-val" style="font-size:18px;color:var(--green)">${fmtBRL(fechados)}</div></div>
-    <div class="stat-card"><div class="stat-lbl">Leads Ativos</div><div class="stat-val">${funnelLeads.length}</div></div>`;
+    <div class="stat-card"><div class="stat-lbl">${lastStage?lastStage.name:'Fechamento'}</div><div class="stat-val" style="font-size:18px;color:var(--green)">${fmtBRL(fechados)}</div></div>
+    <div class="stat-card"><div class="stat-lbl">Leads Ativos</div><div class="stat-val">${allLeads.length}</div></div>`;
 
   const board=document.getElementById('pipeline-board');
   if(!board) return;
   board.style.gridTemplateColumns=`repeat(${Math.max(stages.length,1)},minmax(180px,1fr))`;
   board.innerHTML=stages.map((stage,idx)=>{
-    const bg=STAGE_BG[idx%STAGE_BG.length];
-    const dot=stage.color||STAGE_COLORS[idx%STAGE_COLORS.length];
-    const items=funnelLeads.filter(l=>l.stageId===stage.id||((!l.stageId)&&l.estagio===stage.name));
+    const bg=stage.bg||'#F3F4F6';
+    const dot=stage.color||'#9CA3AF';
+    const items=allLeads.filter(l=>l.stageId===stage.id||l.estagio===stage.name);
     const sub=items.reduce((a,l)=>a+(+l.valor||0),0);
-    const wonBadge=stage.isWon?'<span style="font-size:9px;background:#DCFCE7;color:#166534;border-radius:4px;padding:1px 5px;font-weight:700">GANHO</span>':'';
-    const lostBadge=stage.isLost?'<span style="font-size:9px;background:#FEE2E2;color:#991B1B;border-radius:4px;padding:1px 5px;font-weight:700">PERDIDO</span>':'';
     return `<div class="pipe-col" style="background:${bg}50;border-color:${bg};animation-delay:${idx*0.04}s"
-      ondragover="dragOver(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="dropLead(event,'${stage.id}','${stage.name}')">
+      ondragover="dragOver(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'${stage.id}','${stage.name}')">
       <div class="pipe-header" style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
         <span style="width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
         <div style="flex:1">
-          <div class="pipe-title">${stage.name} ${wonBadge}${lostBadge}</div>
+          <div class="pipe-title">${stage.name}</div>
           <div class="pipe-total">${fmtBRL(sub)}</div>
         </div>
         <span class="kol-count">${items.length}</span>
@@ -4458,410 +4367,22 @@ function saveContrato(id){
   closeModal();renderContratos();toast(id?'Atualizado ✓':'Contrato adicionado ✓','#10B981');
 }
 
-// ═══ MULTI-FUNNEL SYSTEM ═══
+// ═══ STAGES / PIPELINE ═══
 const DEFAULT_STAGES=['Prospecção','Qualificação','Proposta','Negociação','Fechamento'];
 const STAGE_COLORS=['#9CA3AF','#3B82F6','#F59E0B','#8B5CF6','#10B981','#EF4444','#F97316','#EC4899','#14B8A6','#6366F1'];
-const STAGE_BG=['#F3F4F6','#DBEAFE','#FEF3C7','#EDE9FE','#DCFCE7','#FEE2E2','#FFEDD5','#FCE7F3','#CCFBF1','#E0E7FF'];
-const FM_COLORS=['#8B5CF6','#7C3AED','#3B82F6','#10B981','#F59E0B','#EF4444','#F97316','#EC4899','#14B8A6','#6366F1','#9CA3AF','#1F2937'];
-
-// ── Funnel CRUD ──────────────────────────────────────────────
-function getCommercialFunnels(){
-  try{const f=DB.get('commercial_funnels');if(Array.isArray(f)&&f.length)return f;}catch{}
-  return [];
-}
-function saveCommercialFunnels(funnels){DB.set('commercial_funnels',funnels);}
-
-function getActiveFunnelId(){
-  return localStorage.getItem('gx2_active_funnel')||'';
-}
-function setActiveFunnelId(id){localStorage.setItem('gx2_active_funnel',id);}
-
-function getActiveFunnel(){
-  const funnels=getCommercialFunnels().filter(f=>!f.isArchived);
-  if(!funnels.length) return null;
-  const id=getActiveFunnelId();
-  return funnels.find(f=>f.id===id)||funnels.find(f=>f.isDefault)||funnels[0];
-}
 
 function getStages(){
-  const f=getActiveFunnel();
-  if(f&&Array.isArray(f.stages)&&f.stages.length){
-    return f.stages.slice().sort((a,b)=>a.order-b.order).map(s=>s.name);
-  }
-  try{const s=JSON.parse(localStorage.getItem('gx2_pipeline_stages'));if(Array.isArray(s)&&s.length)return s;}catch{}
-  return [...DEFAULT_STAGES];
+  const saved = DB.get('stages');
+  return saved && saved.length ? saved : [{id:'s1',name:'Prospecção',color:'#9CA3AF',bg:'#F3F4F6'},{id:'s2',name:'Qualificação',color:'#3B82F6',bg:'#DBEAFE'},{id:'s3',name:'Proposta',color:'#F59E0B',bg:'#FEF3C7'},{id:'s4',name:'Negociação',color:'#8B5CF6',bg:'#EDE9FE'},{id:'s5',name:'Fechamento',color:'#10B981',bg:'#DCFCE7'}];
 }
-
-function getActiveFunnelStages(){
-  const f=getActiveFunnel();
-  if(f&&Array.isArray(f.stages)) return f.stages.slice().sort((a,b)=>a.order-b.order);
-  return getStages().map((name,i)=>({id:'legacy_'+i,name,order:i,color:STAGE_COLORS[i%STAGE_COLORS.length],probability:20*i,isWon:i===4,isLost:false}));
-}
-
-function getStageById(stageId){
-  const f=getActiveFunnel();
-  if(!f) return null;
-  return (f.stages||[]).find(s=>s.id===stageId)||null;
-}
-
-// ── Migration ─────────────────────────────────────────────────
-function ensureDefaultCommercialFunnel(){
-  const existing=getCommercialFunnels();
-  if(existing.length>0){
-    // Migrate leads with no funnelId
-    migrateOldOpportunitiesToDefaultFunnel();
-    return;
-  }
-  // Build stages from existing custom or default
-  let stageNames=DEFAULT_STAGES;
-  try{const s=JSON.parse(localStorage.getItem('gx2_pipeline_stages'));if(Array.isArray(s)&&s.length)stageNames=s;}catch{}
-  const stages=stageNames.map((name,i)=>({
-    id:'stage_'+uid(),name,color:STAGE_COLORS[i%STAGE_COLORS.length],
-    order:i+1,probability:Math.round(100/(stageNames.length-1)*i)||10,
-    isWon:i===stageNames.length-1,isLost:false
-  }));
-  // Add a Perdido stage at end
-  stages.push({id:'stage_'+uid(),name:'Perdido',color:'#EF4444',order:stages.length+1,probability:0,isWon:false,isLost:true});
-  const defaultFunnel={
-    id:'funnel_'+uid(),name:'Funil Comercial Principal',
-    description:'Funil padrão da operação comercial',
-    isDefault:true,isArchived:false,
-    createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),
-    stages
-  };
-  saveCommercialFunnels([defaultFunnel]);
-  setActiveFunnelId(defaultFunnel.id);
-  migrateOldOpportunitiesToDefaultFunnel();
-}
-
-function migrateOldOpportunitiesToDefaultFunnel(){
-  const funnels=getCommercialFunnels();
-  const defaultFunnel=funnels.find(f=>f.isDefault)||funnels[0];
-  if(!defaultFunnel) return;
-  const leads=DB.get('leads')||[];
-  let changed=false;
-  leads.forEach(l=>{
-    if(!l.funnelId){
-      // Map estagio name to stageId
-      const matchStage=(defaultFunnel.stages||[]).find(s=>s.name===l.estagio)||defaultFunnel.stages[0];
-      l.funnelId=defaultFunnel.id;
-      l.stageId=matchStage?matchStage.id:'';
-      changed=true;
-    }
-  });
-  if(changed) DB.set('leads',leads);
-}
-
-// ── Funnel Operations ──────────────────────────────────────────
-function createCommercialFunnel(data){
-  const funnels=getCommercialFunnels();
-  const f={
-    id:'funnel_'+uid(),
-    name:data.name||'Novo Funil',
-    description:data.description||'',
-    isDefault:data.isDefault||false,
-    isArchived:false,
-    createdAt:new Date().toISOString(),
-    updatedAt:new Date().toISOString(),
-    stages:data.stages||[
-      {id:'stage_'+uid(),name:'Lead Novo',color:'#8B5CF6',order:1,probability:10,isWon:false,isLost:false},
-      {id:'stage_'+uid(),name:'Qualificado',color:'#3B82F6',order:2,probability:30,isWon:false,isLost:false},
-      {id:'stage_'+uid(),name:'Proposta',color:'#F59E0B',order:3,probability:60,isWon:false,isLost:false},
-      {id:'stage_'+uid(),name:'Ganho',color:'#10B981',order:4,probability:100,isWon:true,isLost:false},
-      {id:'stage_'+uid(),name:'Perdido',color:'#EF4444',order:5,probability:0,isWon:false,isLost:true},
-    ]
-  };
-  if(f.isDefault) funnels.forEach(x=>x.isDefault=false);
-  funnels.push(f);
-  saveCommercialFunnels(funnels);
-  return f;
-}
-
-function updateCommercialFunnel(funnelId,data){
-  const funnels=getCommercialFunnels();
-  const idx=funnels.findIndex(f=>f.id===funnelId);
-  if(idx<0) return;
-  if(data.isDefault) funnels.forEach(f=>f.isDefault=false);
-  funnels[idx]={...funnels[idx],...data,updatedAt:new Date().toISOString()};
-  saveCommercialFunnels(funnels);
-}
-
-function duplicateCommercialFunnel(funnelId){
-  const funnels=getCommercialFunnels();
-  const src=funnels.find(f=>f.id===funnelId);
-  if(!src){toast('Funil não encontrado','#EF4444');return;}
-  const newStages=(src.stages||[]).map(s=>({...s,id:'stage_'+uid()}));
-  const dup={...src,id:'funnel_'+uid(),name:src.name+' (cópia)',isDefault:false,isArchived:false,
-    stages:newStages,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
-  funnels.push(dup);
-  saveCommercialFunnels(funnels);
-  toast('Funil duplicado ✓','#10B981');
-  renderFunnelSelector();
-}
-
-function archiveCommercialFunnel(funnelId){
-  const funnels=getCommercialFunnels();
-  const f=funnels.find(x=>x.id===funnelId);
-  if(!f){toast('Funil não encontrado','#EF4444');return;}
-  if(f.isDefault){toast('Não é possível arquivar o funil padrão','#F59E0B');return;}
-  f.isArchived=true;f.updatedAt=new Date().toISOString();
-  saveCommercialFunnels(funnels);
-  // Switch to default if active was archived
-  const active=getActiveFunnel();
-  if(!active||active.id===funnelId){
-    const def=funnels.find(x=>x.isDefault&&!x.isArchived)||funnels.find(x=>!x.isArchived);
-    if(def) setActiveFunnelId(def.id);
-  }
-  toast('Funil arquivado','#F59E0B');
-  renderFunnelSelector();
-  renderComercial();
-}
-
-// ── Funnel Selector UI ────────────────────────────────────────
-function renderFunnelSelector(){
-  const bar=document.getElementById('funnel-selector-bar');
-  if(!bar) return;
-  const funnels=getCommercialFunnels().filter(f=>!f.isArchived);
-  const active=getActiveFunnel();
-  const canEdit=can('comercial','edit');
-  const canCreate=can('comercial','create');
-
-  const selectHtml=`<div class="funnel-select-wrap">
-    <select class="funnel-select" id="funnel-select-dd" onchange="onFunnelSelectChange(this.value)">
-      ${funnels.map(f=>`<option value="${f.id}" ${active&&f.id===active.id?'selected':''}>${f.name}${f.isDefault?' ★':''}</option>`).join('')}
-    </select>
-    <span class="funnel-select-arrow">▼</span>
-  </div>
-  ${active&&active.isDefault?'<span class="funnel-default-badge">Padrão</span>':''}`;
-
-  const btnsHtml=`<div class="funnel-bar-btns">
-    ${canCreate?`<button class="fbtn fbtn-primary" onclick="openFunnelModal('new')">+ Novo Funil</button>`:''}
-    ${canEdit&&active?`<button class="fbtn" onclick="openFunnelModal('edit','${active.id}')">✏️ Editar Funil</button>`:''}
-    ${canCreate&&active?`<button class="fbtn" onclick="duplicateCommercialFunnel('${active.id}')">⧉ Duplicar</button>`:''}
-    ${canEdit&&active&&!active.isDefault?`<button class="fbtn fbtn-danger" onclick="confirmArchiveFunnel('${active.id}')">📦 Arquivar</button>`:''}
-  </div>`;
-
-  bar.innerHTML=selectHtml+btnsHtml;
-}
-
-function onFunnelSelectChange(id){
-  setActiveFunnelId(id);
-  renderComercial();
-  toast('Funil alterado ✓','#7C3AED');
-}
-
-function confirmArchiveFunnel(id){
-  const f=getCommercialFunnels().find(x=>x.id===id);
-  if(!f) return;
-  if(confirm(`Arquivar "${f.name}"? O funil ficará oculto mas as oportunidades serão mantidas.`)) archiveCommercialFunnel(id);
-}
-
-// ── Funnel Manager Modal ──────────────────────────────────────
-
-function openFunnelModal(mode,funnelId){
-  fmEditId=null;
-  document.getElementById('fm-save-btn').textContent= mode==='new'?'Criar Funil':'Salvar alterações';
-  document.getElementById('fm-title').textContent= mode==='new'?'✨ Novo Funil':'✏️ Editar Funil';
-
-  if(mode==='edit'&&funnelId){
-    fmEditId=funnelId;
-    const f=getCommercialFunnels().find(x=>x.id===funnelId);
-    if(!f) return;
-    fmDraft={name:f.name,description:f.description||'',isDefault:f.isDefault,
-      stages:f.stages.slice().sort((a,b)=>a.order-b.order).map(s=>({...s}))};
-  } else {
-    fmDraft={name:'',description:'',isDefault:false,stages:[
-      {id:'stage_'+uid(),name:'Lead Novo',color:'#8B5CF6',order:1,probability:10,isWon:false,isLost:false},
-      {id:'stage_'+uid(),name:'Qualificado',color:'#3B82F6',order:2,probability:30,isWon:false,isLost:false},
-      {id:'stage_'+uid(),name:'Proposta',color:'#F59E0B',order:3,probability:60,isWon:false,isLost:false},
-      {id:'stage_'+uid(),name:'Ganho',color:'#10B981',order:4,probability:100,isWon:true,isLost:false},
-      {id:'stage_'+uid(),name:'Perdido',color:'#EF4444',order:5,probability:0,isWon:false,isLost:true},
-    ]};
-  }
-  renderFunnelModalBody();
-  document.getElementById('fm-overlay').classList.add('open');
-}
-
-function closeFunnelModal(){
-  document.getElementById('fm-overlay').classList.remove('open');
-  fmColorPickerStageIdx=null;
-}
-
-function renderFunnelModalBody(){
-  const leads=DB.get('leads')||[];
-  const body=document.getElementById('fm-body');
-  const wonCount=fmDraft.stages.filter(s=>s.isWon).length;
-  const lostCount=fmDraft.stages.filter(s=>s.isLost).length;
-
-  body.innerHTML=`
-    <div>
-      <div class="fm-section-lbl">Informações do funil</div>
-      <div style="display:flex;flex-direction:column;gap:10px">
-        <div class="form-group" style="margin:0">
-          <label class="form-label">Nome do funil *</label>
-          <input class="form-input" id="fm-name" value="${fmDraft.name}" placeholder="Ex: Funil de Prospecção" oninput="fmDraft.name=this.value">
-        </div>
-        <div class="form-group" style="margin:0">
-          <label class="form-label">Descrição</label>
-          <input class="form-input" id="fm-desc" value="${fmDraft.description}" placeholder="Descrição opcional" oninput="fmDraft.description=this.value">
-        </div>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;user-select:none">
-          <input type="checkbox" id="fm-default" ${fmDraft.isDefault?'checked':''} onchange="fmDraft.isDefault=this.checked">
-          Marcar como funil padrão
-        </label>
-      </div>
-    </div>
-    <div>
-      <div class="fm-section-lbl">Etapas do funil <span style="font-weight:400;font-size:10px;color:var(--muted)">— arraste para reordenar</span></div>
-      <div class="fm-stages-list" id="fm-stage-list">
-        ${fmDraft.stages.map((s,i)=>{
-          const hasLeads=fmEditId&&leads.some(l=>l.stageId===s.id||(!l.stageId&&l.estagio===s.name));
-          return `<div class="fm-stage-row" id="fsr-${i}" draggable="true"
-            ondragstart="fmStageDragStart(${i})" ondragover="event.preventDefault()" ondrop="fmStageDrop(${i})">
-            <span class="fm-stage-handle" title="Arrastar">⠿</span>
-            <div class="fm-color-picker-wrap">
-              <div class="fm-stage-color-btn" style="background:${s.color}" onclick="toggleFmColorPicker(${i})" title="Cor da etapa"></div>
-              <div class="fm-color-popup" id="fcp-${i}" style="display:none">
-                ${FM_COLORS.map(c=>`<div class="fm-color-swatch${c===s.color?' selected':''}" style="background:${c}" onclick="setFmStageColor(${i},'${c}')"></div>`).join('')}
-              </div>
-            </div>
-            <input class="fm-stage-name" value="${s.name}" placeholder="Nome da etapa"
-              oninput="fmDraft.stages[${i}].name=this.value" id="fsn-${i}">
-            <input class="fm-stage-prob" type="number" min="0" max="100" value="${s.probability||0}"
-              oninput="fmDraft.stages[${i}].probability=+this.value" title="Probabilidade %">
-            <select class="fm-stage-type" onchange="setFmStageType(${i},this.value)" title="Tipo da etapa">
-              <option ${!s.isWon&&!s.isLost?'selected':''} value="normal">Normal</option>
-              <option ${s.isWon?'selected':''} value="won">Ganha</option>
-              <option ${s.isLost?'selected':''} value="lost">Perdida</option>
-            </select>
-            ${hasLeads
-              ?`<span class="fm-stage-lock" title="Há oportunidades nessa etapa">🔒</span>`
-              :`<button class="fm-stage-del" onclick="removeFmStage(${i})" title="Remover etapa">✕</button>`}
-          </div>`;
-        }).join('')}
-      </div>
-      <div class="fm-add-stage-row" style="margin-top:8px">
-        <input class="form-input" id="fm-new-stage" placeholder="Nome da nova etapa..." style="flex:1">
-        <button class="btn btn-ghost" onclick="addFmStage()">+ Adicionar etapa</button>
-      </div>
-      ${wonCount>1||lostCount>1?`<div style="font-size:11px;color:#EF4444;margin-top:4px">⚠️ Máximo de 1 etapa "Ganha" e 1 etapa "Perdida"</div>`:''}
-    </div>`;
-}
-
-function toggleFmColorPicker(idx){
-  // Close all others
-  fmDraft.stages.forEach((_,i)=>{
-    const el=document.getElementById('fcp-'+i);
-    if(el&&i!==idx) el.style.display='none';
-  });
-  const cp=document.getElementById('fcp-'+idx);
-  if(cp) cp.style.display=cp.style.display==='none'?'flex':'none';
-}
-
-function setFmStageColor(idx,color){
-  fmDraft.stages[idx].color=color;
-  const cp=document.getElementById('fcp-'+idx);
-  if(cp) cp.style.display='none';
-  renderFunnelModalBody();
-}
-
-function setFmStageType(idx,type){
-  // Enforce only 1 won / 1 lost
-  if(type==='won') fmDraft.stages.forEach((s,i)=>{if(i!==idx)s.isWon=false;});
-  if(type==='lost') fmDraft.stages.forEach((s,i)=>{if(i!==idx)s.isLost=false;});
-  fmDraft.stages[idx].isWon=(type==='won');
-  fmDraft.stages[idx].isLost=(type==='lost');
-}
-
-function addFmStage(){
-  const inp=document.getElementById('fm-new-stage');
-  const name=(inp?.value||'').trim();
-  if(!name){toast('Digite o nome da etapa','#EF4444');return;}
-  if(fmDraft.stages.some(s=>s.name===name)){toast('Etapa já existe','#F59E0B');return;}
-  fmDraft.stages.push({id:'stage_'+uid(),name,color:FM_COLORS[fmDraft.stages.length%FM_COLORS.length],
-    order:fmDraft.stages.length+1,probability:50,isWon:false,isLost:false});
-  if(inp) inp.value='';
-  renderFunnelModalBody();
-}
-
-function removeFmStage(idx){
-  if(fmDraft.stages.length<=1){toast('O funil precisa ter ao menos uma etapa','#EF4444');return;}
-  fmDraft.stages.splice(idx,1);
-  renderFunnelModalBody();
-}
-
-function fmStageDragStart(i){fmStageDragIdx=i;}
-
-function fmStageDrop(targetIdx){
-  if(fmStageDragIdx===null||fmStageDragIdx===targetIdx) return;
-  // Sync names before reorder
-  fmDraft.stages.forEach((_,i)=>{
-    const inp=document.getElementById('fsn-'+i);
-    if(inp) fmDraft.stages[i].name=inp.value.trim()||fmDraft.stages[i].name;
-  });
-  const moved=fmDraft.stages.splice(fmStageDragIdx,1)[0];
-  fmDraft.stages.splice(targetIdx,0,moved);
-  fmStageDragIdx=null;
-  renderFunnelModalBody();
-}
-
-function saveFunnelModal(){
-  // Sync name/desc from inputs
-  const nameEl=document.getElementById('fm-name');
-  if(nameEl) fmDraft.name=nameEl.value.trim();
-  const descEl=document.getElementById('fm-desc');
-  if(descEl) fmDraft.description=descEl.value.trim();
-  const defEl=document.getElementById('fm-default');
-  if(defEl) fmDraft.isDefault=defEl.checked;
-
-  if(!fmDraft.name){toast('Informe o nome do funil','#EF4444');return;}
-  if(!fmDraft.stages.length){toast('Adicione ao menos uma etapa','#EF4444');return;}
-
-  // Sync stage names from inputs
-  fmDraft.stages.forEach((s,i)=>{
-    const inp=document.getElementById('fsn-'+i);
-    if(inp) s.name=inp.value.trim()||s.name;
-    s.order=i+1;
-  });
-
-  const wonCount=fmDraft.stages.filter(s=>s.isWon).length;
-  const lostCount=fmDraft.stages.filter(s=>s.isLost).length;
-  if(wonCount>1){toast('Máximo de 1 etapa "Ganha"','#EF4444');return;}
-  if(lostCount>1){toast('Máximo de 1 etapa "Perdida"','#EF4444');return;}
-
-  if(fmEditId){
-    updateCommercialFunnel(fmEditId,{name:fmDraft.name,description:fmDraft.description,
-      isDefault:fmDraft.isDefault,stages:fmDraft.stages});
-    toast('Funil atualizado ✓','#10B981');
-  } else {
-    const newF=createCommercialFunnel({name:fmDraft.name,description:fmDraft.description,
-      isDefault:fmDraft.isDefault,stages:fmDraft.stages});
-    setActiveFunnelId(newF.id);
-    toast('Funil criado ✓','#10B981');
-  }
-  closeFunnelModal();
-  renderFunnelSelector();
-  renderComercial();
-}
-
-// ── Legacy compatibility ──────────────────────────────────────
 
 function openStagesModal(){
-  // Redirect to new funnel editor
-  const active=getActiveFunnel();
-  if(active) openFunnelModal('edit',active.id);
-  else openFunnelModal('new');
+  stageDraft=getStages().map(s=>({...s}));
+  renderStageList();
+  document.getElementById('stages-ov').classList.add('open');
 }
 
 function closeStagesModal(){document.getElementById('stages-ov').classList.remove('open')}
-
-function renderStageList(){}
-function stageDragStart(i){stageDragIdx=i}
-function stageDrop(targetIdx){}
-function addStage(){}
-function removeStage(i){}
-function saveStages(){}
-function resetStages(){}
 
 /* ── Modal de Produtos ── */
 const PRODUTOS_DEFAULT=['Gestão de Tráfego','Social Media','Criação de Sites','Identidade Visual','Assessoria de Imprensa','Consultoria de Marketing','Produção de Conteúdo','SEO','Email Marketing','Outros'];
@@ -4950,7 +4471,8 @@ function addStage(){
   const name=document.getElementById('new-stage-input').value.trim();
   if(!name){toast('Digite o nome da etapa','#EF4444');return}
   if(stageDraft.some(s=>s.name===name)){toast('Etapa já existe','#EF4444');return}
-  stageDraft.push({name});
+  const idx=stageDraft.length;
+  stageDraft.push({id:'s'+(Date.now()),name,color:STAGE_COLORS[idx%STAGE_COLORS.length],bg:'#F3F4F6'});
   document.getElementById('new-stage-input').value='';
   renderStageList();
   toast(`Etapa "${name}" adicionada`,'#10B981');
@@ -4970,16 +4492,16 @@ function saveStages(){
     const inp=document.getElementById('si-'+i);
     if(inp) stageDraft[i].name=inp.value.trim()||stageDraft[i].name;
   });
-  const names=stageDraft.map(s=>s.name).filter(Boolean);
-  if(!names.length){toast('Precisa ter pelo menos uma etapa','#EF4444');return}
-  localStorage.setItem('gx2_pipeline_stages',JSON.stringify(names));
+  const stages=stageDraft.filter(s=>s.name);
+  if(!stages.length){toast('Precisa ter pelo menos uma etapa','#EF4444');return}
+  DB.set('stages',stages);
   closeStagesModal();
   renderComercial();
   toast('Etapas salvas ✓','#10B981');
 }
 
 function resetStages(){
-  stageDraft=DEFAULT_STAGES.map(s=>({name:s}));
+  stageDraft=DEFAULT_STAGES.map((name,i)=>({id:'s'+(i+1),name,color:STAGE_COLORS[i%STAGE_COLORS.length],bg:['#F3F4F6','#DBEAFE','#FEF3C7','#EDE9FE','#DCFCE7'][i]||'#F3F4F6'}));
   renderStageList();
   toast('Etapas restauradas — clique em Salvar para confirmar','#F59E0B');
 }
