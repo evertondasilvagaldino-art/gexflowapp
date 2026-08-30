@@ -5733,7 +5733,7 @@ function _onLoginSuccess(btn){
   setTimeout(()=>{ls.style.display='none';if(btn){btn.textContent='Entrar no sistema';btn.disabled=false}},420);
 }
 
-// ─── login principal (async — Supabase primeiro, fallback localStorage) ───
+// ─── login principal ──────────────────────────────────────────────────────
 async function doLogin(){
   const email=(document.getElementById('login-email').value||'').trim().toLowerCase();
   const pass=(document.getElementById('login-pass').value||'').trim();
@@ -5743,67 +5743,68 @@ async function doLogin(){
   if(!email||!pass){errEl.textContent='Preencha email e senha.';errEl.classList.add('show');return}
   if(btn){btn.textContent='Verificando...';btn.disabled=true}
 
-  // ── 1. Supabase Auth (com timeout de 4s para evitar trava em ambientes com CSP) ──
-  if(supabaseClient){
-    try{
-      const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000));
-      const authCall=supabaseClient.auth.signInWithPassword({email,password:pass});
-      const {data,error}=await Promise.race([authCall,timeout]);
-      if(error){
-        // Supabase respondeu com erro de autenticação — mostrar e parar (não cair no demo local)
-        errEl.textContent='Email ou senha incorretos. Verifique suas credenciais.';
-        errEl.classList.add('show');
-        if(btn){btn.textContent='Entrar no sistema';btn.disabled=false}
-        return;
-      } else {
-        // Buscar perfil na tabela profiles (também com timeout)
-        const profTimeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000));
-        const profCall=supabaseClient.from('profiles').select('*').eq('id',data.user.id).single();
-        const {data:profile,error:perr}=await Promise.race([profCall,profTimeout]);
-        if(perr||!profile){
-          errEl.textContent='Perfil não encontrado. Contate o administrador.';
-          errEl.classList.add('show');
-          try{await supabaseClient.auth.signOut();}catch(e){}
-          if(btn){btn.textContent='Entrar no sistema';btn.disabled=false}
-          return;
-        }
-        if((profile.status||'Ativo')!=='Ativo'){
-          errEl.textContent='Usuário inativo. Contate o administrador.';
-          errEl.classList.add('show');
-          try{await supabaseClient.auth.signOut();}catch(e){}
-          if(btn){btn.textContent='Entrar no sistema';btn.disabled=false}
-          return;
-        }
-        sessionUser={id:data.user.id,email:data.user.email,...profile};
-        localStorage.setItem('gx2_session',JSON.stringify({
-          id:sessionUser.id,nome:sessionUser.nome,
-          permissao:sessionUser.permissao,cargo:sessionUser.cargo
-        }));
-        console.log('[GexFlow] ✅ Login Supabase bem-sucedido:',sessionUser.nome);
-        _onLoginSuccess(btn);
-        return;
-      }
-    }catch(err){
-      console.warn('[GexFlow] Supabase indisponível (timeout/CSP), usando modo local:',err.message);
-      // Mostrar dica de preview
-      const hint=document.getElementById('login-demo-hint');
-      if(hint) hint.style.display='block';
-    }
+  function loginErr(msg){
+    errEl.textContent=msg;errEl.classList.add('show');
+    if(btn){btn.textContent='Entrar no sistema';btn.disabled=false}
   }
 
-  // ── 2. Fallback demo (localStorage) ─────────────────────────────────────
-  await new Promise(r=>setTimeout(r,350));
-  const users=DB.get('usuarios');
-  const user=users.find(u=>u.email.toLowerCase()===email&&(u.senha||'gex@2025')===pass&&u.status==='Ativo');
-  if(!user){
-    errEl.textContent='Email ou senha incorretos. Tente novamente.';
-    errEl.classList.add('show');
-    if(btn){btn.textContent='Entrar no sistema';btn.disabled=false}
+  // ── MODO PREVIEW / SEM SDK: usa credenciais locais ──────────────────────
+  if(!supabaseClient){
+    await new Promise(r=>setTimeout(r,300));
+    const users=DB.get('usuarios')||[];
+    const u=users.find(u=>u.email.toLowerCase()===email&&(u.senha||'gex@2025')===pass&&u.status==='Ativo');
+    if(!u){loginErr('Email ou senha incorretos.');return}
+    sessionUser={...u};
+    localStorage.setItem('gx2_session',JSON.stringify({id:u.id,nome:u.nome,permissao:u.permissao,cargo:u.cargo}));
+    _onLoginSuccess(btn);
     return;
   }
-  sessionUser={...user};
-  localStorage.setItem('gx2_session',JSON.stringify({id:user.id,nome:user.nome,permissao:user.permissao,cargo:user.cargo}));
-  _onLoginSuccess(btn);
+
+  // ── MODO PRODUÇÃO: autentica via Supabase ────────────────────────────────
+  try{
+    const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('TIMEOUT')),10000));
+    const authCall=supabaseClient.auth.signInWithPassword({email,password:pass});
+    const {data,error}=await Promise.race([authCall,timeout]);
+
+    if(error){
+      // Erro de credencial (retorno explícito do Supabase)
+      loginErr('Email ou senha incorretos. Verifique e tente novamente.');
+      return;
+    }
+
+    // Buscar perfil do usuário
+    const profCall=supabaseClient.from('profiles').select('*').eq('id',data.user.id).single();
+    const profTimeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('TIMEOUT')),8000));
+    const {data:profile,error:perr}=await Promise.race([profCall,profTimeout]);
+
+    if(perr||!profile){
+      loginErr('Perfil não encontrado. Contate o administrador.');
+      try{await supabaseClient.auth.signOut();}catch(e){}
+      return;
+    }
+    if((profile.status||'Ativo')!=='Ativo'){
+      loginErr('Usuário inativo. Contate o administrador.');
+      try{await supabaseClient.auth.signOut();}catch(e){}
+      return;
+    }
+
+    sessionUser={id:data.user.id,email:data.user.email,...profile};
+    localStorage.setItem('gx2_session',JSON.stringify({
+      id:sessionUser.id,nome:sessionUser.nome,
+      permissao:sessionUser.permissao,cargo:sessionUser.cargo
+    }));
+    console.log('[GexFlow] ✅ Login bem-sucedido:',sessionUser.nome);
+    _onLoginSuccess(btn);
+
+  }catch(err){
+    // Erro de rede, CORS ou timeout — mostrar detalhes para diagnóstico
+    console.error('[GexFlow] Erro de conexão Supabase:',err);
+    if(err.message==='TIMEOUT'){
+      loginErr('Tempo limite excedido. Verifique sua conexão com a internet.');
+    } else {
+      loginErr('Erro de conexão: '+err.message+'. Verifique o console (F12) para detalhes.');
+    }
+  }
 }
 
 // ─── logout ──────────────────────────────────────────────────────────────
