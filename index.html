@@ -2481,6 +2481,59 @@ function isProfileActive(profile={}){
   return !['inativo','inactive','bloqueado','bloqueada','desativado','desativada'].includes(st);
 }
 
+
+// Fallback definitivo para usuários Supabase quando a tabela public.profiles
+// existe, mas o navegador não consegue ler a linha por RLS/cache/policy.
+// A Edge Function create-gex-user salva estes dados no Auth user_metadata.
+// Assim o usuário comum não fica bloqueado em outra máquina.
+function buildProfileFromAuthMetadata(authUser){
+  if(!authUser) return null;
+  const meta=authUser.user_metadata||{};
+  const app=authUser.app_metadata||{};
+  const email=String(authUser.email||meta.email||'').toLowerCase();
+  if(!email) return null;
+
+  const role=normalizeProfileRole(meta.permissao||meta.role||app.role||meta.cargo||'Visualizador');
+  const nome=meta.nome||meta.name||String(email).split('@')[0]||'Usuário';
+
+  return {
+    id:authUser.id,
+    nome,
+    name:nome,
+    email,
+    permissao:role,
+    role,
+    cargo:meta.cargo||role,
+    telefone:meta.telefone||meta.phone||'',
+    status:meta.status||'Ativo',
+    avatar_url:meta.avatar_url||meta.avatarUrl||'',
+    perm_overrides:meta.perm_overrides||meta.permOverrides||{},
+    _profileSource:'auth-metadata-fallback'
+  };
+}
+
+// Último fallback seguro: deixa o usuário autenticado entrar com acesso mínimo,
+// em vez de travar na tela de login. O Fundador depois ajusta as permissões.
+function buildMinimalAuthenticatedProfile(authUser){
+  if(!authUser?.id || !authUser?.email) return null;
+  const email=String(authUser.email||'').toLowerCase();
+  return {
+    id:authUser.id,
+    nome:(email.split('@')[0]||'Usuário'),
+    name:(email.split('@')[0]||'Usuário'),
+    email,
+    permissao:'Visualizador',
+    role:'Visualizador',
+    cargo:'Visualizador',
+    telefone:'',
+    status:'Ativo',
+    perm_overrides:{
+      perfil:{view:true,tabs:{'perfil-assinatura':{view:true,edit:true}}}
+    },
+    _profileSource:'minimal-auth-fallback'
+  };
+}
+
 function buildFounderFallbackProfile(authUser){
   const email=String(authUser?.email||'').toLowerCase();
   if(!GEX_FOUNDER_EMAILS.includes(email))return null;
@@ -2530,11 +2583,26 @@ async function fetchSupabaseProfileSafe(authUser){
     if(cached)return {profile:{...cached,id:authUser.id,email,_profileSource:'local-cache'},error:null};
   }catch(e){}
 
-  // 4) Fallback controlado para o Fundador já existente no Auth
+  // 4) Fallback por metadata do Auth — usado para usuários criados pela Edge Function.
+  const metadataFallback=buildProfileFromAuthMetadata(authUser);
+  if(metadataFallback){
+    console.warn('[GexFlow] Profile não lido em public.profiles. Usando Auth metadata como fallback:', metadataFallback.email);
+    return {profile:metadataFallback,error:null};
+  }
+
+  // 5) Fallback controlado para o Fundador já existente no Auth
   const founderFallback=buildFounderFallbackProfile(authUser);
   if(founderFallback){
     console.warn('[GexFlow] Usando fallback seguro do Fundador. Verifique RLS/policies se quiser remover este fallback.');
     return {profile:founderFallback,error:null};
+  }
+
+  // 6) Fallback mínimo: usuário autenticou no Supabase, então não fica preso no login.
+  // Ele entra como Visualizador para o Fundador ajustar permissões se necessário.
+  const minimalFallback=buildMinimalAuthenticatedProfile(authUser);
+  if(minimalFallback){
+    console.warn('[GexFlow] Profile indisponível. Liberando acesso mínimo para usuário autenticado:', minimalFallback.email);
+    return {profile:minimalFallback,error:lastError};
   }
 
   return {profile:null,error:lastError};
