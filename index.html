@@ -286,6 +286,22 @@ tr:hover td{background:#FAFAFD}
 .perm-editor-summary{margin-top:12px;padding:9px 11px;background:#fff;border:1px solid var(--border);border-radius:9px;font-size:11px;color:var(--muted);line-height:1.45}
 .perm-editor-summary b{color:var(--txt)}
 
+/* PERMISSÕES POR SETOR E ABAS */
+.perm-editor-v2 .perm-section-list{display:flex;flex-direction:column;gap:10px;max-height:520px;overflow:auto;padding-right:3px}
+.perm-section-card{background:#fff;border:1px solid var(--border);border-radius:13px;overflow:hidden;transition:all .15s}
+.perm-section-card.active{border-color:rgba(124,58,237,.35);box-shadow:0 4px 14px rgba(124,58,237,.08)}
+.perm-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;background:#FAFAFD;border-bottom:1px solid var(--border)}
+.perm-section-name{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;color:var(--txt)}
+.perm-section-name small{display:block;font-size:10px;font-weight:600;color:var(--muted);margin-top:1px}
+.perm-tab-list{display:flex;flex-direction:column}
+.perm-tab-row{padding:10px 12px;border-bottom:1px solid #F1F1F8;display:grid;grid-template-columns:minmax(160px,1fr) 1.8fr;gap:10px;align-items:center}
+.perm-tab-row:last-child{border-bottom:none}
+.perm-tab-row.on{background:linear-gradient(90deg,rgba(124,58,237,.055),transparent)}
+.perm-tab-main{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:750;color:var(--txt);cursor:pointer;user-select:none}
+.perm-tab-main input{width:16px;height:16px;accent-color:var(--p2);cursor:pointer}
+.perm-tab-actions{display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end}
+@media(max-width:720px){.perm-tab-row{grid-template-columns:1fr}.perm-tab-actions{justify-content:flex-start}}
+
 
 /* INTEGRAÇÕES HUB */
 .int-hero{background:linear-gradient(135deg,#4C1D95 0%,#7C3AED 58%,#A78BFA 100%);border-radius:18px;padding:22px 24px;color:#fff;margin-bottom:16px;position:relative;overflow:hidden;box-shadow:0 16px 44px rgba(76,29,149,.18)}
@@ -1518,6 +1534,46 @@ let userPermTargetId = '';
 const MODULES = ['inicio','clientes','churn','contratos','comercial','financas','projetos','onboarding','entregas','tarefas','agenda','aprovacao','esquemas','creators','integracoes','rh','usuarios','perfil'];
 const ACTIONS = ['view','create','edit','delete','approve','export','manage'];
 
+// Permissões por setor e por aba/subsetor.
+// "id" é a chave salva em permOverrides e usada para esconder/mostrar itens no menu.
+const PERMISSION_SECTIONS = [
+  {id:'inicio', label:'Início', color:'#6366F1', tabs:[{id:'inicio', label:'Dashboard inicial', parent:'inicio'}]},
+  {id:'clientes', label:'Clientes', color:'#3B82F6', tabs:[
+    {id:'clientes', label:'Gestão de clientes', parent:'clientes'},
+    {id:'churn', label:'Análise de churn', parent:'clientes'},
+    {id:'contratos', label:'Contratos', parent:'clientes'}
+  ]},
+  {id:'comercial', label:'Comercial', color:'#7C3AED', tabs:[
+    {id:'comercial_tarefas', label:'Tarefas do Dia', parent:'comercial', tab:'tarefas'},
+    {id:'comercial_pipeline', label:'Pipeline CRM', parent:'comercial', tab:'pipeline'},
+    {id:'comercial_relatorio', label:'Relatório Comercial', parent:'comercial', tab:'relatorio'},
+    {id:'comercial_equipe', label:'Equipe Comercial', parent:'comercial', tab:'equipe'}
+  ]},
+  {id:'projetos', label:'Projetos', color:'#EC4899', tabs:[
+    {id:'onboarding', label:'Onboarding', parent:'projetos'},
+    {id:'entregas', label:'Gestão de entregas', parent:'projetos'},
+    {id:'tarefas', label:'Tarefas', parent:'projetos'},
+    {id:'agenda', label:'Agenda de projetos', parent:'projetos'},
+    {id:'aprovacao', label:'Aprovação de conteúdo', parent:'projetos'},
+    {id:'esquemas', label:'Esquemas', parent:'projetos'}
+  ]},
+  {id:'financas', label:'Finanças', color:'#EF4444', tabs:[{id:'financas', label:'Controle financeiro', parent:'financas'}]},
+  {id:'integracoes', label:'Integrações', color:'#64748B', tabs:[{id:'integracoes', label:'Central de integrações', parent:'integracoes'}]},
+  {id:'rh', label:'Recursos Humanos', color:'#64748B', tabs:[{id:'rh', label:'Recursos Humanos', parent:'rh'}]},
+  {id:'usuarios', label:'Gestão de Usuários', color:'#374151', tabs:[{id:'usuarios', label:'Usuários e permissões', parent:'usuarios'}]},
+  {id:'perfil', label:'Perfil e Assinatura', color:'#8B5CF6', tabs:[{id:'perfil', label:'Meu perfil', parent:'perfil'}]}
+];
+
+const PERMISSION_TAB_PARENT = {};
+PERMISSION_SECTIONS.forEach(sec => (sec.tabs||[]).forEach(tab => { PERMISSION_TAB_PARENT[tab.id] = tab.parent || sec.id; }));
+
+const COMMERCIAL_TAB_PERMISSIONS = {
+  tarefas:'comercial_tarefas',
+  pipeline:'comercial_pipeline',
+  relatorio:'comercial_relatorio',
+  equipe:'comercial_equipe'
+};
+
 const ROLE_PERMS = {
   'Fundador': {
     inicio:{view:true,manage:true},
@@ -2117,79 +2173,186 @@ function resolveRole(permissao){
 }
 
 // Central permission gate
+function _permOverridesForUser(user){
+  const raw=user?.permOverrides||user?.perm_overrides||{};
+  if(typeof raw==='string'){
+    try{return JSON.parse(raw)||{}}catch(e){return{}}
+  }
+  return raw||{};
+}
+
+function getPermissionParent(module){
+  return PERMISSION_TAB_PARENT[module] || module;
+}
+
+function getPermissionChildren(module){
+  const sec=PERMISSION_SECTIONS.find(s=>s.id===module);
+  if(!sec) return [];
+  return (sec.tabs||[]).map(t=>t.id).filter(id=>id!==module);
+}
+
+function hasPermissionOverride(overrides,module,action){
+  if(!overrides||!module||!action)return null;
+  if(overrides[module] && overrides[module][action] !== undefined){
+    return !!overrides[module][action];
+  }
+  return null;
+}
+
+function getRolePermissionValue(role,module,action){
+  const perms=ROLE_PERMS[role]||{};
+  if(perms[module] && perms[module][action] !== undefined) return !!perms[module][action];
+
+  const parent=getPermissionParent(module);
+  if(parent && parent!==module && perms[parent] && perms[parent][action] !== undefined){
+    return !!perms[parent][action];
+  }
+  return false;
+}
+
+// Central permission gate
 function can(module, action){
   if(!sessionUser)return false;
-  const role=resolveRole(sessionUser.permissao||sessionUser.cargo||'Colaborador');
-  // Custom overrides stored per-user
-  const overrides=sessionUser.permOverrides||{};
-  if(overrides[module]&&overrides[module][action]!==undefined)return overrides[module][action];
-  const perms=ROLE_PERMS[role];
-  if(!perms)return false;
-  return !!(perms[module]&&perms[module][action]);
-}
 
-// Build nav — show all sectors; lock icon on inaccessible ones
+  const role=resolveRole(sessionUser.permissao||sessionUser.cargo||'Colaborador');
+  if(role==='Fundador')return true;
+
+  const overrides=_permOverridesForUser(sessionUser);
+
+  // Permissão direta da aba/módulo.
+  const directOverride=hasPermissionOverride(overrides,module,action);
+  if(directOverride!==null)return directOverride;
+
+  // Se for um setor com abas, liberar o setor quando pelo menos uma aba estiver liberada.
+  const children=getPermissionChildren(module);
+  if(children.length){
+    let anyExplicit=false;
+    for(const child of children){
+      const childOverride=hasPermissionOverride(overrides,child,action);
+      if(childOverride===true)return true;
+      if(childOverride===false)anyExplicit=true;
+    }
+    if(!anyExplicit && getRolePermissionValue(role,module,action))return true;
+    return children.some(child=>getRolePermissionValue(role,child,action));
+  }
+
+  // Se for uma aba filha, usa fallback do setor pai quando não houver regra específica da aba.
+  const parent=getPermissionParent(module);
+  if(parent && parent!==module){
+    const parentOverride=hasPermissionOverride(overrides,parent,action);
+    if(parentOverride!==null)return parentOverride;
+  }
+
+  return getRolePermissionValue(role,module,action);
+}
+// Build nav — mostra somente setores/abas liberados para o usuário.
 function applyNavPermissions(){
-  const itemMap={
-    inicio:['[data-page="inicio"]'],
-    clientes:['[data-sub="clientes"]'],
-    churn:['[data-sub="churn"]'],
-    contratos:['[data-sub="contratos"]'],
-    comercial:['[data-sub="comercial"]'],
-    financas:['[data-sub="financas"]'],
-    onboarding:['[data-sub="onboarding"]'],
-    entregas:['[data-sub="entregas"]'],
-    tarefas:['[data-sub="tarefas"]'],
-    agenda:['[data-sub="agenda"]'],
-    aprovacao:['[data-sub="aprovacao"]'],
-    esquemas:['[data-sub="esquemas"]'],
-    creators:['[data-sub="creators"]'],
-    integracoes:['[data-page="integracoes"]'],
-    rh:['[data-page="rh"]'],
-    usuarios:['[data-page="usuarios"]'],
-    perfil:['[data-page="perfil"]'],
+  // Remove qualquer estado antigo de bloqueio de versões anteriores.
+  document.querySelectorAll('.nav-lock').forEach(el=>el.remove());
+  document.querySelectorAll('.nav-locked').forEach(el=>{
+    el.classList.remove('nav-locked');
+    delete el.dataset.lockedModule;
+  });
+
+  const singleItems=[
+    {selector:'[data-page="inicio"]', mod:'inicio'},
+    {selector:'[data-page="integracoes"]', mod:'integracoes'},
+    {selector:'[data-page="rh"]', mod:'rh'},
+    {selector:'[data-page="usuarios"]', mod:'usuarios'},
+    {selector:'[data-page="perfil"]', mod:'perfil'}
+  ];
+
+  const groups={
+    clientes:{
+      hdr:'#grp-hdr-clientes', wrap:'#grp-wrap-clientes',
+      items:[
+        {selector:'[data-sub="clientes"]', mod:'clientes'},
+        {selector:'[data-sub="churn"]', mod:'churn'},
+        {selector:'[data-sub="contratos"]', mod:'contratos'}
+      ]
+    },
+    projetos:{
+      hdr:'#grp-hdr-projetos', wrap:'#grp-wrap-projetos',
+      items:[
+        {selector:'[data-sub="onboarding"]', mod:'onboarding'},
+        {selector:'[data-sub="entregas"]', mod:'entregas'},
+        {selector:'[data-sub="tarefas"]', mod:'tarefas'},
+        {selector:'[data-sub="agenda"]', mod:'agenda'},
+        {selector:'[data-sub="aprovacao"]', mod:'aprovacao'},
+        {selector:'[data-sub="esquemas"]', mod:'esquemas'}
+      ]
+    },
+    comercial:{
+      hdr:'#grp-hdr-comercial', wrap:'#grp-wrap-comercial',
+      items:[
+        {selector:'[data-sub="tarefas-dia"]', mod:'comercial_tarefas'},
+        {selector:'[data-sub="comercial"]', mod:'comercial_pipeline'},
+        {selector:'[data-sub="relatorio-comercial"]', mod:'comercial_relatorio'},
+        {selector:'[data-sub="equipe-comercial"]', mod:'comercial_equipe'}
+      ]
+    },
+    financas:{
+      hdr:'#grp-hdr-financas', wrap:'#grp-wrap-financas',
+      items:[{selector:'[data-sub="financas"]', mod:'financas'}]
+    }
   };
 
-  // Ensure all items and group headers are visible
-  const grpSelectors=['#grp-hdr-clientes','#grp-hdr-projetos','#grp-hdr-comercial','#grp-hdr-financas'];
-  [...Object.values(itemMap).flat(),...grpSelectors].forEach(sel=>{
-    const el=document.querySelector(sel);
-    if(el)el.style.display='';
+  let firstAllowed=null;
+  const setVisible=(selector,visible)=>{
+    const el=document.querySelector(selector);
+    if(el) el.style.display=visible?'':'none';
+    return el;
+  };
+
+  singleItems.forEach(item=>{
+    const allowed=can(item.mod,'view');
+    const el=setVisible(item.selector,allowed);
+    if(allowed&&!firstAllowed&&el) firstAllowed={type:'page', page:item.mod};
   });
 
-  // For each item: if accessible → unlock; if not → show with lock icon
-  Object.keys(itemMap).forEach(mod=>{
-    itemMap[mod].forEach(sel=>{
-      const el=document.querySelector(sel);
-      if(!el)return;
-
-      // Remove any existing lock badge
-      const existingLock=el.querySelector('.nav-lock');
-      if(existingLock)existingLock.remove();
-      el.classList.remove('nav-locked');
-      // Remove locked onclick if set
-      if(el.dataset.lockedModule){
-        delete el.dataset.lockedModule;
-        // Restore original onclick (nav-item uses data-page / data-sub driven clicks via event delegation)
-      }
-
-      if(!can(mod,'view')){
-        // Show locked state
-        el.classList.add('nav-locked');
-        el.dataset.lockedModule=mod;
-        const badge=document.createElement('span');
-        badge.className='nav-lock';
-        badge.textContent='🔒';
-        el.appendChild(badge);
+  Object.keys(groups).forEach(groupId=>{
+    const group=groups[groupId];
+    let any=false;
+    group.items.forEach(item=>{
+      const allowed=can(item.mod,'view');
+      const el=setVisible(item.selector,allowed);
+      if(allowed){
+        any=true;
+        if(!firstAllowed&&el){
+          if(groupId==='comercial'){
+            const tabMap={
+              comercial_tarefas:'tarefas',
+              comercial_pipeline:'pipeline',
+              comercial_relatorio:'relatorio',
+              comercial_equipe:'equipe'
+            };
+            firstAllowed={type:'commercial', tab:tabMap[item.mod]||'pipeline'};
+          }else{
+            const pageMap={clientes:'clientes',projetos:'projetos',financas:'financas'};
+            firstAllowed={type:'sub', sub:item.mod, group:groupId, page:pageMap[groupId]||item.mod};
+          }
+        }
       }
     });
+    setVisible(group.hdr,any);
+    setVisible(group.wrap,any);
   });
 
-  // Group headers: always show — they're just section labels
-  // (users see all groups so structure is clear, sub-items show the lock)
+  // Se a página ativa ficou escondida, leva para a primeira área permitida.
+  const activeNav=document.querySelector('.nav-item.active:not([style*="display: none"]), .nav-sub.active:not([style*="display: none"])');
+  if(!activeNav && firstAllowed){
+    setTimeout(()=>{
+      if(firstAllowed.type==='page') navigate(firstAllowed.page);
+      if(firstAllowed.type==='sub') navigateSub(firstAllowed.sub,firstAllowed.group);
+      if(firstAllowed.type==='commercial'){
+        navigateSub('comercial','comercial');
+        switchComTab(firstAllowed.tab);
+      }
+    },0);
+  }
 }
 
-// Intercept nav clicks to block locked items
+// Listener legado mantido apenas por segurança. Itens sem permissão agora ficam ocultos.
 document.addEventListener('click',function(e){
   const locked=e.target.closest('.nav-locked');
   if(!locked)return;
@@ -3562,10 +3725,8 @@ function formUsuario(d){
 
 function getRolePerm(role,module,action){
   const r=resolveRole(role||'Colaborador');
-  const perms=ROLE_PERMS[r]||{};
-  return !!(perms[module]&&perms[module][action]);
+  return getRolePermissionValue(r,module,action);
 }
-
 function getEffectiveUserPerm(role,overrides,module,action){
   if(overrides&&overrides[module]&&overrides[module][action]!==undefined)return !!overrides[module][action];
   return getRolePerm(role,module,action);
@@ -3573,24 +3734,37 @@ function getEffectiveUserPerm(role,overrides,module,action){
 
 function clonePermStateForRole(role,overrides={}){
   const state={};
-  MODULES.forEach(mod=>{
-    if(mod==='perfil')return;
-    state[mod]={};
-    ACTIONS.forEach(act=>{
-      state[mod][act]=getEffectiveUserPerm(role,overrides,mod,act);
+  PERMISSION_SECTIONS.forEach(section=>{
+    (section.tabs||[]).forEach(tab=>{
+      const key=tab.id;
+      state[key]={};
+      ACTIONS.forEach(act=>{
+        const direct=hasPermissionOverride(overrides,key,act);
+        const parent=tab.parent||getPermissionParent(key);
+        const parentOverride=parent&&parent!==key?hasPermissionOverride(overrides,parent,act):null;
+        if(direct!==null){
+          state[key][act]=direct;
+        }else if(parentOverride!==null){
+          state[key][act]=parentOverride;
+        }else{
+          // Por padrão, a aba herda a permissão do setor/papel.
+          state[key][act]=getRolePerm(role,key,act);
+        }
+      });
+      if(!state[key].view){
+        ACTIONS.filter(a=>a!=='view').forEach(a=>state[key][a]=false);
+      }
     });
-    if(!state[mod].view){
-      ACTIONS.filter(a=>a!=='view').forEach(a=>state[mod][a]=false);
-    }
   });
   return state;
 }
-
 function getPermEditorModules(){
-  return MODULES.filter(m=>m!=='perfil');
+  return PERMISSION_SECTIONS.flatMap(section=>(section.tabs||[]).map(tab=>tab.id));
 }
-
 function getModuleColor(mod){
+  const tabParent=getPermissionParent(mod);
+  const section=PERMISSION_SECTIONS.find(s=>s.id===mod||s.id===tabParent||(s.tabs||[]).some(t=>t.id===mod));
+  if(section?.color)return section.color;
   const colors={
     inicio:'#6366F1',clientes:'#3B82F6',churn:'#F59E0B',contratos:'#10B981',
     comercial:'#7C3AED',financas:'#EF4444',projetos:'#EC4899',
@@ -3600,7 +3774,6 @@ function getModuleColor(mod){
   };
   return colors[mod]||'#6B7280';
 }
-
 function initUserAccessEditor(user={}){
   userPermTargetId=user?.id||'';
   const role=resolveRole(document.getElementById('f-permissao')?.value||user?.permissao||'Colaborador');
@@ -3639,6 +3812,18 @@ function selectUserModuleAll(mod,value){
   renderUserAccessEditor();
 }
 
+function selectUserSectionAll(sectionId,value){
+  const section=PERMISSION_SECTIONS.find(s=>s.id===sectionId);
+  if(!section)return;
+  if(!userPermDraft)userPermDraft={};
+  (section.tabs||[]).forEach(tab=>{
+    userPermDraft[tab.id]=userPermDraft[tab.id]||{};
+    ACTIONS.forEach(act=>userPermDraft[tab.id][act]=!!value);
+    if(!value)ACTIONS.forEach(act=>userPermDraft[tab.id][act]=false);
+  });
+  renderUserAccessEditor();
+}
+
 function onUserPermInputChange(el){
   const mod=el.dataset.mod;
   const act=el.dataset.act;
@@ -3662,17 +3847,20 @@ function renderUserAccessEditor(){
   const isFundadorRole=role==='Fundador';
   const canManage=can('usuarios','manage')||resolveRole(sessionUser?.permissao)==='Fundador';
   if(!userPermDraft)userPermDraft=clonePermStateForRole(role,{});
-  const modules=getPermEditorModules();
-  const activeCount=modules.filter(m=>userPermDraft[m]?.view).length;
-  const totalCount=modules.length;
+
   const disabledAll=isFundadorRole||!canManage;
+  const totalTabs=PERMISSION_SECTIONS.reduce((sum,s)=>sum+(s.tabs||[]).length,0);
+  const activeTabs=PERMISSION_SECTIONS.reduce((sum,s)=>sum+(s.tabs||[]).filter(t=>!!userPermDraft[t.id]?.view||isFundadorRole).length,0);
+
+  const actions=ACTIONS.filter(a=>a!=='view');
+
   wrap.innerHTML=`
-    <div class="perm-editor">
+    <div class="perm-editor perm-editor-v2">
       <div class="perm-editor-head">
         <div>
-          <div class="perm-editor-title">Liberar acesso por setor / subsetor</div>
+          <div class="perm-editor-title">Permissões por setor e abas</div>
           <div class="perm-editor-sub">
-            Marque <b>Visualizar</b> para o usuário enxergar o setor no menu. Marque os subsetores para criar, editar, excluir, aprovar, exportar ou gerenciar.
+            Libere exatamente quais <b>setores</b> e <b>abas</b> aparecem para o usuário. O menu lateral vai mostrar somente o que estiver permitido.
             ${isFundadorRole?'<br><b>Fundador possui acesso total fixo.</b>':''}
           </div>
         </div>
@@ -3682,44 +3870,55 @@ function renderUserAccessEditor(){
           <button type="button" class="perm-mini-btn" onclick="selectAllUserAccess(false)">Bloquear tudo</button>`:''}
         </div>
       </div>
-      <div class="perm-editor-grid">
-        ${modules.map(mod=>{
-          const color=getModuleColor(mod);
-          const st=userPermDraft[mod]||{};
-          const view=!!st.view||isFundadorRole;
-          const total=ACTIONS.every(a=>!!st[a])||isFundadorRole;
-          const cardActive=view?'active':'';
-          const subActs=ACTIONS.filter(a=>a!=='view');
-          return `<div class="perm-module-card ${cardActive}">
-            <div class="perm-module-top">
-              <div class="perm-module-name"><span class="perm-dot" style="background:${color}"></span>${MOD_LABELS[mod]||mod}</div>
-              ${!disabledAll?`<button type="button" class="perm-total-btn" onclick="selectUserModuleAll('${mod}',${!total})">${total?'Limpar':'Total'}</button>`:''}
+
+      <div class="perm-section-list">
+        ${PERMISSION_SECTIONS.map(section=>{
+          const tabs=section.tabs||[];
+          const sectionAll=tabs.length && tabs.every(tab=>actions.concat('view').every(act=>!!userPermDraft[tab.id]?.[act])) || isFundadorRole;
+          const sectionAny=tabs.some(tab=>!!userPermDraft[tab.id]?.view) || isFundadorRole;
+          return `<div class="perm-section-card ${sectionAny?'active':''}">
+            <div class="perm-section-head">
+              <div class="perm-section-name">
+                <span class="perm-dot" style="background:${section.color||'#7C3AED'}"></span>
+                <div>
+                  <div>${section.label}</div>
+                  <small>${tabs.filter(t=>!!userPermDraft[t.id]?.view||isFundadorRole).length}/${tabs.length} abas liberadas</small>
+                </div>
+              </div>
+              ${!disabledAll?`<button type="button" class="perm-total-btn" onclick="selectUserSectionAll('${section.id}',${!sectionAll})">${sectionAll?'Limpar setor':'Liberar setor'}</button>`:''}
             </div>
-            <label class="perm-check-line">
-              <input type="checkbox" data-mod="${mod}" data-act="view" ${view?'checked':''} ${disabledAll?'disabled':''} onchange="onUserPermInputChange(this)">
-              Visualizar setor
-            </label>
-            <div class="perm-sub-actions">
-              ${subActs.map(act=>{
-                const checked=!!st[act]||isFundadorRole;
-                const chipClass=checked?'on':'';
-                const disabled=disabledAll||!view;
-                return `<label class="perm-chip-check ${chipClass} ${disabled?'disabled':''}">
-                  <input type="checkbox" data-mod="${mod}" data-act="${act}" ${checked?'checked':''} ${disabled?'disabled':''} onchange="onUserPermInputChange(this)">
-                  ${ACT_LABELS[act]||act}
-                </label>`;
+            <div class="perm-tab-list">
+              ${tabs.map(tab=>{
+                const st=userPermDraft[tab.id]||{};
+                const view=!!st.view||isFundadorRole;
+                return `<div class="perm-tab-row ${view?'on':''}">
+                  <label class="perm-tab-main">
+                    <input type="checkbox" data-mod="${tab.id}" data-act="view" ${view?'checked':''} ${disabledAll?'disabled':''} onchange="onUserPermInputChange(this)">
+                    <span>${tab.label}</span>
+                  </label>
+                  <div class="perm-tab-actions">
+                    ${actions.map(act=>{
+                      const checked=!!st[act]||isFundadorRole;
+                      const disabled=disabledAll||!view;
+                      return `<label class="perm-chip-check ${checked?'on':''} ${disabled?'disabled':''}" title="${ACT_LABELS[act]||act}">
+                        <input type="checkbox" data-mod="${tab.id}" data-act="${act}" ${checked?'checked':''} ${disabled?'disabled':''} onchange="onUserPermInputChange(this)">
+                        ${ACT_LABELS[act]||act}
+                      </label>`;
+                    }).join('')}
+                  </div>
+                </div>`;
               }).join('')}
             </div>
           </div>`;
         }).join('')}
       </div>
+
       <div class="perm-editor-summary">
-        <b>${activeCount}</b> de <b>${totalCount}</b> setores liberados para visualização.
+        <b>${activeTabs}</b> de <b>${totalTabs}</b> abas liberadas. No menu do usuário, abas bloqueadas ficam ocultas.
         ${disabledAll&&!isFundadorRole?' Você não tem permissão para alterar estes acessos.':''}
       </div>
     </div>`;
 }
-
 function collectUserPermOverrides(){
   const role=resolveRole(document.getElementById('f-permissao')?.value||'Colaborador');
   if(role==='Fundador')return {};
@@ -4663,10 +4862,30 @@ function renderSalesTeamDashboard(){
   </div>`;
 }
 
+
+function getFirstAllowedCommercialTab(){
+  const order=['pipeline','tarefas','relatorio','equipe'];
+  return order.find(t=>can(COMMERCIAL_TAB_PERMISSIONS[t]||'comercial','view')) || null;
+}
+
 function switchComTab(tab){
-  document.getElementById('com-tab-tarefas').style.display=tab==='tarefas'?'':'none';
-  document.getElementById('com-tab-pipeline').style.display=tab==='pipeline'?'':'none';
-  document.getElementById('com-tab-relatorio').style.display=tab==='relatorio'?'':'none';
+  const required=COMMERCIAL_TAB_PERMISSIONS[tab]||'comercial';
+  if(!can(required,'view')){
+    const fallback=getFirstAllowedCommercialTab();
+    if(fallback && fallback!==tab){
+      return switchComTab(fallback);
+    }
+    const pageEl=document.getElementById('page-comercial');
+    if(pageEl) showAccessDenied(pageEl,'Comercial');
+    return;
+  }
+
+  const elTarefas=document.getElementById('com-tab-tarefas');
+  const elPipeline=document.getElementById('com-tab-pipeline');
+  const elRelatorio=document.getElementById('com-tab-relatorio');
+  if(elTarefas)elTarefas.style.display=tab==='tarefas'?'':'none';
+  if(elPipeline)elPipeline.style.display=tab==='pipeline'?'':'none';
+  if(elRelatorio)elRelatorio.style.display=tab==='relatorio'?'':'none';
   const equipeTab=document.getElementById('com-tab-equipe');
   if(equipeTab)equipeTab.style.display=tab==='equipe'?'':'none';
   // Sincroniza seleção no nav lateral
@@ -4679,6 +4898,14 @@ function switchComTab(tab){
 }
 
 function renderComercial(){
+  const allowedCommercialTab=getFirstAllowedCommercialTab();
+  if(!allowedCommercialTab){
+    const pageEl=document.getElementById('page-comercial');
+    if(pageEl) showAccessDenied(pageEl,'Comercial');
+    return;
+  }
+  // Se o usuário não tem Pipeline, renderiza o módulo e leva para a primeira aba permitida.
+  const shouldRedirectFromPipeline=!can('comercial_pipeline','view') && allowedCommercialTab!=='pipeline';
   ensureDefaultCommercialFunnel();
   migrateOldOpportunitiesToDefaultFunnel();
   renderFunnelSelector();
@@ -4761,6 +4988,9 @@ function renderComercial(){
       <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:12px;border-style:dashed;margin-top:4px" onclick='openModal("lead")'>+</button>
     </div>`;
   }).join('');
+  if(shouldRedirectFromPipeline){
+    setTimeout(()=>switchComTab(allowedCommercialTab),0);
+  }
 }
 
 /* ══════════════════════════════════════════
@@ -5344,12 +5574,13 @@ function renderUsuarios(opts={}){
 }
 
 const MOD_LABELS={
-  inicio:'Início',clientes:'Clientes',churn:'Churn',contratos:'Contratos',
-  comercial:'Comercial',financas:'Finanças',projetos:'Projetos',onboarding:'Onboarding',
-  entregas:'Entregas',tarefas:'Tarefas',agenda:'Agenda',aprovacao:'Aprovação',
+  inicio:'Início',clientes:'Gestão de clientes',churn:'Análise de Churn',contratos:'Contratos',
+  comercial:'Comercial',comercial_tarefas:'Tarefas do Dia',comercial_pipeline:'Pipeline CRM',comercial_relatorio:'Relatório Comercial',comercial_equipe:'Equipe Comercial',
+  financas:'Finanças',projetos:'Projetos',onboarding:'Onboarding',
+  entregas:'Entregas',tarefas:'Tarefas',agenda:'Agenda de projetos',aprovacao:'Aprovação',
   esquemas:'Esquemas',creators:'Creators',integracoes:'Integrações',rh:'RH',usuarios:'Usuários',perfil:'Perfil'
 };
-const ACT_LABELS={view:'Ver',create:'Criar',edit:'Editar',delete:'Excluir',approve:'Aprovar',export:'Export',manage:'Gerenciar'};
+const ACT_LABELS={view:'Ver',create:'Criar',edit:'Editar',delete:'Excluir',approve:'Aprovar',export:'Exportar',manage:'Gerenciar'};
 
 function renderPermMatrix(){
   const users=DB.get('usuarios');
