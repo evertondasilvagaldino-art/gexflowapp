@@ -5619,18 +5619,137 @@ function editCurrentDeal(){
   openModal('lead',l);
 }
 
-function setDealStatus(status){
-  const today=new Date().toISOString().slice(0,10);
-  const updateObj={dealStatus:status};
-  if(status==='Ganho'){
-    const lCheck=DB.find('leads',currentDealId);
-    if(!lCheck?.dataInicio) updateObj.dataInicio=today;
-    updateObj.dataFechamento=today;
+function getFunnelForLead(lead){
+  ensureDefaultCommercialFunnel();
+  const funnels=getCommercialFunnels().filter(f=>f&&!f.isArchived);
+  if(!funnels.length) return getActiveFunnel();
+  return funnels.find(f=>f.id===lead?.funnelId)
+    || getActiveFunnel()
+    || funnels.find(f=>f.isDefault)
+    || funnels[0]
+    || null;
+}
+
+function getLeadStageObject(lead,funnel=null){
+  funnel=funnel||getFunnelForLead(lead);
+  const stages=(funnel?.stages||[]).slice().sort((a,b)=>a.order-b.order);
+  if(!lead||!stages.length) return null;
+
+  let stage=null;
+  if(lead.stageId) stage=stages.find(s=>s.id===lead.stageId);
+  if(stage) return stage;
+
+  const currentName=String(lead.estagio||lead.stage||lead.etapa||lead.fase||'').trim().toLowerCase();
+  if(currentName) stage=stages.find(s=>String(s.name||'').trim().toLowerCase()===currentName);
+  if(stage) return stage;
+
+  const status=String(lead.dealStatus||lead.status||'').toLowerCase();
+  if(status.includes('ganh')) return stages.find(s=>s.isWon)||null;
+  if(status.includes('perd')) return stages.find(s=>s.isLost)||null;
+
+  return stages.find(s=>!s.isWon&&!s.isLost)||stages[0]||null;
+}
+
+function getStageForDealStatus(lead,status){
+  const funnel=getFunnelForLead(lead);
+  const stages=(funnel?.stages||[]).slice().sort((a,b)=>a.order-b.order);
+  if(!stages.length) return {funnel,stage:null};
+
+  const norm=String(status||'').toLowerCase();
+
+  if(norm.includes('ganh')){
+    return {
+      funnel,
+      stage:stages.find(s=>s.isWon)
+        || stages.find(s=>String(s.name||'').toLowerCase().includes('ganh'))
+        || stages.find(s=>String(s.name||'').toLowerCase().includes('fech'))
+        || stages[stages.length-1]
+    };
   }
-  DB.update('leads',currentDealId,updateObj);
-  renderDealStatusBtns();
+
+  if(norm.includes('perd')){
+    return {
+      funnel,
+      stage:stages.find(s=>s.isLost)
+        || stages.find(s=>String(s.name||'').toLowerCase().includes('perd'))
+        || stages[stages.length-1]
+    };
+  }
+
+  // Em andamento: se o lead estiver em uma etapa normal, mantém nela.
+  // Se estiver em Ganho/Perdido, volta para a primeira etapa normal do funil.
+  const current=getLeadStageObject(lead,funnel);
+  if(current&&!current.isWon&&!current.isLost) return {funnel,stage:current};
+
+  return {
+    funnel,
+    stage:stages.find(s=>!s.isWon&&!s.isLost)
+      || stages[0]
+  };
+}
+
+function syncDealStageAndStatus(leadId,status,stage=null,funnel=null){
+  const lead=DB.find('leads',leadId);
+  if(!lead) return null;
+
+  funnel=funnel||getFunnelForLead(lead);
+  if(!stage) stage=getStageForDealStatus(lead,status).stage;
+
+  const today=new Date().toISOString().slice(0,10);
+  const nowIso=new Date().toISOString();
+  const updates={
+    dealStatus:status,
+    updatedAt:nowIso
+  };
+
+  if(funnel?.id) updates.funnelId=funnel.id;
+  if(stage){
+    updates.stageId=stage.id;
+    updates.estagio=stage.name;
+  }
+
   if(status==='Ganho'){
-    const l=DB.find('leads',currentDealId);
+    if(!lead.dataInicio) updates.dataInicio=today;
+    updates.dataFechamento=today;
+    updates.wonAt=nowIso;
+    updates.closedAt=nowIso;
+    updates.lostAt='';
+  }else if(status==='Perdido'){
+    updates.dataFechamento=today;
+    updates.lostAt=nowIso;
+    updates.closedAt=nowIso;
+    updates.wonAt='';
+  }else{
+    updates.dataFechamento='';
+    updates.closedAt='';
+    updates.wonAt='';
+    updates.lostAt='';
+  }
+
+  DB.update('leads',leadId,updates);
+  return DB.find('leads',leadId);
+}
+
+function refreshDealAndPipeline(){
+  renderDealStatusBtns();
+  renderDealBreadcrumb();
+  renderDealSidebar();
+  renderComercial();
+  if(typeof renderRelatorioComercial==='function'){
+    try{renderRelatorioComercial()}catch(e){}
+  }
+}
+
+function setDealStatus(status){
+  const lBefore=DB.find('leads',currentDealId);
+  if(!lBefore) return;
+
+  const {funnel,stage}=getStageForDealStatus(lBefore,status);
+  const l=syncDealStageAndStatus(currentDealId,status,stage,funnel);
+
+  refreshDealAndPipeline();
+
+  if(status==='Ganho'){
     if(l){
       const nomeRef=(l.empresa||l.nome||'').toLowerCase().trim();
       const jaExiste=DB.get('clientes').find(c=>(c.nome||'').toLowerCase().trim()===nomeRef);
@@ -5641,37 +5760,69 @@ function setDealStatus(status){
           origemLeadId:l.id};
         DB.push('clientes',nc);
         fireWebhook('cliente.criado',nc);
-        toast(`🎉 "${nc.nome}" adicionado à Gestão de Clientes!`,'#10B981');
+        toast(`🎉 "${nc.nome}" movido para ${stage?.name||'Ganho'} e adicionado à Gestão de Clientes!`,'#10B981');
       } else {
-        toast(`✓ Ganho! ${jaExiste.nome} já existe em Clientes`,'#10B981');
+        toast(`✓ Movido para ${stage?.name||'Ganho'}! ${jaExiste.nome} já existe em Clientes`,'#10B981');
       }
     }
+  } else if(status==='Perdido'){
+    toast(`Movido para ${stage?.name||'Perdido'}`,'#EF4444');
   } else {
-    toast(`Status: ${status}`,status==='Perdido'?'#EF4444':'#6B6B80');
+    toast(`Status: Em andamento${stage?` • etapa: ${stage.name}`:''}`,'#3B82F6');
   }
 }
 
-function moveDealStage(stage){
-  DB.update('leads',currentDealId,{estagio:stage});
-  renderDealBreadcrumb();
-  toast(`Movido para ${stage}`,'#7C3AED');
+function moveDealStage(stageName){
+  const l=DB.find('leads',currentDealId);
+  if(!l) return;
+  const funnel=getFunnelForLead(l);
+  const stages=(funnel?.stages||[]).slice().sort((a,b)=>a.order-b.order);
+  const stage=stages.find(s=>String(s.name||'')===String(stageName||''))
+    || stages.find(s=>String(s.name||'').toLowerCase()===String(stageName||'').toLowerCase());
+  if(!stage){toast('Etapa não encontrada','#EF4444');return;}
+  moveDealStageById(stage.id);
+}
+
+function moveDealStageById(stageId){
+  const l=DB.find('leads',currentDealId);
+  if(!l) return;
+
+  const funnel=getFunnelForLead(l);
+  const stages=(funnel?.stages||[]).slice().sort((a,b)=>a.order-b.order);
+  const stage=stages.find(s=>s.id===stageId);
+  if(!stage){toast('Etapa não encontrada','#EF4444');return;}
+
+  const status=stage.isWon?'Ganho':stage.isLost?'Perdido':'Em andamento';
+  syncDealStageAndStatus(currentDealId,status,stage,funnel);
+
+  refreshDealAndPipeline();
+  toast(`Movido para ${stage.name}`,'#7C3AED');
 }
 
 function renderDealStatusBtns(){
   const l=DB.find('leads',currentDealId);
   const s=l?.dealStatus||'Em andamento';
-  document.getElementById('dstatus-perdido').classList.toggle('active',s==='Perdido');
-  document.getElementById('dstatus-andamento').classList.toggle('active',s==='Em andamento');
-  document.getElementById('dstatus-ganho').classList.toggle('active',s==='Ganho');
+  const perdido=document.getElementById('dstatus-perdido');
+  const andamento=document.getElementById('dstatus-andamento');
+  const ganho=document.getElementById('dstatus-ganho');
+  if(perdido) perdido.classList.toggle('active',s==='Perdido');
+  if(andamento) andamento.classList.toggle('active',s==='Em andamento');
+  if(ganho) ganho.classList.toggle('active',s==='Ganho');
 }
 
 function renderDealBreadcrumb(){
   const l=DB.find('leads',currentDealId);
-  const estagios=getStages();
-  document.getElementById('deal-breadcrumb').innerHTML=estagios.map((e,i)=>`
-    <div class="dbc-item" onclick="moveDealStage('${e}')">
-      <div class="dbc-step${l?.estagio===e?' current':''}">${e}</div>
-      ${i<estagios.length-1?'<div class="dbc-arrow">›</div>':''}
+  const bc=document.getElementById('deal-breadcrumb');
+  if(!bc) return;
+
+  const funnel=getFunnelForLead(l);
+  const stages=(funnel?.stages||[]).slice().sort((a,b)=>a.order-b.order);
+  const currentStage=getLeadStageObject(l,funnel);
+
+  bc.innerHTML=stages.map((s,i)=>`
+    <div class="dbc-item" onclick="moveDealStageById('${s.id}')">
+      <div class="dbc-step${currentStage?.id===s.id?' current':''}">${escHtml(s.name)}</div>
+      ${i<stages.length-1?'<div class="dbc-arrow">›</div>':''}
     </div>`).join('');
 }
 
