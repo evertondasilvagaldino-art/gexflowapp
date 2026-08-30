@@ -692,9 +692,9 @@ textarea.form-input{resize:vertical;min-height:75px}
 .archived-funnel-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .archived-empty{padding:26px 16px;text-align:center;color:var(--muted);background:#FAFAFD;border:1px dashed var(--border);border-radius:12px}
 
-/* pipe-col animation */
-@keyframes colEnter{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-.pipe-col{animation:colEnter .22s ease both}
+/* pipe-col animation desativada: evita piscar no Kanban quando o Supabase/Realtimes atualiza */
+@keyframes colEnter{from{opacity:1;transform:none}to{opacity:1;transform:none}}
+.pipe-col{animation:none!important}
 
 /* DEAL DETAIL OVERLAY */
 .deal-ov{position:fixed;inset:0;background:#fff;z-index:150;display:none;flex-direction:column;overflow:hidden}
@@ -3062,7 +3062,30 @@ let gexCloudReady = false;
 let gexCloudRealtimeChannel = null;
 let gexCloudQueue = Promise.resolve();
 let gexApplyingCloudPayload = false;
+const GEX_CLOUD_CLIENT_ID = (() => {
+  try{
+    const key='gx2_cloud_client_id';
+    let id=sessionStorage.getItem(key);
+    if(!id){
+      id='client_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10);
+      sessionStorage.setItem(key,id);
+    }
+    return id;
+  }catch(e){
+    return 'client_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10);
+  }
+})();
+let gexCloudRerenderTimer = null;
 
+function gexSimpleHash(str){
+  str=String(str||'');
+  let hash=0;
+  for(let i=0;i<str.length;i++){
+    hash=((hash<<5)-hash)+str.charCodeAt(i);
+    hash|=0;
+  }
+  return String(hash);
+}
 function gexCacheKey(collection){ return 'gx2_'+collection; }
 function gexJsonParse(value,fallback){
   try{return JSON.parse(value)}catch(e){return fallback}
@@ -3099,8 +3122,9 @@ function gexQueueCloud(task){
 function gexRecordPayload(collection,item){
   const recordId = gexEnsureRecordId(item);
   const cleanData = {...item,id:recordId};
-  cleanData._updatedAt = cleanData._updatedAt || new Date().toISOString();
-  cleanData._updatedBy = cleanData._updatedBy || sessionUser?.id || null;
+  cleanData._updatedAt = new Date().toISOString();
+  cleanData._updatedBy = sessionUser?.id || cleanData._updatedBy || null;
+  cleanData._clientId = GEX_CLOUD_CLIENT_ID;
   return {
     workspace_id:GEX_WORKSPACE_ID,
     collection,
@@ -3215,7 +3239,7 @@ function gexCloudSyncKV(key,value,deleted=false){
       workspace_id:GEX_WORKSPACE_ID,
       collection:'kv',
       record_id:key,
-      data:{key,value:String(value??''),updatedAt:new Date().toISOString()},
+      data:{key,value:String(value??''),updatedAt:new Date().toISOString(),_clientId:GEX_CLOUD_CLIENT_ID},
       updated_by:sessionUser?.id||null,
       deleted_at:null
     };
@@ -3279,6 +3303,18 @@ function rerenderActivePageAfterCloudSync(){
     else if(active==='configuracoes')renderConfiguracoes?.(currentSubPage||undefined);
   }catch(e){
     console.warn('[GexCloudDB] Não foi possível re-renderizar a página ativa:',e);
+  }
+}
+
+function scheduleRerenderActivePageAfterCloudSync(delay=120){
+  try{
+    clearTimeout(gexCloudRerenderTimer);
+    gexCloudRerenderTimer=setTimeout(()=>{
+      gexCloudRerenderTimer=null;
+      rerenderActivePageAfterCloudSync();
+    },delay);
+  }catch(e){
+    rerenderActivePageAfterCloudSync();
   }
 }
 async function initGexCloudDataSync(){
@@ -3354,6 +3390,11 @@ function startGexRecordsRealtime(){
       },payload=>{
         const row=payload.new||payload.old;
         if(!row || !row.collection || !row.record_id)return;
+        const incomingClientId = row?.data?._clientId || row?.data?.clientId || null;
+        if(incomingClientId && incomingClientId===GEX_CLOUD_CLIENT_ID){
+          // Eco do próprio navegador: o local já foi atualizado. Ignorar evita o Kanban piscar.
+          return;
+        }
         gexApplyingCloudPayload=true;
         try{
           if(row.collection==='kv'){
@@ -3376,7 +3417,7 @@ function startGexRecordsRealtime(){
         }finally{
           gexApplyingCloudPayload=false;
         }
-        rerenderActivePageAfterCloudSync();
+        scheduleRerenderActivePageAfterCloudSync(140);
       })
       .subscribe(status=>console.log('[GexCloudDB] Realtime:',status));
   }catch(err){
@@ -6719,8 +6760,8 @@ function renderComercial(){
     return;
   }
 
-  board.style.gridTemplateColumns=`repeat(${Math.max(stages.length,1)},minmax(180px,1fr))`;
-  board.innerHTML=stages.map((stage,idx)=>{
+  const nextPipelineGridTemplate=`repeat(${Math.max(stages.length,1)},minmax(180px,1fr))`;
+  const nextPipelineBoardHtml=stages.map((stage,idx)=>{
     const bg=STAGE_BG[idx%STAGE_BG.length];
     const dot=stage.color||STAGE_COLORS[idx%STAGE_COLORS.length];
     const items=funnelLeads.filter(l=>l.stageId===stage.id||((!l.stageId)&&l.estagio===stage.name));
@@ -6751,6 +6792,15 @@ function renderComercial(){
       <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:12px;border-style:dashed;margin-top:4px" onclick='openModal("lead")'>+</button>
     </div>`;
   }).join('');
+  const nextPipelineHash=gexSimpleHash(nextPipelineBoardHtml);
+  if(board.dataset.gexGridTemplate===nextPipelineGridTemplate && board.dataset.gexHtmlHash===nextPipelineHash){
+    if(shouldRedirectFromPipeline)setTimeout(()=>switchComTab(allowedCommercialTab),0);
+    return;
+  }
+  board.dataset.gexGridTemplate=nextPipelineGridTemplate;
+  board.dataset.gexHtmlHash=nextPipelineHash;
+  board.style.gridTemplateColumns=nextPipelineGridTemplate;
+  board.innerHTML=nextPipelineBoardHtml;
   if(shouldRedirectFromPipeline){
     setTimeout(()=>switchComTab(allowedCommercialTab),0);
   }
