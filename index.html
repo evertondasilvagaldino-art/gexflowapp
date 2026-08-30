@@ -1565,6 +1565,41 @@ textarea.form-input{resize:vertical;min-height:75px}
   .perm-v4-row{grid-template-columns:1fr}
 }
 
+
+/* CONFIGURAÇÕES — central administrativa */
+.cfg-hero{background:linear-gradient(135deg,#fff,#F7F2FF);border:1px solid var(--border);border-radius:18px;padding:22px 24px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:18px}
+.cfg-title{font-size:22px;font-weight:800;letter-spacing:-.5px;color:var(--txt)}
+.cfg-sub{font-size:13px;color:var(--muted);margin-top:4px;max-width:760px;line-height:1.45}
+.cfg-badge{display:inline-flex;align-items:center;gap:6px;background:var(--p-light);color:var(--p2);border:1px solid #DDD6FE;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:800;white-space:nowrap}
+.cfg-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:16px}
+.cfg-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:18px;min-height:150px;display:flex;flex-direction:column;gap:10px;transition:transform .15s,box-shadow .15s,border-color .15s}
+.cfg-card:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(124,58,237,.09);border-color:#DDD6FE}
+.cfg-ico{width:42px;height:42px;border-radius:12px;background:var(--p-light);display:flex;align-items:center;justify-content:center;font-size:20px}
+.cfg-card-title{font-size:14px;font-weight:800;color:var(--txt)}
+.cfg-card-desc{font-size:12px;color:var(--muted);line-height:1.45;flex:1}
+.cfg-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.cfg-btn{border:1px solid var(--border);background:#fff;color:var(--txt);height:34px;border-radius:9px;padding:0 13px;font-size:12px;font-weight:800;font-family:'Inter',sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.cfg-btn:hover{border-color:var(--p2);color:var(--p2);background:var(--p-light)}
+.cfg-btn.primary{background:var(--p2);border-color:var(--p2);color:#fff}
+.cfg-btn.primary:hover{background:#6D28D9;color:#fff}
+.cfg-panel{background:#fff;border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px}
+.cfg-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:16px}
+.cfg-panel-title{font-size:17px;font-weight:800;color:var(--txt)}
+.cfg-panel-sub{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.45}
+.cfg-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cfg-copy-row{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:10px}
+.cfg-copy-row code{flex:1;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cfg-kv{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cfg-kv-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px}
+.cfg-kv-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px}
+.cfg-kv-val{font-size:15px;font-weight:800;color:var(--txt)}
+.cfg-note{background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;border-radius:12px;padding:12px 14px;font-size:12px;line-height:1.45;margin-top:12px}
+.cfg-tabbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.cfg-tab{border:1px solid var(--border);background:#fff;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:800;cursor:pointer;color:var(--muted)}
+.cfg-tab.active{background:var(--p2);border-color:var(--p2);color:#fff}
+@media(max-width:1000px){.cfg-grid{grid-template-columns:1fr 1fr}.cfg-form-grid,.cfg-kv{grid-template-columns:1fr}}
+@media(max-width:640px){.cfg-grid{grid-template-columns:1fr}.cfg-hero{flex-direction:column;align-items:flex-start}}
+
 </style>
 </head>
 <body>
@@ -1692,11 +1727,24 @@ textarea.form-input{resize:vertical;min-height:75px}
       </div>
     </div>
 
-    <!-- RH -->
-    <div class="nav-item" data-page="integracoes" onclick="navigate('integracoes')">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 11-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-      Integrações
+    <!-- CONFIGURAÇÕES -->
+    <div class="nav-grp-hdr" id="grp-hdr-configuracoes" onclick="toggleGrp('configuracoes')">
+      <div class="nav-grp-left">
+        <svg class="nav-grp-ico" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
+        Configurações
+      </div>
+      <span class="nav-chv closed" id="grp-chv-configuracoes">▾</span>
     </div>
+    <div class="nav-sub-wrap closed" id="grp-wrap-configuracoes">
+      <div class="nav-sub" data-sub="config-integracoes" onclick="navigateSub('config-integracoes','configuracoes')"><span class="nav-sub-ico">·</span>Integrações</div>
+      <div class="nav-sub" data-sub="config-webhook-api" onclick="navigateSub('config-webhook-api','configuracoes')"><span class="nav-sub-ico">·</span>Webhook & API</div>
+      <div class="nav-sub" data-sub="config-pagamentos" onclick="navigateSub('config-pagamentos','configuracoes')"><span class="nav-sub-ico">·</span>Pagamentos</div>
+      <div class="nav-sub" data-sub="config-empresa" onclick="navigateSub('config-empresa','configuracoes')"><span class="nav-sub-ico">·</span>Dados da Empresa</div>
+      <div class="nav-sub" data-sub="config-seguranca" onclick="navigateSub('config-seguranca','configuracoes')"><span class="nav-sub-ico">·</span>Segurança</div>
+      <div class="nav-sub" data-sub="config-preferencias" onclick="navigateSub('config-preferencias','configuracoes')"><span class="nav-sub-ico">·</span>Preferências</div>
+    </div>
+
+    <!-- RH -->
     <div class="nav-item" data-page="rh" onclick="navigate('rh')">
       <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/></svg>
       Recursos Humanos
@@ -1908,7 +1956,10 @@ textarea.form-input{resize:vertical;min-height:75px}
     </div>
   </div>
 
-  <!-- INTEGRAÇÕES -->
+  <!-- CONFIGURAÇÕES -->
+  <div class="page" id="page-configuracoes"></div>
+
+  <!-- INTEGRAÇÕES (mantida por compatibilidade; acesso principal via Configurações) -->
   <div class="page" id="page-integracoes"></div>
 
   <!-- RH -->
@@ -2208,7 +2259,15 @@ const PERMISSION_SECTIONS = [
     {id:'esquemas', label:'Esquemas', parent:'projetos'}
   ]},
   {id:'financas', label:'Finanças', color:'#EF4444', tabs:[{id:'financas', label:'Controle financeiro', parent:'financas'}]},
-  {id:'integracoes', label:'Integrações', color:'#64748B', tabs:[{id:'integracoes', label:'Central de integrações', parent:'integracoes'}]},
+  {id:'configuracoes', label:'Configurações', color:'#7C3AED', tabs:[
+    {id:'config_integracoes', label:'Integrações', parent:'configuracoes'},
+    {id:'config_webhook_api', label:'Webhook & API', parent:'configuracoes'},
+    {id:'config_pagamentos', label:'Pagamentos e Assinatura', parent:'configuracoes'},
+    {id:'config_empresa', label:'Dados da Empresa', parent:'configuracoes'},
+    {id:'config_seguranca', label:'Segurança', parent:'configuracoes'},
+    {id:'config_preferencias', label:'Preferências', parent:'configuracoes'}
+  ]},
+  {id:'integracoes', label:'Integrações (legado)', color:'#64748B', tabs:[{id:'integracoes', label:'Central de integrações', parent:'integracoes'}]},
   {id:'rh', label:'Recursos Humanos', color:'#64748B', tabs:[{id:'rh', label:'Recursos Humanos', parent:'rh'}]},
   {id:'usuarios', label:'Gestão de Usuários', color:'#374151', tabs:[{id:'usuarios', label:'Usuários e permissões', parent:'usuarios'}]},
   {id:'perfil', label:'Perfil e Assinatura', color:'#8B5CF6', tabs:[{id:'perfil', label:'Meu perfil', parent:'perfil'}]}
@@ -2241,6 +2300,13 @@ const ROLE_PERMS = {
     esquemas:{view:true,create:true,edit:true,delete:true,manage:true},
     creators:{view:true,create:true,edit:true,delete:true,manage:true},
     integracoes:{view:true,create:true,edit:true,delete:true,manage:true},
+    configuracoes:{view:true,create:true,edit:true,delete:true,manage:true},
+    config_integracoes:{view:true,create:true,edit:true,delete:true,manage:true},
+    config_webhook_api:{view:true,create:true,edit:true,delete:true,manage:true},
+    config_pagamentos:{view:true,create:true,edit:true,delete:true,manage:true},
+    config_empresa:{view:true,create:true,edit:true,delete:true,manage:true},
+    config_seguranca:{view:true,create:true,edit:true,delete:true,manage:true},
+    config_preferencias:{view:true,create:true,edit:true,delete:true,manage:true},
     rh:{view:true,create:true,edit:true,delete:true,manage:true},
     usuarios:{view:true,create:true,edit:true,delete:true,manage:true},
     perfil:{view:true,edit:true},
@@ -2261,6 +2327,13 @@ const ROLE_PERMS = {
     esquemas:{view:true,create:true,edit:true,delete:true,manage:true},
     creators:{view:true,create:true,edit:true,delete:true,manage:true},
     integracoes:{view:true,manage:true},
+    configuracoes:{view:true,edit:true,manage:true},
+    config_integracoes:{view:true,edit:true,manage:true},
+    config_webhook_api:{view:true,edit:true,manage:true},
+    config_pagamentos:{view:true,edit:true,manage:true},
+    config_empresa:{view:true,edit:true,manage:true},
+    config_seguranca:{view:true,edit:true,manage:true},
+    config_preferencias:{view:true,edit:true,manage:true},
     rh:{view:true,create:true,edit:true,delete:true,manage:true},
     usuarios:{view:true,create:true,edit:true,manage:true},
     perfil:{view:true,edit:true},
@@ -3020,7 +3093,6 @@ function applyNavPermissions(){
 
   const singleItems=[
     {selector:'[data-page="inicio"]', mod:'inicio'},
-    {selector:'[data-page="integracoes"]', mod:'integracoes'},
     {selector:'[data-page="rh"]', mod:'rh'},
     {selector:'[data-page="usuarios"]', mod:'usuarios'},
     {selector:'[data-page="perfil"]', mod:'perfil'}
@@ -3058,6 +3130,17 @@ function applyNavPermissions(){
     financas:{
       hdr:'#grp-hdr-financas', wrap:'#grp-wrap-financas',
       items:[{selector:'[data-sub="financas"]', mod:'financas'}]
+    },
+    configuracoes:{
+      hdr:'#grp-hdr-configuracoes', wrap:'#grp-wrap-configuracoes',
+      items:[
+        {selector:'[data-sub="config-integracoes"]', mod:'config_integracoes'},
+        {selector:'[data-sub="config-webhook-api"]', mod:'config_webhook_api'},
+        {selector:'[data-sub="config-pagamentos"]', mod:'config_pagamentos'},
+        {selector:'[data-sub="config-empresa"]', mod:'config_empresa'},
+        {selector:'[data-sub="config-seguranca"]', mod:'config_seguranca'},
+        {selector:'[data-sub="config-preferencias"]', mod:'config_preferencias'}
+      ]
     }
   };
 
@@ -3091,6 +3174,8 @@ function applyNavPermissions(){
               comercial_equipe:'equipe'
             };
             firstAllowed={type:'commercial', tab:tabMap[item.mod]||'pipeline'};
+          }else if(groupId==='configuracoes'){
+            firstAllowed={type:'config', sub:item.selector.match(/data-sub=\"([^\"]+)/)?.[1] || 'config-integracoes'};
           }else{
             const pageMap={clientes:'clientes',projetos:'projetos',financas:'financas'};
             firstAllowed={type:'sub', sub:item.mod, group:groupId, page:pageMap[groupId]||item.mod};
@@ -3112,6 +3197,7 @@ function applyNavPermissions(){
         navigateSub('comercial','comercial');
         switchComTab(firstAllowed.tab);
       }
+      if(firstAllowed.type==='config') navigateSub(firstAllowed.sub,'configuracoes');
     },0);
   }
 }
@@ -3132,7 +3218,7 @@ function showAccessDeniedModal(mod){
     comercial:'Comercial',financas:'Finanças',projetos:'Projetos',
     onboarding:'Onboarding',entregas:'Entregas',tarefas:'Tarefas',
     agenda:'Agenda',aprovacao:'Aprovação',esquemas:'Esquemas',creators:'Creators',
-    integracoes:'Integrações',rh:'RH',usuarios:'Usuários',perfil:'Perfil'
+    integracoes:'Integrações',configuracoes:'Configurações',config_integracoes:'Integrações',config_webhook_api:'Webhook & API',config_pagamentos:'Pagamentos',config_empresa:'Dados da Empresa',config_seguranca:'Segurança',config_preferencias:'Preferências',rh:'RH',usuarios:'Usuários',perfil:'Perfil'
   };
   toast('🔒 Sem acesso a '+(names[mod]||mod)+' — fale com o Administrador','#F59E0B');
 }
@@ -3155,7 +3241,8 @@ function navigateSub(sub,grp){
     clientes:'clientes',churn:'churn',contratos:'contratos',
     onboarding:'projetos',entregas:'projetos',tarefas:'projetos',
     agenda:'projetos',aprovacao:'projetos',esquemas:'projetos',creators:'projetos',
-    comercial:'comercial',financas:'financas'
+    comercial:'comercial',financas:'financas',
+    'config-integracoes':'configuracoes','config-webhook-api':'configuracoes','config-pagamentos':'configuracoes','config-empresa':'configuracoes','config-seguranca':'configuracoes','config-preferencias':'configuracoes'
   };
   const page=pageMap[sub]||sub;
 
@@ -3186,13 +3273,24 @@ function navigateSub(sub,grp){
     };
     checkMod=commercialPermMap[sub]||'comercial_pipeline';
   }
+  if(page==='configuracoes'){
+    const cfgPermMap={
+      'config-integracoes':'config_integracoes',
+      'config-webhook-api':'config_webhook_api',
+      'config-pagamentos':'config_pagamentos',
+      'config-empresa':'config_empresa',
+      'config-seguranca':'config_seguranca',
+      'config-preferencias':'config_preferencias'
+    };
+    checkMod=cfgPermMap[sub]||'config_integracoes';
+  }
   if(!can(checkMod,'view')){
     const pageEl=document.getElementById('page-'+page);
     if(pageEl){
       const names={clientes:'Clientes',churn:'Análise de Churn',contratos:'Contratos',
         onboarding:'Onboarding',entregas:'Entregas',tarefas:'Tarefas',agenda:'Agenda',
         aprovacao:'Aprovação de Conteúdo',esquemas:'Esquemas',creators:'Creators',
-        comercial:'Comercial',financas:'Finanças'};
+        comercial:'Comercial',financas:'Finanças','config-integracoes':'Integrações','config-webhook-api':'Webhook & API','config-pagamentos':'Pagamentos','config-empresa':'Dados da Empresa','config-seguranca':'Segurança','config-preferencias':'Preferências'};
       showAccessDenied(pageEl,names[sub]||sub);
     }
     return;
@@ -3201,6 +3299,8 @@ function navigateSub(sub,grp){
   if(page==='projetos'){
     currentProjView=sub;
     renderProjView();
+  } else if(page==='configuracoes'){
+    renderConfiguracoes(sub);
   } else {
     ({clientes:renderClientes,churn:renderChurn,contratos:renderContratos,
       comercial:renderComercial,financas:renderFinancas})[page]?.();
@@ -3227,14 +3327,15 @@ function navigate(page){
   if(pageEl)pageEl.classList.add('active');
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
   currentSubPage='';
-  if(!can(page,'view')){
+  const navPermPage = page==='integracoes' ? 'config_integracoes' : page;
+  if(!can(navPermPage,'view')){
     if(pageEl){
-      const pageNames={integracoes:'Integrações',rh:'Recursos Humanos',usuarios:'Gestão de Usuários',perfil:'Perfil',inicio:'Início'};
+      const pageNames={configuracoes:'Configurações',integracoes:'Integrações',rh:'Recursos Humanos',usuarios:'Gestão de Usuários',perfil:'Perfil',inicio:'Início'};
       showAccessDenied(pageEl,pageNames[page]||page);
     }
     return;
   }
-  ({inicio:renderInicio,integracoes:renderIntegracoes,rh:renderRH,usuarios:renderUsuarios,perfil:renderPerfil})[page]?.();
+  ({inicio:renderInicio,configuracoes:renderConfiguracoes,integracoes:renderIntegracoes,rh:renderRH,usuarios:renderUsuarios,perfil:renderPerfil})[page]?.();
 }
 
 // ═══ TOAST ═══
@@ -3446,6 +3547,311 @@ function integrationStatus(id){
   if(it.configured)return {label:'Configurado',cls:'warn',dot:'◐'};
   return {label:'Desconectado',cls:'off',dot:'○'};
 }
+
+// ═══ CONFIGURAÇÕES ═══
+const CONFIG_TAB_MAP = {
+  'config-integracoes':'config_integracoes',
+  'config-webhook-api':'config_webhook_api',
+  'config-pagamentos':'config_pagamentos',
+  'config-empresa':'config_empresa',
+  'config-seguranca':'config_seguranca',
+  'config-preferencias':'config_preferencias'
+};
+
+function canViewConfigTab(tabKey){
+  const mod = CONFIG_TAB_MAP[tabKey] || tabKey;
+  return can(mod,'view');
+}
+
+function getAllowedConfigTabs(){
+  const tabs=[
+    {key:'config-integracoes',mod:'config_integracoes',title:'Integrações',icon:'🔌',desc:'Conecte Meta Ads, Google Ads, Google Agenda, WhatsApp, SMS, Make, Stripe e outros parceiros autorizados.'},
+    {key:'config-webhook-api',mod:'config_webhook_api',title:'Webhook & API',icon:'🔗',desc:'Gerencie URL de entrada, chave de segurança, payloads e webhooks de saída do CRM.'},
+    {key:'config-pagamentos',mod:'config_pagamentos',title:'Pagamentos e Assinatura',icon:'💳',desc:'Controle plano atual, assinatura, cobrança, Stripe e histórico financeiro do sistema.'},
+    {key:'config-empresa',mod:'config_empresa',title:'Dados da Empresa',icon:'🏢',desc:'Configure nome, CNPJ, contatos, site, logo e identidade visual da empresa.'},
+    {key:'config-seguranca',mod:'config_seguranca',title:'Segurança',icon:'🔐',desc:'Sessão atual, regras de acesso, senha, políticas e avisos de segurança.'},
+    {key:'config-preferencias',mod:'config_preferencias',title:'Preferências',icon:'⚙️',desc:'Ajustes gerais de experiência, moeda, datas, notificações e página inicial.'}
+  ];
+  return tabs.filter(t=>can(t.mod,'view'));
+}
+
+function openConfigTab(tabKey){
+  navigateSub(tabKey,'configuracoes');
+}
+
+function getCompanySettings(){
+  try{return JSON.parse(localStorage.getItem('gx2_company_settings')||'{}')}catch{return{}}
+}
+function saveCompanySettings(data){
+  localStorage.setItem('gx2_company_settings',JSON.stringify(data||{}));
+  toast('Dados da empresa salvos com sucesso.','#10B981');
+}
+function getSystemPreferences(){
+  try{return JSON.parse(localStorage.getItem('gx2_system_preferences')||'{}')}catch{return{}}
+}
+function saveSystemPreferences(data){
+  localStorage.setItem('gx2_system_preferences',JSON.stringify(data||{}));
+  toast('Preferências salvas com sucesso.','#10B981');
+}
+
+function configTabbar(active){
+  const tabs=getAllowedConfigTabs();
+  if(!tabs.length)return '';
+  return `<div class="cfg-tabbar">${tabs.map(t=>`<button class="cfg-tab ${t.key===active?'active':''}" onclick="openConfigTab('${t.key}')">${t.icon} ${t.title}</button>`).join('')}</div>`;
+}
+
+function renderConfiguracoes(sub){
+  const page=document.getElementById('page-configuracoes');
+  if(!page)return;
+  const allowed=getAllowedConfigTabs();
+  if(!allowed.length){
+    showAccessDenied(page,'Configurações');
+    return;
+  }
+  const active = sub && canViewConfigTab(sub) ? sub : allowed[0].key;
+  if(active==='config-integracoes') return renderConfiguracoesIntegracoes();
+  if(active==='config-webhook-api') return renderConfiguracoesWebhookApi();
+  if(active==='config-pagamentos') return renderConfiguracoesPagamentos();
+  if(active==='config-empresa') return renderConfiguracoesEmpresa();
+  if(active==='config-seguranca') return renderConfiguracoesSeguranca();
+  if(active==='config-preferencias') return renderConfiguracoesPreferencias();
+  renderConfiguracoesHome(active);
+}
+
+function renderConfiguracoesHome(){
+  const page=document.getElementById('page-configuracoes');
+  const allowed=getAllowedConfigTabs();
+  page.innerHTML=`
+    <div class="cfg-hero">
+      <div>
+        <div class="cfg-title">Configurações</div>
+        <div class="cfg-sub">Central administrativa do Gex Flow para integrações, API, pagamentos, empresa, segurança e preferências do sistema.</div>
+      </div>
+      <div class="cfg-badge">⚡ Administração segura</div>
+    </div>
+    <div class="cfg-grid">
+      ${allowed.map(t=>`
+        <div class="cfg-card">
+          <div class="cfg-ico">${t.icon}</div>
+          <div class="cfg-card-title">${t.title}</div>
+          <div class="cfg-card-desc">${t.desc}</div>
+          <div class="cfg-actions"><button class="cfg-btn primary" onclick="openConfigTab('${t.key}')">Abrir</button></div>
+        </div>`).join('')}
+    </div>`;
+}
+
+function renderConfiguracoesIntegracoes(){
+  const page=document.getElementById('page-configuracoes');
+  page.innerHTML=`
+    <div class="cfg-hero">
+      <div>
+        <div class="cfg-title">Configurações</div>
+        <div class="cfg-sub">Integrações ficam centralizadas aqui, sem misturar API/Webhook, pagamentos e dados da empresa.</div>
+      </div>
+      <div class="cfg-badge">🔌 Apps parceiros</div>
+    </div>
+    ${configTabbar('config-integracoes')}
+    <div class="cfg-panel">
+      <div class="cfg-panel-head">
+        <div>
+          <div class="cfg-panel-title">Integrações</div>
+          <div class="cfg-panel-sub">Abra a central de integrações já existente para configurar apps parceiros. O código original foi preservado para evitar quebra.</div>
+        </div>
+        <button class="cfg-btn primary" onclick="navigate('integracoes')">Abrir central de integrações</button>
+      </div>
+      <div class="cfg-grid">
+        <div class="cfg-card"><div class="cfg-ico">📣</div><div class="cfg-card-title">Meta Ads</div><div class="cfg-card-desc">Conexão nativa ou configuração segura com parceiro.</div></div>
+        <div class="cfg-card"><div class="cfg-ico">🎯</div><div class="cfg-card-title">Google Ads</div><div class="cfg-card-desc">Campanhas, conversões e mídia paga.</div></div>
+        <div class="cfg-card"><div class="cfg-ico">📅</div><div class="cfg-card-title">Google Agenda</div><div class="cfg-card-desc">Reuniões, follow-ups e compromissos.</div></div>
+        <div class="cfg-card"><div class="cfg-ico">💬</div><div class="cfg-card-title">WhatsApp/SMS</div><div class="cfg-card-desc">Comunicação, lembretes e cobrança.</div></div>
+        <div class="cfg-card"><div class="cfg-ico">💳</div><div class="cfg-card-title">Stripe</div><div class="cfg-card-desc">Pagamentos e assinatura.</div></div>
+        <div class="cfg-card"><div class="cfg-ico">🧩</div><div class="cfg-card-title">Make</div><div class="cfg-card-desc">Automação externa quando necessário.</div></div>
+      </div>
+      <div class="cfg-note">As chaves sensíveis devem ficar no Supabase Secrets/Edge Functions. Não exponha service_role, tokens privados ou secrets no HTML.</div>
+    </div>`;
+}
+
+function cfgWebhookUrl(){
+  const base=(typeof SUPABASE_URL!=='undefined'&&SUPABASE_URL)?SUPABASE_URL.replace(/\/$/,''):'https://SEU-PROJETO.supabase.co';
+  return `${base}/functions/v1/gex-webhook`;
+}
+function cfgWebhookKey(){
+  let key=localStorage.getItem('gx2_webhook_key');
+  if(!key){
+    key='gex_'+Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,8);
+    localStorage.setItem('gx2_webhook_key',key);
+  }
+  return key;
+}
+function copyTextSafe(txt,label){
+  navigator.clipboard?.writeText(txt).then(()=>toast((label||'Texto')+' copiado.','#10B981')).catch(()=>toast('Não foi possível copiar.','#EF4444'));
+}
+
+function renderConfiguracoesWebhookApi(){
+  const page=document.getElementById('page-configuracoes');
+  const url=cfgWebhookUrl();
+  const key=cfgWebhookKey();
+  const outgoing=JSON.parse(localStorage.getItem('gx2_outgoing_webhooks')||'[]');
+  page.innerHTML=`
+    <div class="cfg-hero">
+      <div><div class="cfg-title">Webhook & API</div><div class="cfg-sub">Entrada de leads/dados externos e saída de eventos do CRM para parceiros.</div></div>
+      <div class="cfg-badge">🔗 API do Gex Flow</div>
+    </div>
+    ${configTabbar('config-webhook-api')}
+    <div class="cfg-panel">
+      <div class="cfg-panel-head"><div><div class="cfg-panel-title">Webhook de entrada</div><div class="cfg-panel-sub">Use esta URL para receber leads, vendas, tarefas, eventos e dados externos.</div></div></div>
+      <div class="cfg-copy-row"><code>${escHtml(url)}</code><button class="cfg-btn" onclick="copyTextSafe('${escAttr(url)}','URL')">Copiar URL</button></div>
+      <div class="cfg-copy-row"><code>${escHtml(key)}</code><button class="cfg-btn" onclick="copyTextSafe('${escAttr(key)}','Chave')">Copiar chave</button></div>
+      <div class="cfg-note">Envie a chave no header <b>x-gex-key</b> ou no corpo JSON como <b>apiKey</b>.</div>
+    </div>
+    <div class="cfg-panel">
+      <div class="cfg-panel-head"><div><div class="cfg-panel-title">Payload recomendado</div><div class="cfg-panel-sub">Modelo simples para criar lead no CRM.</div></div></div>
+      <pre style="white-space:pre-wrap;background:#12112A;color:#EDE9FE;border-radius:12px;padding:14px;font-size:12px;overflow:auto">{
+  "tipo": "lead",
+  "apiKey": "${escHtml(key)}",
+  "nome": "Nome do lead",
+  "telefone": "(00) 00000-0000",
+  "email": "lead@email.com",
+  "origem": "Meta Ads",
+  "valor": 1500,
+  "responsavelEmail": "vendedor@email.com"
+}</pre>
+    </div>
+    <div class="cfg-panel">
+      <div class="cfg-panel-head">
+        <div><div class="cfg-panel-title">Webhooks de saída do CRM</div><div class="cfg-panel-sub">Cadastre URLs externas para receber eventos do Gex Flow, como lead criado, oportunidade ganha ou tarefa concluída.</div></div>
+      </div>
+      <div class="cfg-form-grid">
+        <input class="form-input" id="cfg-out-url" placeholder="https://app-parceiro.com/webhook">
+        <select class="form-input" id="cfg-out-event">
+          <option value="lead.created">Lead criado</option>
+          <option value="deal.won">Negócio ganho</option>
+          <option value="deal.lost">Negócio perdido</option>
+          <option value="task.completed">Tarefa concluída</option>
+        </select>
+      </div>
+      <div class="cfg-actions" style="margin-top:12px">
+        <button class="cfg-btn primary" onclick="addOutgoingWebhook()">Adicionar webhook de saída</button>
+        <button class="cfg-btn" onclick="testOutgoingWebhook()">Testar envio</button>
+      </div>
+      <div style="margin-top:14px">${outgoing.length?outgoing.map(w=>`<div class="cfg-copy-row"><code>${escHtml(w.event)} · ${escHtml(w.url)}</code><button class="cfg-btn" onclick="removeOutgoingWebhook('${w.id}')">Remover</button></div>`).join(''):'<div class="empty" style="padding:20px">Nenhum webhook de saída cadastrado.</div>'}</div>
+    </div>`;
+}
+
+function addOutgoingWebhook(){
+  const url=document.getElementById('cfg-out-url')?.value?.trim();
+  const event=document.getElementById('cfg-out-event')?.value||'lead.created';
+  if(!url||!/^https?:\/\//i.test(url)){toast('Informe uma URL válida.','#EF4444');return}
+  const arr=JSON.parse(localStorage.getItem('gx2_outgoing_webhooks')||'[]');
+  arr.unshift({id:uid(),url,event,createdAt:now()});
+  localStorage.setItem('gx2_outgoing_webhooks',JSON.stringify(arr));
+  toast('Webhook de saída adicionado.','#10B981');
+  renderConfiguracoesWebhookApi();
+}
+function removeOutgoingWebhook(id){
+  const arr=JSON.parse(localStorage.getItem('gx2_outgoing_webhooks')||'[]').filter(w=>w.id!==id);
+  localStorage.setItem('gx2_outgoing_webhooks',JSON.stringify(arr));
+  toast('Webhook removido.','#10B981');
+  renderConfiguracoesWebhookApi();
+}
+function testOutgoingWebhook(){
+  toast('Teste preparado. Em produção, o envio deve passar por Edge Function segura.','#7C3AED');
+}
+
+function renderConfiguracoesPagamentos(){
+  const page=document.getElementById('page-configuracoes');
+  page.innerHTML=`
+    <div class="cfg-hero"><div><div class="cfg-title">Pagamentos e Assinatura</div><div class="cfg-sub">Plano atual, cobrança, Stripe e histórico financeiro do sistema.</div></div><div class="cfg-badge">💳 Billing</div></div>
+    ${configTabbar('config-pagamentos')}
+    <div class="cfg-panel">
+      <div class="cfg-kv">
+        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Plano atual</div><div class="cfg-kv-val">Trial</div></div>
+        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Status</div><div class="cfg-kv-val">Ativo</div></div>
+        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Próxima cobrança</div><div class="cfg-kv-val">—</div></div>
+        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Gateway</div><div class="cfg-kv-val">Stripe preparado</div></div>
+      </div>
+      <div class="cfg-actions" style="margin-top:14px">
+        <button class="cfg-btn primary" onclick="toast('Portal Stripe será conectado por Edge Function.','#7C3AED')">Abrir portal do cliente</button>
+        <button class="cfg-btn" onclick="openConfigTab('config-integracoes')">Configurar Stripe</button>
+      </div>
+      <div class="cfg-note">Cobrança real exige Stripe Customer Portal via backend/Edge Function. Não coloque secret key do Stripe no HTML.</div>
+    </div>`;
+}
+
+function renderConfiguracoesEmpresa(){
+  const page=document.getElementById('page-configuracoes');
+  const s=getCompanySettings();
+  page.innerHTML=`
+    <div class="cfg-hero"><div><div class="cfg-title">Dados da Empresa</div><div class="cfg-sub">Identidade e dados cadastrais da operação.</div></div><div class="cfg-badge">🏢 Empresa</div></div>
+    ${configTabbar('config-empresa')}
+    <div class="cfg-panel">
+      <div class="cfg-form-grid">
+        <div><label class="form-label">Nome da empresa</label><input class="form-input" id="cfg-company-name" value="${escAttr(s.name||'GEX Company')}"></div>
+        <div><label class="form-label">CNPJ</label><input class="form-input" id="cfg-company-cnpj" value="${escAttr(s.cnpj||'')}"></div>
+        <div><label class="form-label">E-mail</label><input class="form-input" id="cfg-company-email" value="${escAttr(s.email||'')}"></div>
+        <div><label class="form-label">Telefone</label><input class="form-input" id="cfg-company-phone" value="${escAttr(s.phone||'')}"></div>
+        <div><label class="form-label">Site</label><input class="form-input" id="cfg-company-site" value="${escAttr(s.site||'')}"></div>
+        <div><label class="form-label">Cor principal</label><input class="form-input" id="cfg-company-color" value="${escAttr(s.color||'#7C3AED')}"></div>
+      </div>
+      <div class="cfg-actions" style="margin-top:14px"><button class="cfg-btn primary" onclick="saveConfigCompanyForm()">Salvar dados</button></div>
+    </div>`;
+}
+function saveConfigCompanyForm(){
+  saveCompanySettings({
+    name:document.getElementById('cfg-company-name')?.value||'',
+    cnpj:document.getElementById('cfg-company-cnpj')?.value||'',
+    email:document.getElementById('cfg-company-email')?.value||'',
+    phone:document.getElementById('cfg-company-phone')?.value||'',
+    site:document.getElementById('cfg-company-site')?.value||'',
+    color:document.getElementById('cfg-company-color')?.value||'#7C3AED'
+  });
+}
+
+function renderConfiguracoesSeguranca(){
+  const page=document.getElementById('page-configuracoes');
+  page.innerHTML=`
+    <div class="cfg-hero"><div><div class="cfg-title">Segurança</div><div class="cfg-sub">Sessão, acesso e boas práticas de segurança.</div></div><div class="cfg-badge">🔐 Segurança</div></div>
+    ${configTabbar('config-seguranca')}
+    <div class="cfg-panel">
+      <div class="cfg-kv">
+        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Usuário atual</div><div class="cfg-kv-val">${escHtml(sessionUser?.nome||sessionUser?.email||'—')}</div></div>
+        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Papel</div><div class="cfg-kv-val">${escHtml(sessionUser?.permissao||sessionUser?.cargo||'—')}</div></div>
+        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Status</div><div class="cfg-kv-val">${escHtml(sessionUser?.status||'Ativo')}</div></div>
+        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Login</div><div class="cfg-kv-val">Supabase Auth</div></div>
+      </div>
+      <div class="cfg-actions" style="margin-top:14px">
+        <button class="cfg-btn" onclick="navigate('perfil')">Abrir meu perfil</button>
+        <button class="cfg-btn" onclick="logout()">Sair do sistema</button>
+      </div>
+      <div class="cfg-note">Alterações avançadas de senha, MFA, logs e revogação de sessão devem ser feitas com Supabase Auth/Edge Functions.</div>
+    </div>`;
+}
+
+function renderConfiguracoesPreferencias(){
+  const page=document.getElementById('page-configuracoes');
+  const p=getSystemPreferences();
+  page.innerHTML=`
+    <div class="cfg-hero"><div><div class="cfg-title">Preferências</div><div class="cfg-sub">Ajustes gerais de experiência do sistema.</div></div><div class="cfg-badge">⚙️ Preferências</div></div>
+    ${configTabbar('config-preferencias')}
+    <div class="cfg-panel">
+      <div class="cfg-form-grid">
+        <div><label class="form-label">Moeda padrão</label><select class="form-input" id="cfg-pref-currency"><option value="BRL" ${p.currency==='BRL'?'selected':''}>BRL — Real brasileiro</option></select></div>
+        <div><label class="form-label">Formato de data</label><select class="form-input" id="cfg-pref-date"><option value="pt-BR" ${p.dateFormat==='pt-BR'?'selected':''}>dd/mm/aaaa</option></select></div>
+        <div><label class="form-label">Página inicial</label><select class="form-input" id="cfg-pref-home"><option value="inicio" ${p.home==='inicio'?'selected':''}>Início</option><option value="comercial" ${p.home==='comercial'?'selected':''}>Comercial</option></select></div>
+        <div><label class="form-label">Notificações</label><select class="form-input" id="cfg-pref-notifications"><option value="on" ${p.notifications!=='off'?'selected':''}>Ativadas</option><option value="off" ${p.notifications==='off'?'selected':''}>Desativadas</option></select></div>
+      </div>
+      <div class="cfg-actions" style="margin-top:14px"><button class="cfg-btn primary" onclick="saveConfigPreferencesForm()">Salvar preferências</button></div>
+    </div>`;
+}
+function saveConfigPreferencesForm(){
+  saveSystemPreferences({
+    currency:document.getElementById('cfg-pref-currency')?.value||'BRL',
+    dateFormat:document.getElementById('cfg-pref-date')?.value||'pt-BR',
+    home:document.getElementById('cfg-pref-home')?.value||'inicio',
+    notifications:document.getElementById('cfg-pref-notifications')?.value||'on'
+  });
+}
+
 function renderIntegracoes(){
   const page=document.getElementById('page-integracoes');
   if(!page)return;
@@ -6435,7 +6841,7 @@ const MOD_LABELS={
   comercial:'Comercial',comercial_tarefas:'Tarefas do Dia',comercial_pipeline:'Pipeline CRM',comercial_relatorio:'Relatório Comercial',comercial_equipe:'Equipe Comercial',
   financas:'Finanças',projetos:'Projetos',onboarding:'Onboarding',
   entregas:'Entregas',tarefas:'Tarefas',agenda:'Agenda de projetos',aprovacao:'Aprovação',
-  esquemas:'Esquemas',creators:'Creators',integracoes:'Integrações',rh:'RH',usuarios:'Usuários',perfil:'Perfil'
+  esquemas:'Esquemas',creators:'Creators',integracoes:'Integrações',configuracoes:'Configurações',config_integracoes:'Integrações',config_webhook_api:'Webhook & API',config_pagamentos:'Pagamentos',config_empresa:'Dados da Empresa',config_seguranca:'Segurança',config_preferencias:'Preferências',rh:'RH',usuarios:'Usuários',perfil:'Perfil'
 };
 const ACT_LABELS={view:'Ver',create:'Criar',edit:'Editar',delete:'Excluir',approve:'Aprovar',export:'Exportar',manage:'Gerenciar'};
 
@@ -12345,6 +12751,41 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
 .native-api-card-wide{grid-column:1/-1}
 .native-api-card .native-copy-row input{flex:1;border:0;background:transparent;outline:0;font-family:'Inter',sans-serif;font-size:12px;color:var(--txt);min-width:180px}
 @media(max-width:900px){.native-stats{grid-template-columns:1fr 1fr}.native-api-grid{grid-template-columns:1fr}}
+
+/* CONFIGURAÇÕES — central administrativa */
+.cfg-hero{background:linear-gradient(135deg,#fff,#F7F2FF);border:1px solid var(--border);border-radius:18px;padding:22px 24px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:18px}
+.cfg-title{font-size:22px;font-weight:800;letter-spacing:-.5px;color:var(--txt)}
+.cfg-sub{font-size:13px;color:var(--muted);margin-top:4px;max-width:760px;line-height:1.45}
+.cfg-badge{display:inline-flex;align-items:center;gap:6px;background:var(--p-light);color:var(--p2);border:1px solid #DDD6FE;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:800;white-space:nowrap}
+.cfg-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:16px}
+.cfg-card{background:#fff;border:1px solid var(--border);border-radius:16px;padding:18px;min-height:150px;display:flex;flex-direction:column;gap:10px;transition:transform .15s,box-shadow .15s,border-color .15s}
+.cfg-card:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(124,58,237,.09);border-color:#DDD6FE}
+.cfg-ico{width:42px;height:42px;border-radius:12px;background:var(--p-light);display:flex;align-items:center;justify-content:center;font-size:20px}
+.cfg-card-title{font-size:14px;font-weight:800;color:var(--txt)}
+.cfg-card-desc{font-size:12px;color:var(--muted);line-height:1.45;flex:1}
+.cfg-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.cfg-btn{border:1px solid var(--border);background:#fff;color:var(--txt);height:34px;border-radius:9px;padding:0 13px;font-size:12px;font-weight:800;font-family:'Inter',sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.cfg-btn:hover{border-color:var(--p2);color:var(--p2);background:var(--p-light)}
+.cfg-btn.primary{background:var(--p2);border-color:var(--p2);color:#fff}
+.cfg-btn.primary:hover{background:#6D28D9;color:#fff}
+.cfg-panel{background:#fff;border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px}
+.cfg-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:16px}
+.cfg-panel-title{font-size:17px;font-weight:800;color:var(--txt)}
+.cfg-panel-sub{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.45}
+.cfg-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cfg-copy-row{display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:10px;margin-bottom:10px}
+.cfg-copy-row code{flex:1;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cfg-kv{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cfg-kv-card{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:12px}
+.cfg-kv-lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px}
+.cfg-kv-val{font-size:15px;font-weight:800;color:var(--txt)}
+.cfg-note{background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;border-radius:12px;padding:12px 14px;font-size:12px;line-height:1.45;margin-top:12px}
+.cfg-tabbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.cfg-tab{border:1px solid var(--border);background:#fff;border-radius:999px;padding:7px 12px;font-size:12px;font-weight:800;cursor:pointer;color:var(--muted)}
+.cfg-tab.active{background:var(--p2);border-color:var(--p2);color:#fff}
+@media(max-width:1000px){.cfg-grid{grid-template-columns:1fr 1fr}.cfg-form-grid,.cfg-kv{grid-template-columns:1fr}}
+@media(max-width:640px){.cfg-grid{grid-template-columns:1fr}.cfg-hero{flex-direction:column;align-items:flex-start}}
+
 </style>
 
 </body>
