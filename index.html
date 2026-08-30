@@ -1237,8 +1237,27 @@ textarea.form-input{resize:vertical;min-height:75px}
 <div class="toast" id="toast"></div>
 
 <script>
-// ═══ VARIÁVEIS GLOBAIS (declaradas primeiro para evitar TDZ) ═══
+// ═══ VARIÁVEIS GLOBAIS — todas declaradas aqui para evitar TDZ com callbacks do Supabase ═══
 let sessionUser = null;
+let currentSubPage = '';
+let dragId = '', dragType = '';
+let detailId = '';
+let dashFilter = {mes: new Date().getMonth()+1, ano: new Date().getFullYear()};
+let cliFilter = 'todos';
+let rhSquadFilter = 'todos';
+let currentProjView = 'entregas';
+let currentObId = '';
+let fmDraft = {name:'',description:'',isDefault:false,stages:[]};
+let fmEditId = null;
+let fmStageDragIdx = null;
+let fmColorPickerStageIdx = null;
+let stageDraft = [];
+let stageDragIdx = null;
+let currentDealId = '';
+let currentActionType = 'Nota';
+let currentHistTab = 'hist';
+let currentTaskEditId = null;
+let currentLemTab = 'hoje';
 
 // Permissões por cargo (declarado aqui para estar disponível antes de qualquer callback)
 const MODULES = ['inicio','clientes','churn','contratos','comercial','financas','projetos','onboarding','entregas','tarefas','agenda','aprovacao','esquemas','creators','integracoes','rh','usuarios','perfil'];
@@ -1699,7 +1718,6 @@ function toggleGrp(grp){
 }
 
 // ═══ SUB-NAV (sidebar sub-items) ═══
-let currentSubPage='';
 function navigateSub(sub,grp){
   const pageMap={
     clientes:'clientes',churn:'churn',contratos:'contratos',
@@ -1825,7 +1843,6 @@ function setResultado(id,resultado){
 }
 
 // ═══ DnD ═══
-let dragId='',dragType='';
 
 function dragStart(e,id,type){
   dragId=id;dragType=type;
@@ -2218,7 +2235,6 @@ function formContrato(d){
 }
 
 // ═══ CLIENT DETAIL ═══
-let detailId='';
 
 function openDetail(id){
   detailId=id;
@@ -2332,7 +2348,6 @@ function deleteTask(id){
 }
 
 // ═══ FILTRO DASHBOARD ═══
-let dashFilter={mes:new Date().getMonth()+1,ano:new Date().getFullYear()};
 
 function setDashFilter(){
   dashFilter.mes=parseInt(document.getElementById('dash-mes')?.value||0);
@@ -2520,7 +2535,7 @@ function renderInicio(){
     :`<div class="empty"><div class="empty-txt">Sem membros</div></div>`;
 }
 
-let cliFilter='todos';
+
 function filterCli(f,el){cliFilter=f;document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderClientes()}
 function renderClientes(){
   const q=(document.getElementById('cli-search')?.value||'').toLowerCase();
@@ -2876,7 +2891,6 @@ function renderFinancas(){
   </tr>`).join('')||'<tr><td colspan="6"><div class="empty"><div class="empty-txt">Sem transações</div></div></td></tr>';
 }
 
-let rhSquadFilter='todos';
 function renderRH(){
   const mbs=DB.get('membros');
   const squads=DB.get('squads');
@@ -3188,7 +3202,6 @@ function savePerfilSenha(){
 }
 
 // ═══ PROJETOS SUB-NAV ═══
-let currentProjView='entregas';
 
 function projNav(view){
   currentProjView=view;
@@ -3278,7 +3291,6 @@ function sendToOperacional(clienteId){
   toast(`📤 ${nc?.nome||'Cliente'} enviado para Onboarding!`,'#10B981');
 }
 
-let currentObId='';
 
 function renderOnboarding(){
   const obs=DB.get('onboarding');
@@ -4645,10 +4657,6 @@ function confirmArchiveFunnel(id){
 }
 
 // ── Funnel Manager Modal ──────────────────────────────────────
-let fmDraft={name:'',description:'',isDefault:false,stages:[]};
-let fmEditId=null;
-let fmStageDragIdx=null;
-let fmColorPickerStageIdx=null;
 
 function openFunnelModal(mode,funnelId){
   fmEditId=null;
@@ -4837,8 +4845,6 @@ function saveFunnelModal(){
 }
 
 // ── Legacy compatibility ──────────────────────────────────────
-let stageDraft=[];
-let stageDragIdx=null;
 
 function openStagesModal(){
   // Redirect to new funnel editor
@@ -4979,7 +4985,6 @@ function resetStages(){
 }
 
 // ═══ DEAL DETAIL ═══
-let currentDealId='';
 const dealActionTypes=[
   {key:'Nota',ico:'📝',color:'#EDE9FE',text:'#7C3AED'},
   {key:'E-mail',ico:'✉️',color:'#DBEAFE',text:'#1E40AF'},
@@ -4989,8 +4994,6 @@ const dealActionTypes=[
   {key:'Reunião',ico:'🤝',color:'#F3E8FF',text:'#6D28D9'},
   {key:'Visita',ico:'📍',color:'#FFE4E6',text:'#991B1B'},
 ];
-let currentActionType='Nota';
-let currentHistTab='hist';
 
 function openDealDetail(id){
   currentDealId=id;
@@ -5078,8 +5081,6 @@ const TASK_PRIOS=['Baixa','Média','Alta','Urgente'];
 const TASK_TYPE_ICO={Nota:'📝','E-mail':'✉️','Ligação':'📞',WhatsApp:'💬',Proposta:'📋',Reunião:'🤝',Visita:'🚗','Follow-up':'🔁',Retorno:'↩️','Tarefa interna':'🔧'};
 const TASK_PRI_CLS={Baixa:'baixa',Média:'media',Alta:'alta',Urgente:'urgente'};
 
-let currentTaskEditId=null;
-let currentLemTab='hoje';
 
 function getCommercialTasks(){try{return DB.get('com_tasks')||[];}catch{return[];}}
 function saveCommercialTasks(tasks){DB.set('com_tasks',tasks);}
