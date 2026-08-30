@@ -1838,7 +1838,7 @@ textarea.form-input{resize:vertical;min-height:75px}
     </div>
     <div class="nav-item" data-page="perfil" onclick="navigate('perfil')">
       <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
-      Perfil e Assinatura
+      Meu Perfil
     </div>
   </nav>
   <div class="sb-bottom">
@@ -2357,7 +2357,7 @@ const PERMISSION_SECTIONS = [
   ]},
   {id:'integracoes', label:'Integrações (legado)', color:'#64748B', tabs:[{id:'integracoes', label:'Central de integrações', parent:'integracoes'}]},
   {id:'rh', label:'Recursos Humanos', color:'#64748B', tabs:[{id:'rh', label:'Recursos Humanos', parent:'rh'}]},
-  {id:'perfil', label:'Perfil e Assinatura', color:'#8B5CF6', tabs:[{id:'perfil', label:'Meu perfil', parent:'perfil'}]}
+  {id:'perfil', label:'Meu Perfil', color:'#8B5CF6', tabs:[{id:'perfil', label:'Meu perfil', parent:'perfil'}]}
 ];
 
 const PERMISSION_TAB_PARENT = {};
@@ -4455,6 +4455,30 @@ function saveSystemPreferences(data){
   toast('Preferências salvas com sucesso.','#10B981');
 }
 
+function getBillingSettings(){
+  try{
+    return JSON.parse(localStorage.getItem('gx2_billing_settings')||'{}') || {};
+  }catch(e){return {}}
+}
+function saveBillingSettings(data){
+  const current=getBillingSettings();
+  const next={...current,...(data||{}),updatedAt:new Date().toISOString()};
+  localStorage.setItem('gx2_billing_settings',JSON.stringify(next));
+  toast('Configurações de pagamento salvas.','#10B981');
+  return next;
+}
+function saveConfigBillingForm(){
+  saveBillingSettings({
+    billingMode:document.getElementById('cfg-billing-mode')?.value||'interno',
+    accessModel:document.getElementById('cfg-access-model')?.value||'por_usuario',
+    pricePerSeat:document.getElementById('cfg-price-seat')?.value||'',
+    freeDays:document.getElementById('cfg-free-days')?.value||'',
+    stripeStatus:document.getElementById('cfg-stripe-status')?.value||'nao_conectado',
+    portalUrl:document.getElementById('cfg-portal-url')?.value||''
+  });
+  renderConfiguracoesPagamentos();
+}
+
 function configTabbar(active){
   const tabs=getAllowedConfigTabs();
   if(!tabs.length)return '';
@@ -4622,21 +4646,75 @@ function testOutgoingWebhook(){
 
 function renderConfiguracoesPagamentos(){
   const page=document.getElementById('page-configuracoes');
+  const b=getBillingSettings();
+  const totalUsers=(DB.get('usuarios')||[]).filter(u=>String(u.status||'Ativo').toLowerCase()!=='inativo').length;
+  const activeBilling = b.billingMode && b.billingMode!=='interno';
   page.innerHTML=`
-    <div class="cfg-hero"><div><div class="cfg-title">Pagamentos e Assinatura</div><div class="cfg-sub">Plano atual, cobrança, Stripe e histórico financeiro do sistema.</div></div><div class="cfg-badge">💳 Billing</div></div>
+    <div class="cfg-hero">
+      <div>
+        <div class="cfg-title">Pagamentos e Acessos</div>
+        <div class="cfg-sub">Central preparada para vender acessos futuramente, sem cobrança fictícia no sistema.</div>
+      </div>
+      <div class="cfg-badge">💳 Billing preparado</div>
+    </div>
     ${configTabbar('config-pagamentos')}
     <div class="cfg-panel">
       <div class="cfg-kv">
-        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Plano atual</div><div class="cfg-kv-val">Trial</div></div>
-        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Status</div><div class="cfg-kv-val">Ativo</div></div>
-        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Próxima cobrança</div><div class="cfg-kv-val">—</div></div>
-        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Gateway</div><div class="cfg-kv-val">Stripe preparado</div></div>
+        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Cobrança ativa</div><div class="cfg-kv-val">${activeBilling?'Configurada':'Ainda não ativa'}</div></div>
+        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Modelo futuro</div><div class="cfg-kv-val">${escHtml(b.accessModel==='plano'?'Plano mensal':'Por usuário')}</div></div>
+        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Usuários ativos</div><div class="cfg-kv-val">${totalUsers||'—'}</div></div>
+        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Gateway</div><div class="cfg-kv-val">${b.stripeStatus==='conectado'?'Stripe conectado':'Stripe não conectado'}</div></div>
       </div>
+
+      <div class="cfg-note" style="margin-top:14px">
+        A tela de perfil não exibe mais “plano trial”, limite de clientes ou barra de uso fictícia.
+        Quando a venda de acessos começar, conecte o Stripe via Edge Function ou backend seguro.
+        Nenhuma chave secreta deve ficar no HTML.
+      </div>
+
+      <div class="cfg-form-grid" style="margin-top:18px">
+        <div>
+          <label class="form-label">Modo de cobrança</label>
+          <select class="form-input" id="cfg-billing-mode">
+            <option value="interno" ${(!b.billingMode||b.billingMode==='interno')?'selected':''}>Interno / sem cobrança ativa</option>
+            <option value="pre_venda" ${b.billingMode==='pre_venda'?'selected':''}>Pré-venda de acessos</option>
+            <option value="producao" ${b.billingMode==='producao'?'selected':''}>Produção com cobrança</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Modelo de venda</label>
+          <select class="form-input" id="cfg-access-model">
+            <option value="por_usuario" ${(!b.accessModel||b.accessModel==='por_usuario')?'selected':''}>Por usuário/acesso</option>
+            <option value="plano" ${b.accessModel==='plano'?'selected':''}>Plano mensal fechado</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Valor por acesso (R$)</label>
+          <input class="form-input" id="cfg-price-seat" value="${escAttr(b.pricePerSeat||'')}" placeholder="Ex.: 97,00">
+        </div>
+        <div>
+          <label class="form-label">Dias grátis padrão</label>
+          <input class="form-input" id="cfg-free-days" value="${escAttr(b.freeDays||'')}" placeholder="Ex.: 7, 14 ou 30">
+        </div>
+        <div>
+          <label class="form-label">Status Stripe</label>
+          <select class="form-input" id="cfg-stripe-status">
+            <option value="nao_conectado" ${(!b.stripeStatus||b.stripeStatus==='nao_conectado')?'selected':''}>Não conectado</option>
+            <option value="teste" ${b.stripeStatus==='teste'?'selected':''}>Ambiente de teste</option>
+            <option value="conectado" ${b.stripeStatus==='conectado'?'selected':''}>Conectado</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">URL do portal do cliente</label>
+          <input class="form-input" id="cfg-portal-url" value="${escAttr(b.portalUrl||'')}" placeholder="Será gerada pelo backend/Stripe">
+        </div>
+      </div>
+
       <div class="cfg-actions" style="margin-top:14px">
-        <button class="cfg-btn primary" onclick="toast('Portal Stripe será conectado por Edge Function.','#7C3AED')">Abrir portal do cliente</button>
-        <button class="cfg-btn" onclick="openConfigTab('config-integracoes')">Configurar Stripe</button>
+        <button class="cfg-btn primary" onclick="saveConfigBillingForm()">Salvar configurações</button>
+        <button class="cfg-btn" onclick="openConfigTab('config-integracoes')">Configurar integração Stripe</button>
+        <button class="cfg-btn" onclick="toast('O portal real precisa ser aberto por uma Edge Function segura.','#7C3AED')">Testar portal</button>
       </div>
-      <div class="cfg-note">Cobrança real exige Stripe Customer Portal via backend/Edge Function. Não coloque secret key do Stripe no HTML.</div>
     </div>`;
 }
 
@@ -8153,18 +8231,18 @@ function renderPerfil(){
   sessionUser=mergeLocalUserProfile(sessionUser)||sessionUser;
   pendingUserAvatarData=null;
   const role=resolveRole(sessionUser.permissao||sessionUser.cargo||'Colaborador');
-  const n=DB.get('clientes').length;
-  const usoBar=Math.min(n*5,100);
   const isFundador=role==='Fundador';
   const telefone=sessionUser.telefone||sessionUser.phone||'';
   const avatarInner=getAvatarInner(sessionUser);
   const hasAvatar=!!getUserAvatar(sessionUser);
+  const accountStatus=sessionUser.status||'Ativo';
+  const canOpenBilling = typeof canViewConfigTab==='function' ? canViewConfigTab('config-pagamentos') : isFundador;
 
   document.getElementById('perfil-content').innerHTML=`
     <div class="page-header">
       <div>
-        <div class="page-title">Perfil e Assinatura</div>
-        <div class="page-sub">Gerencie seus dados, cargo e foto de usuário</div>
+        <div class="page-title">Meu Perfil</div>
+        <div class="page-sub">Gerencie seus dados, segurança e foto de usuário</div>
       </div>
       <button class="btn btn-danger" onclick="doLogout()" style="gap:8px">
         <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"/></svg>
@@ -8208,23 +8286,30 @@ function renderPerfil(){
         </div>
       </div>
       <div>
-        <div class="plan-card" style="margin-bottom:14px">
-          <div style="font-size:11px;font-weight:600;opacity:.7;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Plano atual</div>
-          <div style="font-size:20px;font-weight:800">✨ Trial</div>
-          <div style="font-size:13px;opacity:.8;margin-bottom:4px">29 dias restantes</div>
-          <div class="plan-feat">✅ Clientes ilimitados</div>
-          <div class="plan-feat">✅ Kanban de projetos com DnD</div>
-          <div class="plan-feat">✅ Pipeline comercial</div>
-          <div class="plan-feat">✅ Webhook / API</div>
-          <div class="plan-feat">✅ Follow-up e agendamentos</div>
-          <button class="btn" style="margin-top:14px;background:#fff;color:var(--p2);font-weight:700">⚡ Fazer upgrade</button>
+        <div class="card card-pad" style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px">
+            <div>
+              <div style="font-size:14px;font-weight:800">Conta do usuário</div>
+              <div style="font-size:12px;color:var(--muted)">Informações reais do acesso logado</div>
+            </div>
+            <span class="badge ok">Supabase</span>
+          </div>
+          <div class="cfg-kv" style="grid-template-columns:1fr">
+            <div class="cfg-kv-card"><div class="cfg-kv-lbl">Tipo de acesso</div><div class="cfg-kv-val">${escHtml(role)}</div></div>
+            <div class="cfg-kv-card"><div class="cfg-kv-lbl">Status</div><div class="cfg-kv-val">${escHtml(accountStatus)}</div></div>
+            <div class="cfg-kv-card"><div class="cfg-kv-lbl">Fonte dos dados</div><div class="cfg-kv-val">Auth + profiles</div></div>
+            <div class="cfg-kv-card"><div class="cfg-kv-lbl">Sincronização</div><div class="cfg-kv-val">Banco em nuvem</div></div>
+          </div>
         </div>
         <div class="card card-pad">
-          <div style="font-size:14px;font-weight:600;margin-bottom:12px">Uso</div>
-          <div style="font-size:12px;color:var(--muted);display:flex;justify-content:space-between"><span>Clientes</span><span>${n} / ∞</span></div>
-          <div class="progress-bar"><div class="progress-fill" style="width:${usoBar}%"></div></div>
-          <div style="font-size:12px;color:var(--muted);display:flex;justify-content:space-between;margin-top:10px"><span>Armazenamento</span><span>0 MB / 20 GB</span></div>
-          <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+          <div style="font-size:14px;font-weight:800;margin-bottom:8px">Cobrança e venda de acessos</div>
+          <div style="font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:14px">
+            Removi o cartão de plano fictício, os dias de teste e a barrinha de clientes desta tela.
+            A cobrança real ficará centralizada em <b>Configurações → Pagamentos</b>, preparada para quando você começar a vender acessos.
+          </div>
+          <button class="btn btn-primary" onclick="navigateSub('config-pagamentos','configuracoes')" ${canOpenBilling?'':'disabled'} style="width:100%;justify-content:center">
+            Abrir configurações de pagamento
+          </button>
         </div>
       </div>
     </div>`;
@@ -14786,7 +14871,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       {title:'Finanças',sub:'Controle financeiro',route:{label:'Setor',icon:'💰',open:()=>navigateSub('financas','financas')}},
       {title:'Configurações',sub:'Integrações, Webhook, API, pagamentos, empresa e usuários',route:{label:'Setor',icon:'⚙️',open:()=>navigate('configuracoes')}},
       {title:'Gestão de Usuários',sub:'Acessos, permissões e perfis',route:{label:'Configurações',icon:'🔐',open:()=>navigateSub('config-usuarios','configuracoes')}},
-      {title:'Perfil e Assinatura',sub:'Meu perfil, foto e assinatura',route:{label:'Página',icon:'👤',open:()=>navigate('perfil')}}
+      {title:'Meu Perfil',sub:'Meu perfil, foto e segurança',route:{label:'Página',icon:'👤',open:()=>navigate('perfil')}}
     ];
     staticRoutes.forEach(r=>{
       if(normText(r.title+' '+r.sub+' '+r.route.label).includes(q)){
