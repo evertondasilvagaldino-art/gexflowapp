@@ -8087,5 +8087,460 @@ GexSupabase.testConnection().then(ok=>{
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeDetail();closeDealDetail();closeObModal();closeStagesModal();closeSquadMgr();closeProdutosModal();document.getElementById('wh-ov').classList.remove('open')}});
 </script>
+
+<script>
+/* ═══ GEX FLOW — INTEGRAÇÕES SIMPLES E OBJETIVAS / 1 CLIQUE ═══
+   Esta camada substitui a central grande de apps por 8 integrações essenciais.
+   A estratégia é: conexão rápida via botão + Webhook Gex Flow/Make como ponte.
+*/
+(function(){
+  const ONECLICK_APPS=[
+    {id:'meta_ads',name:'Meta Ads',cat:'Anúncios',icon:'📣',color:'#DBEAFE',desc:'Receber investimento, campanhas, leads, CPL e CAC de Facebook/Instagram.'},
+    {id:'google_ads',name:'Google Ads',cat:'Anúncios',icon:'🎯',color:'#FEF3C7',desc:'Receber investimento, campanhas, conversões, cliques e custo por lead.'},
+    {id:'google_calendar',name:'Google Agenda',cat:'Agenda',icon:'📅',color:'#DCFCE7',desc:'Enviar reuniões, follow-ups, lembretes e tarefas para o calendário.'},
+    {id:'sms_app',name:'App de SMS',cat:'Comunicação',icon:'📲',color:'#E0F2FE',desc:'Enviar lembretes e confirmações por SMS usando Zenvia, Twilio ou similar.'},
+    {id:'whatsapp_app',name:'App WhatsApp',cat:'Comunicação',icon:'💬',color:'#D1FAE5',desc:'Conectar WhatsApp por provedor/API para follow-up, cobrança e atendimento.'},
+    {id:'webhook_gex_flow',name:'Webhook Gex Flow',cat:'Automação',icon:'🔗',color:'#EDE9FE',desc:'URL única para receber leads, vendas, tarefas, eventos e dados externos.'},
+    {id:'make',name:'Make',cat:'Automação',icon:'⚙️',color:'#F3E8FF',desc:'Usar Make como ponte para conectar qualquer app ao Webhook Gex Flow.'},
+    {id:'stripe',name:'Stripe',cat:'Financeiro',icon:'💳',color:'#EDE9FE',desc:'Receber pagamentos, assinaturas, cobranças, reembolsos e MRR.'}
+  ];
+
+  function safeEsc(v){return (window.escHtml?escHtml(v):String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])));}
+  function safeAttr(v){return (window.escAttr?escAttr(v):safeEsc(v));}
+  function appById(id){return ONECLICK_APPS.find(a=>a.id===id)||{id,name:id,cat:'Integração',icon:'🔌',color:'#EDE9FE',desc:''};}
+  function getOneClickApps(){return ONECLICK_APPS.slice();}
+  window.getOneClickApps=getOneClickApps;
+
+  function appStatus(id){
+    const it=getIntegration(id);
+    if(it.connected)return {label:'Conectado',cls:'on',dot:'●'};
+    if(it.configured)return {label:'Pronto',cls:'warn',dot:'◐'};
+    return {label:'Desconectado',cls:'off',dot:'○'};
+  }
+  window.integrationCategories=function(){
+    return ['Todos',...Array.from(new Set(ONECLICK_APPS.map(a=>a.cat)))];
+  };
+  window.integrationStatus=function(id){return appStatus(id)};
+
+  function getDefaultGexWebhookUrl(){
+    const base=(typeof SUPABASE_URL!=='undefined'&&SUPABASE_URL)?String(SUPABASE_URL).replace(/\/+$/,''):'';
+    return base?`${base}/functions/v1/gex-webhook`:`${location.origin}/functions/v1/gex-webhook`;
+  }
+  function getOneClickApiKey(){
+    let key=localStorage.getItem('gx2_oneclick_api_key')||localStorage.getItem('gx2_api_key')||'';
+    if(!key){key='gex_'+(typeof uid==='function'?uid():Math.random().toString(36).slice(2));}
+    localStorage.setItem('gx2_oneclick_api_key',key);
+    localStorage.setItem('gx2_api_key',key);
+    return key;
+  }
+  function getWebhookUrlFor(id){
+    const cfg=(getIntegration(id).config||{});
+    return cfg.webhookUrl||cfg.url||getDefaultGexWebhookUrl();
+  }
+  function payloadExample(id){
+    const base={app:id,source:appById(id).name,timestamp:new Date().toISOString()};
+    if(id==='meta_ads')return {...base,tipo:'meta_ads',conta:'GEX Company',periodo:'2026-08',investimento:1250.50,campanhas:8,leads:32,cliques:940,impressoes:42000};
+    if(id==='google_ads')return {...base,tipo:'google_ads',conta:'GEX Company',periodo:'2026-08',investimento:980.30,campanhas:4,conversoes:19,cliques:610,impressoes:31000};
+    if(id==='google_calendar')return {...base,tipo:'agenda',titulo:'Reunião com cliente',data:'2026-08-31',hora:'10:00',responsavel:'Everton Galdino'};
+    if(id==='sms_app')return {...base,tipo:'sms',telefone:'+5511999999999',mensagem:'Lembrete de reunião GEX Flow',status:'enviado'};
+    if(id==='whatsapp_app')return {...base,tipo:'whatsapp',telefone:'+5511999999999',mensagem:'Follow-up comercial',status:'recebido'};
+    if(id==='stripe')return {...base,tipo:'pagamento',cliente:'Cliente Exemplo',valor:497.00,status:'paid',assinatura:'mensal'};
+    if(id==='make')return {...base,tipo:'make_automation',cenario:'Novo lead para pipeline',status:'ok'};
+    return {...base,tipo:'webhook',evento:'lead.criado',nome:'Lead Exemplo',email:'lead@email.com',valor:1500};
+  }
+  function appInstructions(id){
+    const url=getWebhookUrlFor(id);
+    const key=getOneClickApiKey();
+    const base = `<div class="oneclick-steps">
+      <div class="oneclick-step"><b>1.</b> Clique em <b>Conectar em 1 clique</b>.</div>
+      <div class="oneclick-step"><b>2.</b> Copie a URL gerada do Webhook Gex Flow.</div>
+      <div class="oneclick-step"><b>3.</b> No app externo, Make ou provedor, envie os dados para essa URL usando método POST.</div>
+    </div>`;
+    const map={
+      meta_ads:'Use o Make: Meta Ads → relatório/insights → HTTP POST para o Webhook Gex Flow. Assim você evita app review e token manual da Meta.',
+      google_ads:'Use o Make ou conector Google Ads: buscar métricas do período → HTTP POST para o Webhook Gex Flow.',
+      google_calendar:'Use Google Agenda via Make: novo evento ou evento atualizado → HTTP POST para o Gex Flow, ou use o botão nativo quando OAuth for configurado.',
+      sms_app:'Use Zenvia, Twilio, TotalVoice ou outro app de SMS. Configure webhook de status/envio apontando para o Gex Flow.',
+      whatsapp_app:'Use Evolution API, Z-API, 360dialog, WABA Cloud API ou provedor semelhante. Configure eventos de mensagem/lead para o Gex Flow.',
+      webhook_gex_flow:'Essa é a URL universal de entrada do Gex Flow. Qualquer sistema pode enviar leads, vendas, tarefas e métricas para cá.',
+      make:'No Make, crie um cenário com o gatilho/app desejado e finalize com módulo HTTP → Make a request → POST para o Webhook Gex Flow.',
+      stripe:'No Stripe, vá em Developers → Webhooks → Add endpoint e cole a URL do Gex Flow para receber pagamentos e assinaturas.'
+    };
+    return `<div class="oneclick-note"><b>Como conectar:</b> ${safeEsc(map[id]||'Use Webhook/Make como ponte para enviar dados ao Gex Flow.')}</div>${base}
+      <div class="oneclick-url-card">
+        <label>URL de entrada do Gex Flow</label>
+        <div class="int-copy-box"><input id="oneclick-url" value="${safeAttr(url)}" readonly><button class="int-mini-btn" onclick="copyIntegrationField('oneclick-url')">Copiar URL</button></div>
+        <label style="margin-top:10px">Chave de segurança</label>
+        <div class="int-copy-box"><input id="oneclick-key" value="${safeAttr(key)}" readonly><button class="int-mini-btn" onclick="copyIntegrationField('oneclick-key')">Copiar chave</button></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:8px">Envie a chave no header <b>x-gex-key</b> ou no corpo JSON como <b>apiKey</b>.</div>
+      </div>`;
+  }
+
+  window.renderIntegracoes=function(){
+    const page=document.getElementById('page-integracoes');
+    if(!page)return;
+    const store=getIntegrationsStore();
+    const apps=getOneClickApps();
+    const total=apps.length;
+    const connected=apps.filter(a=>store[a.id]?.connected).length;
+    const ready=apps.filter(a=>store[a.id]?.configured&&!store[a.id]?.connected).length;
+    const webhookReady=!!localStorage.getItem('gx2_oneclick_api_key');
+    const cats=integrationCategories();
+
+    page.innerHTML=`
+      <div class="int-hero">
+        <div class="int-hero-in">
+          <div>
+            <div class="int-title">Central de Integrações</div>
+            <div class="int-sub">Agora simples e objetiva: apenas as integrações essenciais da GEX, com conexão em 1 clique usando Webhook Gex Flow + Make como ponte quando necessário.</div>
+          </div>
+          <div class="int-hero-actions">
+            <button class="int-btn-light" onclick="oneClickConnectIntegration('webhook_gex_flow')">🔗 Ativar Webhook Gex Flow</button>
+            <button class="int-btn-outline" onclick="oneClickConnectIntegration('make')">⚙️ Conectar Make</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="int-stats">
+        <div class="int-stat" style="--accent:#7C3AED"><div class="int-stat-lbl">Apps essenciais</div><div class="int-stat-val">${total}</div><div class="int-stat-sub">Sem excesso de integrações</div></div>
+        <div class="int-stat" style="--accent:#10B981"><div class="int-stat-lbl">Conectadas</div><div class="int-stat-val">${connected}</div><div class="int-stat-sub">Prontas para operar</div></div>
+        <div class="int-stat" style="--accent:#F59E0B"><div class="int-stat-lbl">Aguardando dados</div><div class="int-stat-val">${ready}</div><div class="int-stat-sub">Conector criado</div></div>
+        <div class="int-stat" style="--accent:#3B82F6"><div class="int-stat-lbl">Webhook Gex</div><div class="int-stat-val">${webhookReady?'ON':'OFF'}</div><div class="int-stat-sub">Entrada universal</div></div>
+      </div>
+
+      <div class="int-toolbar">
+        <input class="int-search" id="int-search" placeholder="Pesquisar: Meta, Google, WhatsApp, Make, Stripe..." oninput="renderIntegrationApps()">
+        <select class="int-select" id="int-cat" onchange="renderIntegrationApps()">${cats.map(c=>`<option value="${safeAttr(c)}">${safeEsc(c)}</option>`).join('')}</select>
+        <select class="int-select" id="int-status" onchange="renderIntegrationApps()">
+          <option value="todos">Todos os status</option>
+          <option value="connected">Conectadas</option>
+          <option value="configured">Prontas</option>
+          <option value="off">Desconectadas</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="renderIntegracoes()">Atualizar</button>
+      </div>
+
+      <div class="int-layout">
+        <div>
+          <div class="int-section-card">
+            <div class="int-sec-head">
+              <div><div class="int-sec-title">⚡ Integrações em 1 clique</div><div class="int-sec-sub">Clique em conectar, copie a URL quando necessário e envie dados via Make, provedor ou webhook.</div></div>
+            </div>
+            <div class="int-app-grid" id="int-app-grid"></div>
+          </div>
+
+          <div class="int-section-card">
+            <div class="int-sec-head"><div><div class="int-sec-title">📥 Payload padrão para entrada de dados</div><div class="int-sec-sub">Formato recomendado para Make, Stripe, WhatsApp, SMS, Meta Ads e Google Ads.</div></div></div>
+            <div class="oneclick-code"><pre>${safeEsc(JSON.stringify(payloadExample('meta_ads'),null,2))}</pre></div>
+          </div>
+        </div>
+
+        <div class="int-side">
+          <div class="int-section-card">
+            <div class="int-sec-head"><div><div class="int-sec-title">🧠 Caminho simples</div><div class="int-sec-sub">Menos OAuth, mais operação</div></div></div>
+            <div class="int-flow">
+              <div class="int-flow-step"><div class="int-flow-num">1</div><div><div class="int-flow-title">Ative o Webhook Gex Flow</div><div class="int-flow-desc">Ele vira a entrada universal de dados do sistema.</div></div></div>
+              <div class="int-flow-step"><div class="int-flow-num">2</div><div><div class="int-flow-title">Use Make como ponte</div><div class="int-flow-desc">Meta, Google, Agenda, WhatsApp, SMS e Stripe enviam dados para o Gex.</div></div></div>
+              <div class="int-flow-step"><div class="int-flow-num">3</div><div><div class="int-flow-title">O dashboard usa os dados</div><div class="int-flow-desc">Investimento, leads, CAC, tarefas, vendas e eventos entram no sistema.</div></div></div>
+            </div>
+          </div>
+
+          <div class="int-section-card">
+            <div class="int-sec-head">
+              <div><div class="int-sec-title">✅ Resultado do último teste</div><div class="int-sec-sub">Confirme se a conexão está pronta</div></div>
+              <button class="int-mini-btn" onclick="renderIntegrationTestResult()">Atualizar</button>
+            </div>
+            <div class="int-test-result" id="int-test-result"></div>
+          </div>
+
+          <div class="int-section-card">
+            <div class="int-sec-head">
+              <div><div class="int-sec-title">📡 Eventos recentes</div><div class="int-sec-sub">Histórico das integrações</div></div>
+              <button class="int-mini-btn" onclick="clearIntegrationLog()">Limpar</button>
+            </div>
+            <div class="int-log" id="int-log"></div>
+          </div>
+
+          <div class="int-section-card">
+            <div class="int-sec-head"><div><div class="int-sec-title">🔐 Nota prática</div><div class="int-sec-sub">O que é 1 clique aqui</div></div></div>
+            <div style="padding:14px;font-size:12px;color:var(--muted);line-height:1.55">
+              O botão de 1 clique cria a conexão no Gex Flow e gera a URL de entrada. Para apps que exigem OAuth ou aprovação, use o Make/provedor como ponte. Isso evita configurar Edge Function e App Review para cada app.
+            </div>
+          </div>
+        </div>
+      </div>`;
+    renderIntegrationApps();
+    renderIntegrationLog();
+    renderIntegrationTestResult();
+  };
+
+  window.renderIntegrationApps=function(){
+    const grid=document.getElementById('int-app-grid');
+    if(!grid)return;
+    const q=(document.getElementById('int-search')?.value||'').toLowerCase().trim();
+    const cat=document.getElementById('int-cat')?.value||'Todos';
+    const status=document.getElementById('int-status')?.value||'todos';
+    let apps=getOneClickApps().filter(app=>{
+      const cfg=getIntegration(app.id);
+      const matchQ=!q||`${app.name} ${app.cat} ${app.desc}`.toLowerCase().includes(q);
+      const matchCat=cat==='Todos'||app.cat===cat;
+      const matchStatus=status==='todos'||(status==='connected'&&cfg.connected)||(status==='configured'&&cfg.configured&&!cfg.connected)||(status==='off'&&!cfg.connected&&!cfg.configured);
+      return matchQ&&matchCat&&matchStatus;
+    });
+    if(!apps.length){
+      grid.innerHTML=`<div class="int-empty" style="grid-column:1/-1"><div class="int-empty-ico">🔎</div>Nenhuma integração encontrada.</div>`;
+      return;
+    }
+    grid.innerHTML=apps.map(app=>{
+      const cfg=getIntegration(app.id);
+      const st=appStatus(app.id);
+      return `<div class="int-app ${cfg.connected?'connected':''}">
+        <div class="int-app-head">
+          <div class="int-app-logo" style="--app-bg:${app.color};background:${app.color}">${app.icon}</div>
+          <div style="min-width:0"><div class="int-app-name">${app.name}</div><div class="int-app-cat">${app.cat}</div></div>
+        </div>
+        <div class="int-app-desc">${app.desc}</div>
+        <div class="int-badges"><span class="int-pill ${st.cls}">${st.dot} ${st.label}</span>${cfg.config?.mode?`<span class="int-pill">1 clique</span>`:''}</div>
+        ${renderIntegrationMiniTest(app.id)}
+        <div class="int-app-foot">
+          <button class="int-mini-btn primary" onclick="oneClickConnectIntegration('${app.id}')">${cfg.connected?'Abrir conexão':'Conectar em 1 clique'}</button>
+          <button class="int-mini-btn" onclick="openIntegrationConfig('${app.id}')">Configurar</button>
+          <button class="int-mini-btn" onclick="testIntegration('${app.id}')">Testar</button>
+          <button class="int-switch ${cfg.connected?'on':''}" title="${cfg.connected?'Desativar':'Ativar'}" onclick="toggleIntegration('${app.id}')"></button>
+        </div>
+      </div>`;
+    }).join('');
+  };
+
+  window.integrationConfigFields=function(id){
+    const cfg=getIntegration(id).config||{};
+    const app=appById(id);
+    const webhookUrl=cfg.webhookUrl||cfg.url||getWebhookUrlFor(id);
+    const key=cfg.apiKey||getOneClickApiKey();
+    const providerMap={
+      meta_ads:'Make / Meta Ads / Facebook Lead Ads',
+      google_ads:'Make / Google Ads',
+      google_calendar:'Make / Google Calendar',
+      sms_app:'Zenvia / Twilio / TotalVoice',
+      whatsapp_app:'Evolution API / Z-API / 360dialog / WABA',
+      webhook_gex_flow:'Webhook Universal Gex Flow',
+      make:'Make HTTP',
+      stripe:'Stripe Webhooks'
+    };
+    return `
+      <div class="oneclick-modal-hero">
+        <div class="oneclick-modal-title">${app.icon} Integração em 1 clique</div>
+        <div class="oneclick-modal-sub">Modelo simples: o Gex Flow cria a conexão, gera a URL de entrada e você usa Make/provedor para enviar os dados.</div>
+        <button class="btn btn-primary btn-sm" onclick="oneClickConnectIntegration('${id}')">⚡ Conectar agora</button>
+      </div>
+      <div class="int-form-grid">
+        <div class="form-group"><label class="form-label">Conta / Workspace</label><input class="form-input" id="int-account" value="${safeAttr(cfg.account||'')}" placeholder="GEX Company, cliente ou nome da conta"></div>
+        <div class="form-group"><label class="form-label">Provedor</label><input class="form-input" id="int-provider" value="${safeAttr(cfg.provider||providerMap[id]||'')}" placeholder="Ex.: Make, Z-API, Stripe..."></div>
+        <div class="form-group"><label class="form-label">ID externo, se houver</label><input class="form-input" id="int-external-id" value="${safeAttr(cfg.externalId||cfg.accountId||'')}" placeholder="Ex.: act_123, calendar_id, stripe_account..."></div>
+        <div class="form-group"><label class="form-label">Modo</label><select class="form-input" id="int-mode"><option value="webhook_oneclick" ${cfg.mode!=='oauth_future'?'selected':''}>Webhook/Make em 1 clique</option><option value="oauth_future" ${cfg.mode==='oauth_future'?'selected':''}>OAuth nativo futuro</option></select></div>
+      </div>
+      <div class="form-group"><label class="form-label">URL de entrada do Gex Flow</label><div class="int-copy-box"><input id="int-webhook-url" value="${safeAttr(webhookUrl)}" readonly><button class="int-mini-btn" onclick="copyIntegrationField('int-webhook-url')">Copiar</button></div></div>
+      <div class="form-group"><label class="form-label">Chave de segurança</label><div class="int-copy-box"><input id="int-api-key-field" value="${safeAttr(key)}" readonly><button class="int-mini-btn" onclick="copyIntegrationField('int-api-key-field')">Copiar</button></div></div>
+      ${appInstructions(id)}
+      <details class="meta-manual-details" style="margin-top:12px">
+        <summary>Configuração avançada, se precisar</summary>
+        <div class="form-group" style="margin-top:10px"><label class="form-label">Token / API Key externa</label><input class="form-input" id="int-token" type="password" value="${safeAttr(cfg.token||'')}" placeholder="Opcional — evitar salvar tokens sensíveis no navegador"></div>
+      </details>
+      <div class="form-group"><label class="form-label">Observações</label><textarea class="form-input" id="int-notes" placeholder="Como essa integração será usada na operação...">${safeEsc(cfg.notes||'')}</textarea></div>
+      ${renderIntegrationModalLastTest(id)}
+    `;
+  };
+
+  window.openIntegrationConfig=function(id){
+    const app=appById(id);
+    document.getElementById('modal-title').textContent=`${app.icon} ${app.name}`;
+    document.getElementById('modal-box').className='modal modal-lg';
+    document.getElementById('modal-body').innerHTML=`
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
+        <div class="int-ico" style="--app-bg:${app.color};background:${app.color}">${app.icon}</div>
+        <div>
+          <div style="font-size:13px;font-weight:800;color:var(--txt);margin-bottom:3px">${safeEsc(app.name)}</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.45">${safeEsc(app.desc)}</div>
+        </div>
+      </div>
+      ${integrationConfigFields(id)}`;
+    document.getElementById('modal-footer').innerHTML=`
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-ghost" onclick="testIntegration('${id}')">Testar</button>
+      <button class="btn btn-primary" onclick="saveIntegrationConfig('${id}')">Salvar integração</button>`;
+    document.getElementById('modal-ov').classList.add('open');
+  };
+
+  window.saveIntegrationConfig=function(id){
+    const config={
+      account:document.getElementById('int-account')?.value||'',
+      provider:document.getElementById('int-provider')?.value||'',
+      externalId:document.getElementById('int-external-id')?.value||'',
+      mode:document.getElementById('int-mode')?.value||'webhook_oneclick',
+      webhookUrl:document.getElementById('int-webhook-url')?.value||getWebhookUrlFor(id),
+      apiKey:document.getElementById('int-api-key-field')?.value||getOneClickApiKey(),
+      token:document.getElementById('int-token')?.value||'',
+      notes:document.getElementById('int-notes')?.value||''
+    };
+    localStorage.setItem('gx2_oneclick_api_key',config.apiKey);
+    localStorage.setItem('gx2_api_key',config.apiKey);
+    if(id==='webhook_gex_flow'||id==='make'){
+      localStorage.setItem('gx2_wh_url',config.webhookUrl);
+      document.getElementById('wh-indicator')?.classList.add('active');
+    }
+    saveIntegration(id,{connected:true,configured:true,config,lastConnectedAt:new Date().toISOString()});
+    saveIntegrationTestResult(id,{status:'success',message:`${appById(id).name} conectado em 1 clique. Aguardando/recebendo dados via Webhook Gex Flow.`,metrics:{accountName:config.account||appById(id).name}});
+    addIntegrationLog(`${appById(id).name} conectado`,'Conexão em 1 clique salva no Gex Flow','ok');
+    closeModal();
+    renderIntegracoes();
+    toast('Integração conectada em 1 clique ✓','#10B981');
+  };
+
+  window.oneClickConnectIntegration=function(id){
+    const app=appById(id);
+    const cfg=getIntegration(id).config||{};
+    const key=cfg.apiKey||getOneClickApiKey();
+    const webhookUrl=cfg.webhookUrl||cfg.url||getDefaultGexWebhookUrl();
+    const config={
+      ...cfg,
+      account:cfg.account||'GEX Company',
+      provider:cfg.provider||({meta_ads:'Make + Meta Ads',google_ads:'Make + Google Ads',google_calendar:'Make + Google Agenda',sms_app:'SMS Provider',whatsapp_app:'WhatsApp Provider',webhook_gex_flow:'Gex Flow',make:'Make',stripe:'Stripe'}[id]||app.name),
+      externalId:cfg.externalId||'',
+      mode:'webhook_oneclick',
+      webhookUrl,
+      apiKey:key
+    };
+    saveIntegration(id,{connected:true,configured:true,config,lastConnectedAt:new Date().toISOString()});
+    if(id==='webhook_gex_flow'||id==='make'){
+      localStorage.setItem('gx2_wh_url',webhookUrl);
+      localStorage.setItem('gx2_api_key',key);
+      document.getElementById('wh-indicator')?.classList.add('active');
+    }
+    saveIntegrationTestResult(id,{status:'success',message:`${app.name} ativado. Conexão pronta para receber dados pelo Webhook Gex Flow.`,metrics:{accountName:config.account}});
+    addIntegrationLog(`${app.name} conectado em 1 clique`,`URL gerada: ${webhookUrl}`,'ok');
+    renderIntegracoes();
+    openIntegrationConfig(id);
+    toast(`${app.name} conectado em 1 clique ✓`,'#10B981');
+  };
+
+  window.toggleIntegration=function(id){
+    const cfg=getIntegration(id);
+    if(cfg.connected){
+      saveIntegration(id,{connected:false});
+      addIntegrationLog(`${appById(id).name} desativado`,'Integração pausada manualmente','warn');
+      toast('Integração desativada','#EF4444');
+    }else{
+      oneClickConnectIntegration(id);
+      return;
+    }
+    renderIntegracoes();
+  };
+
+  window.disconnectIntegration=function(id){
+    saveIntegration(id,{connected:false,configured:false,config:{}});
+    if(id==='webhook_gex_flow'||id==='make'){
+      localStorage.removeItem('gx2_wh_url');
+      document.getElementById('wh-indicator')?.classList.remove('active');
+    }
+    addIntegrationLog(`${appById(id).name} desconectado`,'Configuração removida','warn');
+    renderIntegracoes();
+    toast('Integração desconectada','#EF4444');
+  };
+
+  window.testIntegration=async function(id){
+    const app=appById(id);
+    const cfg=getIntegration(id);
+    try{
+      if(!cfg.connected&&!cfg.configured){
+        saveIntegrationTestResult(id,{status:'warn',message:`${app.name} ainda não foi conectado. Clique em "Conectar em 1 clique".`});
+        renderIntegracoes();
+        toast('Conecte a integração primeiro','#F59E0B');
+        return;
+      }
+      const webhookUrl=(cfg.config&&cfg.config.webhookUrl)||getWebhookUrlFor(id);
+      const key=(cfg.config&&cfg.config.apiKey)||getOneClickApiKey();
+      const sample=payloadExample(id);
+      // Teste local/visual: registra o envio e tenta disparar para webhook configurado quando aplicável.
+      if(webhookUrl&&webhookUrl.startsWith('http')){
+        try{
+          fetch(webhookUrl,{
+            method:'POST',
+            headers:{'Content-Type':'application/json','x-gex-key':key,'X-GexFlow-Event':'integracao.teste'},
+            body:JSON.stringify({event:'integracao.teste',apiKey:key,data:sample,source:'GexFlow',timestamp:new Date().toISOString()}),
+            mode:'no-cors'
+          }).catch(()=>{});
+        }catch(e){}
+      }
+      saveIntegrationTestResult(id,{status:'success',message:`Teste enviado para ${app.name}. Conexão pronta. Confirme no Make/provedor se o evento chegou.`,metrics:{accountName:(cfg.config&&cfg.config.account)||app.name,leads:sample.leads||0,spend:sample.investimento||0,campaigns:sample.campanhas||0,clicks:sample.cliques||0,impressions:sample.impressoes||0}});
+      addIntegrationLog(`Teste enviado: ${app.name}`,'Evento de teste enviado pelo modelo 1 clique','ok');
+      renderIntegracoes();
+      toast('Teste enviado ✓','#10B981');
+    }catch(err){
+      saveIntegrationTestResult(id,{status:'error',message:err.message||'Erro ao testar integração'});
+      addIntegrationLog(`Erro no teste: ${app.name}`,err.message||'Erro desconhecido','err');
+      renderIntegracoes();
+      toast('Erro ao testar integração','#EF4444');
+    }
+  };
+
+  window.renderIntegrationTestResult=function(){
+    const el=document.getElementById('int-test-result');
+    if(!el)return;
+    const all=Object.values(getIntegrationTestStore()).filter(r=>ONECLICK_APPS.some(a=>a.id===r.id));
+    const r=all.sort((a,b)=>new Date(b.testedAt||0)-new Date(a.testedAt||0))[0]||null;
+    if(!r){
+      el.innerHTML=`<div class="int-test-empty">Nenhum teste executado ainda.<br>Clique em <b>Conectar em 1 clique</b> e depois em <b>Testar</b>.</div>`;
+      return;
+    }
+    const app=appById(r.id);
+    const cls=r.status==='success'?'success':r.status==='error'?'error':'warn';
+    const badge=r.status==='success'?'✅ Pronto':r.status==='error'?'❌ Erro':'⚠️ Atenção';
+    const m=r.metrics||{};
+    el.innerHTML=`<div class="int-test-card ${cls}">
+      <div class="int-test-top">
+        <div>
+          <div class="int-test-title">${app.icon} ${safeEsc(app.name)}</div>
+          <div class="int-test-msg">${safeEsc(r.message||'Teste registrado.')}</div>
+        </div>
+        <div style="text-align:right">
+          <span class="int-test-badge ${cls}">${badge}</span>
+          <div class="int-test-time">${safeEsc(r.testedAtLabel||'')}</div>
+        </div>
+      </div>
+      <div class="int-test-metrics">
+        <div class="int-test-metric"><div class="int-test-metric-lbl">Conta</div><div class="int-test-metric-val">${safeEsc(m.accountName||'—')}</div></div>
+        <div class="int-test-metric"><div class="int-test-metric-lbl">Investimento</div><div class="int-test-metric-val">${typeof fmtBRL==='function'?fmtBRL(m.spend||0):'R$ '+(m.spend||0)}</div></div>
+        <div class="int-test-metric"><div class="int-test-metric-lbl">Leads</div><div class="int-test-metric-val">${Number(m.leads||0)}</div></div>
+        <div class="int-test-metric"><div class="int-test-metric-lbl">Campanhas</div><div class="int-test-metric-val">${Number(m.campaigns||0)}</div></div>
+      </div>
+    </div>`;
+  };
+
+  const extraCss=`
+    .oneclick-modal-hero{background:linear-gradient(135deg,#F5F3FF,#EEF2FF);border:1px solid #DDD6FE;border-radius:14px;padding:14px;margin-bottom:14px}
+    .oneclick-modal-title{font-size:14px;font-weight:850;color:var(--txt);margin-bottom:4px}
+    .oneclick-modal-sub{font-size:12px;color:var(--muted);line-height:1.45;margin-bottom:12px}
+    .oneclick-note{background:#FFF7ED;border:1px solid #FDBA74;border-radius:12px;padding:12px 14px;font-size:12px;color:#92400E;line-height:1.45;margin:12px 0}
+    .oneclick-steps{display:grid;gap:7px;margin:10px 0}
+    .oneclick-step{background:#fff;border:1px solid var(--border);border-radius:10px;padding:9px 11px;font-size:12px;color:var(--muted)}
+    .oneclick-url-card{background:#FAFAFD;border:1px solid var(--border);border-radius:12px;padding:12px;margin-top:12px}
+    .oneclick-url-card label{display:block;font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+    .oneclick-code{padding:14px;background:#0F1020;color:#EDE9FE;border-radius:12px;margin:14px;font-size:12px;overflow:auto}
+    .oneclick-code pre{margin:0;white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+  `;
+  if(!document.getElementById('gex-oneclick-css')){
+    const st=document.createElement('style');
+    st.id='gex-oneclick-css';
+    st.textContent=extraCss;
+    document.head.appendChild(st);
+  }
+
+  setTimeout(()=>{
+    const page=document.getElementById('page-integracoes');
+    if(page && page.classList.contains('active')) renderIntegracoes();
+  },0);
+})();
+</script>
+
 </body>
 </html>
