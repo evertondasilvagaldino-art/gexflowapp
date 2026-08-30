@@ -262,6 +262,11 @@ tr:hover td{background:#FAFAFD}
 
 
 /* USER ACCESS CHECKLIST */
+.user-origin-info{display:flex;align-items:flex-start;gap:10px;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:12px;padding:11px 13px;margin:2px 0 14px}
+.uo-ico{width:30px;height:30px;border-radius:9px;background:#D1FAE5;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.uo-title{font-size:12px;font-weight:800;color:#065F46}
+.uo-sub{font-size:11px;color:#047857;line-height:1.4;margin-top:2px}
+
 .perm-editor{margin-top:14px;padding:14px;background:var(--bg);border:1px solid var(--border);border-radius:12px}
 .perm-editor-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
 .perm-editor-title{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
@@ -2597,20 +2602,29 @@ function getSessionAccessToken(){
 
 async function createUserInSupabase(userData){
   if(!supabaseClient){
-    throw new Error('Supabase SDK não está disponível. Publique o sistema fora do preview/local ou verifique a conexão.');
+    throw new Error('Supabase SDK não está disponível. Verifique a URL/anon key do projeto.');
   }
   const session=await GexSupabase.getSession();
   if(!session?.access_token){
-    throw new Error('Entre com o usuário Fundador/Administrador cadastrado no Supabase para criar usuários reais.');
+    throw new Error('Entre com o usuário Fundador/Adm Gerente cadastrado no Supabase para criar usuários reais.');
   }
-  const response=await fetch(`${SUPABASE_URL}/functions/v1/${GEX_USER_CREATE_FUNCTION}`,{
-    method:'POST',
-    headers:{
-      'Content-Type':'application/json',
-      'Authorization':`Bearer ${session.access_token}`
-    },
-    body:JSON.stringify(userData)
-  });
+
+  const endpoint=`${SUPABASE_URL}/functions/v1/${GEX_USER_CREATE_FUNCTION}`;
+  let response;
+  try{
+    response=await fetch(endpoint,{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':`Bearer ${session.access_token}`
+      },
+      body:JSON.stringify(userData)
+    });
+  }catch(fetchErr){
+    console.error('[GexFlow] Falha ao acessar Edge Function create-gex-user:',fetchErr);
+    throw new Error('Não consegui acessar a função create-gex-user no Supabase. Confirme se a Edge Function foi publicada e se os Secrets estão configurados.');
+  }
+
   let payload={};
   try{payload=await response.json();}catch(e){payload={};}
   if(!response.ok||payload.error){
@@ -4130,7 +4144,8 @@ async function saveModal(type,id=''){
         cargo:v('f-cargo'),
         telefone:v('f-telefone')||'',
         permissao:roleSelected,
-        status:v('f-status')||'Ativo'
+        status:v('f-status')||'Ativo',
+        authProvider:'supabase'
       };
       obj.permOverrides=isFounderLikeRole(roleSelected)?{}:collectUserPermOverrides();
 
@@ -4197,10 +4212,12 @@ async function saveModal(type,id=''){
           const created=await createUserInSupabase(payload);
           upsertUsuarioCache({
             ...obj,
-            id:created.id,
+            ...created,
+            id:created.id||created.supabaseId||uid(),
             supabaseId:created.supabaseId||created.id,
             authProvider:'supabase',
-            createdAt:new Date().toISOString(),
+            permOverrides:created.permOverrides||obj.permOverrides||{},
+            createdAt:created.createdAt||new Date().toISOString(),
             updatedAt:new Date().toISOString()
           });
           closeModal();renderUsuarios();toast('Usuário criado no Supabase com sucesso.','#10B981');
@@ -4354,6 +4371,7 @@ function formMembro(d){
 function formUsuario(d){
   // Não permitimos criar novos usuários Fundador/Admin.
   // O Fundador principal deve existir previamente no Supabase Auth.
+  const isNew=!d?.id;
   const rolesBase=['Adm Gerente','Gerente Comercial','Gerente Operacional','Financeiro','CS/Atendimento','Colaborador','Colaborador Vendedor','Visualizador'];
   const curRole=resolveRole(sessionUser?.permissao||'Colaborador');
   const dRole=resolveRole(d?.permissao||'Colaborador');
@@ -4363,10 +4381,19 @@ function formUsuario(d){
     const disabled=(r==='Fundador')?'disabled':'';
     return`<option value="${r}" ${dRole===r?'selected':''} ${disabled}>${r}</option>`;
   }).join('');
-  const newPwdHint=d?'<div style="font-size:11px;color:var(--muted);margin-top:5px">Deixe em branco para manter a senha atual</div>':'';
+  const newPwdHint=d?'<div style="font-size:11px;color:var(--muted);margin-top:5px">Deixe em branco para manter a senha atual</div>':'<div style="font-size:11px;color:var(--muted);margin-top:5px">Será criada no Supabase Auth. Mínimo de 6 caracteres.</div>';
+  const origemHtml=isNew
+    ? `<div class="user-origin-info">
+        <div class="uo-ico">☁️</div>
+        <div>
+          <div class="uo-title">Cadastro será feito no Supabase Auth</div>
+          <div class="uo-sub">O sistema criará automaticamente o usuário em <b>Authentication</b> e o perfil em <b>public.profiles</b>. Não existe mais cadastro local/cache para novo usuário.</div>
+        </div>
+      </div>`
+    : `<div class="form-group"><label class="form-label">Origem</label><input class="form-input" value="${d?.authProvider==='supabase'?'Supabase Auth':'Local/Cache antigo'}" disabled></div>`;
   return `<div class="form-row">
     <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="f-nome" value="${d?.nome||''}"></div>
-    <div class="form-group"><label class="form-label">Email *</label><input class="form-input" id="f-email" type="email" value="${d?.email||''}"></div>
+    <div class="form-group"><label class="form-label">Email *</label><input class="form-input" id="f-email" type="email" value="${d?.email||''}" ${!isNew?'':'autocomplete="off"'}></div>
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Cargo</label><input class="form-input" id="f-cargo" value="${d?.cargo||''}"></div>
@@ -4376,12 +4403,13 @@ function formUsuario(d){
     <div class="form-group"><label class="form-label">Papel / Permissão</label>
       <select class="form-input" id="f-permissao" onchange="onUserRoleChange()" ${isFundadorTarget?'disabled title="Fundador principal não pode ser criado/alterado pelo sistema"':''}>${roleOpts}</select>
     </div>
-    <div class="form-group"><label class="form-label">Origem</label><input class="form-input" value="${d?.authProvider==='supabase'?'Supabase Auth':'Local/Cache'}" disabled></div>
+    ${isNew?`<div class="form-group"><label class="form-label">Destino</label><input class="form-input" value="Supabase Auth + public.profiles" disabled></div>`:origemHtml}
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-status"><option ${d?.status==='Ativo'?'selected':''}>Ativo</option><option ${d?.status==='Inativo'?'selected':''}>Inativo</option></select></div>
-    <div class="form-group"><label class="form-label">Senha ${d?'(nova)':''}</label><input class="form-input" id="f-senha" type="password" placeholder="••••••••">${newPwdHint}</div>
+    <div class="form-group"><label class="form-label">Senha ${d?'(nova)':''}</label><input class="form-input" id="f-senha" type="password" placeholder="••••••••" autocomplete="new-password">${newPwdHint}</div>
   </div>
+  ${isNew?origemHtml:''}
   <div id="user-access-editor"></div>
   <div id="role-preview-wrap" style="display:none"></div>`;
 }
