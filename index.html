@@ -2684,15 +2684,34 @@ function renderComercial(){
 /* ══════════════════════════════════════════
    RELATÓRIO COMERCIAL — Funções auxiliares
 ══════════════════════════════════════════ */
-function getCommercialOpportunities(){return DB.get('leads');}
+function getCommercialOpportunities(){
+  try{
+    const leads=DB.get('leads');
+    return Array.isArray(leads)?leads:[];
+  }catch(e){return []}
+}
+
+function _normReportTxt(v){
+  return String(v||'')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().trim();
+}
+
+function _parseReportDate(raw){
+  if(!raw) return null;
+  if(raw instanceof Date) return raw;
+  const s=String(raw);
+  const d=new Date(s.includes('T')?s:s+'T00:00:00');
+  return isNaN(d.getTime())?null:d;
+}
 
 function filterOpportunitiesByPeriod(ops,period){
+  ops=Array.isArray(ops)?ops:[];
   if(!period||period==='todos') return ops;
   const now=new Date();
   return ops.filter(o=>{
-    const raw=o.dataInicio||o.createdAt||o.dataCriacao||o.created_at;
-    if(!raw) return period==='todos';
-    const d=new Date(raw+'T00:00:00');
+    const d=_parseReportDate(o.dataInicio||o.createdAt||o.dataCriacao||o.created_at);
+    if(!d) return period==='todos';
     if(period==='mes') return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
     if(period==='30dias'){const c=new Date(now);c.setDate(c.getDate()-30);return d>=c;}
     if(period==='90dias'){const c=new Date(now);c.setDate(c.getDate()-90);return d>=c;}
@@ -2701,20 +2720,76 @@ function filterOpportunitiesByPeriod(ops,period){
   });
 }
 
+function getReportFunnels(){
+  ensureDefaultCommercialFunnel();
+  return getCommercialFunnels()
+    .filter(f=>f&&!f.isArchived)
+    .sort((a,b)=>(b.isDefault?1:0)-(a.isDefault?1:0)||String(a.name||'').localeCompare(String(b.name||''),'pt-BR'));
+}
+
+function renderRelatorioFunnelOptions(){
+  const sel=document.getElementById('rel-funil');
+  if(!sel) return 'todos';
+
+  const funnels=getReportFunnels();
+  const previous=sel.value||'todos';
+  sel.innerHTML='';
+
+  sel.appendChild(new Option('Todos os funis','todos'));
+  funnels.forEach(f=>{
+    const label=(f.name||'Funil sem nome')+(f.isDefault?' ★':'');
+    sel.appendChild(new Option(label,f.id));
+  });
+
+  const exists=[...sel.options].some(o=>o.value===previous);
+  sel.value=exists?previous:'todos';
+  return sel.value||'todos';
+}
+
+function filterOpportunitiesByReportFunnel(ops,funnelId){
+  ops=Array.isArray(ops)?ops:[];
+  if(!funnelId||funnelId==='todos') return ops;
+  const funnel=getReportFunnels().find(f=>f.id===funnelId);
+  if(!funnel) return ops;
+  return ops.filter(o=>o.funnelId===funnel.id || (funnel.isDefault&&!o.funnelId));
+}
+
+function getStageObjectForOpportunity(o){
+  if(!o) return null;
+  const funnels=getReportFunnels();
+  const funnel=funnels.find(f=>f.id===o.funnelId) || funnels.find(f=>f.isDefault) || funnels[0];
+  if(!funnel||!Array.isArray(funnel.stages)) return null;
+
+  const stageId=o.stageId||o.stage_id;
+  let stage=(stageId?funnel.stages.find(s=>s.id===stageId):null);
+  if(stage) return stage;
+
+  const stageTxt=_normReportTxt(o.estagio||o.stage||o.etapa||o.fase||o.status||o.dealStatus);
+  if(!stageTxt) return null;
+
+  stage=funnel.stages.find(s=>_normReportTxt(s.name)===stageTxt);
+  if(stage) return stage;
+
+  if(stageTxt.includes('ganh')||stageTxt.includes('won')||stageTxt.includes('fech')) return funnel.stages.find(s=>s.isWon)||null;
+  if(stageTxt.includes('perd')||stageTxt.includes('lost')) return funnel.stages.find(s=>s.isLost)||null;
+  return null;
+}
+
 function isWonOpportunity(o){
-  return o.dealStatus==='Ganho'||o.status==='Ganho'||o.status==='won'||o.estagio==='Ganho';
+  const status=_normReportTxt(o?.dealStatus||o?.status||o?.estagio||o?.stage||o?.etapa||o?.fase);
+  if(status==='ganho'||status==='won'||status==='fechado'||status.includes('ganh')) return true;
+  const stage=getStageObjectForOpportunity(o);
+  return !!(stage&&stage.isWon);
 }
 
 function getOpportunityValue(o){return parseFloat(o.valor||o.value||o.amount||o.dealValue)||0;}
 
 function getOpportunityCreatedDate(o){
-  const raw=o.dataInicio||o.createdAt||o.dataCriacao||o.created_at;
-  return raw?new Date(raw+'T00:00:00'):null;
+  return _parseReportDate(o.dataInicio||o.createdAt||o.dataCriacao||o.created_at);
 }
 
 function getOpportunityClosedDate(o){
-  const raw=o.dataFechamento||o.closedAt||o.wonAt||o.closed_at;
-  return raw?new Date(raw+'T00:00:00'):null;
+  return _parseReportDate(o.dataFechamento||o.closedAt||o.wonAt||o.closed_at);
 }
 
 function getComercialInvestment(period){
@@ -2743,16 +2818,79 @@ function calculateAverageSalesCycle(wonOps){
   return Math.round(totalDays/withDates.length);
 }
 
-function calculateFunnelMetrics(ops){
-  const estagios=getStages();
-  return estagios.map((est,i)=>{
-    const items=ops.filter(o=>o.estagio===est);
+function calculateFunnelMetrics(ops,funnelId='todos'){
+  ops=Array.isArray(ops)?ops:[];
+  const funnels=getReportFunnels();
+
+  let stageDefs=[];
+
+  if(funnelId&&funnelId!=='todos'){
+    const f=funnels.find(x=>x.id===funnelId) || getActiveFunnel();
+    if(f&&Array.isArray(f.stages)){
+      stageDefs=f.stages.slice().sort((a,b)=>a.order-b.order).map((s,i)=>({
+        est:s.name,
+        order:i+1,
+        isGanho:!!s.isWon,
+        isLost:!!s.isLost,
+        refs:[{funnelId:f.id,stageId:s.id,stageName:s.name,isDefault:!!f.isDefault}]
+      }));
+    }
+  }else{
+    const grouped=new Map();
+    funnels.forEach(f=>{
+      (f.stages||[]).slice().sort((a,b)=>a.order-b.order).forEach((s,i)=>{
+        const key=_normReportTxt(s.name)||s.id;
+        if(!grouped.has(key)){
+          grouped.set(key,{
+            est:s.name,
+            orderSum:0,
+            orderCount:0,
+            isGanho:false,
+            isLost:false,
+            refs:[]
+          });
+        }
+        const g=grouped.get(key);
+        g.orderSum+=Number(s.order)||i+1;
+        g.orderCount++;
+        g.isGanho=g.isGanho||!!s.isWon;
+        g.isLost=g.isLost||!!s.isLost;
+        g.refs.push({funnelId:f.id,stageId:s.id,stageName:s.name,isDefault:!!f.isDefault});
+      });
+    });
+    stageDefs=[...grouped.values()]
+      .map(g=>({...g,order:g.orderCount?g.orderSum/g.orderCount:999}))
+      .sort((a,b)=>a.order-b.order);
+  }
+
+  if(!stageDefs.length){
+    stageDefs=getActiveFunnelStages().map((s,i)=>({
+      est:s.name,
+      order:i+1,
+      isGanho:!!s.isWon,
+      isLost:!!s.isLost,
+      refs:[{funnelId:getActiveFunnel()?.id||'',stageId:s.id,stageName:s.name,isDefault:!!getActiveFunnel()?.isDefault}]
+    }));
+  }
+
+  const matchStage=(o,def)=>{
+    const oStageTxt=_normReportTxt(o.estagio||o.stage||o.etapa||o.fase||o.status||o.dealStatus);
+    return def.refs.some(ref=>{
+      const sameFunnel=(!ref.funnelId)||o.funnelId===ref.funnelId||(ref.isDefault&&!o.funnelId);
+      const sameStage=(o.stageId&&o.stageId===ref.stageId) || (oStageTxt&&oStageTxt===_normReportTxt(ref.stageName));
+      return sameFunnel&&sameStage;
+    });
+  };
+
+  const counts=stageDefs.map(def=>ops.filter(o=>matchStage(o,def)).length);
+
+  return stageDefs.map((def,i)=>{
+    const items=ops.filter(o=>matchStage(o,def));
     const valor=items.reduce((a,o)=>a+getOpportunityValue(o),0);
     const pctGeral=ops.length?Math.round((items.length/ops.length)*100):0;
-    const prev=i>0?ops.filter(o=>o.estagio===estagios[i-1]).length:items.length;
-    const pctAvanco=prev?Math.round((items.length/prev)*100):100;
-    const isGanho=est.toLowerCase().includes('ganh')||est.toLowerCase().includes('won')||est.toLowerCase().includes('fecha');
-    return {est,count:items.length,valor,pctGeral,pctAvanco,isGanho};
+    const prev=i>0?counts[i-1]:items.length;
+    const pctAvanco=i===0?100:(prev?Math.round((items.length/prev)*100):0);
+    return {est:def.est,count:items.length,valor,pctGeral,pctAvanco,isGanho:def.isGanho,isLost:def.isLost};
   });
 }
 
@@ -2773,25 +2911,34 @@ function animateCounter(el,target,prefix='',suffix='',duration=900){
 }
 
 function renderRelatorioComercial(){
-  const period=document.getElementById('rel-periodo')?.value||'todos';
-  const respFilter=document.getElementById('rel-responsavel')?.value||'';
-  let ops=getCommercialOpportunities();
-  ops=filterOpportunitiesByPeriod(ops,period);
-  if(respFilter) ops=ops.filter(o=>(o.responsavel||o.owner||o.vendedor||'').toLowerCase()===respFilter.toLowerCase());
+  ensureDefaultCommercialFunnel();
+  migrateOldOpportunitiesToDefaultFunnel();
 
-  // Popular select de responsáveis
+  const period=document.getElementById('rel-periodo')?.value||'todos';
+  const funnelFilter=renderRelatorioFunnelOptions();
+  const respFilter=document.getElementById('rel-responsavel')?.value||'';
+
+  let ops=getCommercialOpportunities();
+  ops=filterOpportunitiesByReportFunnel(ops,funnelFilter);
+  ops=filterOpportunitiesByPeriod(ops,period);
+
+  // Popular select de responsáveis com base no funil/período selecionado
   const relResp=document.getElementById('rel-responsavel');
   if(relResp){
     const cur=relResp.value;
-    const resps=[...new Set(DB.get('leads').map(o=>o.responsavel||o.owner||o.vendedor||'').filter(Boolean))];
+    const resps=[...new Set(ops.map(o=>o.responsavel||o.owner||o.vendedor||'').filter(Boolean))].sort((a,b)=>String(a).localeCompare(String(b),'pt-BR'));
     relResp.innerHTML='<option value="">Todos os responsáveis</option>'+resps.map(r=>`<option value="${r}" ${cur===r?'selected':''}>${r}</option>`).join('');
+    if(cur&&resps.includes(cur)) relResp.value=cur;
+    else relResp.value='';
   }
+
+  if(respFilter) ops=ops.filter(o=>(o.responsavel||o.owner||o.vendedor||'').toLowerCase()===respFilter.toLowerCase());
 
   const wonOps=ops.filter(isWonOpportunity);
   const totalWon=calculateTotalWon(wonOps);
   const ciclo=calculateAverageSalesCycle(wonOps);
   const {cac,invest}=calculateCAC(wonOps,period);
-  const funil=calculateFunnelMetrics(ops);
+  const funil=calculateFunnelMetrics(ops,funnelFilter);
   const txConv=ops.length?Math.round((wonOps.length/ops.length)*100):0;
   const ticketMedio=wonOps.length?totalWon/wonOps.length:0;
 
