@@ -1240,6 +1240,118 @@ textarea.form-input{resize:vertical;min-height:75px}
 // ═══ VARIÁVEIS GLOBAIS (declaradas primeiro para evitar TDZ) ═══
 let sessionUser = null;
 
+// Permissões por cargo (declarado aqui para estar disponível antes de qualquer callback)
+const MODULES = ['inicio','clientes','churn','contratos','comercial','financas','projetos','onboarding','entregas','tarefas','agenda','aprovacao','esquemas','creators','integracoes','rh','usuarios','perfil'];
+const ACTIONS = ['view','create','edit','delete','approve','export','manage'];
+
+const ROLE_PERMS = {
+  'Fundador': {
+    inicio:{view:true,manage:true},
+    clientes:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
+    churn:{view:true,manage:true,export:true},
+    contratos:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
+    comercial:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
+    financas:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
+    projetos:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
+    onboarding:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
+    entregas:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
+    tarefas:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
+    agenda:{view:true,create:true,edit:true,delete:true,manage:true},
+    aprovacao:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
+    esquemas:{view:true,create:true,edit:true,delete:true,manage:true},
+    creators:{view:true,create:true,edit:true,delete:true,manage:true},
+    integracoes:{view:true,create:true,edit:true,delete:true,manage:true},
+    rh:{view:true,create:true,edit:true,delete:true,manage:true},
+    usuarios:{view:true,create:true,edit:true,delete:true,manage:true},
+    perfil:{view:true,edit:true},
+  },
+  'Adm Gerente': {
+    inicio:{view:true,manage:true},
+    clientes:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
+    churn:{view:true,manage:true,export:true},
+    contratos:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
+    comercial:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
+    financas:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
+    projetos:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
+    onboarding:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
+    entregas:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
+    tarefas:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
+    agenda:{view:true,create:true,edit:true,delete:true,manage:true},
+    aprovacao:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
+    esquemas:{view:true,create:true,edit:true,delete:true,manage:true},
+    creators:{view:true,create:true,edit:true,delete:true,manage:true},
+    integracoes:{view:true,manage:true},
+    rh:{view:true,create:true,edit:true,delete:true,manage:true},
+    usuarios:{view:true,create:true,edit:true,manage:true},
+    perfil:{view:true,edit:true},
+  },
+  'Gerente Comercial': {
+    inicio:{view:true},
+    clientes:{view:true,create:true,edit:true,export:true},
+    contratos:{view:true,create:true,edit:true,approve:true},
+    comercial:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
+    churn:{view:true},
+    perfil:{view:true,edit:true},
+  },
+  'Gerente Operacional': {
+    inicio:{view:true},
+    projetos:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
+    onboarding:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
+    entregas:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
+    tarefas:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
+    agenda:{view:true,create:true,edit:true,delete:true,manage:true},
+    aprovacao:{view:true,create:true,edit:true,approve:true,manage:true},
+    creators:{view:true,create:true,edit:true,delete:true,manage:true},
+    rh:{view:true,create:true,edit:true},
+    perfil:{view:true,edit:true},
+  },
+  'Financeiro': {
+    inicio:{view:true},
+    financas:{view:true,create:true,edit:true,delete:true,export:true,approve:true,manage:true},
+    contratos:{view:true,export:true},
+    clientes:{view:true},
+    perfil:{view:true,edit:true},
+  },
+  'CS/Atendimento': {
+    inicio:{view:true},
+    clientes:{view:true,create:true,edit:true,export:true},
+    churn:{view:true,manage:true},
+    contratos:{view:true},
+    onboarding:{view:true,edit:true},
+    tarefas:{view:true,create:true,edit:true},
+    aprovacao:{view:true},
+    perfil:{view:true,edit:true},
+  },
+  'Colaborador': {
+    inicio:{view:true},
+    tarefas:{view:true,create:true,edit:true},
+    entregas:{view:true,edit:true},
+    agenda:{view:true},
+    aprovacao:{view:true,create:true},
+    perfil:{view:true,edit:true},
+  },
+  'Colaborador Vendedor': {
+    inicio:{view:true},
+    comercial:{view:true,create:true,edit:true},
+    clientes:{view:true},
+    contratos:{view:true},
+    tarefas:{view:true,create:true,edit:true},
+    agenda:{view:true},
+    perfil:{view:true,edit:true},
+  },
+  'Visualizador': {
+    inicio:{view:true},
+    clientes:{view:true},
+    contratos:{view:true},
+    projetos:{view:true},
+    financas:{view:true},
+    comercial:{view:true},
+    perfil:{view:true,edit:true},
+  },
+  'Admin': null,
+  'Gestor': null,
+};
+
 // ═══ SUPABASE CONFIG ═══
 const SUPABASE_URL = "https://kghgmraezxcssipccodn.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_1nq7msqmkcg73__QjSuoTA_-MNW8Ro5";
@@ -1471,117 +1583,7 @@ if(localStorage.getItem('gx2_tasks_seeded')!=='v2'){
 ensureDefaultCommercialFunnel();
 
 // ═══ PERMISSION SYSTEM ═══
-const MODULES = ['inicio','clientes','churn','contratos','comercial','financas','projetos','onboarding','entregas','tarefas','agenda','aprovacao','esquemas','creators','integracoes','rh','usuarios','perfil'];
-const ACTIONS = ['view','create','edit','delete','approve','export','manage'];
-
-const ROLE_PERMS = {
-  'Fundador': {
-    inicio:{view:true,manage:true},
-    clientes:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
-    churn:{view:true,manage:true,export:true},
-    contratos:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
-    comercial:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
-    financas:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
-    projetos:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
-    onboarding:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
-    entregas:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
-    tarefas:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
-    agenda:{view:true,create:true,edit:true,delete:true,manage:true},
-    aprovacao:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
-    esquemas:{view:true,create:true,edit:true,delete:true,manage:true},
-    creators:{view:true,create:true,edit:true,delete:true,manage:true},
-    integracoes:{view:true,create:true,edit:true,delete:true,manage:true},
-    rh:{view:true,create:true,edit:true,delete:true,manage:true},
-    usuarios:{view:true,create:true,edit:true,delete:true,manage:true},
-    perfil:{view:true,edit:true},
-  },
-  'Adm Gerente': {
-    inicio:{view:true,manage:true},
-    clientes:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
-    churn:{view:true,manage:true,export:true},
-    contratos:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
-    comercial:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
-    financas:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
-    projetos:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
-    onboarding:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
-    entregas:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
-    tarefas:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
-    agenda:{view:true,create:true,edit:true,delete:true,manage:true},
-    aprovacao:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
-    esquemas:{view:true,create:true,edit:true,delete:true,manage:true},
-    creators:{view:true,create:true,edit:true,delete:true,manage:true},
-    integracoes:{view:true,manage:true},
-    rh:{view:true,create:true,edit:true,delete:true,manage:true},
-    usuarios:{view:true,create:true,edit:true,manage:true},
-    perfil:{view:true,edit:true},
-  },
-  'Gerente Comercial': {
-    inicio:{view:true},
-    clientes:{view:true,create:true,edit:true,export:true},
-    contratos:{view:true,create:true,edit:true,approve:true},
-    comercial:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
-    churn:{view:true},
-    perfil:{view:true,edit:true},
-  },
-  'Gerente Operacional': {
-    inicio:{view:true},
-    projetos:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
-    onboarding:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
-    entregas:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
-    tarefas:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
-    agenda:{view:true,create:true,edit:true,delete:true,manage:true},
-    aprovacao:{view:true,create:true,edit:true,approve:true,manage:true},
-    creators:{view:true,create:true,edit:true,delete:true,manage:true},
-    rh:{view:true,create:true,edit:true},
-    perfil:{view:true,edit:true},
-  },
-  'Financeiro': {
-    inicio:{view:true},
-    financas:{view:true,create:true,edit:true,delete:true,export:true,approve:true,manage:true},
-    contratos:{view:true,export:true},
-    clientes:{view:true},
-    perfil:{view:true,edit:true},
-  },
-  'CS/Atendimento': {
-    inicio:{view:true},
-    clientes:{view:true,create:true,edit:true,export:true},
-    churn:{view:true,manage:true},
-    contratos:{view:true},
-    onboarding:{view:true,edit:true},
-    tarefas:{view:true,create:true,edit:true},
-    aprovacao:{view:true},
-    perfil:{view:true,edit:true},
-  },
-  'Colaborador': {
-    inicio:{view:true},
-    tarefas:{view:true,create:true,edit:true},
-    entregas:{view:true,edit:true},
-    agenda:{view:true},
-    aprovacao:{view:true,create:true},
-    perfil:{view:true,edit:true},
-  },
-  'Colaborador Vendedor': {
-    inicio:{view:true},
-    comercial:{view:true,create:true,edit:true},
-    clientes:{view:true},
-    contratos:{view:true},
-    tarefas:{view:true,create:true,edit:true},
-    agenda:{view:true},
-    perfil:{view:true,edit:true},
-  },
-  'Visualizador': {
-    inicio:{view:true},
-    clientes:{view:true},
-    contratos:{view:true},
-    projetos:{view:true},
-    financas:{view:true},
-    comercial:{view:true},
-    perfil:{view:true,edit:true},
-  },
-  // Legacy map
-  'Admin': null, // resolves to Fundador
-  'Gestor': null, // resolves to Adm Gerente
-};
+// (MODULES, ACTIONS e ROLE_PERMS foram movidos para o topo do script)
 
 // Resolve legacy role names
 function resolveRole(permissao){
