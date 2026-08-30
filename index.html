@@ -324,6 +324,26 @@ textarea.form-input{resize:vertical;min-height:75px}
 .wh-log-entry .ev{color:var(--p2);font-weight:600}
 .wh-log-entry .ok{color:var(--green)}.wh-log-entry .err{color:var(--red)}
 
+
+/* PROFILE AVATAR UPLOAD */
+.user-av,.profile-av,.sb-av,.welcome-av,.user-list-av{overflow:hidden;position:relative}
+.user-av img,.profile-av img,.sb-av img,.welcome-av img,.user-list-av img{width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit}
+.user-list-av{width:30px;height:30px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.profile-photo-card{display:flex;align-items:center;gap:18px;padding:16px;border:1px solid var(--border);border-radius:14px;background:linear-gradient(135deg,#fff 0%,#FAFAFF 100%);margin-bottom:18px}
+.profile-photo-preview{width:86px;height:86px;border-radius:50%;background:linear-gradient(135deg,var(--p2),#4C1D95);color:#fff;font-size:26px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:4px solid #fff;box-shadow:0 10px 28px rgba(124,58,237,.18);transition:transform .2s,box-shadow .2s}
+.profile-photo-preview:hover{transform:translateY(-2px);box-shadow:0 14px 34px rgba(124,58,237,.24)}
+.profile-photo-info{flex:1;min-width:0}
+.profile-photo-name{font-size:17px;font-weight:800;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.profile-photo-sub{font-size:12px;color:var(--muted);margin-top:2px}
+.profile-photo-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.profile-photo-help{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.35}
+.avatar-upload-btn,.avatar-remove-btn{height:32px;padding:0 12px;border-radius:8px;font-size:12px;font-weight:700;border:1px solid var(--border);cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;background:#fff;color:var(--txt);display:inline-flex;align-items:center;gap:6px}
+.avatar-upload-btn:hover{border-color:var(--p2);background:var(--p-light);color:var(--p2)}
+.avatar-remove-btn:hover{border-color:var(--red);background:#FEF2F2;color:var(--red)}
+.avatar-remove-btn:disabled{opacity:.45;cursor:not-allowed}
+.profile-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:720px){.profile-photo-card{align-items:flex-start;flex-direction:column}.profile-edit-grid{grid-template-columns:1fr}}
+
 /* PROFILE */
 .profile-av{width:68px;height:68px;border-radius:50%;background:var(--p2);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff}
 .plan-card{background:linear-gradient(135deg,var(--p),var(--p2));border-radius:12px;padding:20px;color:#fff;margin-bottom:14px}
@@ -3241,7 +3261,7 @@ function renderUsuarios(){
     const canEdit=can('usuarios','edit')&&(!isFundadorUser||isFundador);
     return `<tr>
       <td><div style="display:flex;align-items:center;gap:8px">
-        <div style="width:30px;height:30px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center">${initials(u.nome)}</div>
+        <div class="user-list-av">${getAvatarInner(u)}</div>
         <div>
           <div style="font-weight:600;font-size:13px">${u.nome}</div>
           ${isFundadorUser?'<div style="font-size:9px;color:var(--p2);font-weight:700;letter-spacing:.04em;text-transform:uppercase">Fundador — acesso total</div>':''}
@@ -3324,17 +3344,151 @@ function togglePerm(userId,module,action,value){
   toast((value?'Permissão concedida':'Permissão removida')+': '+MOD_LABELS[module]+'/'+ACT_LABELS[action]);
 }
 
+
+let pendingUserAvatarData=null;
+
+function escHtml(v){
+  return String(v??'').replace(/[&<>"']/g, ch=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[ch]));
+}
+function escAttr(v){return escHtml(v).replace(/`/g,'&#96;')}
+
+function getCurrentUser(){
+  if(!sessionUser)return null;
+  const dbUser=DB.find('usuarios',sessionUser.id);
+  return dbUser?{...sessionUser,...dbUser}:{...sessionUser};
+}
+function getUserAvatar(user){
+  return user?.avatarUrl||user?.avatarBase64||user?.fotoPerfil||user?.photoURL||user?.foto||'';
+}
+function getUserInitials(name){
+  const parts=String(name||'U').trim().split(/\s+/).filter(Boolean).slice(0,2);
+  return (parts.length?parts.map(w=>w[0]).join(''):'U').toUpperCase();
+}
+function getAvatarInner(user){
+  const avatar=getUserAvatar(user);
+  return avatar?`<img src="${escAttr(avatar)}" alt="Foto de ${escAttr(user?.nome||'usuário')}">`:getUserInitials(user?.nome);
+}
+function renderAvatarElement(el,user){
+  if(!el||!user)return;
+  el.innerHTML=getAvatarInner(user);
+  el.title=user.nome||'Meu perfil';
+}
+function renderUserAvatar(){
+  if(!sessionUser)return;
+  const user=getCurrentUser()||sessionUser;
+  renderAvatarElement(document.getElementById('sb-av-ini'),user);
+  renderAvatarElement(document.getElementById('topbar-av'),user);
+  renderAvatarElement(document.getElementById('welcome-av'),user);
+}
+function syncUserAvatarAcrossSystem(){
+  renderUserAvatar();
+  if(document.getElementById('usr-tbody'))renderUsuarios();
+}
+function triggerAvatarInput(){
+  const input=document.getElementById('profile-avatar-input');
+  if(input)input.click();
+}
+async function uploadUserAvatar(file){
+  // Versão atual: converte para Base64 comprimido e salva no usuário/localStorage.
+  // FUTURO SUPABASE STORAGE:
+  // const { data, error } = await supabase.storage
+  //   .from('avatars')
+  //   .upload(`${sessionUser.id}/avatar.webp`, file, { upsert: true });
+  // return data?.publicUrl;
+  const rawData=await new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result);
+    reader.onerror=()=>reject(new Error('Falha ao ler imagem'));
+    reader.readAsDataURL(file);
+  });
+  // Reduz a imagem para economizar localStorage sem perder qualidade no avatar.
+  try{
+    const img=await new Promise((resolve,reject)=>{
+      const image=new Image();
+      image.onload=()=>resolve(image);
+      image.onerror=()=>reject(new Error('Falha ao processar imagem'));
+      image.src=rawData;
+    });
+    const max=512;
+    const scale=Math.min(1,max/Math.max(img.width,img.height));
+    const canvas=document.createElement('canvas');
+    canvas.width=Math.max(1,Math.round(img.width*scale));
+    canvas.height=Math.max(1,Math.round(img.height*scale));
+    const ctx=canvas.getContext('2d');
+    ctx.drawImage(img,0,0,canvas.width,canvas.height);
+    return canvas.toDataURL('image/jpeg',0.84);
+  }catch(e){
+    return rawData;
+  }
+}
+function setProfileAvatarPreview(dataUrl){
+  const prev=document.getElementById('profile-avatar-preview');
+  if(!prev)return;
+  if(dataUrl){
+    prev.innerHTML=`<img src="${escAttr(dataUrl)}" alt="Prévia da foto de perfil">`;
+  }else{
+    prev.textContent=getUserInitials(sessionUser?.nome);
+  }
+}
+async function handleAvatarUpload(event){
+  const file=event?.target?.files?.[0];
+  if(!file)return;
+  if(!file.type||!file.type.startsWith('image/')){
+    toast('Envie uma imagem válida.','#EF4444');
+    event.target.value='';
+    return;
+  }
+  const allowed=['image/jpeg','image/jpg','image/png','image/webp'];
+  if(!allowed.includes(file.type)){
+    toast('Use JPG, PNG ou WEBP.','#EF4444');
+    event.target.value='';
+    return;
+  }
+  if(file.size>2*1024*1024){
+    toast('A imagem deve ter no máximo 2MB.','#EF4444');
+    event.target.value='';
+    return;
+  }
+  try{
+    const dataUrl=await uploadUserAvatar(file);
+    pendingUserAvatarData=dataUrl;
+    setProfileAvatarPreview(dataUrl);
+    const help=document.getElementById('profile-avatar-help');
+    if(help)help.textContent='Prévia carregada. Clique em “Salvar alterações” para aplicar no sistema.';
+    toast('Prévia da foto carregada.','#7C3AED');
+  }catch(e){
+    console.error(e);
+    toast('Não foi possível carregar a imagem.','#EF4444');
+  }
+}
+function removeUserAvatar(){
+  pendingUserAvatarData='';
+  setProfileAvatarPreview('');
+  const help=document.getElementById('profile-avatar-help');
+  if(help)help.textContent='Foto marcada para remoção. Clique em “Salvar alterações” para confirmar.';
+}
+
 function renderPerfil(){
   if(!sessionUser)return;
+  const dbUser=DB.find('usuarios',sessionUser.id);
+  if(dbUser)sessionUser={...sessionUser,...dbUser};
+  pendingUserAvatarData=null;
   const role=resolveRole(sessionUser.permissao||sessionUser.cargo||'Colaborador');
-  const ini=sessionUser.nome.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
   const n=DB.get('clientes').length;
   const usoBar=Math.min(n*5,100);
   const isFundador=role==='Fundador';
+  const telefone=sessionUser.telefone||sessionUser.phone||'';
+  const avatarInner=getAvatarInner(sessionUser);
+  const hasAvatar=!!getUserAvatar(sessionUser);
 
   document.getElementById('perfil-content').innerHTML=`
     <div class="page-header">
-      <div><div class="page-title">Perfil e Assinatura</div></div>
+      <div>
+        <div class="page-title">Perfil e Assinatura</div>
+        <div class="page-sub">Gerencie seus dados, cargo e foto de usuário</div>
+      </div>
       <button class="btn btn-danger" onclick="doLogout()" style="gap:8px">
         <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"/></svg>
         Sair da conta
@@ -3343,21 +3497,26 @@ function renderPerfil(){
     <div class="grid-2">
       <div>
         <div class="card card-pad" style="margin-bottom:14px">
-          <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
-            <div class="profile-av" style="background:var(--p2);color:#fff;font-size:18px;font-weight:800;width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">${ini}</div>
-            <div>
-              <div style="font-size:18px;font-weight:700">${sessionUser.nome}</div>
-              <div style="font-size:13px;color:var(--muted)">${sessionUser.email}</div>
-              <div style="margin-top:6px"><span class="badge badge-purple">${role}</span>${sessionUser.cargo&&sessionUser.cargo!==role?`<span class="badge" style="background:var(--bg);color:var(--muted);margin-left:4px">${sessionUser.cargo}</span>`:''}</div>
+          <div class="profile-photo-card">
+            <div class="profile-photo-preview" id="profile-avatar-preview">${avatarInner}</div>
+            <div class="profile-photo-info">
+              <div class="profile-photo-name">${escHtml(sessionUser.nome)}</div>
+              <div class="profile-photo-sub">${escHtml(sessionUser.email||'')} • ${escHtml(role)}</div>
+              <div class="profile-photo-actions">
+                <button type="button" class="avatar-upload-btn" onclick="triggerAvatarInput()">📷 Alterar foto</button>
+                <button type="button" class="avatar-remove-btn" onclick="removeUserAvatar()" ${hasAvatar?'':'disabled'}>Remover foto</button>
+                <input id="profile-avatar-input" type="file" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="handleAvatarUpload(event)">
+              </div>
+              <div class="profile-photo-help" id="profile-avatar-help">JPG, PNG ou WEBP até 2MB. A imagem será aplicada após salvar.</div>
             </div>
           </div>
-          <div class="form-row">
-            <div class="form-group"><label class="form-label">Nome</label><input class="form-input" id="perf-nome" value="${sessionUser.nome}"></div>
-            <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="perf-email" value="${sessionUser.email}" ${!isFundador?'readonly style="background:var(--bg)"':''}></div>
-          </div>
-          <div class="form-row">
-            <div class="form-group"><label class="form-label">Cargo</label><input class="form-input" id="perf-cargo" value="${sessionUser.cargo||''}"></div>
-            <div class="form-group"><label class="form-label">Papel</label><input class="form-input" value="${role}" readonly style="background:var(--bg);color:var(--muted)"></div>
+
+          <div class="profile-edit-grid">
+            <div class="form-group"><label class="form-label">Nome</label><input class="form-input" id="perf-nome" value="${escAttr(sessionUser.nome)}"></div>
+            <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="perf-email" value="${escAttr(sessionUser.email||'')}" ${!isFundador?'readonly style="background:var(--bg)"':''}></div>
+            <div class="form-group"><label class="form-label">Cargo/Função</label><input class="form-input" id="perf-cargo" value="${escAttr(sessionUser.cargo||'')}"></div>
+            <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" id="perf-telefone" value="${escAttr(telefone)}" placeholder="(00) 0.0000-0000"></div>
+            <div class="form-group"><label class="form-label">Papel</label><input class="form-input" value="${escAttr(role)}" readonly style="background:var(--bg);color:var(--muted)"></div>
           </div>
           <button class="btn btn-primary" onclick="savePerfilProprio()">Salvar alterações</button>
         </div>
@@ -3398,17 +3557,32 @@ function savePerfilProprio(){
   if(!sessionUser)return;
   const nome=document.getElementById('perf-nome')?.value?.trim();
   const cargo=document.getElementById('perf-cargo')?.value?.trim();
+  const telefone=document.getElementById('perf-telefone')?.value?.trim();
   const email=document.getElementById('perf-email')?.value?.trim();
   if(!nome){toast('Nome obrigatório','#EF4444');return}
-  const upd={nome,cargo};
+  const upd={nome,cargo,telefone};
   const role=resolveRole(sessionUser.permissao||'Colaborador');
   if(role==='Fundador'&&email)upd.email=email;
+  if(pendingUserAvatarData!==null){
+    upd.avatarUrl=pendingUserAvatarData;
+    upd.avatarBase64=pendingUserAvatarData;
+  }
+
   DB.update('usuarios',sessionUser.id,upd);
+
+  // Futuro Supabase:
+  // await GexSupabase.updateProfile(sessionUser.id, upd);
+
   sessionUser={...sessionUser,...upd};
-  localStorage.setItem('gx2_session',JSON.stringify({id:sessionUser.id,nome:sessionUser.nome,permissao:sessionUser.permissao,cargo:sessionUser.cargo}));
+  localStorage.setItem('gx2_session',JSON.stringify({
+    id:sessionUser.id,nome:sessionUser.nome,email:sessionUser.email,
+    permissao:sessionUser.permissao,cargo:sessionUser.cargo,
+    telefone:sessionUser.telefone,avatarUrl:sessionUser.avatarUrl||''
+  }));
+  pendingUserAvatarData=null;
   applySession();
   renderPerfil();
-  toast('Perfil atualizado ✓','#10B981');
+  toast('Perfil atualizado com sucesso ✓','#10B981');
 }
 
 function savePerfilSenha(){
@@ -6187,24 +6361,31 @@ async function doLogout(){
 
 function applySession(){
   if(!sessionUser)return;
-  const iniFn=n=>n.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
-  const av=document.getElementById('sb-av-ini');
+  const dbUser=DB.find('usuarios',sessionUser.id);
+  if(dbUser)sessionUser={...sessionUser,...dbUser};
+
+  const nome=sessionUser.nome||'Usuário';
+  const role=resolveRole(sessionUser.permissao||sessionUser.cargo||'Colaborador');
   const nomeEl=document.getElementById('sb-user-nome');
   const roleEl=document.getElementById('sb-user-role');
-  const role=resolveRole(sessionUser.permissao||sessionUser.cargo||'Colaborador');
-  if(av)av.textContent=iniFn(sessionUser.nome);
-  if(nomeEl)nomeEl.textContent=sessionUser.nome;
+  if(nomeEl)nomeEl.textContent=nome;
   if(roleEl)roleEl.textContent=role;
+
   const tbAv=document.getElementById('topbar-av');
-  if(tbAv){tbAv.textContent=iniFn(sessionUser.nome);tbAv.title=sessionUser.nome+' — '+role}
+  if(tbAv)tbAv.title=nome+' — '+role;
+  renderUserAvatar();
+
   // Apply permission-based nav filtering
   applyNavPermissions();
+
   // Update welcome section
-  const wAv=document.getElementById('welcome-av');
   const wTitle=document.getElementById('welcome-title');
   const wSub=document.getElementById('welcome-sub');
-  if(wAv)wAv.textContent=iniFn(sessionUser.nome);
-  if(wTitle){const h=new Date().getHours();const gr=h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';wTitle.textContent=gr+', '+sessionUser.nome.split(' ')[0]}
+  if(wTitle){
+    const h=new Date().getHours();
+    const gr=h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';
+    wTitle.textContent=gr+', '+String(nome).split(' ')[0];
+  }
   // Subtitle adapts to role scope
   const roleSubs={
     'Fundador':'Visão executiva completa',
