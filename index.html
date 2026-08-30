@@ -9230,5 +9230,764 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
 })();
 </script>
 
+
+<script id="gex-native-integrations-simplified-patch">
+/* ═══════════════════════════════════════════════════════════════
+   GEX FLOW — INTEGRAÇÕES NATIVAS SIMPLIFICADAS
+   - Webhook/API Gex Flow separado
+   - Apps com conexão nativa direta, sem mistura com Make/Webhook
+   - UI padrão SaaS: conectar, autenticar, configurar e sincronizar
+═══════════════════════════════════════════════════════════════ */
+(function(){
+  const esc = (v='') => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const attr = esc;
+  const nowLabel = () => new Date().toLocaleString('pt-BR');
+
+  const NATIVE_INTEGRATIONS = [
+    {
+      id:'meta_ads',
+      name:'Meta Ads',
+      icon:'📣',
+      category:'Anúncios',
+      accent:'#1877F2',
+      auth:'Facebook Login for Business',
+      primary:'Conectar com Facebook',
+      provider:'Meta',
+      description:'Campanhas, investimento, leads, CPL, CAC e contas de anúncios Facebook/Instagram.',
+      statusText:'Requer login oficial da Meta e autorização de anúncios.',
+      fields:[
+        {key:'businessName', label:'Business / Portfólio', placeholder:'Ex.: Gex Company'},
+        {key:'adAccountId', label:'Conta de anúncios padrão', placeholder:'Ex.: act_123456789012345'}
+      ],
+      scopes:['ads_read','business_management','pages_show_list','leads_retrieval'],
+      oauth:'meta'
+    },
+    {
+      id:'google_ads',
+      name:'Google Ads',
+      icon:'🎯',
+      category:'Anúncios',
+      accent:'#4285F4',
+      auth:'Login com Google',
+      primary:'Conectar com Google',
+      provider:'Google',
+      description:'Campanhas, custo, conversões, cliques, CPC, CPL e CAC do Google Ads.',
+      statusText:'Requer login Google e seleção da conta de anúncios.',
+      fields:[
+        {key:'managerId', label:'ID da MCC / Conta Google Ads', placeholder:'Ex.: 123-456-7890'},
+        {key:'customerId', label:'Conta de cliente padrão', placeholder:'Ex.: 987-654-3210'}
+      ],
+      scopes:['Google Ads API','offline_access'],
+      oauth:'google_ads'
+    },
+    {
+      id:'google_agenda',
+      name:'Google Agenda',
+      icon:'🗓️',
+      category:'Agenda',
+      accent:'#7C3AED',
+      auth:'Login com Google',
+      primary:'Conectar Google Agenda',
+      provider:'Google Calendar',
+      description:'Criar eventos, reuniões, follow-ups e lembretes comerciais direto na agenda.',
+      statusText:'Requer login Google e permissão de calendário.',
+      fields:[
+        {key:'calendarId', label:'Agenda padrão', placeholder:'primary ou ID da agenda'},
+        {key:'timezone', label:'Fuso horário', placeholder:'America/Sao_Paulo'}
+      ],
+      scopes:['calendar.events','calendar.readonly'],
+      oauth:'google_calendar'
+    },
+    {
+      id:'sms_app',
+      name:'App de SMS',
+      icon:'📲',
+      category:'Comunicação',
+      accent:'#0EA5E9',
+      auth:'Conectar provedor SMS',
+      primary:'Conectar SMS',
+      provider:'Zenvia / Twilio / TotalVoice',
+      description:'Enviar lembretes, confirmações e follow-ups por SMS.',
+      statusText:'Escolha o provedor e autentique a chave oficial.',
+      fields:[
+        {key:'providerName', label:'Provedor', placeholder:'Zenvia, Twilio ou TotalVoice'},
+        {key:'accountId', label:'Account ID / Organização', placeholder:'ID da conta no provedor'},
+        {key:'apiKey', label:'API Key / Token do provedor', placeholder:'Cole a chave do provedor', secret:true}
+      ],
+      scopes:['sms.send','sms.status'],
+      oauth:'api_key'
+    },
+    {
+      id:'whatsapp_app',
+      name:'App WhatsApp',
+      icon:'💬',
+      category:'Comunicação',
+      accent:'#22C55E',
+      auth:'WhatsApp Business API',
+      primary:'Conectar WhatsApp',
+      provider:'Meta Cloud API / Z-API / 360Dialog / Twilio',
+      description:'Follow-up, cobrança, atendimento e mensagens comerciais pelo WhatsApp.',
+      statusText:'Conecte a conta oficial ou provedor WhatsApp.',
+      fields:[
+        {key:'providerName', label:'Provedor', placeholder:'Meta Cloud API, Z-API, 360Dialog...'},
+        {key:'phoneNumberId', label:'Phone Number ID / Instância', placeholder:'ID do número ou instância'},
+        {key:'apiKey', label:'Token de acesso', placeholder:'Cole o token do provedor', secret:true}
+      ],
+      scopes:['whatsapp.send','whatsapp.templates','whatsapp.webhook'],
+      oauth:'api_key'
+    },
+    {
+      id:'make',
+      name:'Make',
+      icon:'⚙️',
+      category:'Automação',
+      accent:'#6D28D9',
+      auth:'Conta Make',
+      primary:'Conectar Make',
+      provider:'Make',
+      description:'Gerenciar automações e cenários vinculados à operação da GEX.',
+      statusText:'Conexão direta com API do Make, sem misturar com webhook da GEX.',
+      fields:[
+        {key:'organizationId', label:'Organização Make', placeholder:'ID da organização'},
+        {key:'teamId', label:'Team ID', placeholder:'ID do time'},
+        {key:'apiKey', label:'API Token Make', placeholder:'Cole o token do Make', secret:true}
+      ],
+      scopes:['scenarios.read','scenarios.run'],
+      oauth:'api_key'
+    },
+    {
+      id:'stripe',
+      name:'Stripe',
+      icon:'💳',
+      category:'Financeiro',
+      accent:'#635BFF',
+      auth:'Stripe Connect',
+      primary:'Conectar Stripe',
+      provider:'Stripe',
+      description:'Pagamentos, assinaturas, faturas, reembolsos, MRR e receita recorrente.',
+      statusText:'Requer Stripe Connect ou chave restrita da Stripe.',
+      fields:[
+        {key:'accountId', label:'Stripe Account ID', placeholder:'acct_...'},
+        {key:'apiKey', label:'Restricted Key / Secret Key', placeholder:'rk_live_... ou sk_live_...', secret:true}
+      ],
+      scopes:['payments.read','customers.read','subscriptions.read'],
+      oauth:'stripe'
+    }
+  ];
+
+  const API_INFO = {
+    webhookUrl: () => {
+      const saved = localStorage.getItem('gx2_gex_api_webhook_url') || localStorage.getItem('gx2_oneclick_webhook_url') || localStorage.getItem('gx2_wh_url') || '';
+      if(saved) return saved;
+      const base = (typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL) ? String(SUPABASE_URL).replace(/\/+$/,'') : '';
+      return base ? `${base}/functions/v1/gex-webhook` : `${location.origin}/functions/v1/gex-webhook`;
+    },
+    apiBase: () => {
+      const base = (typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL) ? String(SUPABASE_URL).replace(/\/+$/,'') : location.origin;
+      return `${base}/functions/v1`;
+    },
+    apiKey: () => {
+      let key = localStorage.getItem('gx2_gex_api_key') || localStorage.getItem('gx2_oneclick_api_key') || localStorage.getItem('gx2_api_key') || '';
+      if(!key){
+        key = 'gex_' + Math.random().toString(36).slice(2,10) + '_' + Math.random().toString(36).slice(2,8);
+        localStorage.setItem('gx2_gex_api_key', key);
+      }
+      return key;
+    }
+  };
+
+  function readNativeStore(){
+    try{return JSON.parse(localStorage.getItem('gx2_native_integrations') || '{}') || {};}catch(e){return {}}
+  }
+  function writeNativeStore(store){
+    localStorage.setItem('gx2_native_integrations', JSON.stringify(store || {}));
+  }
+  function getNativeConfig(id){
+    const store = readNativeStore();
+    const own = store[id] || {};
+    let legacy = {};
+    try{
+      if(typeof getIntegration === 'function') legacy = getIntegration(id) || {};
+      else legacy = (JSON.parse(localStorage.getItem('gx2_integrations') || '{}') || {})[id] || {};
+    }catch(e){}
+    const legacyCfg = legacy.config || {};
+    const oauthConnected = !!(legacyCfg.oauthConnected && legacyCfg.oauthConnectionId);
+    return {
+      ...own,
+      legacy,
+      legacyCfg,
+      nativeConnected: !!own.nativeConnected || oauthConnected,
+      connectedAt: own.connectedAt || legacy.lastSyncAt || '',
+      lastStatus: own.lastStatus || (oauthConnected ? 'Conectado via OAuth' : ''),
+      mode: own.mode || (oauthConnected ? 'OAuth nativo' : ''),
+      fields: {...(own.fields||{}), ...(oauthConnected ? {
+        businessName: legacyCfg.account || legacyCfg.oauthUserName || '',
+        adAccountId: legacyCfg.selectedAdAccount || legacyCfg.url || ''
+      } : {})}
+    };
+  }
+  function saveNativeConfig(id, data){
+    const store = readNativeStore();
+    store[id] = {
+      ...(store[id] || {}),
+      ...data,
+      updatedAt: new Date().toISOString()
+    };
+    writeNativeStore(store);
+    try{
+      if(typeof saveIntegration === 'function'){
+        const app = NATIVE_INTEGRATIONS.find(x=>x.id===id);
+        saveIntegration(id, {
+          connected: !!store[id].nativeConnected,
+          configured: !!store[id].nativeConnected,
+          lastTestStatus: store[id].nativeConnected ? 'success' : 'warn',
+          lastSyncAt: store[id].connectedAt || new Date().toISOString(),
+          config: {
+            ...(store[id].fields || {}),
+            nativeConnected: !!store[id].nativeConnected,
+            nativeMode: store[id].mode || app?.auth || 'Nativo',
+            account: store[id].fields?.businessName || store[id].fields?.providerName || store[id].fields?.accountId || app?.name
+          }
+        });
+      }
+    }catch(e){}
+  }
+
+  function logNative(title, desc, type='ok'){
+    try{
+      if(typeof addIntegrationLog === 'function') addIntegrationLog(title, desc, type === 'error' ? 'err' : type);
+    }catch(e){}
+    const logs = JSON.parse(localStorage.getItem('gx2_native_integration_logs') || '[]');
+    logs.unshift({title, desc, type, at:new Date().toISOString(), label:nowLabel()});
+    localStorage.setItem('gx2_native_integration_logs', JSON.stringify(logs.slice(0,30)));
+  }
+
+  function notify(msg, color='#7C3AED'){
+    if(typeof toast === 'function') toast(msg, color);
+  }
+
+  function copyNativeValue(value){
+    try{
+      navigator.clipboard.writeText(String(value || ''));
+      notify('Copiado ✓','#10B981');
+    }catch(e){
+      notify('Copie manualmente','#F59E0B');
+    }
+  }
+  window.copyNativeValue = copyNativeValue;
+
+  function statusPill(cfg){
+    if(cfg.nativeConnected) return `<span class="native-pill on">● Conectado</span>`;
+    return `<span class="native-pill off">○ Não conectado</span>`;
+  }
+
+  function requiredHtml(app){
+    return (app.scopes||[]).map(s=>`<span>${esc(s)}</span>`).join('');
+  }
+
+  function safeSecret(v){
+    if(!v) return '';
+    const s=String(v);
+    if(s.length <= 8) return '••••••••';
+    return s.slice(0,4) + '••••••••' + s.slice(-4);
+  }
+
+  function renderApiPanel(){
+    const webhook = API_INFO.webhookUrl();
+    const apiKey = API_INFO.apiKey();
+    const apiBase = API_INFO.apiBase();
+    return `
+      <section class="native-api-panel">
+        <div class="native-section-head">
+          <div>
+            <div class="native-kicker">API do Sistema</div>
+            <h2>Webhook & API Gex Flow</h2>
+            <p>Área separada para receber dados externos, consultar endpoints e copiar chaves. Não misture com as conexões nativas dos apps.</p>
+          </div>
+          <span class="native-api-badge">Base técnica</span>
+        </div>
+
+        <div class="native-api-grid">
+          <div class="native-api-card">
+            <label>Webhook de entrada</label>
+            <div class="native-copy-row">
+              <code>${esc(webhook)}</code>
+              <button onclick="copyNativeValue('${attr(webhook)}')">Copiar</button>
+            </div>
+            <small>Recebe leads, vendas, tarefas, eventos e dados de sistemas externos via POST.</small>
+          </div>
+
+          <div class="native-api-card">
+            <label>Chave de segurança</label>
+            <div class="native-copy-row">
+              <code>${esc(apiKey)}</code>
+              <button onclick="copyNativeValue('${attr(apiKey)}')">Copiar</button>
+            </div>
+            <small>Envie no header <b>x-gex-key</b>. Use apenas para integrações técnicas controladas.</small>
+          </div>
+
+          <div class="native-api-card">
+            <label>Base API</label>
+            <div class="native-copy-row">
+              <code>${esc(apiBase)}</code>
+              <button onclick="copyNativeValue('${attr(apiBase)}')">Copiar</button>
+            </div>
+            <small>Base para futuras funções do Gex Flow: usuários, integrações, webhooks e sincronizações.</small>
+          </div>
+        </div>
+
+        <details class="native-docs">
+          <summary>Ver payload padrão do Webhook Gex Flow</summary>
+          <pre>{
+  "event": "lead.created",
+  "source": "external_app",
+  "apiKey": "${esc(apiKey)}",
+  "data": {
+    "name": "Cliente Exemplo",
+    "email": "cliente@email.com",
+    "phone": "+55 11 99999-9999",
+    "value": 1500,
+    "origin": "Webhook externo"
+  }
+}</pre>
+        </details>
+      </section>
+    `;
+  }
+
+  window.renderIntegracoes = function(){
+    const page = document.getElementById('page-integracoes');
+    if(!page) return;
+    const connected = NATIVE_INTEGRATIONS.filter(app => getNativeConfig(app.id).nativeConnected).length;
+    const total = NATIVE_INTEGRATIONS.length;
+    const categories = ['Todos', ...Array.from(new Set(NATIVE_INTEGRATIONS.map(a=>a.category)))];
+
+    page.innerHTML = `
+      <div class="native-hero">
+        <div>
+          <div class="native-kicker">Central de Integrações</div>
+          <h1>Conexões nativas, simples e diretas</h1>
+          <p>Cada app tem seu próprio botão de autenticação. O Webhook e a API do Gex Flow ficam separados em uma área técnica.</p>
+        </div>
+        <div class="native-hero-actions">
+          <button class="native-btn secondary" onclick="document.getElementById('gex-api-anchor')?.scrollIntoView({behavior:'smooth'})">🔗 Ver API/Webhook</button>
+          <button class="native-btn primary" onclick="openNativeIntegration('meta_ads')">📣 Conectar Meta</button>
+        </div>
+      </div>
+
+      <div class="native-stats">
+        <div><span>Apps nativos</span><b>${total}</b><small>Conexões diretas</small></div>
+        <div><span>Conectados</span><b>${connected}</b><small>Autenticados no sistema</small></div>
+        <div><span>Webhook/API</span><b>Separado</b><small>Uso técnico opcional</small></div>
+      </div>
+
+      <div class="native-toolbar">
+        <input id="native-search" placeholder="Buscar app..." oninput="renderNativeApps()">
+        <select id="native-cat" onchange="renderNativeApps()">${categories.map(c=>`<option value="${attr(c)}">${esc(c)}</option>`).join('')}</select>
+        <select id="native-status" onchange="renderNativeApps()">
+          <option value="todos">Todos</option>
+          <option value="connected">Conectados</option>
+          <option value="off">Não conectados</option>
+        </select>
+      </div>
+
+      <section>
+        <div class="native-section-head compact">
+          <div>
+            <div class="native-kicker">Apps parceiros</div>
+            <h2>Integrações nativas</h2>
+          </div>
+        </div>
+        <div class="native-app-grid" id="native-app-grid"></div>
+      </section>
+
+      <div id="gex-api-anchor"></div>
+      ${renderApiPanel()}
+
+      <section class="native-log-panel">
+        <div class="native-section-head compact">
+          <div>
+            <div class="native-kicker">Eventos</div>
+            <h2>Histórico de integrações</h2>
+          </div>
+          <button class="native-btn small" onclick="localStorage.removeItem('gx2_native_integration_logs'); renderNativeLogs();">Limpar</button>
+        </div>
+        <div id="native-logs"></div>
+      </section>
+    `;
+
+    renderNativeApps();
+    renderNativeLogs();
+  };
+
+  window.renderNativeApps = function(){
+    const grid = document.getElementById('native-app-grid');
+    if(!grid) return;
+    const q = (document.getElementById('native-search')?.value || '').toLowerCase().trim();
+    const cat = document.getElementById('native-cat')?.value || 'Todos';
+    const status = document.getElementById('native-status')?.value || 'todos';
+
+    const apps = NATIVE_INTEGRATIONS.filter(app=>{
+      const cfg = getNativeConfig(app.id);
+      const mq = !q || `${app.name} ${app.category} ${app.provider} ${app.description}`.toLowerCase().includes(q);
+      const mc = cat === 'Todos' || app.category === cat;
+      const ms = status === 'todos' || (status === 'connected' && cfg.nativeConnected) || (status === 'off' && !cfg.nativeConnected);
+      return mq && mc && ms;
+    });
+
+    grid.innerHTML = apps.map(app=>{
+      const cfg = getNativeConfig(app.id);
+      const fields = cfg.fields || {};
+      const account = fields.businessName || fields.providerName || fields.accountId || fields.adAccountId || fields.calendarId || '';
+      return `
+        <article class="native-app-card ${cfg.nativeConnected?'connected':''}" style="--accent:${app.accent}">
+          <div class="native-app-top">
+            <div class="native-icon">${app.icon}</div>
+            <div>
+              <h3>${esc(app.name)}</h3>
+              <span>${esc(app.category)}</span>
+            </div>
+            ${statusPill(cfg)}
+          </div>
+          <p>${esc(app.description)}</p>
+          <div class="native-auth-line">
+            <b>${esc(app.auth)}</b>
+            <span>${esc(cfg.mode || app.statusText)}</span>
+          </div>
+          ${account ? `<div class="native-account">Conta: <b>${esc(account)}</b></div>` : ''}
+          ${cfg.connectedAt ? `<div class="native-last">Última conexão: ${esc(new Date(cfg.connectedAt).toLocaleString('pt-BR'))}</div>` : ''}
+          <div class="native-card-actions">
+            <button class="native-btn primary" onclick="connectNativeIntegration('${app.id}')">${cfg.nativeConnected ? 'Abrir conexão' : app.primary}</button>
+            <button class="native-btn secondary" onclick="openNativeIntegration('${app.id}')">Configurar</button>
+            <button class="native-btn ghost" onclick="syncNativeIntegration('${app.id}')">Sincronizar</button>
+          </div>
+        </article>
+      `;
+    }).join('') || `<div class="native-empty">Nenhuma integração encontrada.</div>`;
+  };
+
+  function modalFields(app, cfg){
+    const fields = cfg.fields || {};
+    return (app.fields || []).map(f=>{
+      const val = fields[f.key] || '';
+      return `
+        <label class="native-field ${f.secret?'secret':''}">
+          <span>${esc(f.label)}</span>
+          <input type="${f.secret?'password':'text'}" id="native-field-${f.key}" value="${attr(val)}" placeholder="${attr(f.placeholder||'')}">
+          ${f.secret && val ? `<small>Salvo: ${esc(safeSecret(val))}</small>` : ''}
+        </label>
+      `;
+    }).join('');
+  }
+
+  window.openNativeIntegration = function(id){
+    const app = NATIVE_INTEGRATIONS.find(x=>x.id===id);
+    if(!app) return;
+    const cfg = getNativeConfig(id);
+    const title = document.getElementById('modal-title');
+    const box = document.getElementById('modal-box');
+    const body = document.getElementById('modal-body');
+    const footer = document.getElementById('modal-footer');
+    const overlay = document.getElementById('modal');
+    if(!title || !body || !footer || !overlay) return;
+
+    if(box) box.className = 'modal modal-lg';
+    title.textContent = `${app.icon} ${app.name}`;
+    body.innerHTML = `
+      <div class="native-modal-head" style="--accent:${app.accent}">
+        <div class="native-icon big">${app.icon}</div>
+        <div>
+          <h3>${esc(app.name)}</h3>
+          <p>${esc(app.description)}</p>
+        </div>
+        ${statusPill(cfg)}
+      </div>
+
+      <div class="native-auth-box">
+        <div>
+          <b>${esc(app.auth)}</b>
+          <span>Autenticação direta com o app parceiro. Webhook/API do Gex Flow ficam em área separada.</span>
+        </div>
+        <button class="native-btn primary" onclick="connectNativeIntegration('${app.id}')">${cfg.nativeConnected ? 'Reautenticar' : app.primary}</button>
+      </div>
+
+      <div class="native-scope-box">
+        <label>Permissões solicitadas</label>
+        <div>${requiredHtml(app)}</div>
+      </div>
+
+      <div class="native-form-grid">
+        ${modalFields(app, cfg)}
+      </div>
+
+      <label class="native-field full">
+        <span>Observações internas</span>
+        <textarea id="native-notes" placeholder="Como essa integração será usada na operação...">${esc(cfg.notes || '')}</textarea>
+      </label>
+
+      <div class="native-status-box ${cfg.nativeConnected?'success':'neutral'}">
+        <b>${cfg.nativeConnected ? 'Conexão ativa' : 'Aguardando autenticação'}</b>
+        <span>${esc(cfg.lastStatus || app.statusText)}</span>
+        ${cfg.connectedAt ? `<small>${esc(new Date(cfg.connectedAt).toLocaleString('pt-BR'))}</small>` : ''}
+      </div>
+    `;
+
+    footer.innerHTML = `
+      ${cfg.nativeConnected ? `<button class="btn btn-ghost" onclick="disconnectNativeIntegration('${app.id}')">Desconectar</button>` : ''}
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveNativeIntegrationConfig('${app.id}')">Salvar configuração</button>
+    `;
+    overlay.classList.add('open');
+  };
+
+  function collectNativeFields(app){
+    const out = {};
+    (app.fields || []).forEach(f=>{
+      out[f.key] = document.getElementById(`native-field-${f.key}`)?.value?.trim() || '';
+    });
+    return out;
+  }
+
+  window.saveNativeIntegrationConfig = function(id){
+    const app = NATIVE_INTEGRATIONS.find(x=>x.id===id);
+    if(!app) return;
+    const cfg = getNativeConfig(id);
+    const fields = collectNativeFields(app);
+    const notes = document.getElementById('native-notes')?.value || '';
+    saveNativeConfig(id, {
+      fields,
+      notes,
+      nativeConnected: !!cfg.nativeConnected,
+      connectedAt: cfg.connectedAt || '',
+      lastStatus: cfg.lastStatus || 'Configuração salva. Clique em conectar para autenticar.',
+      mode: cfg.mode || app.auth
+    });
+    logNative(`${app.name} configurado`, 'Configuração salva no Gex Flow', 'ok');
+    closeModal();
+    renderIntegracoes();
+    notify('Configuração salva ✓','#10B981');
+  };
+
+  async function startOAuthProvider(app){
+    const provider = app.oauth;
+    if(app.id === 'meta_ads' && typeof connectMetaAdsOAuth === 'function'){
+      connectMetaAdsOAuth();
+      return true;
+    }
+    try{
+      if(typeof getSupabaseFunctionUrl !== 'function') throw new Error('Função OAuth ainda não configurada.');
+      const token = (typeof getGexSupabaseToken === 'function') ? await getGexSupabaseToken() : '';
+      const url = getSupabaseFunctionUrl('native-oauth-start') + `?provider=${encodeURIComponent(provider)}&return_to=${encodeURIComponent(location.href.split('#')[0])}`;
+      const res = await fetch(url, {headers: token ? {'Authorization':`Bearer ${token}`} : {}});
+      const json = await res.json().catch(()=>({}));
+      if(!res.ok || !json.url) throw new Error(json.error || 'OAuth nativo ainda não publicado para este app.');
+      const popup = window.open(json.url, `gex_${provider}_oauth`, 'width=720,height=780,menubar=no,toolbar=no,location=yes,resizable=yes,scrollbars=yes');
+      if(!popup) throw new Error('Popup bloqueado. Libere popups para conectar.');
+      return true;
+    }catch(err){
+      notify(err.message || 'OAuth ainda não configurado para este app','#F59E0B');
+      logNative(`OAuth pendente: ${app.name}`, err.message || 'Função OAuth não disponível', 'warn');
+      return false;
+    }
+  }
+
+  window.connectNativeIntegration = async function(id){
+    const app = NATIVE_INTEGRATIONS.find(x=>x.id===id);
+    if(!app) return;
+    const cfg = getNativeConfig(id);
+
+    if(['meta','google_ads','google_calendar','stripe'].includes(app.oauth)){
+      const started = await startOAuthProvider(app);
+      if(started){
+        saveNativeConfig(id, {
+          ...cfg,
+          mode: app.auth,
+          lastStatus: 'Autenticação iniciada. Finalize no app parceiro.',
+          pendingAuth: true
+        });
+        logNative(`${app.name}: login iniciado`, `Autenticação direta via ${app.provider}`, 'warn');
+        renderIntegracoes();
+        return;
+      }
+    }
+
+    const fields = {};
+    (app.fields||[]).forEach(f=>{
+      fields[f.key] = cfg.fields?.[f.key] || '';
+    });
+    const hasKeyField = (app.fields||[]).some(f=>f.secret);
+    if(hasKeyField && !(cfg.fields||{}).apiKey){
+      openNativeIntegration(id);
+      notify('Preencha a chave do provedor e salve para conectar','#F59E0B');
+      return;
+    }
+
+    saveNativeConfig(id, {
+      nativeConnected:true,
+      connectedAt:new Date().toISOString(),
+      mode: app.auth,
+      lastStatus:'Conexão autenticada no Gex Flow.',
+      fields: cfg.fields || {}
+    });
+    logNative(`${app.name} conectado`, `Autenticação direta cadastrada para ${app.provider}`, 'ok');
+    renderIntegracoes();
+    notify(`${app.name} conectado ✓`,'#10B981');
+  };
+
+  window.disconnectNativeIntegration = function(id){
+    const app = NATIVE_INTEGRATIONS.find(x=>x.id===id);
+    if(!app) return;
+    const cfg = getNativeConfig(id);
+    saveNativeConfig(id, {
+      ...cfg,
+      nativeConnected:false,
+      pendingAuth:false,
+      connectedAt:'',
+      lastStatus:'Integração desconectada.'
+    });
+    logNative(`${app.name} desconectado`, 'Conexão removida pelo usuário', 'warn');
+    closeModal();
+    renderIntegracoes();
+    notify('Integração desconectada','#7C3AED');
+  };
+
+  window.syncNativeIntegration = function(id){
+    const app = NATIVE_INTEGRATIONS.find(x=>x.id===id);
+    const cfg = getNativeConfig(id);
+    if(!app) return;
+    if(!cfg.nativeConnected){
+      openNativeIntegration(id);
+      notify('Conecte primeiro para sincronizar','#F59E0B');
+      return;
+    }
+    saveNativeConfig(id, {
+      ...cfg,
+      lastStatus:'Sincronização solicitada. Aguardando retorno do app parceiro.',
+      lastSyncRequestAt:new Date().toISOString()
+    });
+    logNative(`${app.name}: sincronização solicitada`, 'Solicitação registrada no Gex Flow', 'ok');
+    renderIntegracoes();
+    notify('Sincronização solicitada ✓','#10B981');
+  };
+
+  window.renderNativeLogs = function(){
+    const el = document.getElementById('native-logs');
+    if(!el) return;
+    let logs = [];
+    try{ logs = JSON.parse(localStorage.getItem('gx2_native_integration_logs') || '[]') || []; }catch(e){}
+    if(!logs.length){
+      el.innerHTML = `<div class="native-empty small">Nenhum evento de integração ainda.</div>`;
+      return;
+    }
+    el.innerHTML = logs.slice(0,8).map(l=>`
+      <div class="native-log ${l.type||'ok'}">
+        <span></span>
+        <div><b>${esc(l.title)}</b><small>${esc(l.desc||'')} • ${esc(l.label||'')}</small></div>
+      </div>
+    `).join('');
+  };
+
+  const css = `
+    .native-hero{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;background:linear-gradient(135deg,#FFFFFF,#F5F3FF);border:1px solid var(--border);border-radius:18px;padding:24px;margin-bottom:16px;box-shadow:0 8px 28px rgba(76,29,149,.06)}
+    .native-kicker{font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--p2);margin-bottom:6px}
+    .native-hero h1,.native-section-head h2{margin:0;color:var(--txt);letter-spacing:-.5px}
+    .native-hero h1{font-size:24px}.native-section-head h2{font-size:18px}
+    .native-hero p,.native-section-head p{font-size:13px;color:var(--muted);line-height:1.45;margin:6px 0 0;max-width:720px}
+    .native-hero-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .native-btn{border:1px solid var(--border);border-radius:10px;padding:9px 14px;font-size:12px;font-weight:800;font-family:'Inter',sans-serif;cursor:pointer;background:#fff;color:var(--txt);transition:all .15s;display:inline-flex;align-items:center;gap:6px;justify-content:center;white-space:nowrap}
+    .native-btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(124,58,237,.12)}
+    .native-btn.primary{background:var(--p2);border-color:var(--p2);color:#fff}
+    .native-btn.secondary{background:#fff;color:var(--p2);border-color:#DDD6FE}
+    .native-btn.ghost{background:#FAFAFD;color:var(--muted)}
+    .native-btn.small{padding:6px 10px;font-size:11px}
+    .native-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+    .native-stats>div{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+    .native-stats span{display:block;font-size:11px;font-weight:900;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+    .native-stats b{display:block;font-size:22px;margin-top:8px;color:var(--txt)}
+    .native-stats small{display:block;font-size:11px;color:var(--muted);margin-top:3px}
+    .native-toolbar{display:flex;gap:10px;background:#fff;border:1px solid var(--border);border-radius:14px;padding:10px;margin-bottom:16px;position:sticky;top:0;z-index:3}
+    .native-toolbar input,.native-toolbar select{height:36px;border:1px solid var(--border);border-radius:10px;background:#F8F8FC;padding:0 12px;font-size:12px;font-family:'Inter',sans-serif;color:var(--txt);outline:none}
+    .native-toolbar input{flex:1}
+    .native-section-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin:18px 0 12px}
+    .native-section-head.compact{align-items:center;margin-top:20px}
+    .native-app-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:20px}
+    .native-app-card{background:#fff;border:1px solid var(--border);border-radius:18px;padding:18px;position:relative;overflow:hidden;transition:all .18s;min-height:256px;display:flex;flex-direction:column}
+    .native-app-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent)}
+    .native-app-card.connected{border-color:rgba(16,185,129,.35);box-shadow:0 8px 24px rgba(16,185,129,.08)}
+    .native-app-card:hover{transform:translateY(-3px);box-shadow:0 12px 30px rgba(76,29,149,.10)}
+    .native-app-top{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px}
+    .native-icon{width:44px;height:44px;border-radius:13px;background:#F3F4FF;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+    .native-icon.big{width:54px;height:54px;font-size:26px}
+    .native-app-top h3{font-size:15px;margin:2px 0 1px;color:var(--txt)}
+    .native-app-top span{font-size:11px;color:var(--muted);font-weight:700}
+    .native-pill{margin-left:auto;font-size:10px;font-weight:900;border-radius:20px;padding:4px 9px;white-space:nowrap}
+    .native-pill.on{background:#D1FAE5;color:#047857}
+    .native-pill.off{background:#F3F4F6;color:#6B7280}
+    .native-app-card p{font-size:12.5px;color:var(--muted);line-height:1.45;margin:0 0 12px}
+    .native-auth-line{background:#FAFAFD;border:1px solid var(--border);border-radius:12px;padding:10px;margin-top:auto}
+    .native-auth-line b{display:block;font-size:12px;color:var(--txt);margin-bottom:3px}
+    .native-auth-line span{display:block;font-size:11px;color:var(--muted);line-height:1.35}
+    .native-account,.native-last{font-size:11px;color:var(--muted);margin-top:8px}
+    .native-account b{color:var(--txt)}
+    .native-card-actions{display:grid;grid-template-columns:1.1fr .9fr .9fr;gap:6px;margin-top:12px}
+    .native-api-panel,.native-log-panel{background:#fff;border:1px solid var(--border);border-radius:18px;padding:20px;margin:18px 0}
+    .native-api-badge{font-size:11px;font-weight:900;background:#EEF2FF;color:#4338CA;border-radius:20px;padding:5px 10px}
+    .native-api-grid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:14px}
+    .native-api-card{border:1px solid var(--border);border-radius:14px;padding:14px;background:#FAFAFD}
+    .native-api-card label{display:block;font-size:11px;font-weight:900;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:7px}
+    .native-copy-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
+    .native-copy-row code{background:#fff;border:1px solid var(--border);border-radius:10px;padding:11px 12px;font-size:12px;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .native-copy-row button{border:1px solid var(--border);border-radius:10px;background:#fff;padding:10px 12px;font-size:12px;font-weight:800;cursor:pointer}
+    .native-api-card small{display:block;color:var(--muted);font-size:11px;margin-top:8px;line-height:1.4}
+    .native-docs{margin-top:12px;border:1px dashed #DDD6FE;border-radius:14px;padding:12px;background:#F5F3FF}
+    .native-docs summary{font-weight:900;color:var(--p2);cursor:pointer;font-size:12px}
+    .native-docs pre{background:#111827;color:#E5E7EB;border-radius:12px;padding:14px;margin:12px 0 0;overflow:auto;font-size:12px;white-space:pre-wrap}
+    .native-modal-head{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--border);border-radius:16px;padding:14px;background:linear-gradient(135deg,#fff,#FAFAFF);margin-bottom:14px}
+    .native-modal-head h3{margin:4px 0 2px;font-size:17px}
+    .native-modal-head p{font-size:12px;color:var(--muted);line-height:1.45;margin:0}
+    .native-auth-box{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid #DDD6FE;border-radius:16px;padding:14px;background:#F5F3FF;margin-bottom:14px}
+    .native-auth-box b{display:block;font-size:13px;color:var(--txt);margin-bottom:4px}
+    .native-auth-box span{display:block;font-size:12px;color:var(--muted);line-height:1.4}
+    .native-scope-box{border:1px solid var(--border);border-radius:14px;padding:12px;margin-bottom:14px}
+    .native-scope-box label{display:block;font-size:11px;font-weight:900;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
+    .native-scope-box div{display:flex;gap:6px;flex-wrap:wrap}
+    .native-scope-box span{font-size:10px;font-weight:850;color:#5B21B6;background:#EDE9FE;border-radius:20px;padding:4px 8px}
+    .native-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .native-field{display:block;margin-bottom:12px}
+    .native-field.full{margin-top:2px}
+    .native-field span{display:block;font-size:12px;font-weight:800;color:var(--muted);margin-bottom:5px}
+    .native-field input,.native-field textarea{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13px;font-family:'Inter',sans-serif;outline:none;background:#fff;color:var(--txt)}
+    .native-field textarea{min-height:80px;resize:vertical}
+    .native-field input:focus,.native-field textarea:focus{border-color:var(--p2)}
+    .native-field small{display:block;font-size:10px;color:var(--muted);margin-top:4px}
+    .native-status-box{border:1px solid var(--border);border-radius:14px;padding:13px;margin-top:8px;background:#FAFAFD}
+    .native-status-box.success{background:#ECFDF5;border-color:#A7F3D0}
+    .native-status-box b{display:block;font-size:13px;color:var(--txt);margin-bottom:4px}
+    .native-status-box span,.native-status-box small{display:block;font-size:12px;color:var(--muted);line-height:1.4}
+    .native-log{display:flex;gap:9px;padding:10px 0;border-bottom:1px solid #F0F0F8}
+    .native-log:last-child{border-bottom:none}
+    .native-log>span{width:10px;height:10px;border-radius:50%;background:#10B981;margin-top:4px;flex-shrink:0}
+    .native-log.warn>span{background:#F59E0B}.native-log.error>span{background:#EF4444}
+    .native-log b{display:block;font-size:12px;color:var(--txt);margin-bottom:2px}
+    .native-log small{font-size:11px;color:var(--muted)}
+    .native-empty{grid-column:1/-1;text-align:center;padding:28px;border:1px dashed var(--border);border-radius:16px;color:var(--muted);background:#fff}
+    .native-empty.small{font-size:12px}
+    @media(max-width:1100px){.native-app-grid{grid-template-columns:repeat(2,1fr)}.native-stats{grid-template-columns:1fr 1fr}}
+    @media(max-width:760px){.native-hero,.native-auth-box,.native-section-head{flex-direction:column}.native-app-grid,.native-stats,.native-form-grid{grid-template-columns:1fr}.native-toolbar{position:static;flex-direction:column}.native-card-actions{grid-template-columns:1fr}.native-copy-row{grid-template-columns:1fr}}
+  `;
+  if(!document.getElementById('gex-native-integrations-simplified-css')){
+    const st=document.createElement('style');
+    st.id='gex-native-integrations-simplified-css';
+    st.textContent=css;
+    document.head.appendChild(st);
+  }
+
+  setTimeout(()=>{
+    const page = document.getElementById('page-integracoes');
+    if(page && page.classList.contains('active')) renderIntegracoes();
+  }, 0);
+})();
+</script>
+
 </body>
 </html>
