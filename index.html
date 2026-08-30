@@ -2084,14 +2084,16 @@ function saveModal(type,id=''){
     usuario(){
       const senha=v('f-senha');
       const roleSelected=resolveRole(v('f-permissao')||'Colaborador');
-      const obj={nome:v('f-nome'),email:v('f-email'),cargo:v('f-cargo'),permissao:v('f-permissao'),status:v('f-status')};
-      if(senha)obj.senha=senha;
+      const obj={nome:v('f-nome'),email:normalizeLoginEmail(v('f-email')),cargo:v('f-cargo'),permissao:v('f-permissao'),status:v('f-status')};
+      if(senha)obj.senha=String(senha).trim();
       if(roleSelected==='Fundador'){
         obj.permOverrides={};
       }else{
         obj.permOverrides=collectUserPermOverrides();
       }
       if(!obj.nome||!obj.email){toast('Nome e email obrigatórios','#EF4444');return}
+      const emailExists=(DB.get('usuarios')||[]).some(u=>normalizeLoginEmail(u.email)===obj.email && String(u.id)!==String(id||''));
+      if(emailExists){toast('Já existe um usuário com este email','#EF4444');return}
       // Block editing Fundador if not Fundador
       const curRole=resolveRole(sessionUser?.permissao||'Colaborador');
       if(id){
@@ -2110,7 +2112,7 @@ function saveModal(type,id=''){
           applyNavPermissions();
         }
       }else{
-        DB.push('usuarios',{id:uid(),senha:'gex@2025',...obj,...(senha?{senha}:{})});
+        DB.push('usuarios',{id:uid(),senha:obj.senha||'gex@2025',...obj,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
       }
       closeModal();renderUsuarios();toast(id?'Usuário atualizado ✓':'Usuário criado ✓','#10B981');
     },
@@ -6724,6 +6726,49 @@ function _onLoginSuccess(btn){
   setTimeout(()=>{ls.style.display='none';if(btn){btn.textContent='Entrar no sistema';btn.disabled=false}},420);
 }
 
+
+// ─── autenticação local para usuários criados na Gestão de Usuários ───────
+function normalizeLoginEmail(value){
+  return String(value||'').trim().toLowerCase();
+}
+
+function findLocalLoginUser(email,pass){
+  const loginEmail=normalizeLoginEmail(email);
+  const loginPass=String(pass||'').trim();
+  const users=DB.get('usuarios')||[];
+  return users.find(u=>{
+    const userEmail=normalizeLoginEmail(u.email);
+    const userPass=String(u.senha||'gex@2025').trim();
+    const userStatus=String(u.status||'Ativo');
+    return userEmail===loginEmail && userPass===loginPass && userStatus==='Ativo';
+  })||null;
+}
+
+function startLocalUserSession(user,btn){
+  if(!user)return false;
+  const savedUser=mergeLocalUserProfile(user)||user;
+  sessionUser={...savedUser};
+  localStorage.setItem('gx2_session',JSON.stringify({
+    id:savedUser.id,
+    nome:savedUser.nome,
+    email:savedUser.email,
+    permissao:savedUser.permissao,
+    cargo:savedUser.cargo,
+    telefone:savedUser.telefone||'',
+    avatarUrl:savedUser.avatarUrl||'',
+    avatarBase64:savedUser.avatarBase64||''
+  }));
+  console.log('[GexFlow] ✅ Login local bem-sucedido:',savedUser.nome);
+  _onLoginSuccess(btn);
+  return true;
+}
+
+function tryLocalUserLogin(email,pass,btn){
+  const localUser=findLocalLoginUser(email,pass);
+  if(!localUser)return false;
+  return startLocalUserSession(localUser,btn);
+}
+
 // ─── login principal ──────────────────────────────────────────────────────
 async function doLogin(){
   const email=(document.getElementById('login-email').value||'').trim().toLowerCase();
@@ -6742,18 +6787,8 @@ async function doLogin(){
   // ── MODO PREVIEW / SEM SDK: usa credenciais locais ──────────────────────
   if(!supabaseClient){
     await new Promise(r=>setTimeout(r,300));
-    const users=DB.get('usuarios')||[];
-    const u=users.find(u=>u.email.toLowerCase()===email&&(u.senha||'gex@2025')===pass&&u.status==='Ativo');
-    if(!u){loginErr('Email ou senha incorretos.');return}
-    sessionUser={...u};
-    const savedUser=mergeLocalUserProfile(u)||u;
-    sessionUser={...savedUser};
-    localStorage.setItem('gx2_session',JSON.stringify({
-      id:savedUser.id,nome:savedUser.nome,email:savedUser.email,
-      permissao:savedUser.permissao,cargo:savedUser.cargo,
-      telefone:savedUser.telefone||'',avatarUrl:savedUser.avatarUrl||'',avatarBase64:savedUser.avatarBase64||''
-    }));
-    _onLoginSuccess(btn);
+    if(tryLocalUserLogin(email,pass,btn))return;
+    loginErr('Email ou senha incorretos.');
     return;
   }
 
@@ -6764,7 +6799,9 @@ async function doLogin(){
     const {data,error}=await Promise.race([authCall,timeout]);
 
     if(error){
-      // Erro de credencial (retorno explícito do Supabase)
+      // Usuários criados pela Gestão de Usuários ficam no banco/localStorage do Gex Flow.
+      // Então, se o Supabase negar a credencial, tentamos o login local antes de bloquear.
+      if(tryLocalUserLogin(email,pass,btn))return;
       loginErr('Email ou senha incorretos. Verifique e tente novamente.');
       return;
     }
@@ -6795,8 +6832,9 @@ async function doLogin(){
     _onLoginSuccess(btn);
 
   }catch(err){
-    // Erro de rede, CORS ou timeout — mostrar detalhes para diagnóstico
+    // Erro de rede, CORS ou timeout — tenta login local antes de exibir erro.
     console.error('[GexFlow] Erro de conexão Supabase:',err);
+    if(tryLocalUserLogin(email,pass,btn))return;
     if(err.message==='TIMEOUT'){
       loginErr('Tempo limite excedido. Verifique sua conexão com a internet.');
     } else {
