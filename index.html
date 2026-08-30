@@ -2445,7 +2445,12 @@ function renderInicio(){
   const atrasados=pros.filter(p=>p.prazo&&p.status!=='Concluído'&&new Date(p.prazo)<new Date());
   const tarefasPend=pros.filter(p=>p.status!=='Concluído');
   const churnRisk=cls.filter(c=>c.status==='Ativo'&&(c.health||0)<50);
-  const pipelineTotal=leadsPeriod.reduce((a,l)=>a+l.valor,0);
+  const pipelineTotal=leadsPeriod.reduce((a,l)=>a+(parseFloat(l.valor)||0),0);
+  // Valor exibido no card da aba Início: somente negócios efetivamente ganhos
+  const negociosGanhosHome=leadsPeriod.filter(l=>{
+    try{return isWonOpportunity(l)}catch(e){return (l.dealStatus||l.status||l.estagio||'')==='Ganho'}
+  });
+  const negociosGanhosTotal=negociosGanhosHome.reduce((a,l)=>a+(parseFloat(l.valor)||0),0);
 
   // ── Ciclo médio de fechamento ───────────────────────────────────────────
   const leadsGanhos=leadsPeriod.filter(l=>l.dealStatus==='Ganho'&&l.dataInicio&&l.dataFechamento);
@@ -2493,7 +2498,7 @@ function renderInicio(){
     {label:'Receita do Mês',value:fmtBRL(receita),accent:'#10B981',delta:'+12% vs mês ant.',dir:'up',mod:'financas'},
     {label:'Lucro Líquido',value:fmtBRL(lucro),accent:'#7C3AED',delta:lucro>0?'+operação positiva':'Atenção',dir:lucro>0?'up':'down',mod:'financas'},
     {label:'Clientes Ativos',value:cls.filter(c=>c.status==='Ativo').length,accent:'#3B82F6',delta:`${churnRisk.length} em risco de churn`,dir:churnRisk.length?'down':'neutral',mod:'clientes'},
-    {label:'Pipeline CRM',value:fmtBRL(pipelineTotal),accent:'#F59E0B',delta:`${leads.length} leads ativos`,dir:'neutral',mod:'comercial'},
+    {label:'Negócios Ganhos',value:fmtBRL(negociosGanhosTotal),accent:'#10B981',delta:`${negociosGanhosHome.length} negócio${negociosGanhosHome.length!==1?'s':''} ganho${negociosGanhosHome.length!==1?'s':''}`,dir:negociosGanhosHome.length?'up':'neutral',mod:'comercial'},
     {label:'Projetos Ativos',value:pros.filter(p=>p.status==='Em andamento').length,accent:'#6366F1',delta:`${atrasados.length} atrasados`,dir:atrasados.length?'down':'up',mod:'entregas'},
     {label:'Tarefas Pendentes',value:tarefasPend.length,accent:'#EC4899',delta:'em aberto',dir:'neutral',mod:'tarefas'},
     {label:'Health Score Médio',value:avgH,accent:healthColor(avgH),delta:avgH>=70?'Equipe saudável':'Atenção necessária',dir:avgH>=70?'up':'down',mod:'clientes'},
