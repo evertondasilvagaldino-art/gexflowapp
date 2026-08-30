@@ -286,6 +286,82 @@ tr:hover td{background:#FAFAFD}
 .perm-editor-summary{margin-top:12px;padding:9px 11px;background:#fff;border:1px solid var(--border);border-radius:9px;font-size:11px;color:var(--muted);line-height:1.45}
 .perm-editor-summary b{color:var(--txt)}
 
+
+/* INTEGRAÇÕES HUB */
+.int-hero{background:linear-gradient(135deg,#4C1D95 0%,#7C3AED 58%,#A78BFA 100%);border-radius:18px;padding:22px 24px;color:#fff;margin-bottom:16px;position:relative;overflow:hidden;box-shadow:0 16px 44px rgba(76,29,149,.18)}
+.int-hero:before{content:'';position:absolute;right:-70px;top:-70px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.12)}
+.int-hero:after{content:'';position:absolute;right:110px;bottom:-90px;width:180px;height:180px;border-radius:50%;background:rgba(255,255,255,.08)}
+.int-hero-in{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.int-title{font-size:24px;font-weight:850;letter-spacing:-.6px;margin-bottom:4px}
+.int-sub{font-size:13px;color:rgba(255,255,255,.82);max-width:720px;line-height:1.5}
+.int-hero-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.int-btn-light{background:#fff;color:#5B21B6;border:0;border-radius:10px;padding:9px 14px;font-size:12px;font-weight:800;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.12)}
+.int-btn-outline{background:rgba(255,255,255,.10);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:10px;padding:9px 14px;font-size:12px;font-weight:800;cursor:pointer}
+.int-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.int-stat{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 18px;position:relative;overflow:hidden}
+.int-stat:before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent,#7C3AED)}
+.int-stat-lbl{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px}
+.int-stat-val{font-size:24px;font-weight:850;color:var(--txt);letter-spacing:-.7px;line-height:1}
+.int-stat-sub{font-size:11px;color:var(--muted);margin-top:6px}
+.int-toolbar{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin-bottom:16px;flex-wrap:wrap}
+.int-search{flex:1;min-width:240px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:9px 12px;font-size:13px;color:var(--txt);font-family:'Inter',sans-serif;outline:none}
+.int-select{height:36px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:0 10px;font-size:12px;font-weight:700;color:var(--txt);font-family:'Inter',sans-serif}
+.int-layout{display:grid;grid-template-columns:1.15fr .85fr;gap:16px;align-items:start}
+.int-section-card{background:#fff;border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:16px}
+.int-sec-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;border-bottom:1px solid var(--border)}
+.int-sec-title{font-size:14px;font-weight:850;color:var(--txt);display:flex;align-items:center;gap:8px}
+.int-sec-sub{font-size:11px;color:var(--muted);margin-top:3px;font-weight:500}
+.int-core-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:14px}
+.int-core{border:1px solid var(--border);border-radius:14px;padding:15px;background:linear-gradient(180deg,#fff,#FAFAFF);position:relative;overflow:hidden;transition:transform .18s,box-shadow .18s,border-color .18s}
+.int-core:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(124,58,237,.10);border-color:#DDD6FE}
+.int-core-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.int-ico{width:36px;height:36px;border-radius:10px;background:var(--app-bg,#EDE9FE);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.int-core-name{font-size:13px;font-weight:850;color:var(--txt)}
+.int-core-desc{font-size:11px;color:var(--muted);line-height:1.4;margin-bottom:12px;min-height:46px}
+.int-badges{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px}
+.int-pill{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:3px 8px;font-size:10px;font-weight:850;border:1px solid var(--border);background:var(--bg);color:var(--muted)}
+.int-pill.on{background:#D1FAE5;color:#047857;border-color:#A7F3D0}
+.int-pill.off{background:#F3F4F6;color:#6B7280;border-color:#E5E7EB}
+.int-pill.warn{background:#FEF3C7;color:#92400E;border-color:#FDE68A}
+.int-core-actions{display:flex;gap:6px;flex-wrap:wrap}
+.int-mini-btn{height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--border);background:#fff;color:var(--txt);font-size:11px;font-weight:800;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s}
+.int-mini-btn:hover{border-color:var(--p2);color:var(--p2);background:var(--p-light)}
+.int-mini-btn.primary{background:var(--p2);border-color:var(--p2);color:#fff}
+.int-mini-btn.danger:hover{border-color:var(--red);background:#FEF2F2;color:var(--red)}
+.int-app-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;padding:14px}
+.int-app{border:1px solid var(--border);border-radius:14px;background:#fff;padding:14px;transition:all .16s;position:relative;overflow:hidden}
+.int-app:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.07);border-color:#DDD6FE}
+.int-app.connected{border-color:#A7F3D0;box-shadow:0 0 0 1px rgba(16,185,129,.08)}
+.int-app-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.int-app-logo{width:34px;height:34px;border-radius:10px;background:var(--app-bg,#F3F4F6);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.int-app-name{font-size:13px;font-weight:850;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.int-app-cat{font-size:10px;color:var(--muted);font-weight:700;margin-top:1px}
+.int-app-desc{font-size:11px;color:var(--muted);line-height:1.42;min-height:46px;margin-bottom:10px}
+.int-app-foot{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.int-switch{width:38px;height:21px;border-radius:999px;border:0;background:#D1D5DB;cursor:pointer;position:relative;transition:background .18s;flex-shrink:0}
+.int-switch:before{content:'';position:absolute;width:17px;height:17px;border-radius:50%;background:#fff;left:2px;top:2px;transition:transform .18s;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.int-switch.on{background:var(--p2)}
+.int-switch.on:before{transform:translateX(17px)}
+.int-side{display:flex;flex-direction:column;gap:16px}
+.int-flow{padding:14px}
+.int-flow-step{display:flex;gap:10px;padding:11px 0;border-bottom:1px solid #F0F0F8}
+.int-flow-step:last-child{border-bottom:0}
+.int-flow-num{width:24px;height:24px;border-radius:50%;background:var(--p-light);color:var(--p2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:850;flex-shrink:0}
+.int-flow-title{font-size:12px;font-weight:850;color:var(--txt);margin-bottom:2px}
+.int-flow-desc{font-size:11px;color:var(--muted);line-height:1.4}
+.int-log{max-height:280px;overflow:auto;padding:8px 14px 14px}
+.int-log-row{padding:8px 0;border-bottom:1px solid #F0F0F8;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.int-log-row:last-child{border-bottom:none}
+.int-log-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
+.int-empty{padding:34px 18px;text-align:center;color:var(--muted);font-size:12px}
+.int-empty-ico{font-size:30px;margin-bottom:7px}
+.int-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.int-secret-note{font-size:11px;color:var(--muted);background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;padding:10px 12px;line-height:1.45;margin-top:10px}
+.int-copy-box{display:flex;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:8px;margin-top:8px}
+.int-copy-box input{flex:1;border:0;background:transparent;outline:none;font-size:12px;color:var(--muted);font-family:monospace;min-width:0}
+@media(max-width:1120px){.int-layout{grid-template-columns:1fr}.int-core-grid{grid-template-columns:1fr 1fr}.int-stats{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:720px){.int-hero-in{flex-direction:column;align-items:flex-start}.int-core-grid,.int-stats,.int-form-grid{grid-template-columns:1fr}.int-toolbar{align-items:stretch}.int-search,.int-select{width:100%;min-width:0}}
+
 /* FORM / MODAL */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:none;align-items:center;justify-content:center;padding:16px}
 .overlay.open{display:flex}
@@ -1559,97 +1635,6 @@ function normalizeSupabaseProfile(profile={},authUser=null){
   };
 }
 
-
-// ─── Perfil Supabase robusto ─────────────────────────────────────────────
-// Corrige o erro "Perfil não encontrado" quando o usuário existe no Auth,
-// mas a leitura do profile falha por RLS, diferença de campos ou cache antigo.
-const GEX_FOUNDER_EMAILS=[
-  'evertondasilvagaldino@gmail.com',
-  'evertongaldinoads@gmail.com',
-  'evertongaldino@gmail.com'
-];
-
-function isProfileActive(profile={}){
-  const st=String(profile.status||profile.Status||'Ativo').trim().toLowerCase();
-  return !['inativo','inactive','bloqueado','bloqueada','desativado','desativada'].includes(st);
-}
-
-function buildFounderFallbackProfile(authUser){
-  const email=String(authUser?.email||'').toLowerCase();
-  if(!GEX_FOUNDER_EMAILS.includes(email))return null;
-  return {
-    id:authUser?.id||email,
-    nome:'Everton Galdino',
-    email,
-    permissao:'Fundador',
-    cargo:'Fundador',
-    status:'Ativo',
-    perm_overrides:{},
-    authProvider:'supabase',
-    _profileSource:'founder-fallback'
-  };
-}
-
-async function fetchSupabaseProfileSafe(authUser){
-  if(!supabaseClient||!authUser)return {profile:null,error:new Error('Supabase indisponível')};
-  const email=String(authUser.email||'').toLowerCase();
-  let lastError=null;
-
-  // 1) Busca principal: id do usuário autenticado
-  try{
-    const byId=await supabaseClient
-      .from('profiles')
-      .select('*')
-      .eq('id',authUser.id)
-      .maybeSingle();
-    if(byId?.data)return {profile:{...byId.data,_profileSource:'id'},error:null};
-    if(byId?.error){lastError=byId.error;console.warn('[GexFlow] Profile por ID não encontrado:',byId.error);}
-  }catch(e){lastError=e;console.warn('[GexFlow] Falha ao buscar profile por ID:',e);}
-
-  // 2) Busca alternativa: email
-  try{
-    const byEmail=await supabaseClient
-      .from('profiles')
-      .select('*')
-      .ilike('email',email)
-      .maybeSingle();
-    if(byEmail?.data)return {profile:{...byEmail.data,_profileSource:'email'},error:null};
-    if(byEmail?.error){lastError=byEmail.error;console.warn('[GexFlow] Profile por email não encontrado:',byEmail.error);}
-  }catch(e){lastError=e;console.warn('[GexFlow] Falha ao buscar profile por email:',e);}
-
-  // 3) Cache local, caso o profile já tenha sido baixado alguma vez
-  try{
-    const cached=(DB.get('usuarios')||[]).find(u=>String(u.email||'').toLowerCase()===email||u.supabaseId===authUser.id||u.id===authUser.id);
-    if(cached)return {profile:{...cached,id:authUser.id,email,_profileSource:'local-cache'},error:null};
-  }catch(e){}
-
-  // 4) Fallback controlado para o Fundador já existente no Auth
-  const founderFallback=buildFounderFallbackProfile(authUser);
-  if(founderFallback){
-    console.warn('[GexFlow] Usando fallback seguro do Fundador. Verifique RLS/policies se quiser remover este fallback.');
-    return {profile:founderFallback,error:null};
-  }
-
-  return {profile:null,error:lastError};
-}
-
-function setSupabaseSessionUser(profile,authUser){
-  const normalizedProfile=normalizeSupabaseProfile(profile,authUser);
-  upsertUsuarioCache(normalizedProfile);
-  sessionUser=mergeLocalUserProfile(normalizedProfile)||normalizedProfile;
-  localStorage.setItem('gx2_session',JSON.stringify({
-    id:sessionUser.id,
-    nome:sessionUser.nome,
-    email:sessionUser.email,
-    permissao:sessionUser.permissao,
-    cargo:sessionUser.cargo,
-    telefone:sessionUser.telefone||'',
-    avatarUrl:sessionUser.avatarUrl||'',
-    avatarBase64:sessionUser.avatarBase64||''
-  }));
-  return sessionUser;
-}
-
 function normalizeLocalUserForSupabaseCache(user={}){
   return {
     id:user.id||user.supabaseId||uid(),
@@ -2096,7 +2081,7 @@ function navigate(page){
     }
     return;
   }
-  ({inicio:renderInicio,rh:renderRH,usuarios:renderUsuarios,perfil:renderPerfil})[page]?.();
+  ({inicio:renderInicio,integracoes:renderIntegracoes,rh:renderRH,usuarios:renderUsuarios,perfil:renderPerfil})[page]?.();
 }
 
 // ═══ TOAST ═══
@@ -2238,6 +2223,368 @@ function renderWebhookLog(){
   const el=document.getElementById('wh-log');
   if(!log.length){el.innerHTML='<div style="color:var(--light);font-size:12px;text-align:center;padding:16px">Nenhum evento ainda</div>';return}
   el.innerHTML=log.map(e=>`<div class="wh-log-entry"><span class="ev">${e.event}</span> <span style="color:var(--light)">${e.ts}</span> → <span class="${e.status==='erro'?'err':'ok'}">${e.status}</span></div>`).join('');
+}
+
+
+// ═══ INTEGRAÇÕES HUB ═══
+const INTEGRATION_APPS=[
+  {id:'email_smtp',name:'E-mail SMTP',cat:'Essenciais',icon:'✉️',color:'#DBEAFE',desc:'Envio de e-mails pelo domínio da GEX ou do cliente usando SMTP.'},
+  {id:'google_calendar',name:'Google Agenda',cat:'Essenciais',icon:'📅',color:'#DCFCE7',desc:'Sincronize reuniões, follow-ups e lembretes comerciais com o Google Calendar.'},
+  {id:'webhook_api',name:'API & Webhooks',cat:'Essenciais',icon:'🔗',color:'#EDE9FE',desc:'Envie eventos do Gex Flow para automações externas e receba dados por API.'},
+  {id:'gmail',name:'Gmail / Workspace',cat:'Comunicação',icon:'📩',color:'#FEE2E2',desc:'Conecte caixas de entrada e envie mensagens usando Google Workspace.'},
+  {id:'whatsapp_business',name:'WhatsApp Business',cat:'Comunicação',icon:'💬',color:'#D1FAE5',desc:'Prepare integração com WhatsApp para follow-up, lembretes e atendimento.'},
+  {id:'meta_ads',name:'Meta Ads',cat:'Anúncios',icon:'📣',color:'#DBEAFE',desc:'Base para puxar campanhas, investimento, leads e CAC de Facebook/Instagram.'},
+  {id:'google_ads',name:'Google Ads',cat:'Anúncios',icon:'🎯',color:'#FEF3C7',desc:'Base para medir investimento, conversões e custo por lead no Google Ads.'},
+  {id:'google_sheets',name:'Google Sheets',cat:'Dados',icon:'📊',color:'#DCFCE7',desc:'Envie leads, tarefas e relatórios para planilhas de controle.'},
+  {id:'google_drive',name:'Google Drive',cat:'Arquivos',icon:'🗂️',color:'#E0F2FE',desc:'Organize contratos, propostas, criativos e entregáveis em pastas.'},
+  {id:'google_analytics',name:'Google Analytics',cat:'Dados',icon:'📈',color:'#FEF3C7',desc:'Base para consolidar dados de tráfego, site e conversões.'},
+  {id:'looker_studio',name:'Looker Studio',cat:'Dados',icon:'📉',color:'#EDE9FE',desc:'Prepare dados para dashboards externos e relatórios executivos.'},
+  {id:'make',name:'Make',cat:'Automação',icon:'⚙️',color:'#EDE9FE',desc:'Conecte o Gex Flow a cenários automáticos no Make.'},
+  {id:'zapier',name:'Zapier',cat:'Automação',icon:'⚡',color:'#FFF7ED',desc:'Automatize tarefas entre apps sem precisar desenvolver.'},
+  {id:'n8n',name:'n8n',cat:'Automação',icon:'🧩',color:'#FFE4E6',desc:'Integração para fluxos avançados, self-hosted ou cloud.'},
+  {id:'slack',name:'Slack',cat:'Comunicação',icon:'💼',color:'#F3E8FF',desc:'Envie avisos de novos leads, reuniões e tarefas para canais.'},
+  {id:'discord',name:'Discord',cat:'Comunicação',icon:'🎧',color:'#EEF2FF',desc:'Notifique times, squads e comunidades de projeto.'},
+  {id:'notion',name:'Notion',cat:'Produtividade',icon:'📝',color:'#F3F4F6',desc:'Sincronize bases de conhecimento, briefings e documentação.'},
+  {id:'trello',name:'Trello',cat:'Produtividade',icon:'📌',color:'#DBEAFE',desc:'Crie cards de tarefas a partir de oportunidades e projetos.'},
+  {id:'clickup',name:'ClickUp',cat:'Produtividade',icon:'✅',color:'#F3E8FF',desc:'Integre tarefas, responsáveis e prazos do time.'},
+  {id:'asana',name:'Asana',cat:'Produtividade',icon:'🔴',color:'#FEE2E2',desc:'Envie demandas e follow-ups para projetos operacionais.'},
+  {id:'pipedrive',name:'Pipedrive',cat:'Vendas',icon:'💰',color:'#DCFCE7',desc:'Base para importar/exportar negócios e atividades comerciais.'},
+  {id:'hubspot',name:'HubSpot',cat:'Vendas',icon:'🧲',color:'#FFF7ED',desc:'Sincronize contatos, empresas e pipeline quando necessário.'},
+  {id:'rd_station',name:'RD Station',cat:'Marketing',icon:'🚀',color:'#D1FAE5',desc:'Capture leads, origem e nutrição de marketing.'},
+  {id:'mailchimp',name:'Mailchimp',cat:'Marketing',icon:'🐵',color:'#FEF3C7',desc:'Envie contatos para listas, campanhas e automações de e-mail.'},
+  {id:'asaas',name:'Asaas',cat:'Financeiro',icon:'💳',color:'#DBEAFE',desc:'Base para cobranças, boletos, PIX e status financeiro.'},
+  {id:'stripe',name:'Stripe',cat:'Financeiro',icon:'💸',color:'#EDE9FE',desc:'Integração preparada para cobranças e assinaturas digitais.'}
+];
+
+function getIntegrationsStore(){
+  try{return JSON.parse(localStorage.getItem('gx2_integrations')||'{}')}catch{return{}}
+}
+function setIntegrationsStore(v){
+  localStorage.setItem('gx2_integrations',JSON.stringify(v||{}));
+}
+function getIntegration(id){
+  const all=getIntegrationsStore();
+  return all[id]||{id,connected:false,configured:false,config:{},updatedAt:null};
+}
+function saveIntegration(id,data){
+  const all=getIntegrationsStore();
+  all[id]={...(all[id]||{id}),...data,id,updatedAt:new Date().toISOString()};
+  setIntegrationsStore(all);
+  return all[id];
+}
+function addIntegrationLog(title,detail='',type='ok'){
+  const logs=JSON.parse(localStorage.getItem('gx2_integrations_log')||'[]');
+  logs.unshift({id:uid(),title,detail,type,ts:now()});
+  logs.splice(0,logs.length>30?logs.length-30:0);
+  localStorage.setItem('gx2_integrations_log',JSON.stringify(logs));
+}
+function integrationCategories(){
+  return ['Todos',...Array.from(new Set(INTEGRATION_APPS.map(a=>a.cat)))];
+}
+function integrationStatus(id){
+  const it=getIntegration(id);
+  if(it.connected)return {label:'Conectado',cls:'on',dot:'●'};
+  if(it.configured)return {label:'Configurado',cls:'warn',dot:'◐'};
+  return {label:'Desconectado',cls:'off',dot:'○'};
+}
+function renderIntegracoes(){
+  const page=document.getElementById('page-integracoes');
+  if(!page)return;
+  const store=getIntegrationsStore();
+  const total=INTEGRATION_APPS.length;
+  const connected=INTEGRATION_APPS.filter(a=>store[a.id]?.connected).length;
+  const configured=INTEGRATION_APPS.filter(a=>store[a.id]?.configured&&!store[a.id]?.connected).length;
+  const critical=['email_smtp','google_calendar','webhook_api'].filter(id=>store[id]?.connected||store[id]?.configured).length;
+  const cats=integrationCategories();
+  page.innerHTML=`
+    <div class="int-hero">
+      <div class="int-hero-in">
+        <div>
+          <div class="int-title">Central de Integrações</div>
+          <div class="int-sub">Conecte e prepare e-mail, Google Agenda, webhooks, anúncios, automações e aplicativos externos para transformar o Gex Flow em uma operação comercial integrada.</div>
+        </div>
+        <div class="int-hero-actions">
+          <button class="int-btn-outline" onclick="openIntegrationConfig('webhook_api')">🔗 API/Webhook</button>
+          <button class="int-btn-light" onclick="openIntegrationConfig('email_smtp')">✉️ Configurar e-mail</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="int-stats">
+      <div class="int-stat" style="--accent:#7C3AED"><div class="int-stat-lbl">Apps disponíveis</div><div class="int-stat-val">${total}</div><div class="int-stat-sub">Base pronta para evoluir</div></div>
+      <div class="int-stat" style="--accent:#10B981"><div class="int-stat-lbl">Conectadas</div><div class="int-stat-val">${connected}</div><div class="int-stat-sub">Integrações ativas</div></div>
+      <div class="int-stat" style="--accent:#F59E0B"><div class="int-stat-lbl">Configuradas</div><div class="int-stat-val">${configured}</div><div class="int-stat-sub">Aguardando conexão real</div></div>
+      <div class="int-stat" style="--accent:#3B82F6"><div class="int-stat-lbl">Essenciais</div><div class="int-stat-val">${critical}/3</div><div class="int-stat-sub">E-mail, Agenda e API</div></div>
+    </div>
+
+    <div class="int-toolbar">
+      <input class="int-search" id="int-search" placeholder="Pesquisar integração, app ou categoria..." oninput="renderIntegrationApps()">
+      <select class="int-select" id="int-cat" onchange="renderIntegrationApps()">${cats.map(c=>`<option value="${escAttr(c)}">${escHtml(c)}</option>`).join('')}</select>
+      <select class="int-select" id="int-status" onchange="renderIntegrationApps()">
+        <option value="todos">Todos os status</option>
+        <option value="connected">Conectadas</option>
+        <option value="configured">Configuradas</option>
+        <option value="off">Desconectadas</option>
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="renderIntegracoes()">Atualizar</button>
+    </div>
+
+    <div class="int-layout">
+      <div>
+        <div class="int-section-card">
+          <div class="int-sec-head">
+            <div><div class="int-sec-title">⚡ Integrações essenciais</div><div class="int-sec-sub">As primeiras conexões para o sistema começar a operar com agenda, e-mail e automações.</div></div>
+          </div>
+          <div class="int-core-grid" id="int-core-grid"></div>
+        </div>
+
+        <div class="int-section-card">
+          <div class="int-sec-head">
+            <div><div class="int-sec-title">🧩 Biblioteca de aplicativos</div><div class="int-sec-sub">Base completa para conectar ferramentas de marketing, vendas, financeiro e produtividade.</div></div>
+          </div>
+          <div class="int-app-grid" id="int-app-grid"></div>
+        </div>
+      </div>
+
+      <div class="int-side">
+        <div class="int-section-card">
+          <div class="int-sec-head"><div><div class="int-sec-title">🧠 Como usar</div><div class="int-sec-sub">Fluxo recomendado de implantação</div></div></div>
+          <div class="int-flow">
+            <div class="int-flow-step"><div class="int-flow-num">1</div><div><div class="int-flow-title">Configurar e-mail</div><div class="int-flow-desc">Defina SMTP/remetente para envio de propostas, follow-ups e avisos internos.</div></div></div>
+            <div class="int-flow-step"><div class="int-flow-num">2</div><div><div class="int-flow-title">Conectar Google Agenda</div><div class="int-flow-desc">Prepare reuniões e lembretes para serem sincronizados com o calendário.</div></div></div>
+            <div class="int-flow-step"><div class="int-flow-num">3</div><div><div class="int-flow-title">Ativar Webhooks</div><div class="int-flow-desc">Envie eventos do Gex Flow para Make, Zapier, n8n ou outra automação.</div></div></div>
+          </div>
+        </div>
+
+        <div class="int-section-card">
+          <div class="int-sec-head">
+            <div><div class="int-sec-title">📡 Eventos recentes</div><div class="int-sec-sub">Histórico das integrações</div></div>
+            <button class="int-mini-btn" onclick="clearIntegrationLog()">Limpar</button>
+          </div>
+          <div class="int-log" id="int-log"></div>
+        </div>
+
+        <div class="int-section-card">
+          <div class="int-sec-head"><div><div class="int-sec-title">🔐 Observação técnica</div><div class="int-sec-sub">Conexões reais com OAuth/API</div></div></div>
+          <div style="padding:14px;font-size:12px;color:var(--muted);line-height:1.55">
+            Esta tela deixa a base pronta no sistema. Conexões reais com Google, Meta, WhatsApp e apps externos precisam das credenciais de cada plataforma e, quando houver segredo de API, o ideal é usar Supabase Edge Functions para não expor chaves no navegador.
+          </div>
+        </div>
+      </div>
+    </div>`;
+  renderIntegrationCore();
+  renderIntegrationApps();
+  renderIntegrationLog();
+}
+
+function renderIntegrationCore(){
+  const el=document.getElementById('int-core-grid');
+  if(!el)return;
+  const coreIds=['email_smtp','google_calendar','webhook_api'];
+  el.innerHTML=coreIds.map(id=>{
+    const app=INTEGRATION_APPS.find(a=>a.id===id);
+    const st=integrationStatus(id);
+    const cfg=getIntegration(id);
+    return `<div class="int-core" style="--app-bg:${app.color}">
+      <div class="int-core-top">
+        <div class="int-ico" style="--app-bg:${app.color}">${app.icon}</div>
+        <div><div class="int-core-name">${app.name}</div><div style="font-size:10px;color:var(--muted);font-weight:700">${app.cat}</div></div>
+      </div>
+      <div class="int-core-desc">${app.desc}</div>
+      <div class="int-badges">
+        <span class="int-pill ${st.cls}">${st.dot} ${st.label}</span>
+        ${cfg.updatedAt?`<span class="int-pill">Atualizado ${new Date(cfg.updatedAt).toLocaleDateString('pt-BR')}</span>`:''}
+      </div>
+      <div class="int-core-actions">
+        <button class="int-mini-btn primary" onclick="openIntegrationConfig('${id}')">Configurar</button>
+        <button class="int-mini-btn" onclick="testIntegration('${id}')">Testar</button>
+        <button class="int-mini-btn danger" onclick="disconnectIntegration('${id}')">Desconectar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderIntegrationApps(){
+  const grid=document.getElementById('int-app-grid');
+  if(!grid)return;
+  const q=(document.getElementById('int-search')?.value||'').toLowerCase().trim();
+  const cat=document.getElementById('int-cat')?.value||'Todos';
+  const status=document.getElementById('int-status')?.value||'todos';
+  let apps=INTEGRATION_APPS.filter(a=>!['email_smtp','google_calendar','webhook_api'].includes(a.id));
+  apps=apps.filter(app=>{
+    const cfg=getIntegration(app.id);
+    const matchQ=!q||`${app.name} ${app.cat} ${app.desc}`.toLowerCase().includes(q);
+    const matchCat=cat==='Todos'||app.cat===cat;
+    const matchStatus=status==='todos'||(status==='connected'&&cfg.connected)||(status==='configured'&&cfg.configured&&!cfg.connected)||(status==='off'&&!cfg.connected&&!cfg.configured);
+    return matchQ&&matchCat&&matchStatus;
+  });
+  if(!apps.length){
+    grid.innerHTML=`<div class="int-empty" style="grid-column:1/-1"><div class="int-empty-ico">🔎</div>Nenhuma integração encontrada para esse filtro.</div>`;
+    return;
+  }
+  grid.innerHTML=apps.map(app=>{
+    const cfg=getIntegration(app.id);
+    const st=integrationStatus(app.id);
+    return `<div class="int-app ${cfg.connected?'connected':''}">
+      <div class="int-app-head">
+        <div class="int-app-logo" style="--app-bg:${app.color};background:${app.color}">${app.icon}</div>
+        <div style="min-width:0"><div class="int-app-name">${app.name}</div><div class="int-app-cat">${app.cat}</div></div>
+      </div>
+      <div class="int-app-desc">${app.desc}</div>
+      <div class="int-badges"><span class="int-pill ${st.cls}">${st.dot} ${st.label}</span></div>
+      <div class="int-app-foot">
+        <button class="int-mini-btn" onclick="openIntegrationConfig('${app.id}')">Configurar</button>
+        <button class="int-switch ${cfg.connected?'on':''}" title="${cfg.connected?'Desativar':'Ativar'}" onclick="toggleIntegration('${app.id}')"></button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function integrationConfigFields(id){
+  const cfg=getIntegration(id).config||{};
+  const app=INTEGRATION_APPS.find(a=>a.id===id)||{};
+  if(id==='email_smtp'){
+    return `<div class="int-form-grid">
+      <div class="form-group"><label class="form-label">Servidor SMTP</label><input class="form-input" id="int-host" value="${escAttr(cfg.host||'')}" placeholder="smtp.seudominio.com"></div>
+      <div class="form-group"><label class="form-label">Porta</label><input class="form-input" id="int-port" value="${escAttr(cfg.port||'587')}" placeholder="587"></div>
+      <div class="form-group"><label class="form-label">Usuário SMTP</label><input class="form-input" id="int-user" value="${escAttr(cfg.user||'')}" placeholder="email@seudominio.com"></div>
+      <div class="form-group"><label class="form-label">Senha / Token</label><input class="form-input" id="int-secret" type="password" value="${escAttr(cfg.secret||'')}" placeholder="••••••••"></div>
+      <div class="form-group"><label class="form-label">Nome do remetente</label><input class="form-input" id="int-from-name" value="${escAttr(cfg.fromName||'Gex Company')}" placeholder="Gex Company"></div>
+      <div class="form-group"><label class="form-label">E-mail remetente</label><input class="form-input" id="int-from-email" value="${escAttr(cfg.fromEmail||'')}" placeholder="comercial@seudominio.com"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Segurança</label><select class="form-input" id="int-secure"><option value="tls" ${cfg.secure!=='ssl'?'selected':''}>TLS / STARTTLS</option><option value="ssl" ${cfg.secure==='ssl'?'selected':''}>SSL</option></select></div>
+    <div class="int-secret-note">Para envio real de e-mails, o ideal é mandar pelo backend/Supabase Edge Function. Esta tela salva a configuração e prepara o fluxo sem expor chaves sensíveis no código público.</div>`;
+  }
+  if(id==='google_calendar'){
+    const redirect=(location.origin&&location.origin!=='null')?location.origin+location.pathname:'URL do sistema publicado';
+    return `<div class="int-form-grid">
+      <div class="form-group"><label class="form-label">Google Client ID</label><input class="form-input" id="int-client-id" value="${escAttr(cfg.clientId||'')}" placeholder="xxxxxxxx.apps.googleusercontent.com"></div>
+      <div class="form-group"><label class="form-label">Calendar ID</label><input class="form-input" id="int-calendar-id" value="${escAttr(cfg.calendarId||'primary')}" placeholder="primary"></div>
+      <div class="form-group"><label class="form-label">Fuso horário</label><input class="form-input" id="int-timezone" value="${escAttr(cfg.timezone||'America/Sao_Paulo')}"></div>
+      <div class="form-group"><label class="form-label">Sincronizar</label><select class="form-input" id="int-sync-mode"><option ${cfg.syncMode==='tarefas'?'selected':''} value="tarefas">Tarefas e reuniões</option><option ${cfg.syncMode==='reunioes'?'selected':''} value="reunioes">Somente reuniões</option><option ${cfg.syncMode==='tudo'?'selected':''} value="tudo">Tudo</option></select></div>
+    </div>
+    <div class="form-group"><label class="form-label">Redirect URI para Google Cloud</label><div class="int-copy-box"><input id="int-redirect" value="${escAttr(cfg.redirectUri||redirect)}" readonly><button class="int-mini-btn" onclick="copyIntegrationField('int-redirect')">Copiar</button></div></div>
+    <div class="int-secret-note">A conexão real com Google Agenda precisa de OAuth no Google Cloud. A configuração acima deixa o Gex Flow preparado para ativar a sincronização.</div>`;
+  }
+  if(id==='webhook_api'){
+    return `<div class="form-group"><label class="form-label">URL do Webhook</label><input class="form-input" id="int-webhook-url" value="${escAttr(cfg.url||localStorage.getItem('gx2_wh_url')||'')}" placeholder="https://hook.make.com/..."></div>
+    <div class="form-group"><label class="form-label">Chave API interna</label><div class="int-copy-box"><input id="int-api-key-field" value="${escAttr(cfg.apiKey||localStorage.getItem('gx2_api_key')||('gex_'+uid()))}" readonly><button class="int-mini-btn" onclick="copyIntegrationField('int-api-key-field')">Copiar</button></div></div>
+    <div class="form-group"><label class="form-label">Eventos para enviar</label><select class="form-input" id="int-events"><option ${cfg.events==='todos'?'selected':''} value="todos">Todos os eventos</option><option ${cfg.events==='comercial'?'selected':''} value="comercial">Somente Comercial</option><option ${cfg.events==='projetos'?'selected':''} value="projetos">Somente Projetos</option></select></div>
+    <div class="int-secret-note">Eventos já suportados: lead criado, lead movido, cliente criado, tarefa criada, teste de webhook e atualizações comerciais.</div>`;
+  }
+  return `<div class="form-group"><label class="form-label">Conta / Workspace</label><input class="form-input" id="int-account" value="${escAttr(cfg.account||'')}" placeholder="Nome da conta, workspace ou empresa"></div>
+  <div class="form-group"><label class="form-label">URL / ID da integração</label><input class="form-input" id="int-url" value="${escAttr(cfg.url||'')}" placeholder="URL, ID, endpoint ou workspace"></div>
+  <div class="form-group"><label class="form-label">API Key / Token</label><input class="form-input" id="int-token" type="password" value="${escAttr(cfg.token||'')}" placeholder="Opcional"></div>
+  <div class="form-group"><label class="form-label">Observações</label><textarea class="form-input" id="int-notes" placeholder="Como essa integração será usada na operação...">${escHtml(cfg.notes||'')}</textarea></div>
+  <div class="int-secret-note">Para ${escHtml(app.name||'esta integração')}, salve os dados de conexão aqui. Em produção, tokens sensíveis devem ir para Supabase Secrets/Edge Functions.</div>`;
+}
+
+function openIntegrationConfig(id){
+  const app=INTEGRATION_APPS.find(a=>a.id===id);
+  if(!app)return;
+  document.getElementById('modal-title').textContent=`${app.icon} ${app.name}`;
+  document.getElementById('modal-box').className='modal modal-lg';
+  document.getElementById('modal-body').innerHTML=`
+    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:14px">
+      <div class="int-ico" style="--app-bg:${app.color};background:${app.color}">${app.icon}</div>
+      <div>
+        <div style="font-size:13px;font-weight:800;color:var(--txt);margin-bottom:3px">${app.name}</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.45">${app.desc}</div>
+      </div>
+    </div>
+    ${integrationConfigFields(id)}`;
+  document.getElementById('modal-footer').innerHTML=`
+    <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-ghost" onclick="testIntegration('${id}')">Testar</button>
+    <button class="btn btn-primary" onclick="saveIntegrationConfig('${id}')">Salvar integração</button>`;
+  document.getElementById('modal-ov').classList.add('open');
+}
+
+function saveIntegrationConfig(id){
+  let config={};
+  if(id==='email_smtp'){
+    config={host:v('int-host'),port:v('int-port'),user:v('int-user'),secret:v('int-secret'),fromName:v('int-from-name'),fromEmail:v('int-from-email'),secure:v('int-secure')};
+    if(!config.host||!config.fromEmail){toast('Informe SMTP e e-mail remetente','#EF4444');return}
+  }else if(id==='google_calendar'){
+    config={clientId:v('int-client-id'),calendarId:v('int-calendar-id')||'primary',timezone:v('int-timezone')||'America/Sao_Paulo',syncMode:v('int-sync-mode'),redirectUri:v('int-redirect')};
+    if(!config.clientId){toast('Informe o Google Client ID','#EF4444');return}
+  }else if(id==='webhook_api'){
+    config={url:v('int-webhook-url'),apiKey:v('int-api-key-field'),events:v('int-events')||'todos'};
+    localStorage.setItem('gx2_wh_url',config.url||'');
+    localStorage.setItem('gx2_api_key',config.apiKey||'');
+    document.getElementById('wh-indicator')?.classList.toggle('active',!!config.url);
+    if(!config.url){toast('Informe a URL do webhook','#EF4444');return}
+  }else{
+    config={account:v('int-account'),url:v('int-url'),token:v('int-token'),notes:v('int-notes')};
+    if(!config.account&&!config.url&&!config.token){toast('Preencha pelo menos um dado de conexão','#EF4444');return}
+  }
+  saveIntegration(id,{configured:true,connected:true,config});
+  const app=INTEGRATION_APPS.find(a=>a.id===id);
+  addIntegrationLog(`${app?.name||id} conectado`,`Configuração salva pelo usuário ${sessionUser?.nome||'atual'}`,'ok');
+  closeModal();
+  renderIntegracoes();
+  toast('Integração salva e ativada ✓','#10B981');
+}
+
+function toggleIntegration(id){
+  const app=INTEGRATION_APPS.find(a=>a.id===id);
+  const cfg=getIntegration(id);
+  const next=!cfg.connected;
+  saveIntegration(id,{connected:next,configured:cfg.configured||next});
+  addIntegrationLog(`${app?.name||id} ${next?'ativado':'desativado'}`,'Alteração manual na central de integrações',next?'ok':'warn');
+  renderIntegracoes();
+  toast(next?'Integração ativada ✓':'Integração desativada','#7C3AED');
+}
+
+function disconnectIntegration(id){
+  const app=INTEGRATION_APPS.find(a=>a.id===id);
+  saveIntegration(id,{connected:false,configured:false,config:{}});
+  if(id==='webhook_api'){
+    localStorage.removeItem('gx2_wh_url');
+    document.getElementById('wh-indicator')?.classList.remove('active');
+  }
+  addIntegrationLog(`${app?.name||id} desconectado`,'Configuração removida','warn');
+  renderIntegracoes();
+  toast('Integração desconectada','#EF4444');
+}
+
+function testIntegration(id){
+  const app=INTEGRATION_APPS.find(a=>a.id===id);
+  const cfg=getIntegration(id);
+  if(id==='webhook_api'||id==='make'||id==='zapier'||id==='n8n'){
+    const url=(cfg.config&&cfg.config.url)||localStorage.getItem('gx2_wh_url')||'';
+    if(!url){toast('Configure a URL do webhook antes de testar','#EF4444');return}
+    fireWebhook('integracao.teste',{app:app?.name||id,user:sessionUser?.email||''});
+  }
+  addIntegrationLog(`Teste enviado: ${app?.name||id}`,'Validação manual iniciada na interface','ok');
+  renderIntegrationLog();
+  toast('Teste registrado ✓','#10B981');
+}
+
+function copyIntegrationField(fieldId){
+  const el=document.getElementById(fieldId);
+  if(!el)return;
+  navigator.clipboard?.writeText(el.value).then(()=>toast('Copiado ✓','#10B981')).catch(()=>toast('Copie manualmente'));
+}
+
+function clearIntegrationLog(){
+  localStorage.removeItem('gx2_integrations_log');
+  renderIntegrationLog();
+  toast('Histórico limpo','#7C3AED');
+}
+
+function renderIntegrationLog(){
+  const el=document.getElementById('int-log');
+  if(!el)return;
+  const logs=JSON.parse(localStorage.getItem('gx2_integrations_log')||'[]');
+  if(!logs.length){
+    el.innerHTML=`<div class="int-empty"><div class="int-empty-ico">📡</div>Nenhum evento de integração ainda.</div>`;
+    return;
+  }
+  el.innerHTML=logs.map(l=>`<div class="int-log-row">
+    <span class="int-log-dot" style="background:${l.type==='warn'?'#F59E0B':l.type==='err'?'#EF4444':'#10B981'}"></span>
+    <div style="flex:1"><div style="font-weight:800;color:var(--txt)">${escHtml(l.title)}</div><div>${escHtml(l.detail||'')} • ${escHtml(l.ts)}</div></div>
+  </div>`).join('');
 }
 
 // ═══ MODAL ═══
@@ -7122,23 +7469,31 @@ async function doLogin(){
       return;
     }
 
-    // Buscar perfil do usuário com fallback por ID, email, cache e Fundador
-    const {profile,error:profileErr}=await fetchSupabaseProfileSafe(data.user);
+    // Buscar perfil do usuário
+    const profCall=supabaseClient.from('profiles').select('*').eq('id',data.user.id).single();
+    const profTimeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('TIMEOUT')),8000));
+    const {data:profile,error:perr}=await Promise.race([profCall,profTimeout]);
 
-    if(!profile){
-      console.error('[GexFlow] Perfil Supabase não encontrado para:',data.user?.id,data.user?.email,profileErr);
-      loginErr('Perfil não encontrado. Confira se existe uma linha em public.profiles com o mesmo id/email do usuário.');
+    if(perr||!profile){
+      loginErr('Perfil não encontrado. Contate o administrador.');
       try{await supabaseClient.auth.signOut();}catch(e){}
       return;
     }
-    if(!isProfileActive(profile)){
+    if((profile.status||'Ativo')!=='Ativo'){
       loginErr('Usuário inativo. Contate o administrador.');
       try{await supabaseClient.auth.signOut();}catch(e){}
       return;
     }
 
-    setSupabaseSessionUser(profile,data.user);
-    console.log('[GexFlow] ✅ Login bem-sucedido:',sessionUser.nome,'Fonte profile:',profile._profileSource||'profiles');
+    const normalizedProfile=normalizeSupabaseProfile(profile,data.user);
+    upsertUsuarioCache(normalizedProfile);
+    sessionUser=mergeLocalUserProfile(normalizedProfile)||normalizedProfile;
+    localStorage.setItem('gx2_session',JSON.stringify({
+      id:sessionUser.id,nome:sessionUser.nome,email:sessionUser.email,
+      permissao:sessionUser.permissao,cargo:sessionUser.cargo,
+      telefone:sessionUser.telefone||'',avatarUrl:sessionUser.avatarUrl||'',avatarBase64:sessionUser.avatarBase64||''
+    }));
+    console.log('[GexFlow] ✅ Login bem-sucedido:',sessionUser.nome);
     _onLoginSuccess(btn);
 
   }catch(err){
@@ -7216,18 +7571,22 @@ async function checkSession(){
       const sessionTimeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),2000));
       const {data:{session},error}=await Promise.race([supabaseClient.auth.getSession(),sessionTimeout]);
       if(!error&&session){
-        const profTimeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),4000));
-        const profCall=fetchSupabaseProfileSafe(session.user);
-        const {profile,error:perr}=await Promise.race([profCall,profTimeout]);
-        if(profile&&isProfileActive(profile)){
-          setSupabaseSessionUser(profile,session.user);
+        const profTimeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),2000));
+        const profCall=supabaseClient.from('profiles').select('*').eq('id',session.user.id).single();
+        const {data:profile,error:perr}=await Promise.race([profCall,profTimeout]);
+        if(!perr&&profile&&(profile.status||'Ativo')==='Ativo'){
+          sessionUser=mergeLocalUserProfile({id:session.user.id,email:session.user.email,...profile})||{id:session.user.id,email:session.user.email,...profile};
+          localStorage.setItem('gx2_session',JSON.stringify({
+            id:sessionUser.id,nome:sessionUser.nome,email:sessionUser.email,
+            permissao:sessionUser.permissao,cargo:sessionUser.cargo,
+            telefone:sessionUser.telefone||'',avatarUrl:sessionUser.avatarUrl||'',avatarBase64:sessionUser.avatarBase64||''
+          }));
           document.getElementById('login-screen').style.display='none';
           applySession();
-          console.log('[GexFlow] ✅ Sessão Supabase restaurada:',sessionUser.nome,'Fonte profile:',profile._profileSource||'profiles');
+          console.log('[GexFlow] ✅ Sessão Supabase restaurada:',sessionUser.nome);
           return true;
         }
-        if(profile&&!isProfileActive(profile)) try{await supabaseClient.auth.signOut();}catch(e){}
-        if(perr) console.warn('[GexFlow] Não foi possível restaurar profile Supabase:',perr);
+        if(!perr&&profile) try{await supabaseClient.auth.signOut();}catch(e){}
       }
     }catch(err){
       console.warn('[GexFlow] checkSession Supabase indisponível (timeout/CSP):',err.message);
