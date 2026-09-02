@@ -1842,7 +1842,7 @@ textarea.form-input{resize:vertical;min-height:75px}
     </div>
   </nav>
   <div class="sb-bottom">
-    <div class="sb-row"><span class="sb-lbl" style="cursor:pointer">Suporte</span><span style="font-size:9px;color:rgba(255,255,255,.2)">v3.0</span></div>
+    <div class="sb-row"><span class="sb-lbl" style="cursor:pointer">Suporte</span><span style="font-size:9px;color:rgba(255,255,255,.2)">v3.1 Connect</span></div>
   </div>
 </aside>
 
@@ -3276,7 +3276,8 @@ const GEX_CLOUD_TABLE = 'gex_records';
 const GEX_DB_COLLECTIONS = [
   'clientes','projetos','leads','transacoes','squads','membros','conteudos',
   'fornecedores','creators','onboarding','atividades','followups','tarefas_cli','contratos',
-  'com_tasks','esquemas','commercial_funnels','produtos_comercial'
+  'com_tasks','esquemas','commercial_funnels','produtos_comercial',
+  'tracking_links','integration_events'
 ];
 const GEX_KV_EXCLUDED = new Set([
   'gx2_session','gx2_seeded','gx2_tasks_seeded','gx2_cloud_backfilled_v1'
@@ -13125,18 +13126,17 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
       icon:'💬',
       category:'Comunicação',
       accent:'#22C55E',
-      auth:'WhatsApp Business API',
-      primary:'Conectar WhatsApp',
-      provider:'Meta Cloud API / Z-API / 360Dialog / Twilio',
-      description:'Follow-up, cobrança, atendimento e mensagens comerciais pelo WhatsApp.',
-      statusText:'Conecte a conta oficial ou provedor WhatsApp.',
+      auth:'WhatsApp Embedded Signup',
+      primary:'Conectar com WhatsApp',
+      provider:'Meta WhatsApp Cloud API',
+      description:'Follow-up, cobrança, atendimento e mensagens comerciais pelo WhatsApp oficial.',
+      statusText:'Conecte o portfólio empresarial e escolha o número oficial do WhatsApp.',
       fields:[
-        {key:'providerName', label:'Provedor', placeholder:'Meta Cloud API, Z-API, 360Dialog...'},
-        {key:'phoneNumberId', label:'Phone Number ID / Instância', placeholder:'ID do número ou instância'},
-        {key:'apiKey', label:'Token de acesso', placeholder:'Cole o token do provedor', secret:true}
+        {key:'businessName', label:'Portfólio empresarial', placeholder:'Selecionado após a autorização'},
+        {key:'phoneNumberId', label:'Phone Number ID', placeholder:'Selecionado após a autorização'}
       ],
-      scopes:['whatsapp.send','whatsapp.templates','whatsapp.webhook'],
-      oauth:'api_key'
+      scopes:['whatsapp_business_management','whatsapp_business_messaging','business_management'],
+      oauth:'whatsapp'
     },
     {
       id:'make',
@@ -13407,10 +13407,10 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
           <div class="native-api-card">
             <label>Chave de segurança</label>
             <div class="native-copy-row">
-              <code>${esc(apiKey)}</code>
+              <code>${esc(safeSecret(apiKey))}</code>
               <button onclick="copyNativeValue('${attr(apiKey)}')">Copiar</button>
             </div>
-            <small>Entrada: envie no header <b>x-gex-key</b>. Saída: use para validar chamadas autorizadas.</small>
+            <small>Entrada: envie no header <b>x-gex-key</b>. A chave completa é copiada sem ser exposta na tela.</small>
           </div>
         </div>
 
@@ -13430,7 +13430,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
   "entrada_webhook": {
     "event": "lead.created",
     "source": "external_app",
-    "apiKey": "${esc(apiKey)}",
+    "apiKey": "${esc(safeSecret(apiKey))}",
     "data": {
       "name": "Cliente Exemplo",
       "email": "cliente@email.com",
@@ -13718,7 +13718,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
     if(!app) return;
     const cfg = getNativeConfig(id);
 
-    if(['meta','google_ads','google_calendar','stripe'].includes(app.oauth)){
+    if(['meta','google_ads','google_calendar','whatsapp','stripe'].includes(app.oauth)){
       const started = await startOAuthProvider(app);
       if(started){
         saveNativeConfig(id, {
@@ -14969,6 +14969,87 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   }else{
     bootFixes();
   }
+})();
+</script>
+
+<!-- ═══ GEX FLOW v3.1 CONNECT — TRACKING E MONITORAMENTO ═══ -->
+<style id="gex-connect-v31-css">
+.gxc-tabs{display:flex;gap:5px;padding:5px;background:#ECEAF5;border:1px solid var(--border);border-radius:13px;margin:-4px 0 16px;width:max-content;max-width:100%;overflow:auto}
+.gxc-tab{border:0;background:transparent;color:var(--muted);padding:9px 16px;border-radius:9px;font:750 12px 'Inter',sans-serif;cursor:pointer;white-space:nowrap;transition:all .15s}
+.gxc-tab:hover{color:var(--p2)}.gxc-tab.active{background:#fff;color:var(--p2);box-shadow:0 3px 10px rgba(28,18,66,.08)}
+.gxc-panel{display:none}.gxc-panel.active{display:block}
+.gxc-track-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:14px}
+.gxc-card{background:#fff;border:1px solid var(--border);border-radius:18px;padding:20px;box-shadow:0 6px 22px rgba(28,18,66,.04)}
+.gxc-card-head{margin-bottom:16px}.gxc-card-title{font-size:16px;font-weight:850;color:var(--txt)}.gxc-card-sub{font-size:12px;color:var(--muted);line-height:1.45;margin-top:4px}
+.gxc-form-row{display:grid;grid-template-columns:1fr 1fr;gap:11px}.gxc-field{display:block;margin-bottom:12px}.gxc-field span{display:block;font-size:11px;font-weight:800;color:var(--muted);margin-bottom:5px}.gxc-field input{width:100%;height:40px;border:1.5px solid var(--border);border-radius:10px;background:#fff;padding:0 12px;font:12px 'Inter',sans-serif;color:var(--txt);outline:none}.gxc-field input:focus{border-color:var(--p2);box-shadow:0 0 0 3px rgba(124,58,237,.10)}
+.gxc-primary{border:1px solid var(--p2);background:var(--p2);color:#fff;border-radius:10px;padding:10px 15px;font:800 12px 'Inter',sans-serif;cursor:pointer}.gxc-primary:hover{background:#6D28D9}
+.gxc-link{padding:11px 0;border-bottom:1px solid var(--border)}.gxc-link:last-child{border-bottom:0}.gxc-link-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}.gxc-link-name{font-size:12px;font-weight:800;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.gxc-link-date{font-size:10px;color:var(--light);white-space:nowrap}.gxc-code{font:10.5px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);background:#F8F7FC;border:1px solid var(--border);border-radius:9px;padding:9px;word-break:break-all}.gxc-copy{margin-top:6px;border:1px solid var(--border);background:#fff;color:var(--p2);border-radius:8px;padding:6px 9px;font:750 10px 'Inter',sans-serif;cursor:pointer}
+.gxc-empty{text-align:center;padding:34px 14px;color:var(--muted);font-size:12px}.gxc-empty b{display:block;color:var(--txt);font-size:13px;margin:7px 0 3px}.gxc-empty-ico{font-size:28px}
+.gxc-monitor-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px;margin-bottom:14px}.gxc-metric{background:#fff;border:1px solid var(--border);border-radius:14px;padding:15px}.gxc-metric span{display:block;font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}.gxc-metric b{display:block;font-size:22px;color:var(--txt);margin-top:7px}.gxc-metric small{font-size:10px;color:var(--light)}
+.gxc-security{display:flex;gap:9px;background:#FFFBEB;border:1px solid #FDE68A;color:#92400E;border-radius:12px;padding:11px 13px;font-size:11px;line-height:1.45;margin-bottom:14px}
+@media(max-width:900px){.gxc-track-grid{grid-template-columns:1fr}.gxc-monitor-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.gxc-form-row,.gxc-monitor-grid{grid-template-columns:1fr}.gxc-tabs{width:100%}}
+</style>
+<script id="gex-connect-v31-script">
+(function(){
+  let activeTab='connections';
+  const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const baseRender=window.renderIntegracoes;
+  if(typeof baseRender!=='function')return;
+
+  function trackingLinks(){try{return DB.get('tracking_links')||[]}catch(e){return[]}}
+  function trackingEvents(){try{return DB.get('integration_events')||[]}catch(e){return[]}}
+  function nativeLogs(){try{return JSON.parse(localStorage.getItem('gx2_native_integration_logs')||'[]')||[]}catch(e){return[]}}
+
+  function addEvent(event,status='success',detail=''){
+    try{DB.push('integration_events',{id:uid(),event,status,detail,provider:'GEX Tracking',createdAt:new Date().toISOString()})}catch(e){}
+  }
+
+  function trackingHtml(){
+    const links=trackingLinks();
+    return `<div class="gxc-security"><span>🔒</span><div>O tracking salva apenas parâmetros de atribuição. Tokens de Meta, Google e WhatsApp continuam protegidos nas funções seguras do Supabase.</div></div>
+      <div class="gxc-track-grid">
+        <div class="gxc-card"><div class="gxc-card-head"><div class="gxc-card-title">Criar link rastreável</div><div class="gxc-card-sub">Identifique campanha, origem, mídia e criativo de cada lead.</div></div>
+          <label class="gxc-field"><span>URL de destino</span><input id="gxc-url" placeholder="https://seusite.com.br/pagina"></label>
+          <div class="gxc-form-row"><label class="gxc-field"><span>Origem</span><input id="gxc-source" placeholder="meta"></label><label class="gxc-field"><span>Mídia</span><input id="gxc-medium" placeholder="paid_social"></label></div>
+          <div class="gxc-form-row"><label class="gxc-field"><span>Campanha</span><input id="gxc-campaign" placeholder="nome_da_campanha"></label><label class="gxc-field"><span>Criativo</span><input id="gxc-content" placeholder="nome_do_criativo"></label></div>
+          <button class="gxc-primary" onclick="gexCreateTrackingLink()">Gerar link rastreável</button>
+        </div>
+        <div class="gxc-card"><div class="gxc-card-head"><div class="gxc-card-title">Links recentes</div><div class="gxc-card-sub">Sincronizados entre os usuários pelo Supabase.</div></div>
+          ${links.length?links.slice(0,10).map(x=>`<div class="gxc-link"><div class="gxc-link-top"><div class="gxc-link-name">${esc(x.campaign||'Sem campanha')}</div><div class="gxc-link-date">${x.createdAt?new Date(x.createdAt).toLocaleDateString('pt-BR'):''}</div></div><div class="gxc-code">${esc(x.url)}</div><button class="gxc-copy" onclick="gexCopyTrackingLink('${esc(x.id)}')">Copiar link</button></div>`).join(''):`<div class="gxc-empty"><div class="gxc-empty-ico">↗</div><b>Nenhum link criado</b>Os links rastreáveis aparecerão aqui.</div>`}
+        </div>
+      </div>`;
+  }
+
+  function monitorHtml(){
+    const logs=nativeLogs(),events=trackingEvents(),all=[...events,...logs];
+    const errors=all.filter(x=>x.status==='error'||x.type==='error').length;
+    const last=all.map(x=>x.createdAt||x.at||'').filter(Boolean).sort().reverse()[0];
+    return `<div class="gxc-monitor-grid"><div class="gxc-metric"><span>Eventos</span><b>${all.length}</b><small>integrações e tracking</small></div><div class="gxc-metric"><span>Links rastreados</span><b>${trackingLinks().length}</b><small>campanhas identificadas</small></div><div class="gxc-metric"><span>Erros</span><b style="color:${errors?'#DC2626':'#059669'}">${errors}</b><small>requerem atenção</small></div><div class="gxc-metric"><span>Última atividade</span><b style="font-size:13px">${last?new Date(last).toLocaleString('pt-BR'):'—'}</b><small>horário local</small></div></div>`;
+  }
+
+  function decorate(){
+    const page=document.getElementById('page-integracoes');if(!page)return;
+    const hero=page.querySelector('.native-hero');if(!hero)return;
+    const tabs=document.createElement('div');tabs.className='gxc-tabs';tabs.innerHTML=[['connections','Conexões'],['monitor','Monitoramento'],['tracking','Tracking'],['api','API e Webhooks']].map(([id,label])=>`<button class="gxc-tab ${activeTab===id?'active':''}" onclick="gexConnectTab('${id}')">${label}</button>`).join('');hero.insertAdjacentElement('afterend',tabs);
+    const stats=page.querySelector('.native-stats'),toolbar=page.querySelector('.native-toolbar'),apps=page.querySelector('#native-app-grid')?.closest('section'),api=page.querySelector('.native-api-panel'),logs=page.querySelector('.native-log-panel'),anchor=document.getElementById('gex-api-anchor');
+    [stats,toolbar,apps,api,logs,anchor].forEach(el=>{if(el)el.style.display='none'});
+    const custom=document.createElement('div');custom.className='gxc-panel active';tabs.insertAdjacentElement('afterend',custom);
+    if(activeTab==='connections'){[stats,toolbar,apps].forEach(el=>{if(el)el.style.display=''});custom.remove()}
+    else if(activeTab==='monitor'){if(stats)stats.style.display='';if(logs)logs.style.display='';custom.innerHTML=monitorHtml()}
+    else if(activeTab==='tracking'){custom.innerHTML=trackingHtml()}
+    else{if(api)api.style.display='';custom.remove()}
+  }
+
+  window.renderIntegracoes=function(){baseRender();decorate()};
+  window.gexConnectTab=function(tab){activeTab=tab;window.renderIntegracoes()};
+  window.gexCreateTrackingLink=function(){
+    const get=id=>document.getElementById(id)?.value?.trim()||'';const raw=get('gxc-url');if(!raw){toast('Informe a URL de destino','#EF4444');return}
+    try{const url=new URL(raw);const data={utm_source:get('gxc-source'),utm_medium:get('gxc-medium'),utm_campaign:get('gxc-campaign'),utm_content:get('gxc-content')};Object.entries(data).forEach(([k,v])=>{if(v)url.searchParams.set(k,v)});url.searchParams.set('gex_tid',uid());const item={id:uid(),url:url.toString(),campaign:data.utm_campaign,source:data.utm_source,medium:data.utm_medium,content:data.utm_content,createdAt:new Date().toISOString(),createdBy:sessionUser?.id||''};DB.push('tracking_links',item);addEvent('Link de tracking criado','success',data.utm_campaign||url.hostname);window.renderIntegracoes();toast('Link rastreável criado ✓','#10B981')}catch(e){toast('Digite uma URL completa e válida','#EF4444')}
+  };
+  window.gexCopyTrackingLink=function(id){const item=trackingLinks().find(x=>String(x.id)===String(id));if(!item)return;navigator.clipboard.writeText(item.url).then(()=>toast('Link copiado ✓','#10B981')).catch(()=>toast('Não foi possível copiar','#F59E0B'))};
+
+  const page=document.getElementById('page-integracoes');if(page&&page.classList.contains('active'))window.renderIntegracoes();
 })();
 </script>
 
