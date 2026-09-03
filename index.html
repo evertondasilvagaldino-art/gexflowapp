@@ -1990,6 +1990,8 @@ textarea.form-input{resize:vertical;min-height:75px}
       <div style="display:flex;gap:8px" id="comercial-header-actions">
         <button class="btn btn-ghost" onclick="openProdutosModal()">📦 Produtos</button>
         <button class="btn btn-ghost" onclick="openStagesModal()">Etapas</button>
+        <button class="btn btn-ghost" onclick="gxExportLeadsCSV()">⬇️ Exportar</button>
+        <button class="btn btn-ghost" onclick="openImportLeadsModal()">⬆️ Importar</button>
       </div>
     </div>
     <!-- Tarefas do Dia — aba própria -->
@@ -2257,6 +2259,28 @@ textarea.form-input{resize:vertical;min-height:75px}
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="resetProdutos()">↺ Restaurar padrão</button>
       <button class="btn btn-primary" onclick="saveProdutos()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORTAR LEADS MODAL -->
+<div class="overlay" id="import-leads-ov" onclick="if(event.target===this)closeImportLeadsModal()">
+  <div class="modal" onclick="event.stopPropagation()" style="max-width:640px">
+    <div class="modal-header">
+      <div class="modal-title">⬆️ Importar Leads (CSV)</div>
+      <button class="modal-close" onclick="closeImportLeadsModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">
+        Envie um arquivo CSV com seus leads. A primeira linha deve ter os nomes das colunas — a ordem não importa, e você pode exportar seus leads atuais primeiro pra usar como modelo.
+        <br><br>Colunas reconhecidas: <b>Nome</b> (obrigatório), Empresa, Email, Telefone, Valor, Estágio, Origem, Descrição, Produto, Data início, Previsão fechamento.
+      </div>
+      <input type="file" id="import-leads-file" accept=".csv" class="form-input" style="padding:8px" onchange="handleImportLeadsFile(this)">
+      <div id="import-leads-preview" style="margin-top:14px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeImportLeadsModal()">Cancelar</button>
+      <button class="btn btn-primary" id="import-leads-confirm" onclick="confirmImportLeadsCSV()" disabled>Importar leads</button>
     </div>
   </div>
 </div>
@@ -5713,6 +5737,9 @@ async function saveModal(type,id=''){
       const prodCustom=v('f-produto-custom');
       const produto=prodSel==='__outro__'?prodCustom:(prodSel||'');
       const oldLead=id?DB.find('leads',id):null;
+      const origemSel=v('f-origem');
+      const origemCustom=v('f-origem-custom');
+      const origem=origemSel==='__outro__'?origemCustom:origemSel;
       const activeFunnel=getActiveFunnel();
       const selectedStageValue=v('f-estagio');
       const selectedStage=(activeFunnel?.stages||[]).find(s=>s.id===selectedStageValue)
@@ -5743,6 +5770,7 @@ async function saveModal(type,id=''){
         assignedToEmail:ownerPick.email||'',
         dataInicio:v('f-data-inicio')||today,
         dataFechamento:v('f-data-fecha'),
+        origem:origem||oldLead?.origem||'',
         desc:v('f-desc')
       };
       if(!obj.nome){toast('Nome obrigatório','#EF4444');return}
@@ -5947,14 +5975,31 @@ function formLead(d){
     <div class="form-group"><label class="form-label">Data início <span style="font-size:10px;color:var(--muted)">(auto)</span></label><input class="form-input" id="f-data-inicio" type="date" value="${d?.dataInicio||new Date().toISOString().slice(0,10)}"></div>
     <div class="form-group"><label class="form-label">Previsão fechamento</label><input class="form-input" id="f-data-fecha" type="date" value="${d?.dataFechamento||''}"></div>
   </div>
-  <div class="form-group"><label class="form-label">Descrição / Observações</label><textarea class="form-input" id="f-desc" rows="2">${d?.desc||''}</textarea></div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Origem do lead</label>
+      <select class="form-input" id="f-origem">
+        <option value="">— Selecione —</option>
+        ${LEAD_ORIGENS.map(o=>`<option ${d?.origem===o?'selected':''}>${o}</option>`).join('')}
+        <option value="__outro__" ${d?.origem&&!LEAD_ORIGENS.includes(d.origem)?'selected':''}>+ Outra (digitar)</option>
+      </select></div>
+    <div class="form-group" id="f-origem-custom-wrap" style="display:${d?.origem&&!LEAD_ORIGENS.includes(d.origem)?'':'none'}">
+      <label class="form-label">Origem personalizada</label>
+      <input class="form-input" id="f-origem-custom" placeholder="Ex.: Indicação de cliente" value="${d?.origem&&!LEAD_ORIGENS.includes(d.origem)?d.origem:''}">
+    </div>
+  </div>
+  <div class="form-group"><label class="form-label">Descrição / Observações</label><textarea class="form-input" id="f-desc" rows="2">${escHtml(d?.desc||'')}</textarea></div>
   <script>
     document.getElementById('f-produto').addEventListener('change',function(){
       const wrap=document.getElementById('f-produto-custom-wrap');
       if(wrap) wrap.style.display=this.value==='__outro__'?'':'none';
     });
+    document.getElementById('f-origem').addEventListener('change',function(){
+      const wrap=document.getElementById('f-origem-custom-wrap');
+      if(wrap) wrap.style.display=this.value==='__outro__'?'':'none';
+    });
   <\/script>`;
 }
+const LEAD_ORIGENS=['Formulário do site','Meta Ads','Google Ads','Indicação','WhatsApp','Instagram','Site institucional','Prospecção ativa'];
 
 function formTransacao(d){
   const cats=['Mensalidade','Projeto','Software','Pessoal','Marketing','Ads / Tráfego Pago','Infraestrutura','Outros'];
@@ -10738,6 +10783,158 @@ function resetProdutos(){
   toast('Lista restaurada','#7C3AED');
 }
 
+/* ── Exportar / Importar Leads (CSV) ── */
+function gxNormalizeHeader(h){
+  return String(h||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+}
+const GX_IMPORT_HEADER_MAP={
+  'nome':'nome','name':'nome','nome completo':'nome',
+  'empresa':'empresa','company':'empresa',
+  'email':'email','e-mail':'email',
+  'telefone':'telefone','whatsapp':'telefone','phone':'telefone','celular':'telefone','telefone / whatsapp':'telefone',
+  'valor':'valor','value':'valor','valor (r$)':'valor',
+  'estagio':'estagio','etapa':'estagio','stage':'estagio',
+  'status':'dealStatus',
+  'origem':'origem','source':'origem','origem do lead':'origem',
+  'descricao':'desc','obs':'desc','observacoes':'desc','descricao / observacoes':'desc',
+  'produto':'produto','produto / servico':'produto','servico':'produto',
+  'data inicio':'dataInicio','data de inicio':'dataInicio',
+  'previsao fechamento':'dataFechamento','previsao de fechamento':'dataFechamento','data fechamento':'dataFechamento'
+};
+function gxParseMoneyValue(v){
+  if(v===null||v===undefined||v==='')return 0;
+  let s=String(v).trim().replace(/[R$\s]/gi,'');
+  if(s.includes(',')&&s.includes('.'))s=s.replace(/\./g,'').replace(',','.');
+  else if(s.includes(','))s=s.replace(',','.');
+  const n=parseFloat(s);
+  return isNaN(n)?0:n;
+}
+function gxParseCSV(text){
+  const rows=[];
+  let row=[],field='',inQuotes=false;
+  text=String(text||'').replace(/^﻿/,'').replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQuotes){
+      if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else inQuotes=false; }
+      else field+=c;
+    }else{
+      if(c==='"')inQuotes=true;
+      else if(c===','){row.push(field);field='';}
+      else if(c==='\n'){row.push(field);rows.push(row);row=[];field='';}
+      else field+=c;
+    }
+  }
+  if(field.length||row.length){row.push(field);rows.push(row);}
+  while(rows.length&&rows[rows.length-1].every(x=>String(x||'').trim()===''))rows.pop();
+  return rows;
+}
+function gxCsvRowsToLeadRecords(rows){
+  if(!rows.length)return[];
+  const headers=rows[0].map(gxNormalizeHeader);
+  return rows.slice(1).map(r=>{
+    const rec={};
+    headers.forEach((h,i)=>{
+      const key=GX_IMPORT_HEADER_MAP[h];
+      if(key)rec[key]=String(r[i]??'').trim();
+    });
+    return rec;
+  }).filter(rec=>rec.nome);
+}
+function gxExportLeadsCSV(){
+  const activeFunnel=typeof getActiveFunnel==='function'?getActiveFunnel():null;
+  const allLeads=(typeof getVisibleCommercialLeads==='function'?getVisibleCommercialLeads(DB.get('leads')||[]):DB.get('leads')||[]);
+  const leads=activeFunnel?allLeads.filter(l=>l.funnelId===activeFunnel.id||(activeFunnel.isDefault&&!l.funnelId)):allLeads;
+  if(!leads.length){toast('Nenhum lead pra exportar neste funil','#F59E0B');return}
+  const head=['Nome','Empresa','Email','Telefone','Valor','Estágio','Status','Origem','Descrição','Produto','Responsável','Data início','Previsão fechamento'];
+  const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;
+  const rows=leads.map(l=>[l.nome||'',l.empresa||'',l.email||'',l.telefone||'',l.valor||0,l.estagio||'',l.dealStatus||'Em andamento',l.origem||'',l.desc||'',l.produto||'',(typeof getLeadOwnerName==='function'?getLeadOwnerName(l):'')||'',l.dataInicio||'',l.dataFechamento||'']);
+  const lines=[head,...rows].map(r=>r.map(q).join(',')).join('\n');
+  const blob=new Blob(['﻿'+lines],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  const funnelSlug=(activeFunnel?.name||'todos').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'leads';
+  a.download=`gex-leads-${funnelSlug}-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),500);
+  toast(`${leads.length} lead(s) exportado(s) ✓`,'#10B981');
+}
+let gxImportLeadsParsed=[];
+function openImportLeadsModal(){
+  gxImportLeadsParsed=[];
+  const fileInput=document.getElementById('import-leads-file');if(fileInput)fileInput.value='';
+  const preview=document.getElementById('import-leads-preview');if(preview)preview.innerHTML='';
+  const confirmBtn=document.getElementById('import-leads-confirm');if(confirmBtn)confirmBtn.disabled=true;
+  document.getElementById('import-leads-ov').classList.add('open');
+}
+function closeImportLeadsModal(){document.getElementById('import-leads-ov').classList.remove('open')}
+function handleImportLeadsFile(input){
+  const file=input.files&&input.files[0];
+  const preview=document.getElementById('import-leads-preview');
+  const confirmBtn=document.getElementById('import-leads-confirm');
+  if(!file){if(preview)preview.innerHTML='';if(confirmBtn)confirmBtn.disabled=true;gxImportLeadsParsed=[];return}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const rows=gxParseCSV(String(e.target.result||''));
+      const records=gxCsvRowsToLeadRecords(rows);
+      gxImportLeadsParsed=records;
+      if(!records.length){
+        preview.innerHTML=`<div class="gxi-warning">Nenhum lead válido encontrado no arquivo. Confira se a primeira linha tem os nomes das colunas e se a coluna "Nome" está preenchida.</div>`;
+        confirmBtn.disabled=true;
+        return;
+      }
+      const sample=records.slice(0,5);
+      preview.innerHTML=`<div style="font-size:12px;color:var(--txt);margin-bottom:8px"><b>${records.length}</b> lead(s) encontrados no arquivo. Prévia dos primeiros:</div>
+        <div style="max-height:220px;overflow:auto;border:1px solid var(--border);border-radius:10px">
+          ${sample.map(r=>`<div style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px"><b>${escHtml(r.nome)}</b>${r.empresa?` • ${escHtml(r.empresa)}`:''}${r.email?` • ${escHtml(r.email)}`:''}${r.telefone?` • ${escHtml(r.telefone)}`:''}</div>`).join('')}
+        </div>`;
+      confirmBtn.disabled=false;
+    }catch(err){
+      preview.innerHTML=`<div class="gxi-warning">Erro ao ler o arquivo: ${escHtml(err.message||String(err))}</div>`;
+      confirmBtn.disabled=true;
+      gxImportLeadsParsed=[];
+    }
+  };
+  reader.readAsText(file,'utf-8');
+}
+function confirmImportLeadsCSV(){
+  const records=gxImportLeadsParsed||[];
+  if(!records.length){toast('Nenhum lead pra importar','#EF4444');return}
+  ensureDefaultCommercialFunnel();
+  const activeFunnel=typeof getActiveFunnel==='function'?getActiveFunnel():null;
+  const stageObjs=typeof getActiveFunnelStages==='function'?getActiveFunnelStages():[];
+  const defaultStage=stageObjs.find(s=>!s.isLost)||stageObjs[0]||null;
+  let created=0;
+  records.forEach(r=>{
+    const matchedStage=r.estagio?stageObjs.find(s=>gxNormalizeHeader(s.name)===gxNormalizeHeader(r.estagio)):null;
+    const stage=matchedStage||defaultStage;
+    const lead={
+      id:uid(),
+      nome:r.nome,
+      empresa:r.empresa||'',
+      email:r.email||'',
+      telefone:r.telefone||'',
+      valor:gxParseMoneyValue(r.valor),
+      estagio:stage?stage.name:(r.estagio||'Novo Lead'),
+      stageId:stage?.id||'',
+      dealStatus:r.dealStatus||'Em andamento',
+      funnelId:activeFunnel?.id||'',
+      origem:r.origem||'Importação CSV',
+      desc:r.desc||'',
+      produto:r.produto||'',
+      dataInicio:r.dataInicio||new Date().toISOString().slice(0,10),
+      dataFechamento:r.dataFechamento||'',
+      createdAt:new Date().toISOString()
+    };
+    DB.push('leads',lead);
+    created++;
+  });
+  closeImportLeadsModal();
+  if(typeof renderComercial==='function')renderComercial();
+  toast(`${created} lead(s) importado(s) ✓`,'#10B981');
+}
+
 function renderStageList(){
   const leads=DB.get('leads');
   document.getElementById('stage-list').innerHTML=stageDraft.map((s,i)=>{
@@ -11765,7 +11962,8 @@ function renderDealSidebar(){
       <div class="sb-field"><span class="sb-field-lbl">Responsável</span><span class="sb-field-val">Everton Galdino</span></div>
       <div class="sb-field"><span class="sb-field-lbl">Data início</span><span class="sb-field-val">${l.dataInicio||'—'}</span></div>
       <div class="sb-field"><span class="sb-field-lbl">Previsão fecha.</span><span class="sb-field-val">${l.dataFechamento||'—'}</span></div>
-      ${l.desc?`<div style="margin-top:10px;font-size:12px;color:var(--muted);line-height:1.5">${l.desc}</div>`:''}
+      <div class="sb-field"><span class="sb-field-lbl">Origem do lead</span><span class="sb-field-val">${escHtml(l.origem||'—')}</span></div>
+      ${l.desc?`<div class="sb-field" style="flex-direction:column;align-items:flex-start;gap:4px"><span class="sb-field-lbl">Descrição</span><span style="font-size:12px;color:var(--muted);line-height:1.5;white-space:pre-wrap">${escHtml(l.desc)}</span></div>`:''}
     </div>
     <div class="sb-section">
       <div class="sb-sec-title">👤 Dados do contato</div>
@@ -11975,10 +12173,10 @@ async function checkSession(){
   // ── 1. Supabase sessão ativa (timeout 4s para ambientes com CSP) ─────────
   if(supabaseClient){
     try{
-      const sessionTimeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),2000));
+      const sessionTimeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000));
       const {data:{session},error}=await Promise.race([supabaseClient.auth.getSession(),sessionTimeout]);
       if(!error&&session){
-        const profTimeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),4000));
+        const profTimeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),10000));
         const profCall=fetchSupabaseProfileSafe(session.user);
         const {profile,error:perr}=await Promise.race([profCall,profTimeout]);
         if(profile&&isProfileActive(profile)){
@@ -15518,7 +15716,13 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   const renderLeadGenBase=window.renderGerarLeads;window.renderGerarLeads=function(){renderLeadGenBase();if(glView==='editor')setTimeout(enhanceFunnelSelector,0);else setTimeout(()=>document.querySelectorAll('.gl-actions .gl-btn:first-child').forEach(b=>b.textContent='Prévia'),0)};
   window.gxlSave=()=>{const name=document.getElementById('gl-name')?.value.trim();if(!name){toast('Informe o nome do formulário.','#EF4444');return}const st=document.getElementById('gl-stage'),funnelId=document.getElementById('gl-funnel')?.value||'',funnel=availableFunnels().find(f=>f.id===funnelId),old=glEditId?forms().find(x=>x.id===glEditId):null,base=slugify(document.getElementById('gl-slug')?.value||name),slug=old?.slug===base||!forms().some(x=>x.slug===base&&x.id!==glEditId)?base:`${base}-${Math.random().toString(36).slice(2,6)}`,obj={name,slug,title:document.getElementById('gl-title').value.trim(),description:document.getElementById('gl-description').value.trim(),fields:glFields,notificationEmail:document.getElementById('gl-email').value.trim(),notify:document.getElementById('gl-notify').checked,distribute:document.getElementById('gl-distribute').checked,active:document.getElementById('gl-active').checked,successMessage:document.getElementById('gl-success').value.trim(),funnelId:funnel?.id||'',funnelName:funnel?.name||'',stageId:st?.value||'',stageName:st?.selectedOptions[0]?.dataset.name||st?.selectedOptions[0]?.textContent||'',updatedAt:new Date().toISOString()};if(glEditId)DB.update('lead_forms',glEditId,obj);else DB.push('lead_forms',{id:uid(),...obj,createdAt:new Date().toISOString(),createdBy:sessionUser?.id||''});glView='list';glEditId='';renderGerarLeads();toast('Formulário salvo e conectado ao CRM ✓','#10B981')};
   function publicField(f){const req=f.required?'required':'',ph=esc(f.placeholder||'');if(f.type==='textarea')return `<textarea class="gl-textarea" name="${esc(f.name)}" ${req} placeholder="${ph}"></textarea>`;if(f.type==='select')return `<select class="gl-select" name="${esc(f.name)}" ${req}><option value="">Selecione</option>${(f.options||[]).map(o=>`<option>${esc(o)}</option>`).join('')}</select>`;return `<input class="gl-input" type="${f.type==='phone'?'tel':f.type}" name="${esc(f.name)}" ${req} placeholder="${ph}">`}
-  function showPublicForm(f,preview=false){document.getElementById('gl-public')?.remove();const root=document.createElement('div');root.className='gl-public';root.id='gl-public';root.innerHTML=`${preview?'<button class="gl-btn" style="position:fixed;right:22px;top:18px;z-index:2" onclick="document.getElementById(\'gl-public\').remove()">Fechar prévia ×</button>':''}<div class="gl-public-card"><div class="gl-public-brand">GEX FLOW</div><h1>${esc(f.title||f.name)}</h1><div class="gl-public-desc">${esc(f.description||'')}</div><form id="gl-public-form">${(f.fields||[]).map(x=>`<label class="gl-field"><span>${esc(x.label)}${x.required?' *':''}</span>${publicField(x)}</label>`).join('')}<input type="hidden" name="utm_source"><input type="hidden" name="utm_medium"><input type="hidden" name="utm_campaign"><input type="hidden" name="utm_content"><button class="gl-public-submit" type="submit">Enviar informações</button></form></div>`;document.body.appendChild(root);const qs=new URLSearchParams(location.search),form=root.querySelector('form');['utm_source','utm_medium','utm_campaign','utm_content'].forEach(k=>{form.elements[k].value=qs.get(k)||''});form.onsubmit=e=>{e.preventDefault();const data=Object.fromEntries(new FormData(form).entries()),lead={id:uid(),nome:data.nome||data.nome_completo||data.name||'Lead de formulário',email:data.email||'',telefone:data.telefone||data.whatsapp||data.phone||'',origem:`Formulário: ${f.name}`,estagio:f.stageName||'Novo Lead',stageId:f.stageId||'',funnelId:f.funnelId||'',data:new Date().toLocaleDateString('pt-BR'),createdAt:new Date().toISOString(),utm_source:data.utm_source||'',utm_medium:data.utm_medium||'',utm_campaign:data.utm_campaign||'',utm_content:data.utm_content||'',formData:data};DB.push('leads',lead);DB.push('lead_form_submissions',{id:uid(),formId:f.id,formName:f.name,leadId:lead.id,data,createdAt:new Date().toISOString()});root.querySelector('.gl-public-card').innerHTML=`<div class="gl-success"><i>✓</i><h2>Formulário enviado!</h2><p>${esc(f.successMessage||'Recebemos seus dados. Em breve entraremos em contato!')}</p></div>`;try{fireWebhook('lead.formulario',{lead,formId:f.id})}catch(err){}}}
+  function showPublicForm(f,preview=false){document.getElementById('gl-public')?.remove();const root=document.createElement('div');root.className='gl-public';root.id='gl-public';root.innerHTML=`${preview?'<button class="gl-btn" style="position:fixed;right:22px;top:18px;z-index:2" onclick="document.getElementById(\'gl-public\').remove()">Fechar prévia ×</button>':''}<div class="gl-public-card"><div class="gl-public-brand">GEX FLOW</div><h1>${esc(f.title||f.name)}</h1><div class="gl-public-desc">${esc(f.description||'')}</div><form id="gl-public-form">${(f.fields||[]).map(x=>`<label class="gl-field"><span>${esc(x.label)}${x.required?' *':''}</span>${publicField(x)}</label>`).join('')}<input type="hidden" name="utm_source"><input type="hidden" name="utm_medium"><input type="hidden" name="utm_campaign"><input type="hidden" name="utm_content"><button class="gl-public-submit" type="submit">Enviar informações</button></form></div>`;document.body.appendChild(root);const qs=new URLSearchParams(location.search),form=root.querySelector('form');['utm_source','utm_medium','utm_campaign','utm_content'].forEach(k=>{form.elements[k].value=qs.get(k)||''});form.onsubmit=e=>{e.preventDefault();const data=Object.fromEntries(new FormData(form).entries());
+    // Se o formulário tiver um campo "Texto longo" (textarea), usa o valor dele
+    // como Descrição do lead no CRM — é o jeito de o formulário mandar uma
+    // informação livre e personalizável junto com o lead.
+    const descField=(f.fields||[]).find(x=>x.type==='textarea');
+    const descValue=descField?String(data[descField.name]||'').trim():'';
+    const lead={id:uid(),nome:data.nome||data.nome_completo||data.name||'Lead de formulário',email:data.email||'',telefone:data.telefone||data.whatsapp||data.phone||'',origem:`Formulário: ${f.name}`,desc:descValue,estagio:f.stageName||'Novo Lead',stageId:f.stageId||'',funnelId:f.funnelId||'',data:new Date().toLocaleDateString('pt-BR'),createdAt:new Date().toISOString(),utm_source:data.utm_source||'',utm_medium:data.utm_medium||'',utm_campaign:data.utm_campaign||'',utm_content:data.utm_content||'',formData:data};DB.push('leads',lead);DB.push('lead_form_submissions',{id:uid(),formId:f.id,formName:f.name,leadId:lead.id,data,createdAt:new Date().toISOString()});root.querySelector('.gl-public-card').innerHTML=`<div class="gl-success"><i>✓</i><h2>Formulário enviado!</h2><p>${esc(f.successMessage||'Recebemos seus dados. Em breve entraremos em contato!')}</p></div>`;try{fireWebhook('lead.formulario',{lead,formId:f.id})}catch(err){}}}
   window.gxlOpen=id=>{const f=forms().find(x=>x.id===id);if(!f)return;gxlCloseMenu();showPublicForm(f,true)};
   function openPublicForm(){const q=new URLSearchParams(location.search),slug=q.get('gex_form');if(!slug)return;const f=forms().find(x=>x.slug===slug&&(x.active||q.get('gex_preview')==='1'));if(f)showPublicForm(f,false)}
   setTimeout(openPublicForm,800);
