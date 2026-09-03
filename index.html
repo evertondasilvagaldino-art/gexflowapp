@@ -5325,6 +5325,26 @@ async function connectMetaAdsOAuth(){
     setMetaOAuthButtonState(false);
   }
 }
+function syncGxiConnectionState(provider,status,assets,lastError){
+  // A tela de Integrações atual (GEX Connect V2) guarda o status de cada
+  // conexão na coleção 'integration_connections', separada da coleção antiga
+  // usada por saveIntegration/getIntegration. Esta função mantém as duas em
+  // sincronia para o card de Meta Ads (e futuros) sair de "Pendente" assim
+  // que o login OAuth terminar.
+  try{
+    const all=(typeof DB!=='undefined'&&DB.get('integration_connections'))||[];
+    const i=all.findIndex(x=>x.provider===provider);
+    const next={
+      ...(i>=0?all[i]:{id:(typeof uid==='function'?uid():String(Date.now())),provider}),
+      status,
+      assets:assets||(i>=0?all[i].assets:{})||{},
+      lastError:lastError||'',
+      updatedAt:new Date().toISOString()
+    };
+    if(i>=0)all[i]=next;else all.push(next);
+    DB.set('integration_connections',all);
+  }catch(e){}
+}
 function applyMetaOAuthConnection(payload){
   const data=payload?.connection||payload||{};
   const adAccounts=Array.isArray(data.adAccounts)?data.adAccounts:[];
@@ -5355,6 +5375,10 @@ function applyMetaOAuthConnection(payload){
     metrics:{campaigns:0,spend:0,leads:0,adAccounts:adAccounts.length}
   });
   addIntegrationLog('Meta Ads conectado via Facebook',`Contas de anúncio recebidas: ${adAccounts.length}`,'ok');
+  syncGxiConnectionState('meta_ads','connected',{
+    name:(adAccounts[0]&&adAccounts[0].name)||data.metaUserName||'Meta Ads',
+    account:selected||''
+  });
   closeModal();
   renderIntegracoes();
   toast('Meta Ads conectado via Facebook ✓','#10B981');
@@ -5367,6 +5391,7 @@ function handleMetaOAuthMessage(event){
   if(data.type==='gex_meta_oauth_error'){
     saveIntegrationTestResult('meta_ads',{status:'error',message:data.error||'Erro no login Meta'});
     addIntegrationLog('Erro no OAuth Meta',data.error||'Erro desconhecido','err');
+    syncGxiConnectionState('meta_ads','disconnected',null,data.error||'Erro no login Meta');
     renderIntegracoes();
     toast(data.error||'Erro ao conectar Meta','#EF4444');
   }
@@ -15167,7 +15192,22 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   window.gxiSaveTracking=()=>{const mode=document.getElementById('gxi-mode')?.value||'exact',st=document.getElementById('gxi-stage'),co=document.getElementById('gxi-connection'),message=document.getElementById('gxi-message')?.value?.trim()||'';if(!st?.value){toast('Selecione a etapa de destino','#EF4444');return}if(!message){toast('Informe a mensagem do rastreamento','#EF4444');return}const funnel=typeof getActiveFunnel==='function'?getActiveFunnel():null,obj={mode,funnelId:funnel?.id||'',funnelName:funnel?.name||'',stageId:st.value,stageName:st.selectedOptions[0]?.dataset.name||st.selectedOptions[0]?.textContent||'',connectionId:co?.value||'whatsapp_pending',connectionName:co?.selectedOptions[0]?.dataset.name||co?.selectedOptions[0]?.textContent||'WhatsApp',message,active:true,updatedAt:new Date().toISOString()};if(editingId&&editingId!=='new'){const old=getTrackings().find(x=>x.id===editingId);DB.update('manual_trackings',editingId,{...obj,active:old?.active!==false})}else DB.push('manual_trackings',{id:uid(),...obj,executions:0,createdAt:new Date().toISOString()});event('Rastreamento configurado',`Mensagem: ${message}`);editingId='';render();toast('Rastreamento salvo ✓','#10B981')};
   window.gxiToggleTracking=id=>{const r=getTrackings().find(x=>x.id===id);if(!r)return;DB.update('manual_trackings',id,{active:r.active===false,updatedAt:new Date().toISOString()});render()};window.gxiDeleteTracking=id=>confirmDelete(()=>{DB.remove('manual_trackings',id);event('Rastreamento removido',id);render();toast('Rastreamento excluído','#EF4444')});
   window.gxiConnect=async provider=>{saveConnection(provider,{status:'pending',lastError:''});render();try{if(provider==='meta_ads'&&typeof connectMetaAdsOAuth==='function'){connectMetaAdsOAuth();return}if(!supabaseClient)throw new Error('Abra o sistema publicado para conectar a conta oficial.');const session=await GexSupabase.getSession();if(!session)throw new Error('Faça login novamente antes de conectar.');const {data,error}=await supabaseClient.functions.invoke('native-oauth-start',{body:{provider,returnTo:location.href.split('?')[0]}});if(error)throw error;if(!data?.url)throw new Error('A função de autenticação ainda não foi publicada.');window.open(data.url,`gex_${provider}`,'width=720,height=780,resizable=yes,scrollbars=yes')}catch(e){saveConnection(provider,{status:'disconnected',lastError:e.message});event('Falha na conexão',e.message,'error',{provider});render();toast(e.message||'Não foi possível conectar','#F59E0B')}};
-  window.gxiTestConnection=async provider=>{try{if(!supabaseClient)throw new Error('Supabase indisponível.');const {data,error}=await supabaseClient.functions.invoke('integration-test',{body:{provider}});if(error||data?.ok===false)throw new Error(data?.message||error?.message||'Teste rejeitado');saveConnection(provider,{status:'connected',lastTestAt:new Date().toISOString()});event('Conexão testada',provider);toast('Conexão validada ✓','#10B981')}catch(e){saveConnection(provider,{status:'error',lastError:e.message});event('Erro no teste',e.message,'error',{provider});toast('Falha ao validar conexão','#EF4444')}render()};window.gxiDisconnect=provider=>confirmDelete(()=>{saveConnection(provider,{status:'disconnected',assets:{}});event('Integração desconectada',provider);render()});
+  window.gxiTestConnection=async provider=>{try{
+    if(provider==='meta_ads'&&typeof testMetaAdsOAuthConnection==='function'){
+      const cfg=(typeof getIntegration==='function'&&getIntegration('meta_ads').config)||{};
+      const metrics=await testMetaAdsOAuthConnection(cfg);
+      saveConnection(provider,{status:'connected',lastTestAt:new Date().toISOString(),assets:{name:metrics.accountName||'Meta Ads'}});
+      event('Conexão testada',provider);
+      toast('Conexão validada ✓','#10B981');
+    }else{
+      if(!supabaseClient)throw new Error('Supabase indisponível.');
+      const {data,error}=await supabaseClient.functions.invoke('integration-test',{body:{provider}});
+      if(error||data?.ok===false)throw new Error(data?.message||error?.message||'Teste rejeitado');
+      saveConnection(provider,{status:'connected',lastTestAt:new Date().toISOString()});
+      event('Conexão testada',provider);
+      toast('Conexão validada ✓','#10B981');
+    }
+  }catch(e){saveConnection(provider,{status:'error',lastError:e.message});event('Erro no teste',e.message,'error',{provider});toast('Falha ao validar conexão','#EF4444')}render()};window.gxiDisconnect=provider=>confirmDelete(()=>{saveConnection(provider,{status:'disconnected',assets:{}});event('Integração desconectada',provider);render()});
   window.gxiMonitorView=v=>{monitorView=v;render()};
   window.gxiToggleSecret=id=>{const el=document.getElementById(id);if(!el)return;el.type=el.type==='password'?'text':'password';const btn=el.parentElement?.querySelector('button');if(btn)btn.textContent=el.type==='password'?'Mostrar':'Ocultar'};
   window.gxiSaveConversionSettings=async()=>{
