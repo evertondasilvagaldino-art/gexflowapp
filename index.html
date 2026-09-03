@@ -2020,10 +2020,22 @@ textarea.form-input{resize:vertical;min-height:75px}
           <option value="2026">2026</option>
         </select>
         <span style="font-size:12px;color:var(--muted);margin-left:4px" id="pipeline-filter-info"></span>
+        <div style="margin-left:auto;display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" id="pipe-view-kanban" onclick="setPipelineView('kanban')">🗂 Kanban</button>
+          <button class="btn btn-ghost btn-sm" id="pipe-view-lista" onclick="setPipelineView('lista')">📋 Lista</button>
+        </div>
       </div>
       <div id="funnel-selector-bar" class="funnel-bar"></div>
       <div class="grid-3" style="margin-bottom:16px" id="com-stats"></div>
       <div class="pipeline" id="pipeline-board"></div>
+      <div class="card" id="pipeline-list-wrap" style="display:none">
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Lead</th><th>Empresa</th><th>Responsável</th><th>Etapa</th><th>Origem</th><th>Valor</th><th>Data início</th><th>Ações</th></tr></thead>
+            <tbody id="pipeline-list-tbody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
     <!-- Relatório Comercial -->
     <div id="com-tab-relatorio" style="display:none">
@@ -2367,6 +2379,12 @@ let dashFilter = {mes: new Date().getMonth()+1, ano: new Date().getFullYear()};
 // Começa em "Todos os meses / Todos os anos" pra não esconder leads de quem
 // ainda não filtrou nada (mesmo comportamento de antes desta função existir).
 let pipelineFilter = {mes: 0, ano: 0};
+// Modo de visualização do Pipeline: 'kanban' (padrão, quadro com arrastar-e-soltar)
+// ou 'lista' (tabela). Lembrado por navegador via localStorage.
+let pipelineViewMode = (function(){
+  try{ return localStorage.getItem('gexPipelineView')==='lista' ? 'lista' : 'kanban'; }
+  catch(e){ return 'kanban'; }
+})();
 let cliFilter = 'todos';
 let rhSquadFilter = 'todos';
 let currentProjView = 'entregas';
@@ -6521,6 +6539,11 @@ function setPipelineFilter(){
   pipelineFilter.ano=parseInt(document.getElementById('pipe-ano')?.value||0);
   renderComercial();
 }
+function setPipelineView(mode){
+  pipelineViewMode=(mode==='lista')?'lista':'kanban';
+  try{ localStorage.setItem('gexPipelineView',pipelineViewMode); }catch(e){}
+  renderComercial();
+}
 function leadInPipelinePeriod(l){
   if(!pipelineFilter.mes&&!pipelineFilter.ano)return true; // "Todos" nos dois selects
   const ref=l.dataInicio||l.dataFechamento||l.createdAt;
@@ -7598,7 +7621,22 @@ function renderComercial(){
     <div class="stat-card"><div class="stat-lbl">${wonStage?wonStage.name:'Fechamento'}</div><div class="stat-val" style="font-size:18px;color:var(--green)">${fmtBRL(fechados)}</div></div>
     <div class="stat-card"><div class="stat-lbl">Leads Ativos</div><div class="stat-val">${funnelLeads.length}</div></div>`;
 
+  // Alterna destaque dos botões Kanban/Lista e mostra só o container do modo ativo
+  const btnKanban=document.getElementById('pipe-view-kanban');
+  const btnLista=document.getElementById('pipe-view-lista');
+  if(btnKanban)btnKanban.classList.toggle('btn-primary',pipelineViewMode==='kanban');
+  if(btnLista)btnLista.classList.toggle('btn-primary',pipelineViewMode==='lista');
   const board=document.getElementById('pipeline-board');
+  const listWrap=document.getElementById('pipeline-list-wrap');
+  if(board)board.style.display=pipelineViewMode==='lista'?'none':'';
+  if(listWrap)listWrap.style.display=pipelineViewMode==='lista'?'':'none';
+
+  if(pipelineViewMode==='lista'){
+    renderPipelineListBody(funnelLeads,stages);
+    if(shouldRedirectFromPipeline)setTimeout(()=>switchComTab(allowedCommercialTab),0);
+    return;
+  }
+
   if(!board) return;
 
   if(!stages.length){
@@ -7651,6 +7689,48 @@ function renderComercial(){
   if(shouldRedirectFromPipeline){
     setTimeout(()=>switchComTab(allowedCommercialTab),0);
   }
+}
+
+// Visão em lista do Pipeline — mesmos negócios do quadro Kanban, só que em
+// tabela (útil pra ordenar/ler muitos leads de uma vez). Respeita os mesmos
+// filtros de funil, responsável e período já aplicados em funnelLeads.
+function renderPipelineListBody(leads,stages){
+  const tbody=document.getElementById('pipeline-list-tbody');
+  if(!tbody) return;
+  if(!leads.length){
+    tbody.innerHTML=`<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">Nenhum negócio encontrado com os filtros atuais.</td></tr>`;
+    return;
+  }
+  const stageById={};
+  stages.forEach((s,idx)=>{ stageById[s.id]={...s,idx}; });
+  const sorted=leads.slice().sort((a,b)=>{
+    const oa=(a.stageId&&stageById[a.stageId])?stageById[a.stageId].idx:stages.findIndex(s=>s.name===a.estagio);
+    const ob=(b.stageId&&stageById[b.stageId])?stageById[b.stageId].idx:stages.findIndex(s=>s.name===b.estagio);
+    if(oa!==ob) return (oa<0?999:oa)-(ob<0?999:ob);
+    return (+b.valor||0)-(+a.valor||0);
+  });
+  tbody.innerHTML=sorted.map(l=>{
+    const stage=(l.stageId&&stageById[l.stageId])?stageById[l.stageId]:stages.find(s=>s.name===l.estagio);
+    const dot=stage?(stage.color||STAGE_COLORS[stage.idx%STAGE_COLORS.length]):'#94A3B8';
+    const wonBadge=stage&&stage.isWon?' <span style="font-size:9px;background:#DCFCE7;color:#166534;border-radius:4px;padding:1px 5px;font-weight:700">GANHO</span>':'';
+    const lostBadge=stage&&stage.isLost?' <span style="font-size:9px;background:#FEE2E2;color:#991B1B;border-radius:4px;padding:1px 5px;font-weight:700">PERDIDO</span>':'';
+    return `<tr style="cursor:pointer" onclick="openDealDetail('${l.id}')">
+      <td><b>${escHtml(l.nome||'Lead sem nome')}</b></td>
+      <td>${escHtml(l.empresa||'—')}</td>
+      <td>${escHtml(getLeadOwnerName(l)||'Sem responsável')}</td>
+      <td><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>${escHtml(stage?stage.name:(l.estagio||'—'))}${wonBadge}${lostBadge}</span></td>
+      <td>${escHtml(l.origem||'—')}</td>
+      <td>${fmtBRL(l.valor||0)}</td>
+      <td>${l.dataInicio?new Date(l.dataInicio+'T00:00:00').toLocaleDateString('pt-BR'):'—'}</td>
+      <td onclick="event.stopPropagation()">
+        <div style="display:flex;gap:5px">
+          <button class="btn btn-ghost btn-sm btn-icon" title="Abrir detalhes" onclick="openDealDetail('${l.id}')">👁</button>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="openModal('lead','${l.id}')">✏️</button>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="confirmDelete(()=>{DB.remove('leads','${l.id}');renderComercial();toast('Removido','#EF4444')})">🗑️</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
 }
 
 /* ══════════════════════════════════════════
