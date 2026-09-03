@@ -5397,6 +5397,52 @@ function handleMetaOAuthMessage(event){
   }
 }
 window.addEventListener('message',handleMetaOAuthMessage);
+function handleMetaOAuthRedirectResult(){
+  // O Supabase não deixa a Edge Function de callback rodar JavaScript
+  // (bloqueio de segurança da plataforma), então em vez disso ela redireciona
+  // de volta pra cá com o resultado colado na URL. Esta função processa esse
+  // resultado assim que o GexFlow recarrega — seja numa janela popup (nesse
+  // caso avisamos quem abriu o popup e fechamos), seja na mesma aba.
+  try{
+    const params=new URLSearchParams(window.location.search);
+    const result=params.get('gex_meta_oauth');
+    if(!result)return;
+    if(result==='success'){
+      const payload={
+        connection:{
+          connectionId:params.get('connectionId')||'',
+          metaUserId:params.get('metaUserId')||'',
+          metaUserName:params.get('metaUserName')||'',
+          adAccounts:params.get('firstAccountId')?[{id:params.get('firstAccountId'),name:params.get('firstAccountName')||''}]:[]
+        }
+      };
+      if(window.opener){
+        try{window.opener.postMessage({type:'gex_meta_oauth_success',...payload},'*');}catch(e){}
+        setTimeout(()=>window.close(),400);
+      }else if(typeof applyMetaOAuthConnection==='function'){
+        applyMetaOAuthConnection(payload);
+      }
+    }else if(result==='error'){
+      const error=params.get('error')||'Erro ao conectar Meta';
+      if(window.opener){
+        try{window.opener.postMessage({type:'gex_meta_oauth_error',error},'*');}catch(e){}
+        setTimeout(()=>window.close(),400);
+      }else{
+        if(typeof saveIntegrationTestResult==='function')saveIntegrationTestResult('meta_ads',{status:'error',message:error});
+        if(typeof syncGxiConnectionState==='function')syncGxiConnectionState('meta_ads','disconnected',null,error);
+        if(typeof renderIntegracoes==='function')renderIntegracoes();
+        if(typeof toast==='function')toast(error,'#EF4444');
+      }
+    }
+    // Limpa os parâmetros da URL pra não reprocessar isso de novo se a
+    // página for recarregada (F5) mais tarde.
+    ['gex_meta_oauth','connectionId','metaUserId','metaUserName','accountsCount','firstAccountId','firstAccountName','error'].forEach(k=>params.delete(k));
+    const qs=params.toString();
+    const clean=window.location.pathname+(qs?'?'+qs:'')+window.location.hash;
+    window.history.replaceState({},'',clean);
+  }catch(e){}
+}
+handleMetaOAuthRedirectResult();
 function disconnectMetaAdsOAuth(){
   const current=getIntegration('meta_ads').config||{};
   saveIntegration('meta_ads',{connected:false,configured:false,config:{notes:current.notes||''}});
