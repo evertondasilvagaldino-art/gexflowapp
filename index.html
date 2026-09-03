@@ -3459,7 +3459,15 @@ const DB={
     if(v&&typeof v==='object')gexEnsureRecordId(v);
     const d=DB.get(k);
     d.push(v);
-    const next=k==='usuarios'?dedupeUsuariosList(d,{keepLegacy:false}):d;
+    let next=k==='usuarios'?dedupeUsuariosList(d,{keepLegacy:false}):d;
+    // Coleções de log (conversion_events, tracking_events...) crescem pra
+    // sempre — o histórico completo continua salvo no Supabase, mas a cópia
+    // local (localStorage, com limite de espaço no navegador) só precisa
+    // guardar as mais recentes. Isso nunca apaga nada da nuvem, só evita que
+    // o cache local do navegador cresça sem limite ao longo de anos de uso.
+    if(typeof GEX_LOG_COLLECTIONS!=='undefined' && GEX_LOG_COLLECTIONS.includes(k) && next.length>GEX_LOG_COLLECTION_LIMIT){
+      next=next.slice(next.length-GEX_LOG_COLLECTION_LIMIT);
+    }
     gexWriteLocalCollection(k,next);
     if(k!=='usuarios')gexCloudSyncOne(k,v);
     return v;
@@ -3581,15 +3589,26 @@ function scheduleRerenderActivePageAfterCloudSync(delay=120){
     rerenderActivePageAfterCloudSync();
   }
 }
+// Coleções que crescem sem parar por natureza (um log por evento: conversão
+// enviada, evento de tracking, etc.) — nunca "acabam" como um cadastro de
+// cliente. Se ficassem misturadas na mesma consulta de 10.000 linhas das
+// coleções de negócio (leads, clientes, contratos...), no dia em que
+// crescessem demais poderiam roubar espaço da cota e fazer dados de negócio
+// sumirem silenciosamente da carga inicial. Por isso são buscadas à parte,
+// sempre só as mais recentes.
+const GEX_LOG_COLLECTIONS = ['conversion_events','tracking_events','integration_events'];
+const GEX_LOG_COLLECTION_LIMIT = 1500;
 async function initGexCloudDataSync(){
   if(!supabaseClient || !sessionUser?.id || gexCloudBooting)return false;
   gexCloudBooting=true;
   try{
+    const logSet=new Set(GEX_LOG_COLLECTIONS);
     const {data,error}=await supabaseClient
       .from(GEX_CLOUD_TABLE)
       .select('collection,record_id,data,updated_at,deleted_at')
       .eq('workspace_id',GEX_WORKSPACE_ID)
       .is('deleted_at',null)
+      .not('collection','in',`(${GEX_LOG_COLLECTIONS.map(c=>`"${c}"`).join(',')})`)
       .limit(10000);
     if(error)throw error;
 
@@ -3598,6 +3617,27 @@ async function initGexCloudDataSync(){
       if(!byCollection[row.collection])byCollection[row.collection]=[];
       byCollection[row.collection].push(row);
     });
+
+    // Coleções de log: buscadas separadamente, cada uma com seu próprio
+    // limite, sempre priorizando as mais recentes — assim elas nunca
+    // disputam espaço com dados de negócio na consulta principal acima.
+    for(const collection of GEX_LOG_COLLECTIONS){
+      if(!logSet.has(collection))continue;
+      try{
+        const {data:logRows,error:logError}=await supabaseClient
+          .from(GEX_CLOUD_TABLE)
+          .select('collection,record_id,data,updated_at,deleted_at')
+          .eq('workspace_id',GEX_WORKSPACE_ID)
+          .eq('collection',collection)
+          .is('deleted_at',null)
+          .order('updated_at',{ascending:false})
+          .limit(GEX_LOG_COLLECTION_LIMIT);
+        if(logError)throw logError;
+        byCollection[collection]=logRows||[];
+      }catch(e){
+        console.error(`[GexCloudDB] Falha ao buscar coleção de log "${collection}":`,e);
+      }
+    }
 
     gexApplyingCloudPayload=true;
 
@@ -15214,7 +15254,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   const getConnections=()=>{try{return DB.get('integration_connections')||[]}catch(e){return[]}};
   const getTrackings=()=>{try{return DB.get('manual_trackings')||[]}catch(e){return[]}};
   const getEvents=()=>{try{return DB.get('tracking_events')||[]}catch(e){return[]}};
-  const getConversionEvents=()=>{try{return DB.get('conversion_events')||[]}catch(e){return[]}};
+  const getConversionEvents=()=>{try{return (DB.get('conversion_events')||[]).slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0))}catch(e){return[]}};
   const getConversionSettings=()=>{try{return (DB.get('conversion_settings')||[])[0]||{id:'conversion_main',meta:{},google:{},mappings:[]}}catch(e){return{id:'conversion_main',meta:{},google:{},mappings:[]}}};
   const connection=id=>getConnections().find(x=>x.provider===id)||{provider:id,status:'disconnected',assets:{}};
   function saveConnection(provider,data){const all=getConnections(),i=all.findIndex(x=>x.provider===provider),next={...(i>=0?all[i]:{id:uid(),provider}),...data,updatedAt:new Date().toISOString()};if(i>=0)all[i]=next;else all.push(next);DB.set('integration_connections',all);return next}
