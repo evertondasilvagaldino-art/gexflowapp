@@ -5384,8 +5384,13 @@ function applyMetaOAuthConnection(payload){
   toast('Meta Ads conectado via Facebook ✓','#10B981');
 }
 function handleMetaOAuthMessage(event){
+  // Aceita mensagens vindas do domínio do Supabase (design antigo, quando a
+  // própria function tentava rodar JS) OU do próprio domínio do GexFlow
+  // (design atual: a function redireciona de volta pro app, e é o app quem
+  // manda esse aviso pra si mesmo a partir do popup já recarregado).
   const expectedOrigin=SUPABASE_URL.replace(/\/+$/,'');
-  if(event.origin!==expectedOrigin)return;
+  const selfOrigin=window.location.origin;
+  if(event.origin!==expectedOrigin&&event.origin!==selfOrigin)return;
   const data=event.data||{};
   if(data.type==='gex_meta_oauth_success')applyMetaOAuthConnection(data);
   if(data.type==='gex_meta_oauth_error'){
