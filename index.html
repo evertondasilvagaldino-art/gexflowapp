@@ -15395,13 +15395,15 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     const opts=metaDashAccounts.map(a=>`<option value="${metaEsc(a.id)}" ${String(a.id)===String(metaDashAccountId)?'selected':''}>${metaEsc(a.name||a.id)}</option>`).join('');
     const dateOpts=METADASH_PERIODS.map(([v,l])=>`<option value="${v}" ${v===metaDashDatePreset?'selected':''}>${l}</option>`).join('');
     const d=metaDashData;
+    const cpSub=(n,cost)=>n>0?`<small style="display:block;color:var(--muted);font-weight:600;margin-top:2px">${fmtBRL(cost)} cada</small>`:'';
     const summary=d?`<div class="gl-meta-summary">
       <div class="gl-meta-stat"><span>Investido</span><b>${fmtBRL(d.summary.spend)}</b></div>
       <div class="gl-meta-stat"><span>Campanhas</span><b>${d.summary.campaigns}</b></div>
       <div class="gl-meta-stat"><span>Cliques</span><b>${d.summary.clicks.toLocaleString('pt-BR')}</b></div>
       <div class="gl-meta-stat"><span>Impressões</span><b>${d.summary.impressions.toLocaleString('pt-BR')}</b></div>
-      <div class="gl-meta-stat"><span>Resultados</span><b>${d.summary.leads.toLocaleString('pt-BR')}</b></div>
-      <div class="gl-meta-stat"><span>Custo por resultado</span><b>${d.summary.leads>0?fmtBRL(d.summary.cpl):'—'}</b></div>
+      <div class="gl-meta-stat"><span>Leads</span><b>${d.summary.leads.toLocaleString('pt-BR')}</b>${cpSub(d.summary.leads,d.summary.cpLead)}</div>
+      <div class="gl-meta-stat"><span>Mensagens</span><b>${d.summary.messages.toLocaleString('pt-BR')}</b>${cpSub(d.summary.messages,d.summary.cpMessage)}</div>
+      <div class="gl-meta-stat"><span>Compras</span><b>${d.summary.purchases.toLocaleString('pt-BR')}</b>${cpSub(d.summary.purchases,d.summary.cpPurchase)}</div>
       <div class="gl-meta-stat"><span>Faturamento</span><b>${fmtBRL(d.summary.revenue||0)}</b></div>
       <div class="gl-meta-stat"><span>ROAS</span><b>${d.summary.spend>0?(d.summary.roas||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'x':'—'}</b></div>
     </div>`:'';
@@ -15412,15 +15414,21 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       <td>${c.clicks.toLocaleString('pt-BR')}</td>
       <td>${c.impressions.toLocaleString('pt-BR')}</td>
       <td>${c.leads.toLocaleString('pt-BR')}</td>
-      <td>${c.leads>0?fmtBRL(c.cpl):'—'}</td>
+      <td>${c.messages.toLocaleString('pt-BR')}</td>
+      <td>${c.purchases.toLocaleString('pt-BR')}</td>
       <td>${fmtBRL(c.revenue||0)}</td>
-    </tr>`).join(''):`<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">Nenhuma campanha com dados nesse período.</td></tr>`;
-    const creatives=d&&d.creatives&&d.creatives.length?d.creatives.map(cr=>`<div class="gl-meta-creative">
+    </tr>`).join(''):`<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:24px">Nenhuma campanha com dados nesse período.</td></tr>`;
+    const creatives=d&&d.creatives&&d.creatives.length?d.creatives.map(cr=>{
+      const parts=[];
+      if(cr.leads)parts.push(`${cr.leads} lead${cr.leads===1?'':'s'}`);
+      if(cr.messages)parts.push(`${cr.messages} msg`);
+      if(cr.purchases)parts.push(`${cr.purchases} compra${cr.purchases===1?'':'s'}`);
+      return `<div class="gl-meta-creative">
       ${cr.thumbnailUrl?`<img src="${metaEsc(cr.thumbnailUrl)}" alt="${metaEsc(cr.name)}" loading="lazy">`:'<div class="gl-meta-creative-empty">Sem prévia</div>'}
-      <div class="gl-meta-creative-body"><b>${metaEsc(cr.name)}</b><span>${fmtBRL(cr.spend)} · ${cr.leads} resultado${cr.leads===1?'':'s'}</span></div>
-    </div>`).join(''):'';
+      <div class="gl-meta-creative-body"><b>${metaEsc(cr.name)}</b><span>${fmtBRL(cr.spend)}${parts.length?' · '+parts.join(' · '):''}</span></div>
+    </div>`}).join(''):'';
 
-    return `${head('Campanhas da Meta','Acompanhe gasto, campanhas e leads das suas contas de anúncio conectadas.')}
+    return `${head('Campanhas da Meta','Acompanhe gasto, campanhas, leads, mensagens e vendas das suas contas de anúncio conectadas.')}
     <div class="gl-card" style="padding:16px;display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
       <div><label class="gl-meta-label">Conta de anúncios</label><select class="gl-select" style="min-width:220px" onchange="metaDashSetAccount(this.value)">${opts}</select></div>
       <div><label class="gl-meta-label">Período</label><select class="gl-select" onchange="metaDashSetPeriod(this.value)">${dateOpts}</select></div>
@@ -15428,7 +15436,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     </div>
     ${metaDashError?`<div class="gl-card" style="padding:14px;color:#DC2626;margin-top:12px">${metaEsc(metaDashError)}</div>`:''}
     ${summary}
-    ${d?`<div class="gl-card" style="padding:17px;margin-top:14px"><h3 style="font-size:13px;margin-bottom:12px">Campanhas</h3><div style="overflow-x:auto"><table class="gl-meta-table"><thead><tr><th>Campanha</th><th>Status</th><th>Gasto</th><th>Cliques</th><th>Impressões</th><th>Resultados</th><th>Custo/result.</th><th>Faturamento</th></tr></thead><tbody>${campaignRows}</tbody></table></div></div>`:''}
+    ${d?`<div class="gl-card" style="padding:17px;margin-top:14px"><h3 style="font-size:13px;margin-bottom:12px">Campanhas</h3><div style="overflow-x:auto"><table class="gl-meta-table"><thead><tr><th>Campanha</th><th>Status</th><th>Gasto</th><th>Cliques</th><th>Impressões</th><th>Leads</th><th>Mensagens</th><th>Compras</th><th>Faturamento</th></tr></thead><tbody>${campaignRows}</tbody></table></div></div>`:''}
     ${d&&d.creatives&&d.creatives.length?`<div class="gl-card" style="padding:17px;margin-top:14px"><h3 style="font-size:13px;margin-bottom:12px">Criativos com mais investimento</h3><div class="gl-meta-creatives">${creatives}</div></div>`:''}
     `;
   }
