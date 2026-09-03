@@ -15400,8 +15400,10 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       <div class="gl-meta-stat"><span>Campanhas</span><b>${d.summary.campaigns}</b></div>
       <div class="gl-meta-stat"><span>Cliques</span><b>${d.summary.clicks.toLocaleString('pt-BR')}</b></div>
       <div class="gl-meta-stat"><span>Impressões</span><b>${d.summary.impressions.toLocaleString('pt-BR')}</b></div>
-      <div class="gl-meta-stat"><span>Leads</span><b>${d.summary.leads.toLocaleString('pt-BR')}</b></div>
-      <div class="gl-meta-stat"><span>Custo por lead</span><b>${d.summary.leads>0?fmtBRL(d.summary.cpl):'—'}</b></div>
+      <div class="gl-meta-stat"><span>Resultados</span><b>${d.summary.leads.toLocaleString('pt-BR')}</b></div>
+      <div class="gl-meta-stat"><span>Custo por resultado</span><b>${d.summary.leads>0?fmtBRL(d.summary.cpl):'—'}</b></div>
+      <div class="gl-meta-stat"><span>Faturamento</span><b>${fmtBRL(d.summary.revenue||0)}</b></div>
+      <div class="gl-meta-stat"><span>ROAS</span><b>${d.summary.spend>0?(d.summary.roas||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'x':'—'}</b></div>
     </div>`:'';
     const campaignRows=d&&d.campaigns.length?d.campaigns.map(c=>`<tr>
       <td>${metaEsc(c.name)}</td>
@@ -15411,10 +15413,11 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       <td>${c.impressions.toLocaleString('pt-BR')}</td>
       <td>${c.leads.toLocaleString('pt-BR')}</td>
       <td>${c.leads>0?fmtBRL(c.cpl):'—'}</td>
-    </tr>`).join(''):`<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:24px">Nenhuma campanha com dados nesse período.</td></tr>`;
+      <td>${fmtBRL(c.revenue||0)}</td>
+    </tr>`).join(''):`<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">Nenhuma campanha com dados nesse período.</td></tr>`;
     const creatives=d&&d.creatives&&d.creatives.length?d.creatives.map(cr=>`<div class="gl-meta-creative">
       ${cr.thumbnailUrl?`<img src="${metaEsc(cr.thumbnailUrl)}" alt="${metaEsc(cr.name)}" loading="lazy">`:'<div class="gl-meta-creative-empty">Sem prévia</div>'}
-      <div class="gl-meta-creative-body"><b>${metaEsc(cr.name)}</b><span>${fmtBRL(cr.spend)} · ${cr.leads} lead${cr.leads===1?'':'s'}</span></div>
+      <div class="gl-meta-creative-body"><b>${metaEsc(cr.name)}</b><span>${fmtBRL(cr.spend)} · ${cr.leads} resultado${cr.leads===1?'':'s'}</span></div>
     </div>`).join(''):'';
 
     return `${head('Campanhas da Meta','Acompanhe gasto, campanhas e leads das suas contas de anúncio conectadas.')}
@@ -15425,7 +15428,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     </div>
     ${metaDashError?`<div class="gl-card" style="padding:14px;color:#DC2626;margin-top:12px">${metaEsc(metaDashError)}</div>`:''}
     ${summary}
-    ${d?`<div class="gl-card" style="padding:17px;margin-top:14px"><h3 style="font-size:13px;margin-bottom:12px">Campanhas</h3><div style="overflow-x:auto"><table class="gl-meta-table"><thead><tr><th>Campanha</th><th>Status</th><th>Gasto</th><th>Cliques</th><th>Impressões</th><th>Leads</th><th>CPL</th></tr></thead><tbody>${campaignRows}</tbody></table></div></div>`:''}
+    ${d?`<div class="gl-card" style="padding:17px;margin-top:14px"><h3 style="font-size:13px;margin-bottom:12px">Campanhas</h3><div style="overflow-x:auto"><table class="gl-meta-table"><thead><tr><th>Campanha</th><th>Status</th><th>Gasto</th><th>Cliques</th><th>Impressões</th><th>Resultados</th><th>Custo/result.</th><th>Faturamento</th></tr></thead><tbody>${campaignRows}</tbody></table></div></div>`:''}
     ${d&&d.creatives&&d.creatives.length?`<div class="gl-card" style="padding:17px;margin-top:14px"><h3 style="font-size:13px;margin-bottom:12px">Criativos com mais investimento</h3><div class="gl-meta-creatives">${creatives}</div></div>`:''}
     `;
   }
