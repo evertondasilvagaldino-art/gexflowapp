@@ -4591,6 +4591,11 @@ function drop(e,newVal){
     fireWebhook('lead.movido',{id:dragId,novoEstagio:newVal});
     renderComercial();
     toast(`Lead → ${newVal} ✓`,'#10B981');
+  } else if(dragType==='cliente-conta'){
+    DB.update('clientes',dragId,{contaStatus:newVal});
+    fireWebhook('cliente.atualizado',{id:dragId,contaStatus:newVal});
+    renderEntregas();
+    toast(`Conta → "${newVal}" ✓`,'#10B981');
   }
   dragId='';dragType='';
 }
@@ -6216,7 +6221,16 @@ async function saveModal(type,id=''){
     cliente(){
       const contaRespSel=document.getElementById('f-conta-resp');
       const contaResponsaveis=contaRespSel?[...contaRespSel.selectedOptions].map(o=>o.value):(DB.find('clientes',id)?.contaResponsaveis||[]);
-      const obj={nome:v('f-nome'),email:v('f-email'),telefone:v('f-tel'),status:v('f-status'),squad:v('f-squad')||'—',ltv:v('f-ltv')||'—',health:parseInt(v('f-health'))||0,desc:v('f-desc'),
+      // Squads: no formulário completo (aba Clientes) é um multi-seleção de
+      // verdade — várias squads podem ser marcadas. No formulário reduzido
+      // da carteira (aberto de dentro de Projetos) o campo é só um input
+      // oculto que preserva o cadastro; nesse caso mantemos as squads que o
+      // cliente já tinha, sem alteração.
+      const squadEl=document.getElementById('f-squad');
+      const squads=(squadEl&&squadEl.tagName==='SELECT'&&squadEl.multiple)
+        ?[...squadEl.selectedOptions].map(o=>o.value).filter(Boolean)
+        :(id?clienteSquads(DB.find('clientes',id)):(squadEl?.value&&squadEl.value!=='—'?[squadEl.value]:[]));
+      const obj={nome:v('f-nome'),email:v('f-email'),telefone:v('f-tel'),status:v('f-status'),squad:squads[0]||'—',squads,ltv:v('f-ltv')||'—',health:parseInt(v('f-health'))||0,desc:v('f-desc'),
         contaStatus:v('f-conta-status')||'Integração',contaResultado:v('f-conta-resultado'),contaRelacionamento:v('f-conta-relacionamento'),contaResponsaveis,
         linkDrive:v('f-link-drive'),linkMeta:v('f-link-meta'),linkGoogleAds:v('f-link-googleads'),linkGmn:v('f-link-gmn')};
       if(!obj.nome){toast('Nome obrigatório','#EF4444');return}
@@ -6427,8 +6441,8 @@ function formCliente(d,contexto='full'){
       <select class="form-input" id="f-status"><option ${d?.status==='Aguardando'?'selected':''}>Aguardando</option><option ${d?.status==='Ativo'?'selected':''}>Ativo</option><option ${d?.status==='Lead'?'selected':''}>Lead</option><option ${d?.status==='Inativo'?'selected':''}>Inativo</option></select></div>
   </div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">Squad responsável</label>
-      <select class="form-input" id="f-squad">${(()=>{const sqs=DB.get('squads');return`<option value="—">— Sem squad —</option>`+sqs.map(s=>`<option value="${s.nome}" ${d?.squad===s.nome?'selected':''}>${s.nome}</option>`).join('')})()} </select>
+    <div class="form-group"><label class="form-label">Squads responsáveis (Ctrl/Cmd+clique para vários)</label>
+      <select class="form-input" id="f-squad" multiple size="3">${DB.get('squads').map(s=>`<option value="${s.nome}" ${clienteSquads(d).includes(s.nome)?'selected':''}>${s.nome}</option>`).join('')}</select>
     </div>
     <div class="form-group"><label class="form-label">LTV</label><input class="form-input" id="f-ltv" placeholder="R$ 0,00" value="${d?.ltv||''}"></div>
   </div>
@@ -7006,7 +7020,7 @@ function renderDetailBody(){
     <div class="tab-pane active" id="tab-dados">
       ${c.desc?`<div style="background:var(--bg);border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;line-height:1.6;border-left:3px solid var(--p3)"><div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px">DESCRIÇÃO / OBSERVAÇÕES</div>${c.desc}</div>`:'<div style="color:var(--light);font-size:13px;padding:10px 0">Sem descrição cadastrada</div>'}
       <div class="form-row">
-        <div><div class="form-label">Squad</div><div style="font-size:13px;font-weight:500">${c.squad||'—'}</div></div>
+        <div><div class="form-label">Squad${clienteSquads(c).length>1?'s':''}</div><div style="font-size:13px;font-weight:500">${clienteSquads(c).length?clienteSquads(c).join(', '):'—'}</div></div>
         <div><div class="form-label">Criado em</div><div style="font-size:13px">${c.createdAt||'—'}</div></div>
       </div>
     </div>
@@ -8865,8 +8879,14 @@ function updateSquadName(id,novoNome){
   // Update members with old squad name
   const mbs=DB.get('membros').map(m=>m.squad===old.nome?{...m,squad:novoNome.trim()}:m);
   DB.set('membros',mbs);
-  // Update clients
-  const clis=DB.get('clientes').map(c=>c.squad===old.nome?{...c,squad:novoNome.trim()}:c);
+  // Update clients — renomeia o squad tanto no campo legado (squad) quanto
+  // na lista completa de squads (squads), já que um cliente pode estar em mais de um.
+  const clis=DB.get('clientes').map(c=>{
+    const squads=clienteSquads(c);
+    if(!squads.includes(old.nome)&&c.squad!==old.nome)return c;
+    const novasSquads=squads.map(nm=>nm===old.nome?novoNome.trim():nm);
+    return {...c,squad:c.squad===old.nome?novoNome.trim():c.squad,squads:novasSquads};
+  });
   DB.set('clientes',clis);
   // Se a pasta renomeada era a que estava aberta em Projetos, acompanha o novo nome
   if(projFolderView===old.nome)projFolderView=novoNome.trim();
@@ -8884,7 +8904,7 @@ function deleteSquad(id){
   const s=DB.find('squads',id);
   if(!s)return;
   const cntMembros=DB.get('membros').filter(m=>m.squad===s.nome).length;
-  const cntClientes=DB.get('clientes').filter(c=>c.squad===s.nome).length;
+  const cntClientes=DB.get('clientes').filter(c=>clienteSquads(c).includes(s.nome)).length;
   if(cntMembros>0){toast(`${cntMembros} membro(s) neste squad. Reatribua antes de excluir.`,'#F59E0B');return}
   if(cntClientes>0){toast(`${cntClientes} cliente(s) neste squad. Reatribua antes de excluir.`,'#F59E0B');return}
   DB.remove('squads',id);
@@ -9523,13 +9543,24 @@ function renderProjView(){
 // Gestão de Entregas (kanban), organizada em pastas por Squad
 const SEM_SQUAD_KEY='__sem_squad__';
 
-// Squad ao qual um projeto pertence: herdado do squad cadastrado no cliente
-// vinculado ao projeto (campo "Squad responsável" do cadastro de Cliente).
-// Sem cliente, ou cliente sem squad definido ('—'), cai na pasta "Sem squad".
-function projectSquadName(p){
+// Um cliente pode pertencer a mais de um squad ao mesmo tempo (campo
+// "Squads responsáveis" do cadastro, agora um multi-seleção). Guardamos a
+// lista completa em c.squads; c.squad (singular) é mantido só por
+// compatibilidade com dados/telas antigas e sempre reflete o primeiro squad
+// da lista. Este helper normaliza os dois formatos num array só.
+function clienteSquads(c){
+  if(!c)return[];
+  if(Array.isArray(c.squads))return c.squads.filter(s=>s&&s!=='—');
+  return (c.squad&&c.squad!=='—')?[c.squad]:[];
+}
+
+// Squads aos quais um projeto pertence: herdados dos squads cadastrados no
+// cliente vinculado ao projeto (campo "Squads responsáveis" do cadastro de
+// Cliente) — um projeto de um cliente em vários squads aparece em todos.
+// Sem cliente, ou cliente sem squad definido, cai na pasta "Sem squad".
+function projectSquads(p){
   const cli=(DB.get('clientes')||[]).find(c=>c.nome===p.cliente);
-  const sq=cli?.squad;
-  return (sq&&sq!=='—')?sq:'';
+  return clienteSquads(cli);
 }
 
 function openProjSquadFolder(key){
@@ -9583,9 +9614,9 @@ function renderEntregas(){
 // a operação já usa pra dividir os clientes por time.
 function renderEntregasFolders(pros){
   const squads=DB.get('squads')||[];
-  const semSquadCount=pros.filter(p=>!projectSquadName(p)).length;
+  const semSquadCount=pros.filter(p=>!projectSquads(p).length).length;
   const cards=squads.map(s=>{
-    const cnt=pros.filter(p=>projectSquadName(p)===s.nome).length;
+    const cnt=pros.filter(p=>projectSquads(p).includes(s.nome)).length;
     return `<div class="squad-folder-card" onclick="openProjSquadFolder('${s.nome.replace(/'/g,"\\'")}')">
       <div class="squad-folder-bar" style="background:${s.cor||'var(--muted)'}"></div>
       <div class="squad-folder-ico" style="background:${s.cor||'var(--muted)'}22;color:${s.cor||'var(--muted)'}">📁</div>
@@ -9621,10 +9652,11 @@ function contaLinkCell(url,icon){
 
 // Filtros personalizáveis da carteira de Tráfego — mesmo espírito dos
 // filtros do board de entregas por cliente, adaptados aos campos daqui.
-let contaFiltro={busca:'',resultado:'',relacionamento:'',responsavel:''};
+let contaFiltro={busca:'',contaStatus:'',resultado:'',relacionamento:'',responsavel:''};
+let contaViewMode='lista';
 
 function resetContaFiltro(){
-  contaFiltro={busca:'',resultado:'',relacionamento:'',responsavel:''};
+  contaFiltro={busca:'',contaStatus:'',resultado:'',relacionamento:'',responsavel:''};
 }
 
 function applyContaFiltro(clientes){
@@ -9632,11 +9664,17 @@ function applyContaFiltro(clientes){
   const membros=DB.get('membros')||[];
   return clientes.filter(c=>{
     if(f.busca&&!String(c.nome||'').toLowerCase().includes(f.busca.toLowerCase()))return false;
+    if(f.contaStatus&&(c.contaStatus||'Integração')!==f.contaStatus)return false;
     if(f.resultado&&(c.contaResultado||'')!==f.resultado)return false;
     if(f.relacionamento&&(c.contaRelacionamento||'')!==f.relacionamento)return false;
     if(f.responsavel&&!(c.contaResponsaveis||[]).includes(f.responsavel))return false;
     return true;
   });
+}
+
+function toggleContaView(modo){
+  contaViewMode=modo;
+  renderEntregas();
 }
 
 function setContaFiltro(campo,valor){
@@ -9649,7 +9687,7 @@ function setContaFiltro(campo,valor){
 function setContaFiltroBusca(valor){
   contaFiltro.busca=valor;
   const folderNome=projFolderView;
-  const clientesDoSquad=(DB.get('clientes')||[]).filter(c=>c.squad===folderNome);
+  const clientesDoSquad=(DB.get('clientes')||[]).filter(c=>clienteSquads(c).includes(folderNome));
   atualizarContaGroupsEl(clientesDoSquad);
 }
 
@@ -9666,6 +9704,10 @@ function contaFiltroBarra(clientesDoSquad){
   const ativos=Object.values(f).filter(Boolean).length;
   return `<div class="card" style="padding:10px 14px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px">
     <input class="form-input" placeholder="🔎 Buscar por nome..." value="${(f.busca||'').replace(/"/g,'&quot;')}" style="flex:1;min-width:160px;padding:5px 10px;font-size:12px" oninput="setContaFiltroBusca(this.value)">
+    <select class="form-input" style="padding:5px 8px;font-size:12px;width:auto" onchange="setContaFiltro('contaStatus',this.value)">
+      <option value="">Status da conta (todos)</option>
+      ${CONTA_STATUS_ORDEM.map(s=>`<option value="${s}" ${f.contaStatus===s?'selected':''}>${s}</option>`).join('')}
+    </select>
     <select class="form-input" style="padding:5px 8px;font-size:12px;width:auto" onchange="setContaFiltro('resultado',this.value)">
       <option value="">Resultado (todos)</option>
       ${CONTA_RESULTADO_OPCOES.map(r=>`<option value="${r}" ${f.resultado===r?'selected':''}>${r}</option>`).join('')}
@@ -9690,11 +9732,50 @@ function atualizarContaGroupsEl(clientesDoSquad){
     groupsEl.innerHTML=`<div class="empty"><div class="empty-ico">📊</div><div class="empty-txt">Nenhum cliente atribuído a este squad ainda</div></div>`;
     return;
   }
-  if(!clientes.length){
+  if(!clientes.length&&contaViewMode!=='kanban'){
     groupsEl.innerHTML=`<div class="empty"><div class="empty-ico">🔎</div><div class="empty-txt">Nenhum cliente corresponde aos filtros aplicados</div></div>`;
     return;
   }
-  groupsEl.innerHTML=buildContaStatusGroupsHtml(clientes);
+  groupsEl.innerHTML=contaViewMode==='kanban'?buildContaKanbanHtml(clientes):buildContaStatusGroupsHtml(clientes);
+}
+
+// Visão Kanban da carteira de Tráfego: uma coluna por status de conta,
+// com arrastar-e-soltar reaproveitando o mesmo mecanismo genérico já usado
+// nas outras telas (dragStart/drop, com um novo tipo 'cliente-conta').
+function buildContaKanbanHtml(clientes){
+  const folderNome=projFolderView;
+  const membros=DB.get('membros')||[];
+  const cols=CONTA_STATUS_ORDEM.map(st=>{
+    const items=clientes.filter(c=>(c.contaStatus||'Integração')===st);
+    const cor=CONTA_STATUS_COR[st];
+    return `<div class="kol" style="background:${cor}0D;border-color:${cor}33"
+      ondragover="dragOver(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'${st.replace(/'/g,"\\'")}')">
+      <div class="kol-header">
+        <div class="kol-title"><span style="width:8px;height:8px;border-radius:50%;background:${cor};display:inline-block"></span>${CONTA_STATUS_ICO[st]} ${st}</div>
+        <div class="kol-count">${items.length}</div>
+      </div>
+      ${items.map(c=>{
+        const resp=(c.contaResponsaveis||[]).map(mid=>membros.find(m=>m.id===mid)).filter(Boolean);
+        const resCor=CONTA_RESULTADO_COR[c.contaResultado]||'#9CA3AF';
+        const nComentarios=(c.comentarios||[]).length;
+        return `<div class="kcard" draggable="true" ondragstart="dragStart(event,'${c.id}','cliente-conta')" ondragend="dragEnd(event)" onclick="openModal('cliente','${c.id}','carteira')">
+        <div class="kcard-title">${c.nome}</div>
+        <div class="kcard-sub">${resp.length?resp.map(m=>m.nome).join(', '):'Sem responsável'}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">
+          ${c.contaResultado?`<span class="badge" style="background:${resCor}22;color:${resCor}">${c.contaResultado}</span>`:''}
+        </div>
+        <div class="kcard-footer">
+          <div style="display:flex;gap:6px">${contaLinkCell(c.linkDrive,'📁')}${contaLinkCell(c.linkMeta,'∞')}</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="cursor:pointer;font-size:11px;color:var(--muted)" onclick="event.stopPropagation();openProjComments('${c.id}','clientes')">💬 ${nComentarios||''}</span>
+          </div>
+        </div>
+      </div>`;
+      }).join('')}
+      <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:12px;border-style:dashed;margin-top:4px" onclick="openModal('cliente',{squad:'${folderNome.replace(/'/g,"\\'")}',contaStatus:'${st.replace(/'/g,"\\'")}'},'carteira')">+ Adicionar</button>
+    </div>`;
+  }).join('');
+  return `<div class="kanban" style="grid-template-columns:repeat(${CONTA_STATUS_ORDEM.length},1fr)">${cols}</div>`;
 }
 
 // Tela 2 (squads do tipo Tráfego): board único por status de CONTA — cada
@@ -9703,16 +9784,22 @@ function renderEntregasTrafego(){
   const squad=(DB.get('squads')||[]).find(s=>s.nome===projFolderView);
   const folderNome=squad?.nome||projFolderView;
   const folderCor=squad?.cor||'var(--muted)';
-  const clientesDoSquad=(DB.get('clientes')||[]).filter(c=>c.squad===folderNome);
+  const clientesDoSquad=(DB.get('clientes')||[]).filter(c=>clienteSquads(c).includes(folderNome));
 
   document.getElementById('proj-content').innerHTML=`
     <div class="proj-breadcrumb"><span class="bc-back" onclick="backToProjFolders()">📁 Squads</span> / <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${folderCor};display:inline-block"></span><b>${folderNome}</b></span></div>
     <div class="page-header">
       <div><div class="page-title">📊 ${folderNome}</div><div class="page-sub">Carteira de contas, agrupada por status</div></div>
-      <button class="btn btn-primary" onclick="openModal('cliente',{squad:'${folderNome.replace(/'/g,"\\'")}'},'carteira')">+ Novo Cliente</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="display:flex;gap:2px;background:var(--bg);border-radius:8px;padding:3px">
+          <button class="btn btn-sm" style="background:${contaViewMode==='lista'?'#fff':'transparent'};color:${contaViewMode==='lista'?'var(--p2)':'var(--muted)'};box-shadow:${contaViewMode==='lista'?'0 1px 3px rgba(0,0,0,.1)':'none'}" onclick="toggleContaView('lista')">📋 Lista</button>
+          <button class="btn btn-sm" style="background:${contaViewMode==='kanban'?'#fff':'transparent'};color:${contaViewMode==='kanban'?'var(--p2)':'var(--muted)'};box-shadow:${contaViewMode==='kanban'?'0 1px 3px rgba(0,0,0,.1)':'none'}" onclick="toggleContaView('kanban')">🗂️ Kanban</button>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('cliente',{squad:'${folderNome.replace(/'/g,"\\'")}'},'carteira')">+ Novo Cliente</button>
+      </div>
     </div>
     ${clientesDoSquad.length?contaFiltroBarra(clientesDoSquad):''}
-    <div id="conta-groups" style="display:flex;flex-direction:column;gap:18px"></div>`;
+    <div id="conta-groups" style="${contaViewMode==='kanban'?'':'display:flex;flex-direction:column;gap:18px'}"></div>`;
 
   atualizarContaGroupsEl(clientesDoSquad);
 }
@@ -9772,7 +9859,7 @@ function renderEntregasClientes(prosAll){
   const squad=isSemSquad?null:(DB.get('squads')||[]).find(s=>s.nome===projFolderView);
   const folderNome=isSemSquad?'Sem squad':(squad?.nome||projFolderView);
   const folderCor=isSemSquad?'var(--muted)':(squad?.cor||'var(--muted)');
-  const clientes=(DB.get('clientes')||[]).filter(c=>isSemSquad?(!c.squad||c.squad==='—'):c.squad===folderNome);
+  const clientes=(DB.get('clientes')||[]).filter(c=>isSemSquad?(clienteSquads(c).length===0):clienteSquads(c).includes(folderNome));
 
   document.getElementById('proj-content').innerHTML=`
     <div class="proj-breadcrumb"><span class="bc-back" onclick="backToProjFolders()">📁 Squads</span> / <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${folderCor};display:inline-block"></span><b>${folderNome}</b></span></div>
