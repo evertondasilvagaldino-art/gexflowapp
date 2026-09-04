@@ -2432,6 +2432,9 @@ let projClienteView = null;
 // Filtros personalizáveis do board de entregas (nível 3, dentro do cliente).
 // Combináveis entre si (E lógico); resetados sempre que troca de cliente.
 let entregasFiltro = {busca:'',responsavel:'',formato:'',objetivo:'',prioridade:''};
+// Visão do board de entregas (dentro do cliente, squads de Conteúdo):
+// 'lista' = grupos por etapa em tabela (padrão); 'kanban' = colunas arrastáveis.
+let entregasViewMode = 'lista';
 let dashFilter = {mes: new Date().getMonth()+1, ano: new Date().getFullYear()};
 // Filtro de período do Pipeline (Comercial) — independente do filtro do Início.
 // Começa em "Todos os meses / Todos os anos" pra não esconder leads de quem
@@ -4477,6 +4480,9 @@ const PRIORIDADE_COR={Urgente:'#EF4444',Alta:'#F59E0B',Normal:'#3B82F6'};
 const STATUS_ENTREGA=['Postado','Aprovado','Aguard. Aprovação','Revisão','A fazer'];
 const STATUS_ENTREGA_COR={Postado:'#059669',Aprovado:'#10B981','Aguard. Aprovação':'#06B6D4',Revisão:'#F59E0B','A fazer':'#9CA3AF'};
 const STATUS_ENTREGA_ICO={Postado:'✅',Aprovado:'✅','Aguard. Aprovação':'🕓',Revisão:'🕓','A fazer':'🕓'};
+// Mesmas etapas, só que em ordem de fluxo de trabalho (esquerda→direita) —
+// usada na visão Kanban, que é lida como uma esteira e não como um ranking.
+const STATUS_ENTREGA_KANBAN=[...STATUS_ENTREGA].reverse();
 const FORMATO_OPCOES=['Reels','Post','Story','Carrossel','Vídeo','TV/Blog','Anúncio'];
 const OBJETIVO_OPCOES=['Entretenimento','Quebra de objeção','Educar','Vender','Engajamento','Autoridade','Prova social'];
 const OBJETIVO_COR={Entretenimento:'#10B981','Quebra de objeção':'#EF4444',Educar:'#3B82F6',Vender:'#7C3AED',Engajamento:'#F59E0B',Autoridade:'#06B6D4','Prova social':'#EC4899'};
@@ -6173,7 +6179,8 @@ function renderIntegrationLog(){
 }
 
 // ═══ MODAL ═══
-function openModal(type,idOrData=null){
+let modalClienteContexto='full';
+function openModal(type,idOrData=null,contexto=null){
   // Accept either an id string or a data object
   let data=null;
   if(typeof idOrData==='string'&&idOrData){
@@ -6186,9 +6193,15 @@ function openModal(type,idOrData=null){
   // um objeto de pré-preenchimento (ex: {cliente,status} pra já abrir com
   // cliente/etapa escolhidos) continua contando como "Novo".
   const isEdit=!!data?.id;
-  const titles={cliente:isEdit?'Editar Cliente':'Novo Cliente',projeto:isEdit?'Editar Projeto':'Novo Projeto',lead:isEdit?'Editar Lead':'Novo Lead',transacao:isEdit?'Editar Transação':'Nova Transação',membro:isEdit?'Editar Membro':'Novo Membro',usuario:isEdit?'Editar Usuário':'Novo Usuário',contrato:isEdit?'Editar Contrato':'Novo Contrato'};
+  // Quando o cliente é aberto de dentro de Projetos (carteira de um squad de
+  // Tráfego), não mostramos os dados do setor de Clientes (nome/email/tel/
+  // status comercial/squad/ltv/health/descrição) — só os campos de gestão da
+  // carteira. Isso é controlado por esse 3º parâmetro ('carteira').
+  modalClienteContexto=(type==='cliente'&&contexto==='carteira')?'carteira':'full';
+  const clienteCarteiraTitle=isEdit?`📊 Carteira — ${(data?.nome||'').replace(/</g,'&lt;')}`:'Novo Cliente';
+  const titles={cliente:modalClienteContexto==='carteira'?clienteCarteiraTitle:(isEdit?'Editar Cliente':'Novo Cliente'),projeto:isEdit?'Editar Projeto':'Novo Projeto',lead:isEdit?'Editar Lead':'Novo Lead',transacao:isEdit?'Editar Transação':'Nova Transação',membro:isEdit?'Editar Membro':'Novo Membro',usuario:isEdit?'Editar Usuário':'Novo Usuário',contrato:isEdit?'Editar Contrato':'Novo Contrato'};
   document.getElementById('modal-title').textContent=titles[type];
-  document.getElementById('modal-body').innerHTML=({cliente:formCliente,projeto:formProjeto,lead:formLead,transacao:formTransacao,membro:formMembro,usuario:formUsuario,contrato:formContrato})[type](data);
+  document.getElementById('modal-body').innerHTML=({cliente:d=>formCliente(d,modalClienteContexto),projeto:formProjeto,lead:formLead,transacao:formTransacao,membro:formMembro,usuario:formUsuario,contrato:formContrato})[type](data);
   document.getElementById('modal-footer').innerHTML=`<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveModal('${type}','${data?.id||''}')">Salvar</button>`;
   document.getElementById('modal-box').className=(type==='usuario'?'modal modal-permissions':'modal');
   document.getElementById('modal-ov').classList.add('open');
@@ -6225,6 +6238,13 @@ async function saveModal(type,id=''){
         toast(id?'Cliente atualizado ✓':'Cliente criado ✓','#10B981');
       }
       closeModal();renderClientes();renderInicio();
+      // Se o cliente foi editado a partir da carteira de Tráfego (ou de
+      // qualquer lugar dentro de Projetos > Gestão de Entregas), atualiza
+      // essa tela também — sem isso, o card só "pulava" de grupo/status
+      // depois de recarregar a página inteira.
+      if(typeof currentProjView!=='undefined'&&currentProjView==='entregas'&&document.getElementById('proj-content')){
+        renderEntregas();
+      }
     },
     projeto(){
       const oldProjeto=id?DB.find('projetos',id):null;
@@ -6395,7 +6415,8 @@ async function saveModal(type,id=''){
 }
 
 // ═══ FORMS ═══
-function formCliente(d){
+function formCliente(d,contexto='full'){
+  if(contexto==='carteira')return formClienteCarteira(d);
   return `<div class="form-row">
     <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="f-nome" value="${d?.nome||''}"></div>
     <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-email" value="${d?.email||''}"></div>
@@ -6438,6 +6459,54 @@ function formCliente(d){
       <div class="form-group"><label class="form-label">🔗 Google Ads</label><input class="form-input" id="f-link-googleads" placeholder="https://ads.google.com/..." value="${d?.linkGoogleAds||''}"></div>
       <div class="form-group"><label class="form-label">🔗 GMN (Google Meu Negócio)</label><input class="form-input" id="f-link-gmn" placeholder="https://share.google/..." value="${d?.linkGmn||''}"></div>
     </div>
+  </div>`;
+}
+
+// Versão enxuta do formulário de cliente, usada quando ele é aberto de
+// dentro de Projetos (carteira de um squad de Tráfego). Mostra só a
+// competência da carteira e os campos de gestão — os dados do setor de
+// Clientes (nome, email, telefone, status comercial, squad, LTV, health,
+// descrição) ficam preservados em campos ocultos e continuam sendo salvos
+// sem alteração, sem aparecer nem poder ser editados por aqui.
+function formClienteCarteira(d){
+  const isEdit=!!d?.id;
+  const esc=s=>String(s||'').replace(/"/g,'&quot;');
+  const cabecalho=isEdit?`
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg);border-radius:9px;margin-bottom:16px">
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials(d?.nome||'')}</div>
+      <div><div style="font-weight:700;font-size:14px">${d?.nome||''}</div><div style="font-size:11px;color:var(--muted)">Dados cadastrais (contato, LTV, status comercial etc.) ficam na aba Clientes</div></div>
+    </div>
+    <input type="hidden" id="f-nome" value="${esc(d?.nome)}">`
+    :`<div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="f-nome" value="${d?.nome||''}"></div>`;
+  const preservados=`
+    <input type="hidden" id="f-email" value="${esc(d?.email)}">
+    <input type="hidden" id="f-tel" value="${esc(d?.telefone)}">
+    <input type="hidden" id="f-status" value="${esc(d?.status||'Aguardando')}">
+    <input type="hidden" id="f-squad" value="${esc(d?.squad||'—')}">
+    <input type="hidden" id="f-ltv" value="${esc(d?.ltv)}">
+    <input type="hidden" id="f-health" value="${d?.health||0}">
+    <input type="hidden" id="f-desc" value="${esc(d?.desc)}">`;
+  return `${cabecalho}${preservados}
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:10px">📊 Carteira — Squad de Tráfego</div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Status da conta</label>
+      <select class="form-input" id="f-conta-status">${CONTA_STATUS_ORDEM.map(s=>`<option ${(d?.contaStatus||'Integração')===s?'selected':''}>${s}</option>`).join('')}</select></div>
+    <div class="form-group"><label class="form-label">Resultado</label>
+      <select class="form-input" id="f-conta-resultado"><option value="">— Não avaliado —</option>${CONTA_RESULTADO_OPCOES.map(r=>`<option ${d?.contaResultado===r?'selected':''}>${r}</option>`).join('')}</select></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Relacionamento</label>
+      <select class="form-input" id="f-conta-relacionamento"><option value="">— Não avaliado —</option>${CONTA_RELACIONAMENTO_OPCOES.map(r=>`<option ${d?.contaRelacionamento===r?'selected':''}>${r}</option>`).join('')}</select></div>
+    <div class="form-group"><label class="form-label">Responsáveis (Ctrl/Cmd+clique para vários)</label>
+      <select class="form-input" id="f-conta-resp" multiple size="3">${DB.get('membros').map(m=>`<option value="${m.id}" ${(d?.contaResponsaveis||[]).includes(m.id)?'selected':''}>${m.nome}</option>`).join('')}</select></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">🔗 Drive</label><input class="form-input" id="f-link-drive" placeholder="https://drive.google.com/..." value="${d?.linkDrive||''}"></div>
+    <div class="form-group"><label class="form-label">🔗 Meta Ads</label><input class="form-input" id="f-link-meta" placeholder="https://adsmanager.facebook.com/..." value="${d?.linkMeta||''}"></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">🔗 Google Ads</label><input class="form-input" id="f-link-googleads" placeholder="https://ads.google.com/..." value="${d?.linkGoogleAds||''}"></div>
+    <div class="form-group"><label class="form-label">🔗 GMN (Google Meu Negócio)</label><input class="form-input" id="f-link-gmn" placeholder="https://share.google/..." value="${d?.linkGmn||''}"></div>
   </div>`;
 }
 
@@ -9550,30 +9619,108 @@ function contaLinkCell(url,icon){
   return `<a href="${safeUrl.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--p2);font-size:11px;text-decoration:none;white-space:nowrap">${icon} ${host}</a>`;
 }
 
+// Filtros personalizáveis da carteira de Tráfego — mesmo espírito dos
+// filtros do board de entregas por cliente, adaptados aos campos daqui.
+let contaFiltro={busca:'',resultado:'',relacionamento:'',responsavel:''};
+
+function resetContaFiltro(){
+  contaFiltro={busca:'',resultado:'',relacionamento:'',responsavel:''};
+}
+
+function applyContaFiltro(clientes){
+  const f=contaFiltro;
+  const membros=DB.get('membros')||[];
+  return clientes.filter(c=>{
+    if(f.busca&&!String(c.nome||'').toLowerCase().includes(f.busca.toLowerCase()))return false;
+    if(f.resultado&&(c.contaResultado||'')!==f.resultado)return false;
+    if(f.relacionamento&&(c.contaRelacionamento||'')!==f.relacionamento)return false;
+    if(f.responsavel&&!(c.contaResponsaveis||[]).includes(f.responsavel))return false;
+    return true;
+  });
+}
+
+function setContaFiltro(campo,valor){
+  contaFiltro[campo]=valor;
+  renderEntregas();
+}
+
+// Busca por texto: atualiza só os grupos, sem redesenhar a barra de filtro
+// (senão o campo perde o foco a cada letra digitada).
+function setContaFiltroBusca(valor){
+  contaFiltro.busca=valor;
+  const folderNome=projFolderView;
+  const clientesDoSquad=(DB.get('clientes')||[]).filter(c=>c.squad===folderNome);
+  atualizarContaGroupsEl(clientesDoSquad);
+}
+
+function limparContaFiltro(){
+  resetContaFiltro();
+  renderEntregas();
+}
+
+function contaFiltroBarra(clientesDoSquad){
+  const f=contaFiltro;
+  const membros=DB.get('membros')||[];
+  const respIds=[...new Set(clientesDoSquad.flatMap(c=>c.contaResponsaveis||[]))];
+  const responsaveis=respIds.map(id=>membros.find(m=>m.id===id)).filter(Boolean).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+  const ativos=Object.values(f).filter(Boolean).length;
+  return `<div class="card" style="padding:10px 14px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px">
+    <input class="form-input" placeholder="🔎 Buscar por nome..." value="${(f.busca||'').replace(/"/g,'&quot;')}" style="flex:1;min-width:160px;padding:5px 10px;font-size:12px" oninput="setContaFiltroBusca(this.value)">
+    <select class="form-input" style="padding:5px 8px;font-size:12px;width:auto" onchange="setContaFiltro('resultado',this.value)">
+      <option value="">Resultado (todos)</option>
+      ${CONTA_RESULTADO_OPCOES.map(r=>`<option value="${r}" ${f.resultado===r?'selected':''}>${r}</option>`).join('')}
+    </select>
+    <select class="form-input" style="padding:5px 8px;font-size:12px;width:auto" onchange="setContaFiltro('relacionamento',this.value)">
+      <option value="">Relacionamento (todos)</option>
+      ${CONTA_RELACIONAMENTO_OPCOES.map(r=>`<option value="${r}" ${f.relacionamento===r?'selected':''}>${r}</option>`).join('')}
+    </select>
+    <select class="form-input" style="padding:5px 8px;font-size:12px;width:auto" onchange="setContaFiltro('responsavel',this.value)">
+      <option value="">Responsável (todos)</option>
+      ${responsaveis.map(m=>`<option value="${m.id}" ${f.responsavel===m.id?'selected':''}>${m.nome}</option>`).join('')}
+    </select>
+    ${ativos?`<button class="btn btn-ghost btn-sm" onclick="limparContaFiltro()">✕ Limpar filtros (${ativos})</button>`:''}
+  </div>`;
+}
+
+function atualizarContaGroupsEl(clientesDoSquad){
+  const groupsEl=document.getElementById('conta-groups');
+  if(!groupsEl)return;
+  const clientes=applyContaFiltro(clientesDoSquad);
+  if(!clientesDoSquad.length){
+    groupsEl.innerHTML=`<div class="empty"><div class="empty-ico">📊</div><div class="empty-txt">Nenhum cliente atribuído a este squad ainda</div></div>`;
+    return;
+  }
+  if(!clientes.length){
+    groupsEl.innerHTML=`<div class="empty"><div class="empty-ico">🔎</div><div class="empty-txt">Nenhum cliente corresponde aos filtros aplicados</div></div>`;
+    return;
+  }
+  groupsEl.innerHTML=buildContaStatusGroupsHtml(clientes);
+}
+
 // Tela 2 (squads do tipo Tráfego): board único por status de CONTA — cada
 // linha já é o cliente (não existe nível de "entrega por post" aqui).
 function renderEntregasTrafego(){
   const squad=(DB.get('squads')||[]).find(s=>s.nome===projFolderView);
   const folderNome=squad?.nome||projFolderView;
   const folderCor=squad?.cor||'var(--muted)';
-  const clientes=(DB.get('clientes')||[]).filter(c=>c.squad===folderNome);
+  const clientesDoSquad=(DB.get('clientes')||[]).filter(c=>c.squad===folderNome);
 
   document.getElementById('proj-content').innerHTML=`
     <div class="proj-breadcrumb"><span class="bc-back" onclick="backToProjFolders()">📁 Squads</span> / <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${folderCor};display:inline-block"></span><b>${folderNome}</b></span></div>
     <div class="page-header">
       <div><div class="page-title">📊 ${folderNome}</div><div class="page-sub">Carteira de contas, agrupada por status</div></div>
-      <button class="btn btn-primary" onclick="openModal('cliente',{squad:'${folderNome.replace(/'/g,"\\'")}'})">+ Novo Cliente</button>
+      <button class="btn btn-primary" onclick="openModal('cliente',{squad:'${folderNome.replace(/'/g,"\\'")}'},'carteira')">+ Novo Cliente</button>
     </div>
+    ${clientesDoSquad.length?contaFiltroBarra(clientesDoSquad):''}
     <div id="conta-groups" style="display:flex;flex-direction:column;gap:18px"></div>`;
 
-  const groupsEl=document.getElementById('conta-groups');
-  if(!clientes.length){
-    groupsEl.innerHTML=`<div class="empty"><div class="empty-ico">📊</div><div class="empty-txt">Nenhum cliente atribuído a este squad ainda</div></div>`;
-    return;
-  }
+  atualizarContaGroupsEl(clientesDoSquad);
+}
 
+function buildContaStatusGroupsHtml(clientes){
+  const folderNome=projFolderView;
   const membros=DB.get('membros')||[];
-  groupsEl.innerHTML=CONTA_STATUS_ORDEM.map(st=>{
+  return CONTA_STATUS_ORDEM.map(st=>{
     const items=clientes.filter(c=>(c.contaStatus||'Integração')===st);
     const cor=CONTA_STATUS_COR[st];
     const rows=items.map(c=>{
@@ -9582,7 +9729,7 @@ function renderEntregasTrafego(){
       const avatares=resp.length?resp.map((m,i)=>`<div style="width:24px;height:24px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card);margin-left:${i?'-8px':'0'}" title="${m.nome}">${initials(m.nome)}</div>`).join(''):'<span style="color:var(--light);font-size:16px">👤</span>';
       const resCor=CONTA_RESULTADO_COR[c.contaResultado]||'#9CA3AF';
       const relCor=CONTA_RELACIONAMENTO_COR[c.contaRelacionamento]||'#9CA3AF';
-      return `<tr style="cursor:pointer" onclick="openModal('cliente','${c.id}')">
+      return `<tr style="cursor:pointer" onclick="openModal('cliente','${c.id}','carteira')">
         <td style="font-weight:600;font-size:13px">${c.nome}</td>
         <td onclick="event.stopPropagation()">
           <select class="form-input" style="padding:4px 8px;font-size:11px;font-weight:700;width:auto;color:${resCor};background:${resCor}15;border-color:${resCor}44" onchange="setContaResultado('${c.id}',this.value)">
@@ -9613,7 +9760,7 @@ function renderEntregasTrafego(){
         <thead><tr><th>Nome</th><th>Resultado</th><th>Relacionamento</th><th>Responsável</th><th>Comentários</th><th>Drive</th><th>Meta</th><th>Google Ads</th><th>GMN</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>`:`<div style="padding:14px 16px;color:var(--light);font-size:12px">Nenhum cliente nesta etapa</div>`}
-      <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;border-radius:0;border-style:dashed;border-width:1px 0 0 0" onclick="openModal('cliente',{squad:'${folderNome.replace(/'/g,"\\'")}',contaStatus:'${st.replace(/'/g,"\\'")}'})">+ Adicionar Cliente</button>
+      <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;border-radius:0;border-style:dashed;border-width:1px 0 0 0" onclick="openModal('cliente',{squad:'${folderNome.replace(/'/g,"\\'")}',contaStatus:'${st.replace(/'/g,"\\'")}'},'carteira')">+ Adicionar Cliente</button>
     </div>`;
   }).join('');
 }
@@ -9715,6 +9862,11 @@ function entregasFiltroBarra(prosDoCliente){
 // Recalcula só o miolo (grupos por status) a partir do entregasFiltro atual
 // e escreve em #status-groups, sem tocar no resto da tela (breadcrumb,
 // cabeçalho, barra de filtro) — usado pela busca por texto a cada tecla.
+function toggleEntregasView(modo){
+  entregasViewMode=modo;
+  renderEntregas();
+}
+
 function atualizarEntregasGroupsEl(prosDoCliente){
   const groupsEl=document.getElementById('status-groups');
   if(!groupsEl)return;
@@ -9724,11 +9876,48 @@ function atualizarEntregasGroupsEl(prosDoCliente){
     groupsEl.innerHTML=`<div class="empty"><div class="empty-ico">📦</div><div class="empty-txt">Nenhuma entrega cadastrada para este cliente ainda</div></div>`;
     return;
   }
-  if(!pros.length){
+  if(!pros.length && entregasViewMode!=='kanban'){
     groupsEl.innerHTML=`<div class="empty"><div class="empty-ico">🔎</div><div class="empty-txt">Nenhuma entrega corresponde aos filtros aplicados</div></div>`;
     return;
   }
-  groupsEl.innerHTML=buildEntregasStatusGroupsHtml(pros,clienteNome);
+  groupsEl.innerHTML=entregasViewMode==='kanban'?buildEntregasKanbanHtml(pros,clienteNome):buildEntregasStatusGroupsHtml(pros,clienteNome);
+}
+
+// Visão Kanban: as mesmas 5 etapas, em colunas lado a lado, com
+// arrastar-e-soltar — reaproveita o mesmo card/coluna já usados em outras
+// telas do sistema (dragStart/drop genéricos, funcionam com qualquer status).
+function buildEntregasKanbanHtml(pros,clienteNome){
+  const cols=STATUS_ENTREGA_KANBAN.map(st=>{
+    const items=pros.filter(p=>(p.status||'A fazer')===st);
+    const cor=STATUS_ENTREGA_COR[st];
+    return `<div class="kol" style="background:${cor}0D;border-color:${cor}33"
+      ondragover="dragOver(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'${st.replace(/'/g,"\\'")}')">
+      <div class="kol-header">
+        <div class="kol-title"><span style="width:8px;height:8px;border-radius:50%;background:${cor};display:inline-block"></span>${STATUS_ENTREGA_ICO[st]} ${st}</div>
+        <div class="kol-count">${items.length}</div>
+      </div>
+      ${items.map(p=>{
+        const nComentarios=(p.comentarios||[]).length;
+        return `<div class="kcard" draggable="true" ondragstart="dragStart(event,'${p.id}','projeto')" ondragend="dragEnd(event)" onclick="openModal('projeto','${p.id}')">
+        <div class="kcard-title">${p.nome}</div>
+        <div class="kcard-sub">${p.responsavelNome?`👤 ${p.responsavelNome}`:'Sem responsável'}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">
+          ${p.formato?`<span class="badge badge-blue">${p.formato}</span>`:''}
+          <span class="badge" style="background:${PRIORIDADE_COR[p.prioridade||'Normal']}22;color:${PRIORIDADE_COR[p.prioridade||'Normal']}">${p.prioridade||'Normal'}</span>
+        </div>
+        <div class="kcard-footer">
+          <div class="kcard-date">📅 ${p.dataPostagem?new Date(p.dataPostagem+'T00:00:00').toLocaleDateString('pt-BR'):(p.dataVeiculacao?new Date(p.dataVeiculacao+'T00:00:00').toLocaleDateString('pt-BR'):'—')}</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="cursor:pointer;font-size:11px;color:var(--muted)" onclick="event.stopPropagation();openProjComments('${p.id}')">💬 ${nComentarios||''}</span>
+            <span style="cursor:pointer;font-size:13px" onclick="event.stopPropagation();confirmDelete(function(){deleteProjetoSafe('${p.id}')})">🗑</span>
+          </div>
+        </div>
+      </div>`;
+      }).join('')}
+      <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:12px;border-style:dashed;margin-top:4px" onclick="openModal('projeto',{cliente:'${clienteNome.replace(/'/g,"\\'")}',status:'${st.replace(/'/g,"\\'")}'})">+ Adicionar</button>
+    </div>`;
+  }).join('');
+  return `<div class="kanban" style="grid-template-columns:repeat(${STATUS_ENTREGA_KANBAN.length},1fr)">${cols}</div>`;
 }
 
 function buildEntregasStatusGroupsHtml(pros,clienteNome){
@@ -9787,10 +9976,16 @@ function renderEntregasClienteBoard(prosAll){
     </div>
     <div class="page-header">
       <div><div class="page-title">📦 ${clienteNome}</div><div class="page-sub">Entregas agrupadas por etapa</div></div>
-      <button class="btn btn-primary" onclick="openModal('projeto',{cliente:'${clienteNome.replace(/'/g,"\\'")}'})">+ Nova Entrega</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="display:flex;gap:2px;background:var(--bg);border-radius:8px;padding:3px">
+          <button class="btn btn-sm" style="background:${entregasViewMode==='lista'?'#fff':'transparent'};color:${entregasViewMode==='lista'?'var(--p2)':'var(--muted)'};box-shadow:${entregasViewMode==='lista'?'0 1px 3px rgba(0,0,0,.1)':'none'}" onclick="toggleEntregasView('lista')">📋 Lista</button>
+          <button class="btn btn-sm" style="background:${entregasViewMode==='kanban'?'#fff':'transparent'};color:${entregasViewMode==='kanban'?'var(--p2)':'var(--muted)'};box-shadow:${entregasViewMode==='kanban'?'0 1px 3px rgba(0,0,0,.1)':'none'}" onclick="toggleEntregasView('kanban')">🗂️ Kanban</button>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('projeto',{cliente:'${clienteNome.replace(/'/g,"\\'")}'})">+ Nova Entrega</button>
+      </div>
     </div>
     ${prosDoCliente.length?entregasFiltroBarra(prosDoCliente):''}
-    <div id="status-groups" style="display:flex;flex-direction:column;gap:18px"></div>`;
+    <div id="status-groups" style="${entregasViewMode==='kanban'?'':'display:flex;flex-direction:column;gap:18px'}"></div>`;
 
   atualizarEntregasGroupsEl(prosDoCliente);
 }
