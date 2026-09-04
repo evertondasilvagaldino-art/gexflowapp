@@ -2420,10 +2420,13 @@ let sessionUser = null;
 let currentSubPage = '';
 let dragId = '', dragType = '';
 let detailId = '';
-// Pasta de squad aberta em Projetos > Gestão de Entregas: null = mostrando as
-// pastas (squads); '__sem_squad__' = pasta dos clientes sem squad definido;
-// ou o nome do squad (string) cuja pasta está aberta.
+// Navegação em 3 níveis de Projetos > Gestão de Entregas:
+// 1) projFolderView=null → pastas de squad
+// 2) projFolderView definido, projClienteView=null → carteira de clientes do squad
+// 3) projFolderView + projClienteView → board de entregas daquele cliente
+// projFolderView: '__sem_squad__' = clientes sem squad definido; ou o nome do squad.
 let projFolderView = null;
+let projClienteView = null;
 let dashFilter = {mes: new Date().getMonth()+1, ano: new Date().getFullYear()};
 // Filtro de período do Pipeline (Comercial) — independente do filtro do Início.
 // Começa em "Todos os meses / Todos os anos" pra não esconder leads de quem
@@ -4421,7 +4424,7 @@ function confirmDelete(cb){
 
 // ═══ BADGE ═══
 function badge(s){
-  const m={Ativo:'badge-green',Inativo:'badge-gray',Aguardando:'badge-yellow',Lead:'badge-blue',Férias:'badge-yellow','Em andamento':'badge-blue','A fazer':'badge-gray','Em revisão':'badge-yellow',Concluído:'badge-green',Admin:'badge-purple',Gestor:'badge-blue',Colaborador:'badge-gray',Receita:'badge-green',Despesa:'badge-red',Prospecção:'badge-gray',Qualificação:'badge-blue',Proposta:'badge-yellow',Negociação:'badge-purple',Fechamento:'badge-green',Pendente:'badge-yellow',Concluída:'badge-green',Desligado:'badge-red',Perdido:'badge-red',Ganho:'badge-green'};
+  const m={Ativo:'badge-green',Inativo:'badge-gray',Aguardando:'badge-yellow',Lead:'badge-blue',Férias:'badge-yellow','Em andamento':'badge-blue','A fazer':'badge-gray','Em revisão':'badge-yellow',Concluído:'badge-green',Admin:'badge-purple',Gestor:'badge-blue',Colaborador:'badge-gray',Receita:'badge-green',Despesa:'badge-red',Prospecção:'badge-gray',Qualificação:'badge-blue',Proposta:'badge-yellow',Negociação:'badge-purple',Fechamento:'badge-green',Pendente:'badge-yellow',Concluída:'badge-green',Desligado:'badge-red',Perdido:'badge-red',Ganho:'badge-green','Revisão':'badge-yellow','Aguard. Aprovação':'badge-blue',Aprovado:'badge-green',Postado:'badge-green'};
   // Dynamic stage badge colors
   const stages=getStages();
   const stageCls=['badge-gray','badge-blue','badge-yellow','badge-purple','badge-green','badge-red'];
@@ -4463,6 +4466,15 @@ function setResultado(id,resultado){
 // ═══ PRIORIDADE (usada na lista por squad de Projetos) ═══
 const PRIORIDADE_ORDEM=['Urgente','Alta','Normal'];
 const PRIORIDADE_COR={Urgente:'#EF4444',Alta:'#F59E0B',Normal:'#3B82F6'};
+
+// ═══ ETAPA DE ENTREGA (status do projeto/conteúdo dentro do squad→cliente) ═══
+// Ordem igual à do board de referência da operação: do mais pronto pro mais cru.
+const STATUS_ENTREGA=['Postado','Aprovado','Aguard. Aprovação','Revisão','A fazer'];
+const STATUS_ENTREGA_COR={Postado:'#059669',Aprovado:'#10B981','Aguard. Aprovação':'#06B6D4',Revisão:'#F59E0B','A fazer':'#9CA3AF'};
+const STATUS_ENTREGA_ICO={Postado:'✅',Aprovado:'✅','Aguard. Aprovação':'🕓',Revisão:'🕓','A fazer':'🕓'};
+const FORMATO_OPCOES=['Reels','Post','Story','Carrossel','Vídeo','TV/Blog','Anúncio'];
+const OBJETIVO_OPCOES=['Entretenimento','Quebra de objeção','Educar','Vender','Engajamento','Autoridade','Prova social'];
+const OBJETIVO_COR={Entretenimento:'#10B981','Quebra de objeção':'#EF4444',Educar:'#3B82F6',Vender:'#7C3AED',Engajamento:'#F59E0B',Autoridade:'#06B6D4','Prova social':'#EC4899'};
 
 function setPrioridade(id,prioridade){
   const p=DB.find('projetos',id);
@@ -6135,7 +6147,11 @@ function openModal(type,idOrData=null){
   } else if(idOrData&&typeof idOrData==='object'){
     data=idOrData;
   }
-  const titles={cliente:data?'Editar Cliente':'Novo Cliente',projeto:data?'Editar Projeto':'Novo Projeto',lead:data?'Editar Lead':'Novo Lead',transacao:data?'Editar Transação':'Nova Transação',membro:data?'Editar Membro':'Novo Membro',usuario:data?'Editar Usuário':'Novo Usuário',contrato:data?'Editar Contrato':'Novo Contrato'};
+  // "Editar" só quando os dados vieram de um registro já existente (tem id) —
+  // um objeto de pré-preenchimento (ex: {cliente,status} pra já abrir com
+  // cliente/etapa escolhidos) continua contando como "Novo".
+  const isEdit=!!data?.id;
+  const titles={cliente:isEdit?'Editar Cliente':'Novo Cliente',projeto:isEdit?'Editar Projeto':'Novo Projeto',lead:isEdit?'Editar Lead':'Novo Lead',transacao:isEdit?'Editar Transação':'Nova Transação',membro:isEdit?'Editar Membro':'Novo Membro',usuario:isEdit?'Editar Usuário':'Novo Usuário',contrato:isEdit?'Editar Contrato':'Novo Contrato'};
   document.getElementById('modal-title').textContent=titles[type];
   document.getElementById('modal-body').innerHTML=({cliente:formCliente,projeto:formProjeto,lead:formLead,transacao:formTransacao,membro:formMembro,usuario:formUsuario,contrato:formContrato})[type](data);
   document.getElementById('modal-footer').innerHTML=`<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="saveModal('${type}','${data?.id||''}')">Salvar</button>`;
@@ -6175,7 +6191,7 @@ async function saveModal(type,id=''){
       const oldProjeto=id?DB.find('projetos',id):null;
       if(id&&!projectAccessGuard(oldProjeto,'editar este projeto'))return;
       const ownerPick=resolveProjectResponsibleFromForm(oldProjeto);
-      const obj={nome:v('f-nome'),cliente:v('f-cliente'),status:v('f-status'),prazo:v('f-prazo'),desc:v('f-desc'),score:parseInt(v('f-score'))||0,resultado:parseInt(v('f-resultado'))||0,prioridade:v('f-prioridade')||'Normal',...projectOwnerFieldsFromPick(ownerPick)};
+      const obj={nome:v('f-nome'),cliente:v('f-cliente'),status:v('f-status')||'A fazer',prazo:v('f-prazo'),desc:v('f-desc'),score:parseInt(v('f-score'))||0,resultado:parseInt(v('f-resultado'))||0,prioridade:v('f-prioridade')||'Normal',formato:v('f-formato'),objetivoPost:v('f-objetivo'),dataVeiculacao:v('f-data-veiculacao'),dataPostagem:v('f-data-postagem'),...projectOwnerFieldsFromPick(ownerPick)};
       if(!obj.nome){toast('Nome obrigatório','#EF4444');return}
       if(id)DB.update('projetos',id,obj);else DB.push('projetos',{id:uid(),...obj,createdById:sessionUser?.id||'',createdByEmail:sessionUser?.email||'',createdBy:sessionUser?.nome||''});
       closeModal();renderProjetos();renderInicio();toast(id?'Projeto atualizado ✓':'Projeto criado ✓','#10B981');
@@ -6368,11 +6384,22 @@ function formProjeto(d){
   const clis=DB.get('clientes').map(c=>`<option value="${c.nome.replace(/"/g,'&quot;')}">${c.nome}</option>`).join('');
   const setSelect=()=>{if(cliAtual){const sel=document.getElementById('f-cliente');if(sel){for(let o of sel.options)if(o.value===cliAtual){o.selected=true;break}}}};
   setTimeout(setSelect,0);
+  const statusAtual=d?.status||'A fazer';
   return `<div class="form-group"><label class="form-label">Nome do Projeto *</label><input class="form-input" id="f-nome" value="${d?.nome||''}"></div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Cliente</label><select class="form-input" id="f-cliente"><option value="">Selecionar...</option>${clis}</select></div>
     <div class="form-group"><label class="form-label">Status</label>
-      <select class="form-input" id="f-status"><option ${d?.status==='A fazer'?'selected':''}>A fazer</option><option ${d?.status==='Em andamento'?'selected':''}>Em andamento</option><option ${d?.status==='Em revisão'?'selected':''}>Em revisão</option><option ${d?.status==='Concluído'?'selected':''}>Concluído</option></select></div>
+      <select class="form-input" id="f-status">${STATUS_ENTREGA.map(s=>`<option ${statusAtual===s?'selected':''}>${s}</option>`).join('')}</select></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">🎬 Formato</label>
+      <select class="form-input" id="f-formato"><option value="">— Selecionar —</option>${FORMATO_OPCOES.map(f=>`<option ${d?.formato===f?'selected':''}>${f}</option>`).join('')}</select></div>
+    <div class="form-group"><label class="form-label">🎯 Objetivo do post</label>
+      <select class="form-input" id="f-objetivo"><option value="">— Selecionar —</option>${OBJETIVO_OPCOES.map(o=>`<option ${d?.objetivoPost===o?'selected':''}>${o}</option>`).join('')}</select></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">📅 Data de veiculação</label><input class="form-input" id="f-data-veiculacao" type="date" value="${d?.dataVeiculacao||''}"></div>
+    <div class="form-group"><label class="form-label">📤 Data da postagem</label><input class="form-input" id="f-data-postagem" type="date" value="${d?.dataPostagem||''}"></div>
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Prazo</label><input class="form-input" id="f-prazo" type="date" value="${d?.prazo||''}"></div>
@@ -6997,8 +7024,8 @@ function renderInicio(){
   const despesa=txs.filter(t=>t.tipo==='Despesa').reduce((a,t)=>a+t.valor,0);
   const lucro=receita-despesa;
   const avgH=cls.length?Math.round(cls.reduce((a,c)=>a+(c.health||0),0)/cls.length):0;
-  const atrasados=pros.filter(p=>p.prazo&&p.status!=='Concluído'&&new Date(p.prazo)<new Date());
-  const tarefasPend=pros.filter(p=>p.status!=='Concluído');
+  const atrasados=pros.filter(p=>p.prazo&&p.status!=='Postado'&&new Date(p.prazo)<new Date());
+  const tarefasPend=pros.filter(p=>p.status!=='Postado');
   const churnRisk=cls.filter(c=>c.status==='Ativo'&&(c.health||0)<50);
   const pipelineTotal=leadsPeriod.reduce((a,l)=>a+(parseFloat(l.valor)||0),0);
   // Valor exibido no card da aba Início: somente negócios efetivamente ganhos
@@ -7054,7 +7081,7 @@ function renderInicio(){
     {label:'Lucro Líquido',value:fmtBRL(lucro),accent:'#7C3AED',delta:lucro>0?'+operação positiva':'Atenção',dir:lucro>0?'up':'down',mod:'financas'},
     {label:'Clientes Ativos',value:cls.filter(c=>c.status==='Ativo').length,accent:'#3B82F6',delta:`${churnRisk.length} em risco de churn`,dir:churnRisk.length?'down':'neutral',mod:'clientes'},
     {label:'Negócios Ganhos',value:fmtBRL(negociosGanhosTotal),accent:'#10B981',delta:`${negociosGanhosHome.length} negócio${negociosGanhosHome.length!==1?'s':''} ganho${negociosGanhosHome.length!==1?'s':''}`,dir:negociosGanhosHome.length?'up':'neutral',mod:'comercial'},
-    {label:'Projetos Ativos',value:pros.filter(p=>p.status==='Em andamento').length,accent:'#6366F1',delta:`${atrasados.length} atrasados`,dir:atrasados.length?'down':'up',mod:'entregas'},
+    {label:'Projetos Ativos',value:pros.filter(p=>!['Aprovado','Postado'].includes(p.status)).length,accent:'#6366F1',delta:`${atrasados.length} atrasados`,dir:atrasados.length?'down':'up',mod:'entregas'},
     {label:'Tarefas Pendentes',value:tarefasPend.length,accent:'#EC4899',delta:'em aberto',dir:'neutral',mod:'tarefas'},
     {label:'Health Score Médio',value:avgH,accent:healthColor(avgH),delta:avgH>=70?'Equipe saudável':'Atenção necessária',dir:avgH>=70?'up':'down',mod:'clientes'},
     {label:'Membros Ativos',value:mbs.filter(m=>m.status==='Ativo').length,accent:'#14B8A6',delta:`de ${mbs.length} total`,dir:'neutral',mod:'rh'},
@@ -9355,13 +9382,24 @@ function openProjSquadFolder(key){
 }
 function backToProjFolders(){
   projFolderView=null;
+  projClienteView=null;
+  renderEntregas();
+}
+
+function openProjClienteFolder(clienteNome){
+  projClienteView=clienteNome;
+  renderEntregas();
+}
+function backToProjClientes(){
+  projClienteView=null;
   renderEntregas();
 }
 
 function renderEntregas(){
   const pros=getVisibleProjects();
   if(projFolderView===null){renderEntregasFolders(pros);return;}
-  renderEntregasKanban(pros);
+  if(projClienteView===null){renderEntregasClientes(pros);return;}
+  renderEntregasClienteBoard(pros);
 }
 
 // Tela 1: pastas (uma por squad, estilo Google Drive), igual ao modelo que
@@ -9396,53 +9434,87 @@ function renderEntregasFolders(pros){
     ${!squads.length?`<div class="empty" style="margin-top:20px"><div class="empty-ico">🧩</div><div class="empty-txt">Nenhum squad cadastrado ainda — clique em "Gerenciar Squads" para criar o primeiro.</div></div>`:''}`;
 }
 
-// Tela 2: dentro da pasta — lista de clientes/projetos agrupada por
-// Prioridade (Urgente/Alta/Normal), como no board de referência da operação.
-function renderEntregasKanban(prosAll){
+// Tela 2: dentro da pasta do squad — a "carteira de clientes" daquele
+// squad (um card por cliente), igual à divisão que a operação já usa.
+function renderEntregasClientes(prosAll){
   const isSemSquad=projFolderView===SEM_SQUAD_KEY;
   const squad=isSemSquad?null:(DB.get('squads')||[]).find(s=>s.nome===projFolderView);
   const folderNome=isSemSquad?'Sem squad':(squad?.nome||projFolderView);
   const folderCor=isSemSquad?'var(--muted)':(squad?.cor||'var(--muted)');
-  const pros=prosAll.filter(p=>isSemSquad?!projectSquadName(p):projectSquadName(p)===folderNome);
-  const clientes=DB.get('clientes')||[];
+  const clientes=(DB.get('clientes')||[]).filter(c=>isSemSquad?(!c.squad||c.squad==='—'):c.squad===folderNome);
 
   document.getElementById('proj-content').innerHTML=`
     <div class="proj-breadcrumb"><span class="bc-back" onclick="backToProjFolders()">📁 Squads</span> / <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${folderCor};display:inline-block"></span><b>${folderNome}</b></span></div>
     <div class="page-header">
-      <div><div class="page-title">📦 ${folderNome}</div><div class="page-sub">Clientes e projetos deste squad, agrupados por prioridade</div></div>
-      <button class="btn btn-primary" onclick="openModal('projeto')">+ Novo Projeto</button>
+      <div><div class="page-title">📦 ${folderNome}</div><div class="page-sub">Carteira de clientes deste squad — clique num cliente para ver as entregas</div></div>
     </div>
-    <div id="prio-groups" style="display:flex;flex-direction:column;gap:18px"></div>`;
+    <div class="squad-folder-grid" id="cliente-folder-grid"></div>`;
 
-  const groupsEl=document.getElementById('prio-groups');
+  const grid=document.getElementById('cliente-folder-grid');
+  if(!clientes.length){
+    grid.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="empty-ico">👥</div><div class="empty-txt">Nenhum cliente atribuído a este squad ainda. Defina o squad no cadastro do cliente.</div></div>`;
+    return;
+  }
+  grid.innerHTML=clientes.map(c=>{
+    const itens=prosAll.filter(p=>p.cliente===c.nome);
+    const pend=itens.filter(p=>!['Aprovado','Postado'].includes(p.status||'A fazer')).length;
+    return `<div class="squad-folder-card" onclick="openProjClienteFolder('${c.nome.replace(/'/g,"\\'")}')">
+      <div class="squad-folder-bar" style="background:${folderCor}"></div>
+      <div class="squad-folder-ico" style="background:var(--p-light);color:var(--p2);font-size:15px;font-weight:700">${initials(c.nome)}</div>
+      <div class="squad-folder-name">${c.nome}</div>
+      <div class="squad-folder-cnt">${itens.length} entrega${itens.length===1?'':'s'}${pend?` · ${pend} em aberto`:''}</div>
+    </div>`;
+  }).join('');
+}
+
+// Tela 3: dentro do cliente — board de entregas agrupado por Status
+// (Postado/Aprovado/Aguard. Aprovação/Revisão/A fazer), no molde do board
+// que a operação já usa hoje.
+function renderEntregasClienteBoard(prosAll){
+  const isSemSquad=projFolderView===SEM_SQUAD_KEY;
+  const squad=isSemSquad?null:(DB.get('squads')||[]).find(s=>s.nome===projFolderView);
+  const folderNome=isSemSquad?'Sem squad':(squad?.nome||projFolderView);
+  const folderCor=isSemSquad?'var(--muted)':(squad?.cor||'var(--muted)');
+  const clienteNome=projClienteView;
+  const pros=prosAll.filter(p=>p.cliente===clienteNome);
+
+  document.getElementById('proj-content').innerHTML=`
+    <div class="proj-breadcrumb">
+      <span class="bc-back" onclick="backToProjFolders()">📁 Squads</span> /
+      <span class="bc-back" onclick="backToProjClientes()" style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${folderCor};display:inline-block"></span>${folderNome}</span> /
+      <b>${clienteNome}</b>
+    </div>
+    <div class="page-header">
+      <div><div class="page-title">📦 ${clienteNome}</div><div class="page-sub">Entregas agrupadas por etapa</div></div>
+      <button class="btn btn-primary" onclick="openModal('projeto',{cliente:'${clienteNome.replace(/'/g,"\\'")}'})">+ Nova Entrega</button>
+    </div>
+    <div id="status-groups" style="display:flex;flex-direction:column;gap:18px"></div>`;
+
+  const groupsEl=document.getElementById('status-groups');
   if(!pros.length){
-    groupsEl.innerHTML=`<div class="empty"><div class="empty-ico">📦</div><div class="empty-txt">Nenhum projeto neste squad ainda</div></div>`;
+    groupsEl.innerHTML=`<div class="empty"><div class="empty-ico">📦</div><div class="empty-txt">Nenhuma entrega cadastrada para este cliente ainda</div></div>`;
     return;
   }
 
-  groupsEl.innerHTML=PRIORIDADE_ORDEM.map(prio=>{
-    const items=pros.filter(p=>(p.prioridade||'Normal')===prio);
-    if(!items.length)return'';
-    const cor=PRIORIDADE_COR[prio];
+  groupsEl.innerHTML=STATUS_ENTREGA.map(st=>{
+    const items=pros.filter(p=>(p.status||'A fazer')===st);
+    const cor=STATUS_ENTREGA_COR[st];
     const rows=items.map(p=>{
-      const cli=clientes.find(c=>c.nome===p.cliente);
-      const statusCli=cli?.status||'Ativo';
       const nComentarios=(p.comentarios||[]).length;
+      const objCor=OBJETIVO_COR[p.objetivoPost]||'#9CA3AF';
       return `<tr style="cursor:pointer" onclick="openModal('projeto','${p.id}')">
-        <td style="font-weight:600;font-size:13px">${p.nome}${p.cliente?`<div style="font-size:11px;color:var(--muted);font-weight:400">${p.cliente}</div>`:''}</td>
+        <td style="font-weight:600;font-size:13px">${p.nome}</td>
         <td onclick="event.stopPropagation()">${p.responsavelNome?`<div style="display:flex;align-items:center;gap:6px"><div style="width:26px;height:26px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials(p.responsavelNome)}</div><span style="font-size:12px">${p.responsavelNome}</span></div>`:'<span style="color:var(--light);font-size:16px">👤</span>'}</td>
-        <td onclick="event.stopPropagation()">
-          <select class="form-input" style="padding:4px 8px;font-size:11px;font-weight:700;width:auto;color:${starColors[p.score||0]};background:${starColors[p.score||0]}15;border-color:${starColors[p.score||0]}44" onchange="setScore('${p.id}',parseInt(this.value))">
-            ${[0,1,2,3,4].map(i=>`<option value="${i}" ${(p.score||0)===i?'selected':''}>${starLabels[i]}</option>`).join('')}
-          </select>
-        </td>
-        <td onclick="event.stopPropagation();openProjComments('${p.id}')" style="cursor:pointer;color:var(--muted);font-size:12px">💬 ${nComentarios||''}</td>
+        <td>${p.formato?`<span class="badge badge-blue">${p.formato}</span>`:'<span style="color:var(--light)">—</span>'}</td>
+        <td>${p.objetivoPost?`<span class="badge" style="background:${objCor}22;color:${objCor}">${p.objetivoPost}</span>`:'<span style="color:var(--light)">—</span>'}</td>
         <td onclick="event.stopPropagation()">
           <select class="form-input" style="padding:4px 8px;font-size:11px;font-weight:700;width:auto;color:${PRIORIDADE_COR[p.prioridade||'Normal']};background:${PRIORIDADE_COR[p.prioridade||'Normal']}15;border-color:${PRIORIDADE_COR[p.prioridade||'Normal']}44" onchange="setPrioridade('${p.id}',this.value)">
             ${PRIORIDADE_ORDEM.map(pr=>`<option ${(p.prioridade||'Normal')===pr?'selected':''}>${pr}</option>`).join('')}
           </select>
         </td>
-        <td>${badge(statusCli)}</td>
+        <td style="color:var(--muted);font-size:12px;white-space:nowrap">${p.dataVeiculacao?new Date(p.dataVeiculacao+'T00:00:00').toLocaleDateString('pt-BR'):'—'}</td>
+        <td style="color:var(--muted);font-size:12px;white-space:nowrap">${p.dataPostagem?new Date(p.dataPostagem+'T00:00:00').toLocaleDateString('pt-BR'):'—'}</td>
+        <td onclick="event.stopPropagation();openProjComments('${p.id}')" style="cursor:pointer;color:var(--muted);font-size:12px">💬 ${nComentarios||''}</td>
         <td onclick="event.stopPropagation()" style="white-space:nowrap">
           <span style="cursor:pointer;font-size:13px" onclick="openModal('projeto','${p.id}')">✏️</span>
           <span style="cursor:pointer;font-size:13px;margin-left:6px" onclick="confirmDelete(function(){deleteProjetoSafe('${p.id}')})">🗑</span>
@@ -9451,14 +9523,14 @@ function renderEntregasKanban(prosAll){
     }).join('');
     return `<div class="card" style="padding:0;overflow:hidden">
       <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:${cor}0D;border-bottom:1px solid var(--border)">
-        <span style="width:10px;height:10px;border-radius:3px;background:${cor};display:inline-block"></span>
-        <span style="font-weight:700;font-size:13px;color:${cor}">${prio}</span>
+        <span class="badge" style="background:${cor}22;color:${cor};font-weight:700">${STATUS_ENTREGA_ICO[st]} ${st.toUpperCase()}</span>
         <span style="font-size:11px;color:var(--muted)">${items.length}</span>
       </div>
-      <div class="tbl-wrap"><table>
-        <thead><tr><th>Nome</th><th>Responsável</th><th>Relacionamento</th><th>Comentários</th><th>Prioridade</th><th>Status</th><th></th></tr></thead>
+      ${items.length?`<div class="tbl-wrap"><table>
+        <thead><tr><th>Nome</th><th>Responsável</th><th>Formato</th><th>Objetivo do post</th><th>Prioridade</th><th>Data de veiculação</th><th>Data da postagem</th><th>Comentários</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
-      </table></div>
+      </table></div>`:`<div style="padding:14px 16px;color:var(--light);font-size:12px">Nenhuma entrega nesta etapa</div>`}
+      <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;border-radius:0;border-style:dashed;border-width:1px 0 0 0" onclick="openModal('projeto',{cliente:'${clienteNome.replace(/'/g,"\\'")}',status:'${st.replace(/'/g,"\\'")}'})">+ Adicionar Tarefa</button>
     </div>`;
   }).join('');
 }
@@ -9854,7 +9926,7 @@ function renderAgendaProj(){
     <div class="agenda-month">
       <div class="agenda-month-hdr">${month}</div>
       ${items.map(p=>{
-        const late=p._d<today&&p.status!=='Concluído';
+        const late=p._d<today&&p.status!=='Postado';
         return `<div class="agenda-item" onclick="openModal('projeto','${p.id}')">
           <div class="agenda-date-box" style="${late?'background:#FEE2E2;color:#991B1B':''}">
             <div class="agenda-day">${String(p._d.getDate()).padStart(2,'0')}</div>
