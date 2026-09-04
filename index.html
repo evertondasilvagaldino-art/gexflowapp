@@ -3399,7 +3399,13 @@ const GEX_DB_COLLECTIONS = [
   'conversion_settings','conversion_events','lead_forms','lead_form_submissions','leadgen_settings'
 ];
 const GEX_KV_EXCLUDED = new Set([
-  'gx2_session','gx2_seeded','gx2_tasks_seeded','gx2_cloud_backfilled_v1'
+  // gx2_usuarios: mesmo "usuarios" já sendo excluído da sincronização por
+  // coleção (a fonte oficial é public.profiles + Supabase Auth, comentário
+  // acima), o espelho genérico de localStorage (installGexLocalStorageCloudMirror)
+  // ainda enxergava essa chave e mandava o array inteiro de usuários — senha
+  // digitada na edição incluída — pra tabela "kv" compartilhada no Supabase,
+  // de onde qualquer outro dispositivo conectado também baixava de volta.
+  'gx2_session','gx2_seeded','gx2_tasks_seeded','gx2_cloud_backfilled_v1','gx2_usuarios'
 ]);
 let gexCloudBooting = false;
 let gexCloudReady = false;
@@ -6070,10 +6076,15 @@ async function saveModal(type,id=''){
           // Atualização segura e rápida: primeiro confirma no Supabase via Edge Function,
           // depois atualiza o cache local. Assim não fica divergente entre máquinas.
           const updateData={...(target||{}),...obj,updatedAt:new Date().toISOString()};
-          if(senha)updateData.senha=String(senha).trim();
 
           let synced=updateData;
           if(supabaseClient&&(updateData.supabaseId||updateData.authProvider==='supabase'||updateData.email)){
+            // A senha nova (quando preenchida) vai só pra Edge Function, no
+            // parâmetro separado abaixo — usuários reais são geridos pelo
+            // Supabase Auth, então não há motivo pra guardar a senha em
+            // texto puro no cache local (localStorage), que também é
+            // espelhado pra nuvem (tabela kv).
+            delete updateData.senha;
             synced=await upsertUserProfileViaEdge(updateData,senha);
           }
 
@@ -8472,6 +8483,30 @@ function deleteSquad(id){
   toast('Squad removido','#EF4444');
 }
 
+// "Excluir" usuário nunca apagava de verdade: DB.remove('usuarios',id) só
+// tirava da lista local em cache — a conta continuava existindo (e podendo
+// logar) no Supabase Auth, e a próxima sincronização de perfis trazia o
+// usuário de volta pra lista. Em vez de apagar a conta (irreversível, e
+// mexe direto em credencial de login — arriscado demais pra fazer sem
+// confirmação explícita fora deste fluxo), a ação correta e segura é
+// desativar o acesso: muda o status para "Inativo" pela mesma Edge Function
+// usada ao editar, e isProfileActive() já bloqueia o login desse status.
+async function desativarUsuarioSeguro(id){
+  const target=DB.find('usuarios',id);
+  if(!target){toast('Usuário não encontrado','#EF4444');return}
+  try{
+    let synced=null;
+    if(supabaseClient&&(target.supabaseId||target.authProvider==='supabase'||target.email)){
+      synced=await upsertUserProfileViaEdge({...target,id:target.id,status:'Inativo'},'');
+    }
+    DB.update('usuarios',id,{...(synced||{}),status:'Inativo',updatedAt:new Date().toISOString()});
+    renderUsuarios();
+    toast('Usuário desativado — o acesso ao sistema foi bloqueado','#EF4444');
+  }catch(err){
+    toast(err.message||'Não foi possível desativar o usuário no Supabase','#EF4444');
+  }
+}
+
 function switchUserTab(tab,el){
   document.querySelectorAll('#page-usuarios .tab-btn').forEach(b=>b.classList.remove('active'));
   if(el)el.classList.add('active');
@@ -8506,7 +8541,7 @@ function renderUsuarios(opts={}){
       <td>${badge(u.status)}</td>
       <td><div class="td-actions">
         ${canEdit?`<button class="btn btn-ghost btn-sm" onclick='openModal("usuario","${u.id}")'>Editar</button>`:''}
-        ${canDelete?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick='confirmDelete(()=>{DB.remove("usuarios","${u.id}");renderUsuarios();toast("Usuário removido","#EF4444")})'>Excluir</button>`:''}
+        ${canDelete?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick='confirmDelete(()=>desativarUsuarioSeguro("${u.id}"))'>Desativar</button>`:''}
         ${!canEdit&&!canDelete?`<span style="font-size:11px;color:var(--light)">—</span>`:''}
       </div></td>
     </tr>`;
@@ -8562,11 +8597,11 @@ function renderPermMatrix(){
   document.getElementById('perm-matrix-wrap').innerHTML=html;
 }
 
-function togglePerm(userId,module,action,value){
+async function togglePerm(userId,module,action,value){
   const u=DB.find('usuarios',userId);
   if(!u)return;
-  const overrides=u.permOverrides||{};
-  if(!overrides[module])overrides[module]={};
+  const overrides={...(u.permOverrides||{})};
+  overrides[module]={...(overrides[module]||{})};
   overrides[module][action]=value;
   DB.update('usuarios',userId,{permOverrides:overrides});
   // Sync to sessionUser if editing self
@@ -8576,6 +8611,20 @@ function togglePerm(userId,module,action,value){
   }
   renderPermMatrix();
   toast((value?'Permissão concedida':'Permissão removida')+': '+MOD_LABELS[module]+'/'+ACT_LABELS[action]);
+
+  // A Matriz de Permissões só gravava local (DB.update) — a próxima
+  // sincronização de perfis (login em outra aba, realtime, refresh) trazia
+  // de volta o permOverrides antigo salvo no Supabase e desfazia a mudança
+  // silenciosamente. Persiste pela mesma Edge Function usada ao editar
+  // usuário, sem travar a resposta visual do clique.
+  if(supabaseClient&&(u.supabaseId||u.authProvider==='supabase'||u.email)){
+    try{
+      await upsertUserProfileViaEdge({...u,id:userId,permOverrides:overrides},'');
+    }catch(err){
+      console.warn('[GexFlow] Falha ao sincronizar permissão no Supabase:',err);
+      toast('Permissão salva localmente, mas houve falha ao sincronizar com o Supabase','#F59E0B');
+    }
+  }
 }
 
 
@@ -11049,14 +11098,6 @@ function openStagesModal(){
 
 function closeStagesModal(){document.getElementById('stages-ov').classList.remove('open')}
 
-function renderStageList(){}
-function stageDragStart(i){stageDragIdx=i}
-function stageDrop(targetIdx){}
-function addStage(){}
-function removeStage(i){}
-function saveStages(){}
-function resetStages(){}
-
 /* ── Modal de Produtos ── */
 const PRODUTOS_DEFAULT=['Gestão de Tráfego','Social Media','Criação de Sites','Identidade Visual','Assessoria de Imprensa','Consultoria de Marketing','Produção de Conteúdo','SEO','Email Marketing','Outros'];
 
@@ -12331,7 +12372,7 @@ function findLocalLoginUser(email,pass){
   const users=DB.get('usuarios')||[];
   return users.find(u=>{
     const userEmail=normalizeLoginEmail(u.email);
-    const userPass=String(u.senha||'gex@2025').trim();
+    const userPass=String(u.senha||'').trim();
     const userStatus=String(u.status||'Ativo');
     return userEmail===loginEmail && userPass===loginPass && userStatus==='Ativo';
   })||null;
