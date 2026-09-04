@@ -3855,6 +3855,19 @@ function startGexRecordsRealtime(){
         }finally{
           gexApplyingCloudPayload=false;
         }
+        // Lead novo chegando de QUALQUER origem que não seja este navegador
+        // (formulário nativo do GexFlow, ou um colega criando manualmente em
+        // outra aba) — antes, só quem criava o lead na própria aba ouvia o
+        // som/recebia o e-mail. Agora, qualquer usuário com o CRM aberto
+        // toca o som e — como só quem está logado consegue chamar a Edge
+        // Function de e-mail — dispara o aviso por e-mail também, cobrindo o
+        // caso do formulário público (o visitante que preenche não tem
+        // sessão pra disparar isso sozinho).
+        if(row.collection==='leads' && payload.eventType==='INSERT' && !row.deleted_at){
+          playChime('lead');
+          const leadData={...(row.data||{}),id:String(row.record_id)};
+          notifyEmailEvent('lead.criado',leadData).catch(()=>{});
+        }
         scheduleRerenderActivePageAfterCloudSync(140);
       })
       .subscribe(status=>console.log('[GexCloudDB] Realtime:',status));
@@ -17141,7 +17154,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     // informação livre e personalizável junto com o lead.
     const descField=(f.fields||[]).find(x=>x.type==='textarea');
     const descValue=descField?String(data[descField.name]||'').trim():'';
-    const lead={id:uid(),nome:data.nome||data.nome_completo||data.name||'Lead de formulário',email:data.email||'',telefone:data.telefone||data.whatsapp||data.phone||'',origem:`Formulário: ${f.name}`,desc:descValue,estagio:f.stageName||'Novo Lead',stageId:f.stageId||'',funnelId:f.funnelId||'',data:new Date().toLocaleDateString('pt-BR'),createdAt:new Date().toISOString(),utm_source:data.utm_source||'',utm_medium:data.utm_medium||'',utm_campaign:data.utm_campaign||'',utm_content:data.utm_content||'',formData:data};DB.push('leads',lead);DB.push('lead_form_submissions',{id:uid(),formId:f.id,formName:f.name,leadId:lead.id,data,createdAt:new Date().toISOString()});root.querySelector('.gl-public-card').innerHTML=`<div class="gl-success"><i>✓</i><h2>Formulário enviado!</h2><p>${esc(f.successMessage||'Recebemos seus dados. Em breve entraremos em contato!')}</p></div>`;try{fireWebhook('lead.formulario',{lead,formId:f.id})}catch(err){}}}
+    const lead={id:uid(),nome:data.nome||data.nome_completo||data.name||'Lead de formulário',email:data.email||'',telefone:data.telefone||data.whatsapp||data.phone||'',origem:`Formulário: ${f.name}`,desc:descValue,estagio:f.stageName||'Novo Lead',stageId:f.stageId||'',funnelId:f.funnelId||'',data:new Date().toLocaleDateString('pt-BR'),createdAt:new Date().toISOString(),utm_source:data.utm_source||'',utm_medium:data.utm_medium||'',utm_campaign:data.utm_campaign||'',utm_content:data.utm_content||'',formData:data};DB.push('leads',lead);DB.push('lead_form_submissions',{id:uid(),formId:f.id,formName:f.name,leadId:lead.id,data,createdAt:new Date().toISOString()});root.querySelector('.gl-public-card').innerHTML=`<div class="gl-success"><i>✓</i><h2>Formulário enviado!</h2><p>${esc(f.successMessage||'Recebemos seus dados. Em breve entraremos em contato!')}</p></div>`;try{fireWebhook('lead.criado',{...lead,formId:f.id})}catch(err){}}}
   window.gxlOpen=id=>{const f=forms().find(x=>x.id===id);if(!f)return;gxlCloseMenu();showPublicForm(f,true)};
   function openPublicForm(){const q=new URLSearchParams(location.search),slug=q.get('gex_form');if(!slug)return;const f=forms().find(x=>x.slug===slug&&(x.active||q.get('gex_preview')==='1'));if(f)showPublicForm(f,false)}
   setTimeout(openPublicForm,800);
