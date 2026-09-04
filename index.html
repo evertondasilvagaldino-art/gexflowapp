@@ -5588,11 +5588,11 @@ async function connectLeadgenOAuth(){
 function applyLeadgenOAuthConnection(pageId,pageName){
   try{
     const old=(DB.get('leadgen_settings')||[])[0]||{id:'leadgen_main'};
-    const next={...old,id:'leadgen_main',pageId:pageId||old.pageId||'',hasToken:true,oauthChoicePending:null,updatedAt:new Date().toISOString()};
+    const next={...old,id:'leadgen_main',pageId:pageId||old.pageId||'',pageName:pageName||old.pageName||'',hasToken:true,oauthChoicePending:null,updatedAt:new Date().toISOString()};
     DB.set('leadgen_settings',[next]);
   }catch(e){}
   if(typeof renderIntegracoes==='function')renderIntegracoes();
-  toast(`Página "${pageName||pageId}" conectada ✓ Escolha a etapa de destino e clique em Salvar configurações.`,'#10B981');
+  toast(`Página "${pageName||pageId}" conectada ✓ Escolha o funil, a etapa de destino e clique em Salvar configurações.`,'#10B981');
 }
 function applyLeadgenOAuthChoice(state,pagesB64){
   let pages=[];
@@ -15700,8 +15700,10 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   function leadgenConfigHtml(){
     const s=getLeadgenSettings();
     const webhookUrl=`${SUPABASE_URL}/functions/v1/meta-leadgen-webhook`;
-    const funnel=typeof getActiveFunnel==='function'?getActiveFunnel():null;
-    const ss=stages();
+    const allFunnels=(typeof getCommercialFunnels==='function'?getCommercialFunnels():[]).filter(f=>!f.isArchived);
+    const activeFunnel=typeof getActiveFunnel==='function'?getActiveFunnel():null;
+    const selectedFunnelId=s.funnelId&&allFunnels.some(f=>String(f.id)===String(s.funnelId))?s.funnelId:(activeFunnel?.id||(allFunnels[0]&&allFunnels[0].id)||'');
+    const ss=stagesForFunnel(selectedFunnelId);
     const receivedLeads=(function(){try{return (DB.get('leads')||[]).filter(l=>l.origem==='Meta Ads (Formulário Instantâneo)')}catch(e){return[]}})();
     const lastReceived=receivedLeads.length?receivedLeads.slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0))[0]:null;
     return `<div class="gxi-conv-grid" style="grid-template-columns:1fr">
@@ -15714,8 +15716,9 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
           <select class="gxi-select" id="gxi-lg-oauth-choice" style="max-width:260px">${(s.oauthChoicePending.pages||[]).map(p=>`<option value="${A(p.id)}">${E(p.name)}</option>`).join('')}</select>
           <button class="gxi-btn primary small" onclick="gxiConfirmLeadgenOAuthPage()">Confirmar Página</button>
         </div>`:`<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
-          <button class="meta-oauth-btn" id="leadgen-oauth-connect-btn" onclick="connectLeadgenOAuth()">Conectar com Facebook</button>
-          <span style="font-size:11px;color:var(--muted)">${s.hasToken?`Página conectada${s.pageId?` (ID ${E(s.pageId)})`:''} — pode reconectar a qualquer momento pra trocar de Página ou renovar a permissão.`:'Faz login com o Facebook e já traz o Token de acesso da Página certo, sem precisar do Graph API Explorer.'}</span>
+          <button class="meta-oauth-btn" id="leadgen-oauth-connect-btn" onclick="connectLeadgenOAuth()">${s.hasToken?'Reconectar com Facebook':'Conectar com Facebook'}</button>
+          ${s.hasToken?`<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:#059669;background:#D1FAE5;border-radius:20px;padding:5px 12px"><span style="width:7px;height:7px;border-radius:50%;background:#059669;display:inline-block"></span>Conectado${s.pageName?`: ${E(s.pageName)}`:''}${s.pageId?` <span style="color:#047857;font-weight:600">(ID ${E(s.pageId)})</span>`:''}</span>`:''}
+          <span style="font-size:11px;color:var(--muted)">${s.hasToken?'Pode reconectar a qualquer momento pra trocar de Página ou renovar a permissão.':'Faz login com o Facebook e já traz o Token de acesso da Página certo, sem precisar do Graph API Explorer.'}</span>
         </div>
         <details style="margin-bottom:14px">
           <summary style="cursor:pointer;font-size:11px;font-weight:800;color:var(--muted)">Prefiro colar o Token manualmente (avançado)</summary>
@@ -15726,6 +15729,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
           </div>
         </details>`}
         <div class="gxi-form-grid" style="margin-bottom:11px">
+          <label class="gxi-field"><span class="gxi-label">Funil de destino</span><select class="gxi-select" id="gxi-lg-funnel" onchange="gxiLeadgenFunnelChanged()">${allFunnels.map(f=>`<option value="${A(f.id)}" ${String(selectedFunnelId)===String(f.id)?'selected':''}>${E(f.name)}</option>`).join('')}</select></label>
           <label class="gxi-field"><span class="gxi-label">Etapa de destino no Pipeline</span><select class="gxi-select" id="gxi-lg-stage"><option value="">Selecione uma etapa</option>${ss.map(st=>`<option value="${A(st.id)}" data-name="${A(st.name)}" ${String(s.stageId)===String(st.id)?'selected':''}>${E(st.name)}</option>`).join('')}</select></label>
           <label class="gxi-field"><span class="gxi-label">Formulário desta Página</span><select class="gxi-select" id="gxi-lg-form" ${(s.forms||[]).length?'':'disabled'}><option value="">Todos os formulários desta Página</option>${(s.forms||[]).map(f=>`<option value="${A(f.id)}" data-name="${A(f.name)}" ${String(s.formId)===String(f.id)?'selected':''}>${E(f.name)}${f.status&&f.status!=='ACTIVE'?` (${E(f.status)})`:''}</option>`).join('')}</select><small style="display:block;margin-top:5px;font-size:9.5px;color:var(--muted)">${(s.forms||[]).length?'Escolha um formulário específico, útil quando a Página roda vários anúncios com formulários diferentes. "Todos" aceita leads de qualquer um deles.':'Salve a Página e o token uma primeira vez pra listar os formulários disponíveis aqui.'}</small></label>
         </div>
@@ -15734,7 +15738,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
           <label class="gxi-field"><span class="gxi-label">Token de verificação (cole no mesmo lugar, campo "Verify Token")</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-lg-verify" value="${A(s.verifyToken||'')}" readonly placeholder="Gerado após o primeiro salvamento"><button class="gxi-secret-action" onclick="copyTextSafe('${A(s.verifyToken||'')}','Token de verificação')" ${s.verifyToken?'':'disabled'}>Copiar</button></div></label>
         </div>
         <div class="gxi-summary" style="margin-bottom:4px">
-          <div class="gxi-stat"><span>Funil de destino</span><b style="font-size:14px">${E(funnel?.name||'—')}</b><small>usa o funil ativo do Pipeline</small></div>
+          <div class="gxi-stat"><span>Funil de destino</span><b style="font-size:14px">${E((allFunnels.find(f=>String(f.id)===String(selectedFunnelId))||{}).name||'—')}</b><small>escolhido acima</small></div>
           <div class="gxi-stat"><span>Leads recebidos por este canal</span><b>${receivedLeads.length}</b><small>desde a ativação</small></div>
           <div class="gxi-stat"><span>Último recebido</span><b style="font-size:13px">${lastReceived?.createdAt?new Date(lastReceived.createdAt).toLocaleString('pt-BR'):'—'}</b><small>horário local</small></div>
         </div>
@@ -15804,20 +15808,38 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
         try{const ctx=error.context;if(ctx&&typeof ctx.json==='function'){const body=await ctx.clone().json().catch(()=>null);if(body?.message)detail=body.message}}catch(e2){}
       }
       if(error||data?.ok===false)throw new Error(data?.message||detail||'Não foi possível confirmar a Página');
-      const next={...settings,id:'leadgen_main',pageId:data.pageId||pageId,hasToken:true,oauthChoicePending:null,updatedAt:new Date().toISOString()};
+      const next={...settings,id:'leadgen_main',pageId:data.pageId||pageId,pageName:data.pageName||'',hasToken:true,oauthChoicePending:null,updatedAt:new Date().toISOString()};
       DB.set('leadgen_settings',[next]);
       render();
-      toast(`Página "${data.pageName||pageId}" conectada ✓ Escolha a etapa de destino e clique em Salvar configurações.`,'#10B981');
+      toast(`Página "${data.pageName||pageId}" conectada ✓ Escolha o funil, a etapa de destino e clique em Salvar configurações.`,'#10B981');
     }catch(e){
       console.error('[GexFlow] leadgen-oauth-select falhou:',e);
       toast(`Não foi possível confirmar a Página: ${e.message||'erro desconhecido'}`,'#F59E0B');
     }
+  };
+  function stagesForFunnel(funnelId){
+    try{
+      const all=(typeof getCommercialFunnels==='function'?getCommercialFunnels():[]).filter(f=>!f.isArchived);
+      const f=all.find(x=>String(x.id)===String(funnelId))||all[0];
+      if(f&&Array.isArray(f.stages)&&f.stages.length)return f.stages.slice().sort((a,b)=>a.order-b.order).map(s=>({id:s.id,name:s.name}));
+    }catch(e){}
+    return stages();
+  }
+  window.gxiLeadgenFunnelChanged=()=>{
+    const funnelSel=document.getElementById('gxi-lg-funnel');
+    const stageSel=document.getElementById('gxi-lg-stage');
+    if(!funnelSel||!stageSel)return;
+    const ss=stagesForFunnel(funnelSel.value);
+    stageSel.innerHTML=`<option value="">Selecione uma etapa</option>${ss.map(st=>`<option value="${A(st.id)}" data-name="${A(st.name)}">${E(st.name)}</option>`).join('')}`;
   };
   window.gxiSaveLeadgenSettings=async()=>{
     const old=getLeadgenSettings();
     const pageId=document.getElementById('gxi-lg-page')?.value?.trim()||'';
     const token=document.getElementById('gxi-lg-token')?.value?.trim()||'';
     const appSecret=document.getElementById('gxi-lg-secret')?.value?.trim()||'';
+    const funnelSel=document.getElementById('gxi-lg-funnel');
+    const funnelId=funnelSel?.value||'';
+    const funnelName=funnelSel?.selectedOptions?.[0]?.textContent||'';
     const stageSel=document.getElementById('gxi-lg-stage');
     const stageId=stageSel?.value||'';
     const stageName=stageSel?.selectedOptions?.[0]?.dataset?.name||stageSel?.selectedOptions?.[0]?.textContent||'';
@@ -15825,12 +15847,12 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     const formId=formSel?.value||'';
     const formName=formId?(formSel?.selectedOptions?.[0]?.dataset?.name||formSel?.selectedOptions?.[0]?.textContent||''):'';
     if(!pageId){toast('Informe o ID da Página do Facebook','#EF4444');return}
+    if(!funnelId){toast('Selecione o funil de destino','#EF4444');return}
     if(!stageId){toast('Selecione a etapa de destino no Pipeline','#EF4444');return}
-    const funnel=typeof getActiveFunnel==='function'?getActiveFunnel():null;
-    let hasToken=!!old.hasToken,hasAppSecret=!!old.hasAppSecret,verifyToken=old.verifyToken||'',serverSaved=false,forms=old.forms||[],formsWarning='';
+    let hasToken=!!old.hasToken,hasAppSecret=!!old.hasAppSecret,verifyToken=old.verifyToken||'',serverSaved=false,forms=old.forms||[],formsWarning='',pageName=old.pageName||'';
     try{
       if(!supabaseClient)throw new Error('Servidor indisponível');
-      const {data,error}=await supabaseClient.functions.invoke('leadgen-config-save',{body:{pageId,pageAccessToken:token,appSecret,funnelId:funnel?.id||'',funnelName:funnel?.name||'',stageId,stageName,formId,formName}});
+      const {data,error}=await supabaseClient.functions.invoke('leadgen-config-save',{body:{pageId,pageAccessToken:token,appSecret,funnelId,funnelName,stageId,stageName,formId,formName}});
       let detail='';
       if(error){
         detail=error.message||'';
@@ -15839,12 +15861,13 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       if(error||data?.ok===false)throw new Error(data?.message||detail||'Não foi possível validar a Página');
       hasToken=!!data.hasToken;hasAppSecret=!!data.hasAppSecret;verifyToken=data.verifyToken||verifyToken;
       forms=Array.isArray(data.forms)?data.forms:forms;formsWarning=data.formsWarning||'';
+      pageName=data.pageName||pageName;
       serverSaved=true;
     }catch(e){
       console.error('[GexFlow] leadgen-config-save falhou:',e);
       toast(`Configuração não ativada: ${e.message||'erro desconhecido'}`,'#F59E0B');
     }
-    const next={id:'leadgen_main',pageId,hasToken,hasAppSecret,verifyToken,funnelId:funnel?.id||'',funnelName:funnel?.name||'',stageId,stageName,formId,formName,forms,formsWarning,configured:!!pageId&&hasToken&&!!stageId,updatedAt:new Date().toISOString()};
+    const next={id:'leadgen_main',pageId,pageName,hasToken,hasAppSecret,verifyToken,funnelId,funnelName,stageId,stageName,formId,formName,forms,formsWarning,configured:!!pageId&&hasToken&&!!stageId,updatedAt:new Date().toISOString()};
     DB.set('leadgen_settings',[next]);
     render();
     if(serverSaved)toast('Captação nativa configurada ✓','#10B981');
