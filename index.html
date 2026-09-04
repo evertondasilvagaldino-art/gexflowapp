@@ -3379,7 +3379,7 @@ const GEX_DB_COLLECTIONS = [
   'fornecedores','creators','onboarding','atividades','followups','tarefas_cli','contratos',
   'com_tasks','esquemas','commercial_funnels','produtos_comercial',
   'tracking_links','integration_events','integration_connections','manual_trackings','tracking_events',
-  'conversion_settings','conversion_events','lead_forms','lead_form_submissions'
+  'conversion_settings','conversion_events','lead_forms','lead_form_submissions','leadgen_settings'
 ];
 const GEX_KV_EXCLUDED = new Set([
   'gx2_session','gx2_seeded','gx2_tasks_seeded','gx2_cloud_backfilled_v1'
@@ -15577,6 +15577,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   const getEvents=()=>{try{return DB.get('tracking_events')||[]}catch(e){return[]}};
   const getConversionEvents=()=>{try{return (DB.get('conversion_events')||[]).slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0))}catch(e){return[]}};
   const getConversionSettings=()=>{try{return (DB.get('conversion_settings')||[])[0]||{id:'conversion_main',meta:{},google:{},mappings:[]}}catch(e){return{id:'conversion_main',meta:{},google:{},mappings:[]}}};
+  const getLeadgenSettings=()=>{try{return (DB.get('leadgen_settings')||[])[0]||{id:'leadgen_main'}}catch(e){return{id:'leadgen_main'}}};
   const connection=id=>getConnections().find(x=>x.provider===id)||{provider:id,status:'disconnected',assets:{}};
   function saveConnection(provider,data){const all=getConnections(),i=all.findIndex(x=>x.provider===provider),next={...(i>=0?all[i]:{id:uid(),provider}),...data,updatedAt:new Date().toISOString()};if(i>=0)all[i]=next;else all.push(next);DB.set('integration_connections',all);return next}
   function event(type,detail,status='success',extra={}){DB.push('tracking_events',{id:uid(),type,detail,status,createdAt:new Date().toISOString(),...extra})}
@@ -15598,7 +15599,37 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     const ev=getConversionEvents(),success=ev.filter(x=>x.status==='sent').length,err=ev.filter(x=>x.status==='error').length;
     return `<div class="gxi-monitor"><div class="gxi-stat"><span>Eventos gerados</span><b>${ev.length}</b><small>pelo CRM</small></div><div class="gxi-stat"><span>Enviados</span><b>${success}</b><small>confirmados pelo servidor</small></div><div class="gxi-stat"><span>Erros</span><b style="color:${err?'#DC2626':'#059669'}">${err}</b><small>requerem atenção</small></div><div class="gxi-stat"><span>Último envio</span><b style="font-size:13px">${ev[0]?.createdAt?new Date(ev[0].createdAt).toLocaleString('pt-BR'):'—'}</b><small>horário local</small></div></div><div class="gxi-events">${ev.length?ev.slice(0,50).map(x=>`<div class="gxi-conv-event"><div class="gxi-platform ${x.platform==='meta'?'meta':'google'}">${x.platform==='meta'?'∞':'G'}</div><div><b>${E(x.eventName||'Conversão')}</b><small>${E(x.leadName||x.leadId||'Evento do CRM')}</small></div><div>${E(x.stageName||'—')}</div><div>${fmtBRL(Number(x.value||0))}</div><div>${x.createdAt?new Date(x.createdAt).toLocaleString('pt-BR'):'—'}</div><div class="${x.status==='error'?'gxi-status-error':'gxi-status-ok'}">${x.status==='error'?'Erro':x.status==='pending'?'Pendente':'Enviado'}</div></div>`).join(''):`<div class="gxi-empty"><i>↗</i><b>Nenhuma conversão enviada</b>Os eventos disparados pelas etapas do CRM aparecerão aqui.</div>`}</div>`;
   }
-  function monitorHtml(){return `<div class="gxi-toolbar"><div class="gxi-toolbar-copy"><h2>Monitoramento de conversões</h2><p>Envie eventos do CRM para otimizar as campanhas nas plataformas de anúncios.</p></div></div><div class="gxi-monitor-tabs"><button class="gxi-monitor-tab ${monitorView==='config'?'active':''}" onclick="gxiMonitorView('config')">Configurar Pixels e Eventos</button><button class="gxi-monitor-tab ${monitorView==='events'?'active':''}" onclick="gxiMonitorView('events')">Histórico de Conversões</button></div>${monitorView==='config'?conversionConfigHtml():conversionEventsHtml()}`}
+  function leadgenConfigHtml(){
+    const s=getLeadgenSettings();
+    const webhookUrl=`${SUPABASE_URL}/functions/v1/meta-leadgen-webhook`;
+    const funnel=typeof getActiveFunnel==='function'?getActiveFunnel():null;
+    const ss=stages();
+    const receivedLeads=(function(){try{return (DB.get('leads')||[]).filter(l=>l.origem==='Meta Ads (Formulário Instantâneo)')}catch(e){return[]}})();
+    const lastReceived=receivedLeads.length?receivedLeads.slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0))[0]:null;
+    return `<div class="gxi-conv-grid" style="grid-template-columns:1fr">
+      <div class="gxi-conv-card">
+        <div class="gxi-conv-head"><div class="gxi-conv-logo" style="background:#EAF2FF;color:#0866FF">∞</div><div><h3>Formulário Instantâneo do Meta Ads</h3><p>Leads captados direto no anúncio (Instant Form) entrando automaticamente no Pipeline</p></div><span class="gxi-config-status ${s.configured?'on':''}" style="margin-left:auto">${s.configured?'Configurado':'Pendente'}</span></div>
+        <div class="gxi-warning" style="margin-bottom:12px">Esse canal é diferente do formulário próprio do GexFlow e do envio de conversões pra Meta. Aqui é o caminho contrário: um lead preenche o formulário nativo dentro do próprio anúncio (Facebook/Instagram) e este canal traz ele pro seu Pipeline.</div>
+        <div class="gxi-form-grid" style="margin-bottom:11px">
+          <label class="gxi-field"><span class="gxi-label">ID da Página do Facebook</span><input class="gxi-input" id="gxi-lg-page" value="${A(s.pageId||'')}" placeholder="Ex.: 123456789012345"></label>
+          <label class="gxi-field"><span class="gxi-label">Token de acesso da Página</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-lg-token" type="password" value="" placeholder="${s.hasToken?'Token protegido no servidor':'Cole o token de acesso da Página'}"><button class="gxi-secret-action" onclick="gxiToggleSecret('gxi-lg-token')">Mostrar</button></div></label>
+          <label class="gxi-field"><span class="gxi-label">Chave secreta do App (opcional, recomendado)</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-lg-secret" type="password" value="" placeholder="${s.hasAppSecret?'Chave protegida no servidor':'App Secret do seu app no Meta for Developers'}"><button class="gxi-secret-action" onclick="gxiToggleSecret('gxi-lg-secret')">Mostrar</button></div></label>
+          <label class="gxi-field"><span class="gxi-label">Etapa de destino no Pipeline</span><select class="gxi-select" id="gxi-lg-stage"><option value="">Selecione uma etapa</option>${ss.map(st=>`<option value="${A(st.id)}" data-name="${A(st.name)}" ${String(s.stageId)===String(st.id)?'selected':''}>${E(st.name)}</option>`).join('')}</select></label>
+        </div>
+        <div class="gxi-form-grid" style="margin-bottom:11px">
+          <label class="gxi-field"><span class="gxi-label">URL do Webhook (cole no Meta for Developers)</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-lg-webhook" value="${A(webhookUrl)}" readonly><button class="gxi-secret-action" onclick="copyTextSafe('${A(webhookUrl)}','URL do webhook')">Copiar</button></div></label>
+          <label class="gxi-field"><span class="gxi-label">Token de verificação (cole no mesmo lugar, campo "Verify Token")</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-lg-verify" value="${A(s.verifyToken||'')}" readonly placeholder="Gerado após o primeiro salvamento"><button class="gxi-secret-action" onclick="copyTextSafe('${A(s.verifyToken||'')}','Token de verificação')" ${s.verifyToken?'':'disabled'}>Copiar</button></div></label>
+        </div>
+        <div class="gxi-summary" style="margin-bottom:4px">
+          <div class="gxi-stat"><span>Funil de destino</span><b style="font-size:14px">${E(funnel?.name||'—')}</b><small>usa o funil ativo do Pipeline</small></div>
+          <div class="gxi-stat"><span>Leads recebidos por este canal</span><b>${receivedLeads.length}</b><small>desde a ativação</small></div>
+          <div class="gxi-stat"><span>Último recebido</span><b style="font-size:13px">${lastReceived?.createdAt?new Date(lastReceived.createdAt).toLocaleString('pt-BR'):'—'}</b><small>horário local</small></div>
+        </div>
+        <div class="gxi-conv-footer"><span>Token e chave secreta são enviados para uma função segura e nunca são gravados no navegador.</span><button class="gxi-btn primary" onclick="gxiSaveLeadgenSettings()">Salvar configurações</button></div>
+      </div>
+    </div>`;
+  }
+  function monitorHtml(){return `<div class="gxi-toolbar"><div class="gxi-toolbar-copy"><h2>Monitoramento de conversões</h2><p>Envie eventos do CRM para otimizar as campanhas nas plataformas de anúncios, ou traga leads direto dos anúncios pro Pipeline.</p></div></div><div class="gxi-monitor-tabs"><button class="gxi-monitor-tab ${monitorView==='config'?'active':''}" onclick="gxiMonitorView('config')">Configurar Pixels e Eventos</button><button class="gxi-monitor-tab ${monitorView==='events'?'active':''}" onclick="gxiMonitorView('events')">Histórico de Conversões</button><button class="gxi-monitor-tab ${monitorView==='leadgen'?'active':''}" onclick="gxiMonitorView('leadgen')">Captação Nativa (Meta)</button></div>${monitorView==='config'?conversionConfigHtml():monitorView==='leadgen'?leadgenConfigHtml():conversionEventsHtml()}`}
   function render(){const page=document.getElementById('page-integracoes');if(!page)return;page.innerHTML=`<div class="gxi-shell">${header()}${view==='connections'?connectionsHtml():view==='tracking'?(editingId==='new'||editingId?formHtml():trackingListHtml()):monitorHtml()}</div>`}
   window.renderIntegracoes=render;window.gxiSetView=v=>{view=v;editingId='';render()};window.gxiNewTracking=()=>{view='tracking';editingId='new';render()};window.gxiCancelTracking=()=>{editingId='';render()};window.gxiEditTracking=id=>{view='tracking';editingId=id;render()};
   window.gxiSaveTracking=()=>{const mode=document.getElementById('gxi-mode')?.value||'exact',st=document.getElementById('gxi-stage'),co=document.getElementById('gxi-connection'),message=document.getElementById('gxi-message')?.value?.trim()||'';if(!st?.value){toast('Selecione a etapa de destino','#EF4444');return}if(!message){toast('Informe a mensagem do rastreamento','#EF4444');return}const funnel=typeof getActiveFunnel==='function'?getActiveFunnel():null,obj={mode,funnelId:funnel?.id||'',funnelName:funnel?.name||'',stageId:st.value,stageName:st.selectedOptions[0]?.dataset.name||st.selectedOptions[0]?.textContent||'',connectionId:co?.value||'whatsapp_pending',connectionName:co?.selectedOptions[0]?.dataset.name||co?.selectedOptions[0]?.textContent||'WhatsApp',message,active:true,updatedAt:new Date().toISOString()};if(editingId&&editingId!=='new'){const old=getTrackings().find(x=>x.id===editingId);DB.update('manual_trackings',editingId,{...obj,active:old?.active!==false})}else DB.push('manual_trackings',{id:uid(),...obj,executions:0,createdAt:new Date().toISOString()});event('Rastreamento configurado',`Mensagem: ${message}`);editingId='';render();toast('Rastreamento salvo ✓','#10B981')};
@@ -15644,6 +15675,37 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     }}
     const next={id:'conversion_main',meta:{pixelId,hasToken,testEventCode,configured:!!pixelId&&hasToken},google:{conversionId,conversionLabel,configured:!!conversionId&&!!conversionLabel},mappings,updatedAt:new Date().toISOString()};
     DB.set('conversion_settings',[next]);event('Conversões configuradas',`${mappings.filter(x=>x.enabled).length} etapas ativas`,serverSaved?'success':'warning');render();if(serverSaved)toast('Configurações de conversão salvas ✓','#10B981');
+  };
+  window.gxiSaveLeadgenSettings=async()=>{
+    const old=getLeadgenSettings();
+    const pageId=document.getElementById('gxi-lg-page')?.value?.trim()||'';
+    const token=document.getElementById('gxi-lg-token')?.value?.trim()||'';
+    const appSecret=document.getElementById('gxi-lg-secret')?.value?.trim()||'';
+    const stageSel=document.getElementById('gxi-lg-stage');
+    const stageId=stageSel?.value||'';
+    const stageName=stageSel?.selectedOptions?.[0]?.dataset?.name||stageSel?.selectedOptions?.[0]?.textContent||'';
+    if(!pageId){toast('Informe o ID da Página do Facebook','#EF4444');return}
+    if(!stageId){toast('Selecione a etapa de destino no Pipeline','#EF4444');return}
+    const funnel=typeof getActiveFunnel==='function'?getActiveFunnel():null;
+    let hasToken=!!old.hasToken,hasAppSecret=!!old.hasAppSecret,verifyToken=old.verifyToken||'',serverSaved=false;
+    try{
+      if(!supabaseClient)throw new Error('Servidor indisponível');
+      const {data,error}=await supabaseClient.functions.invoke('leadgen-config-save',{body:{pageId,pageAccessToken:token,appSecret,funnelId:funnel?.id||'',funnelName:funnel?.name||'',stageId,stageName}});
+      let detail='';
+      if(error){
+        detail=error.message||'';
+        try{const ctx=error.context;if(ctx&&typeof ctx.json==='function'){const body=await ctx.clone().json().catch(()=>null);if(body?.message)detail=body.message}}catch(e2){}
+      }
+      if(error||data?.ok===false)throw new Error(data?.message||detail||'Não foi possível validar a Página');
+      hasToken=!!data.hasToken;hasAppSecret=!!data.hasAppSecret;verifyToken=data.verifyToken||verifyToken;serverSaved=true;
+    }catch(e){
+      console.error('[GexFlow] leadgen-config-save falhou:',e);
+      toast(`Configuração não ativada: ${e.message||'erro desconhecido'}`,'#F59E0B');
+    }
+    const next={id:'leadgen_main',pageId,hasToken,hasAppSecret,verifyToken,funnelId:funnel?.id||'',funnelName:funnel?.name||'',stageId,stageName,configured:!!pageId&&hasToken&&!!stageId,updatedAt:new Date().toISOString()};
+    DB.set('leadgen_settings',[next]);
+    render();
+    if(serverSaved)toast('Captação nativa configurada ✓','#10B981');
   };
   function conversionValue(mapping,lead){if(mapping.valueSource==='none')return 0;if(mapping.valueSource==='fixed')return Number(mapping.fixedValue||0);return Number(lead?.valor||lead?.value||0)}
   async function sendConversionPlatform(platform,eventName,mapping,lead,payload){
