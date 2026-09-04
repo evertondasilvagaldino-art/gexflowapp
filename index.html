@@ -5555,6 +5555,104 @@ function handleMetaOAuthRedirectResult(){
   }catch(e){}
 }
 handleMetaOAuthRedirectResult();
+
+/* ── Conectar Página via Facebook (Captação Nativa de Leads) ──
+   Mesmo padrão de OAuth do Meta Ads acima, mas pedindo permissões de Página
+   (pages_show_list, pages_read_engagement, pages_manage_ads, leads_retrieval)
+   em vez de permissões de conta de anúncio — evita depender do Graph API
+   Explorer pra gerar o Token de acesso da Página na mão. */
+function setLeadgenOAuthButtonState(loading){
+  const btn=document.getElementById('leadgen-oauth-connect-btn');
+  if(btn){btn.disabled=!!loading;btn.textContent=loading?'Abrindo Facebook...':'Conectar com Facebook';}
+}
+async function connectLeadgenOAuth(){
+  try{
+    setLeadgenOAuthButtonState(true);
+    const token=await getGexSupabaseToken();
+    const returnTo=window.location.href.split('#')[0];
+    const res=await fetch(getSupabaseFunctionUrl('leadgen-oauth-start')+`?return_to=${encodeURIComponent(returnTo)}`,{
+      method:'GET',
+      headers:{'Authorization':`Bearer ${token}`}
+    });
+    const resJson=await res.json().catch(()=>({}));
+    if(!res.ok||!resJson.url)throw new Error(resJson.error||'Não foi possível iniciar a conexão da Página.');
+    const popup=window.open(resJson.url,'gex_leadgen_oauth','width=720,height=780,menubar=no,toolbar=no,location=yes,resizable=yes,scrollbars=yes');
+    if(!popup)throw new Error('O navegador bloqueou o popup. Libere popups para conectar com Facebook.');
+    toast('Finalize o login na janela do Facebook','#1877F2');
+  }catch(err){
+    toast(err.message||'Erro ao conectar a Página','#EF4444');
+  }finally{
+    setLeadgenOAuthButtonState(false);
+  }
+}
+function applyLeadgenOAuthConnection(pageId,pageName){
+  try{
+    const old=(DB.get('leadgen_settings')||[])[0]||{id:'leadgen_main'};
+    const next={...old,id:'leadgen_main',pageId:pageId||old.pageId||'',hasToken:true,oauthChoicePending:null,updatedAt:new Date().toISOString()};
+    DB.set('leadgen_settings',[next]);
+  }catch(e){}
+  if(typeof renderIntegracoes==='function')renderIntegracoes();
+  toast(`Página "${pageName||pageId}" conectada ✓ Escolha a etapa de destino e clique em Salvar configurações.`,'#10B981');
+}
+function applyLeadgenOAuthChoice(state,pagesB64){
+  let pages=[];
+  try{pages=JSON.parse(decodeURIComponent(escape(atob(pagesB64))));}catch(e){pages=[]}
+  try{
+    const old=(DB.get('leadgen_settings')||[])[0]||{id:'leadgen_main'};
+    const next={...old,id:'leadgen_main',oauthChoicePending:{state,pages},updatedAt:new Date().toISOString()};
+    DB.set('leadgen_settings',[next]);
+  }catch(e){}
+  if(typeof renderIntegracoes==='function')renderIntegracoes();
+  toast('Encontramos mais de uma Página. Escolha qual usar.','#F59E0B');
+}
+function handleLeadgenOAuthMessage(event){
+  const expectedOrigin=SUPABASE_URL.replace(/\/+$/,'');
+  const selfOrigin=window.location.origin;
+  if(event.origin!==expectedOrigin&&event.origin!==selfOrigin)return;
+  const data=event.data||{};
+  if(data.type==='gex_leadgen_oauth_success')applyLeadgenOAuthConnection(data.pageId,data.pageName);
+  if(data.type==='gex_leadgen_oauth_choose')applyLeadgenOAuthChoice(data.state,data.pages);
+  if(data.type==='gex_leadgen_oauth_error')toast(data.error||'Erro ao conectar a Página','#EF4444');
+}
+window.addEventListener('message',handleLeadgenOAuthMessage);
+function handleLeadgenOAuthRedirectResult(){
+  try{
+    const params=new URLSearchParams(window.location.search);
+    const result=params.get('gex_leadgen_oauth');
+    if(!result)return;
+    if(result==='success'){
+      const pageId=params.get('pageId')||'',pageName=params.get('pageName')||'';
+      if(window.opener){
+        try{window.opener.postMessage({type:'gex_leadgen_oauth_success',pageId,pageName},'*');}catch(e){}
+        setTimeout(()=>window.close(),400);
+      }else{
+        applyLeadgenOAuthConnection(pageId,pageName);
+      }
+    }else if(result==='choose'){
+      const state=params.get('state')||'',pages=params.get('pages')||'';
+      if(window.opener){
+        try{window.opener.postMessage({type:'gex_leadgen_oauth_choose',state,pages},'*');}catch(e){}
+        setTimeout(()=>window.close(),400);
+      }else{
+        applyLeadgenOAuthChoice(state,pages);
+      }
+    }else if(result==='error'){
+      const error=params.get('error')||'Erro ao conectar a Página';
+      if(window.opener){
+        try{window.opener.postMessage({type:'gex_leadgen_oauth_error',error},'*');}catch(e){}
+        setTimeout(()=>window.close(),400);
+      }else{
+        if(typeof toast==='function')toast(error,'#EF4444');
+      }
+    }
+    ['gex_leadgen_oauth','pageId','pageName','state','pages','error'].forEach(k=>params.delete(k));
+    const qs=params.toString();
+    const clean=window.location.pathname+(qs?'?'+qs:'')+window.location.hash;
+    window.history.replaceState({},'',clean);
+  }catch(e){}
+}
+handleLeadgenOAuthRedirectResult();
+
 function disconnectMetaAdsOAuth(){
   const current=getIntegration('meta_ads').config||{};
   saveIntegration('meta_ads',{connected:false,configured:false,config:{notes:current.notes||''}});
@@ -15611,10 +15709,23 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
         <div class="gxi-conv-head"><div class="gxi-conv-logo" style="background:#EAF2FF;color:#0866FF">∞</div><div><h3>Formulário Instantâneo do Meta Ads</h3><p>Leads captados direto no anúncio (Instant Form) entrando automaticamente no Pipeline</p></div><span class="gxi-config-status ${s.configured?'on':''}" style="margin-left:auto">${s.configured?'Configurado':'Pendente'}</span></div>
         <div class="gxi-warning" style="margin-bottom:12px">Esse canal é diferente do formulário próprio do GexFlow e do envio de conversões pra Meta. Aqui é o caminho contrário: um lead preenche o formulário nativo dentro do próprio anúncio (Facebook/Instagram) e este canal traz ele pro seu Pipeline.</div>
         ${s.formsWarning?`<div class="gxi-warning" style="margin-bottom:12px">Não foi possível listar os formulários da Página no último salvamento: ${E(s.formsWarning)} — o canal continua funcionando normalmente no modo "Todos os formulários".</div>`:''}
+        ${s.oauthChoicePending?`<div class="gxi-warning" style="margin-bottom:12px;display:flex;flex-wrap:wrap;align-items:center;gap:10px">
+          <span style="flex:1;min-width:220px">Encontramos ${(s.oauthChoicePending.pages||[]).length} Páginas na sua conta do Facebook. Escolha qual deve alimentar o Pipeline:</span>
+          <select class="gxi-select" id="gxi-lg-oauth-choice" style="max-width:260px">${(s.oauthChoicePending.pages||[]).map(p=>`<option value="${A(p.id)}">${E(p.name)}</option>`).join('')}</select>
+          <button class="gxi-btn primary small" onclick="gxiConfirmLeadgenOAuthPage()">Confirmar Página</button>
+        </div>`:`<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+          <button class="meta-oauth-btn" id="leadgen-oauth-connect-btn" onclick="connectLeadgenOAuth()">Conectar com Facebook</button>
+          <span style="font-size:11px;color:var(--muted)">${s.hasToken?`Página conectada${s.pageId?` (ID ${E(s.pageId)})`:''} — pode reconectar a qualquer momento pra trocar de Página ou renovar a permissão.`:'Faz login com o Facebook e já traz o Token de acesso da Página certo, sem precisar do Graph API Explorer.'}</span>
+        </div>
+        <details style="margin-bottom:14px">
+          <summary style="cursor:pointer;font-size:11px;font-weight:800;color:var(--muted)">Prefiro colar o Token manualmente (avançado)</summary>
+          <div class="gxi-form-grid" style="margin-top:11px;margin-bottom:11px">
+            <label class="gxi-field"><span class="gxi-label">ID da Página do Facebook</span><input class="gxi-input" id="gxi-lg-page" value="${A(s.pageId||'')}" placeholder="Ex.: 123456789012345"></label>
+            <label class="gxi-field"><span class="gxi-label">Token de acesso da Página</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-lg-token" type="password" value="" placeholder="${s.hasToken?'Token protegido no servidor':'Cole o token de acesso da Página'}"><button class="gxi-secret-action" onclick="gxiToggleSecret('gxi-lg-token')">Mostrar</button></div></label>
+            <label class="gxi-field"><span class="gxi-label">Chave secreta do App (opcional, recomendado)</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-lg-secret" type="password" value="" placeholder="${s.hasAppSecret?'Chave protegida no servidor':'App Secret do seu app no Meta for Developers'}"><button class="gxi-secret-action" onclick="gxiToggleSecret('gxi-lg-secret')">Mostrar</button></div></label>
+          </div>
+        </details>`}
         <div class="gxi-form-grid" style="margin-bottom:11px">
-          <label class="gxi-field"><span class="gxi-label">ID da Página do Facebook</span><input class="gxi-input" id="gxi-lg-page" value="${A(s.pageId||'')}" placeholder="Ex.: 123456789012345"></label>
-          <label class="gxi-field"><span class="gxi-label">Token de acesso da Página</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-lg-token" type="password" value="" placeholder="${s.hasToken?'Token protegido no servidor':'Cole o token de acesso da Página'}"><button class="gxi-secret-action" onclick="gxiToggleSecret('gxi-lg-token')">Mostrar</button></div></label>
-          <label class="gxi-field"><span class="gxi-label">Chave secreta do App (opcional, recomendado)</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-lg-secret" type="password" value="" placeholder="${s.hasAppSecret?'Chave protegida no servidor':'App Secret do seu app no Meta for Developers'}"><button class="gxi-secret-action" onclick="gxiToggleSecret('gxi-lg-secret')">Mostrar</button></div></label>
           <label class="gxi-field"><span class="gxi-label">Etapa de destino no Pipeline</span><select class="gxi-select" id="gxi-lg-stage"><option value="">Selecione uma etapa</option>${ss.map(st=>`<option value="${A(st.id)}" data-name="${A(st.name)}" ${String(s.stageId)===String(st.id)?'selected':''}>${E(st.name)}</option>`).join('')}</select></label>
           <label class="gxi-field"><span class="gxi-label">Formulário desta Página</span><select class="gxi-select" id="gxi-lg-form" ${(s.forms||[]).length?'':'disabled'}><option value="">Todos os formulários desta Página</option>${(s.forms||[]).map(f=>`<option value="${A(f.id)}" data-name="${A(f.name)}" ${String(s.formId)===String(f.id)?'selected':''}>${E(f.name)}${f.status&&f.status!=='ACTIVE'?` (${E(f.status)})`:''}</option>`).join('')}</select><small style="display:block;margin-top:5px;font-size:9.5px;color:var(--muted)">${(s.forms||[]).length?'Escolha um formulário específico, útil quando a Página roda vários anúncios com formulários diferentes. "Todos" aceita leads de qualquer um deles.':'Salve a Página e o token uma primeira vez pra listar os formulários disponíveis aqui.'}</small></label>
         </div>
@@ -15677,6 +15788,30 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     }}
     const next={id:'conversion_main',meta:{pixelId,hasToken,testEventCode,configured:!!pixelId&&hasToken},google:{conversionId,conversionLabel,configured:!!conversionId&&!!conversionLabel},mappings,updatedAt:new Date().toISOString()};
     DB.set('conversion_settings',[next]);event('Conversões configuradas',`${mappings.filter(x=>x.enabled).length} etapas ativas`,serverSaved?'success':'warning');render();if(serverSaved)toast('Configurações de conversão salvas ✓','#10B981');
+  };
+  window.gxiConfirmLeadgenOAuthPage=async()=>{
+    const sel=document.getElementById('gxi-lg-oauth-choice');
+    const pageId=sel?.value||'';
+    const settings=getLeadgenSettings();
+    const state=settings.oauthChoicePending?.state||'';
+    if(!pageId||!state){toast('Escolha uma Página antes de confirmar','#EF4444');return}
+    try{
+      if(!supabaseClient)throw new Error('Servidor indisponível');
+      const {data,error}=await supabaseClient.functions.invoke('leadgen-oauth-select',{body:{state,pageId}});
+      let detail='';
+      if(error){
+        detail=error.message||'';
+        try{const ctx=error.context;if(ctx&&typeof ctx.json==='function'){const body=await ctx.clone().json().catch(()=>null);if(body?.message)detail=body.message}}catch(e2){}
+      }
+      if(error||data?.ok===false)throw new Error(data?.message||detail||'Não foi possível confirmar a Página');
+      const next={...settings,id:'leadgen_main',pageId:data.pageId||pageId,hasToken:true,oauthChoicePending:null,updatedAt:new Date().toISOString()};
+      DB.set('leadgen_settings',[next]);
+      render();
+      toast(`Página "${data.pageName||pageId}" conectada ✓ Escolha a etapa de destino e clique em Salvar configurações.`,'#10B981');
+    }catch(e){
+      console.error('[GexFlow] leadgen-oauth-select falhou:',e);
+      toast(`Não foi possível confirmar a Página: ${e.message||'erro desconhecido'}`,'#F59E0B');
+    }
   };
   window.gxiSaveLeadgenSettings=async()=>{
     const old=getLeadgenSettings();
