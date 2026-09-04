@@ -1879,8 +1879,9 @@ textarea.form-input{resize:vertical;min-height:75px}
         <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clip-rule="evenodd"/></svg>
         <div class="wh-dot" id="wh-indicator"></div>
       </div>
-      <div class="ico-btn" title="Notificações">
+      <div class="ico-btn" title="Sons de notificação (lead novo, negócio ganho, tarefa concluída)" onclick="toggleSoundPref()" style="position:relative">
         <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/></svg>
+        <div class="wh-dot" id="sound-indicator"></div>
       </div>
       <div class="user-av" id="topbar-av" onclick="navigate('perfil')" title="Meu perfil">EG</div>
     </div>
@@ -4466,15 +4467,21 @@ function dropLead(e,stageId,stageName){
   ensureDefaultCommercialFunnel();
   const activeFunnel=getActiveFunnel();
   const stage=activeFunnel?(activeFunnel.stages||[]).find(s=>s.id===stageId):null;
+  const previousLead=DB.find('leads',dragId);
+  const wasAlreadyWon=previousLead?.dealStatus==='Ganho';
   const updates={estagio:stageName,stageId,funnelId:activeFunnel?.id||''};
   if(stage){
     if(stage.isWon){updates.dealStatus='Ganho';updates.wonAt=new Date().toISOString();updates.closedAt=new Date().toISOString();}
     else if(stage.isLost){updates.dealStatus='Perdido';updates.lostAt=new Date().toISOString();updates.closedAt=new Date().toISOString();}
     else {updates.dealStatus='Em andamento';}
   }
-  DB.update('leads',dragId,updates);
+  const updatedLead=DB.update('leads',dragId,updates);
   if(typeof window.gexSendCRMConversion==='function') window.gexSendCRMConversion({lead:DB.find('leads',dragId),stageId,stageName,source:'pipeline'});
   fireWebhook('lead.movido',{id:dragId,novoEstagio:stageName,stageId,funnelId:activeFunnel?.id||''});
+  if(stage?.isWon && !wasAlreadyWon){
+    playChime('ganho');
+    notifyEmailEvent('negocio.ganho',updatedLead||{...previousLead,...updates});
+  }
   renderComercial();
   toast(`Lead → ${stageName} ✓`,'#10B981');
   dragId='';dragType='';
@@ -4576,6 +4583,93 @@ async function fireWebhook(event,data){
     return {ok:false,error:err.message||'Falha de conexão'};
   }
 }
+
+// ═══ NOTIFICAÇÕES POR E-MAIL ═══
+// Chama a Edge Function que manda e-mail pra todos os usuários ativos
+// quando um lead novo chega, um negócio é ganho ou uma tarefa é concluída.
+// Fire-and-forget: se falhar (Gmail não configurado, sem internet etc), só
+// registra no console — nunca trava a ação que o usuário estava fazendo.
+async function notifyEmailEvent(event,data){
+  try{
+    const token=await getGexSupabaseToken();
+    const res=await fetch(getSupabaseFunctionUrl('send-notification-email'),{
+      method:'POST',
+      headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({event,data})
+    });
+    return await res.json().catch(()=>({}));
+  }catch(err){
+    console.warn('[GexFlow] Falha ao enviar notificação por e-mail:',err);
+    return {ok:false,error:err.message||'Falha de conexão'};
+  }
+}
+
+// ═══ SONS DE NOTIFICAÇÃO ═══
+// Preferência é só deste navegador (não usa o prefixo "gx2_", então não
+// entra no espelhamento automático pra nuvem — cada pessoa liga/desliga o
+// som do jeito que quiser, sem afetar o computador de mais ninguém).
+function isSoundEnabled(){
+  try{return localStorage.getItem('gexSoundEnabled')!=='0'}catch(e){return true}
+}
+function setSoundEnabled(v){
+  try{localStorage.setItem('gexSoundEnabled',v?'1':'0')}catch(e){}
+}
+function toggleSoundPref(){
+  const next=!isSoundEnabled();
+  setSoundEnabled(next);
+  document.getElementById('sound-indicator')?.classList.toggle('active',next);
+  toast(next?'Sons de notificação ativados 🔔':'Sons de notificação desativados 🔕',next?'#10B981':'#6B7280');
+  if(next)playChime('lead');
+}
+
+let __gexAudioCtx=null;
+function getGexAudioCtx(){
+  try{
+    if(!__gexAudioCtx){
+      const Ctor=window.AudioContext||window.webkitAudioContext;
+      if(!Ctor)return null;
+      __gexAudioCtx=new Ctor();
+    }
+    if(__gexAudioCtx.state==='suspended')__gexAudioCtx.resume().catch(()=>{});
+    return __gexAudioCtx;
+  }catch(e){return null}
+}
+// Sintetiza o som na hora (Web Audio API) — sem arquivo de áudio nenhum
+// embutido no sistema. "lead": dois tons subindo. "ganho": três notas
+// ascendentes, mais festivo. "tarefa": um tom curto e discreto.
+function playChime(kind){
+  if(!isSoundEnabled())return;
+  const ctx=getGexAudioCtx();
+  if(!ctx)return;
+  const patterns={
+    lead:[[880,0,0.14],[1175,0.09,0.18]],
+    ganho:[[784,0,0.12],[988,0.11,0.12],[1319,0.22,0.30]],
+    tarefa:[[660,0,0.11]]
+  };
+  const seq=patterns[kind]||patterns.lead;
+  try{
+    const t0=ctx.currentTime;
+    seq.forEach(([freq,delay,dur])=>{
+      const osc=ctx.createOscillator();
+      const gain=ctx.createGain();
+      osc.type='sine';
+      osc.frequency.value=freq;
+      gain.gain.setValueAtTime(0,t0+delay);
+      gain.gain.linearRampToValueAtTime(0.18,t0+delay+0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001,t0+delay+dur);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t0+delay);
+      osc.stop(t0+delay+dur+0.02);
+    });
+  }catch(e){}
+}
+// Navegadores bloqueiam áudio até o primeiro gesto do usuário — "desbloqueia"
+// o contexto de áudio no primeiro clique/tecla, silenciosamente.
+(function(){
+  const unlock=()=>{getGexAudioCtx();document.removeEventListener('pointerdown',unlock);document.removeEventListener('keydown',unlock)};
+  document.addEventListener('pointerdown',unlock,{once:true});
+  document.addEventListener('keydown',unlock,{once:true});
+})();
 
 function renderWebhookLog(log){
   log=Array.isArray(log)?log:[];
@@ -5026,6 +5120,11 @@ function renderConfiguracoesPreferencias(){
         <div><label class="form-label">Notificações</label><select class="form-input" id="cfg-pref-notifications"><option value="on" ${p.notifications!=='off'?'selected':''}>Ativadas</option><option value="off" ${p.notifications==='off'?'selected':''}>Desativadas</option></select></div>
       </div>
       <div class="cfg-actions" style="margin-top:14px"><button class="cfg-btn primary" onclick="saveConfigPreferencesForm()">Salvar preferências</button></div>
+      <div style="border-top:1px solid var(--border);margin-top:18px;padding-top:16px">
+        <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Notificações de lead, negócio e tarefa</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Quando um lead novo chega no Pipeline, um negócio é marcado como Ganho, ou uma tarefa é concluída, todo usuário Ativo recebe um e-mail e (se o sininho 🔔 no topo estiver ligado) toca um som no navegador. O e-mail sai pela caixa do Gmail configurada nos Secrets do Supabase — sem isso configurado, só o som funciona.</div>
+        <button class="cfg-btn" onclick="testarNotificacoes()">🔔 Testar som e e-mail agora</button>
+      </div>
     </div>`;
 }
 function saveConfigPreferencesForm(){
@@ -5035,6 +5134,15 @@ function saveConfigPreferencesForm(){
     home:document.getElementById('cfg-pref-home')?.value||'inicio',
     notifications:document.getElementById('cfg-pref-notifications')?.value||'on'
   });
+}
+
+async function testarNotificacoes(){
+  playChime('lead');
+  toast('Tocando som e enviando e-mail de teste...','#7C3AED');
+  const result=await notifyEmailEvent('teste.notificacao',{});
+  if(result?.ok)toast(`E-mail de teste enviado pra ${result.sent} usuário(s) ✓`,'#10B981');
+  else if(result?.skipped)toast(result.message||'E-mail ainda não configurado','#F59E0B');
+  else toast(result?.message||result?.error||'Falha ao enviar o e-mail de teste','#EF4444');
 }
 
 function renderIntegracoes(){
@@ -6017,7 +6125,7 @@ async function saveModal(type,id=''){
         desc:v('f-desc')
       };
       if(!obj.nome){toast('Nome obrigatório','#EF4444');return}
-      if(id)DB.update('leads',id,obj);else{const l={id:uid(),...obj};DB.push('leads',l);fireWebhook('lead.criado',l)}
+      if(id)DB.update('leads',id,obj);else{const l={id:uid(),...obj};DB.push('leads',l);fireWebhook('lead.criado',l);playChime('lead');notifyEmailEvent('lead.criado',l)}
       closeModal();renderComercial();if(currentDealId===id)renderDealDetail();toast(id?'Lead atualizado ✓':'Lead criado ✓','#10B981');
     },
     transacao(){
@@ -6703,7 +6811,9 @@ function addTask(){
 function toggleTask(id){
   const t=DB.find('tarefas_cli',id);
   if(!t) return;
-  DB.update('tarefas_cli',id,{status:t.status==='Concluída'?'Pendente':'Concluída'});
+  const willComplete=t.status!=='Concluída';
+  const updated=DB.update('tarefas_cli',id,{status:willComplete?'Concluída':'Pendente'});
+  if(willComplete){playChime('tarefa');notifyEmailEvent('tarefa.concluida',updated||t)}
   renderDetailBody();
   setTimeout(()=>switchTab(document.querySelectorAll('#detail-body .tab-btn')[2],'tab-tarefas'),50);
 }
@@ -9471,7 +9581,9 @@ function toggleTaskGlobal(id){
   const t=DB.find('tarefas_cli',id);
   if(!t)return;
   if(!projectAccessGuard(t,'alterar esta tarefa'))return;
-  DB.update('tarefas_cli',id,{status:t.status==='Concluída'?'Pendente':'Concluída'});
+  const willComplete=t.status!=='Concluída';
+  const updated=DB.update('tarefas_cli',id,{status:willComplete?'Concluída':'Pendente'});
+  if(willComplete){playChime('tarefa');notifyEmailEvent('tarefa.concluida',updated||t)}
   renderTarefasProj();
 }
 
@@ -12587,6 +12699,7 @@ async function checkSession(){
 
 // ═══ INIT ═══
 if(localStorage.getItem('gx2_wh_url')) document.getElementById('wh-indicator').classList.add('active');
+document.getElementById('sound-indicator')?.classList.toggle('active',isSoundEnabled());
 
 // No ambiente de preview (claude.ai), mostrar dica de login imediatamente
 if(IS_PREVIEW_ENV){
