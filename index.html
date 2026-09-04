@@ -15610,11 +15610,13 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       <div class="gxi-conv-card">
         <div class="gxi-conv-head"><div class="gxi-conv-logo" style="background:#EAF2FF;color:#0866FF">∞</div><div><h3>Formulário Instantâneo do Meta Ads</h3><p>Leads captados direto no anúncio (Instant Form) entrando automaticamente no Pipeline</p></div><span class="gxi-config-status ${s.configured?'on':''}" style="margin-left:auto">${s.configured?'Configurado':'Pendente'}</span></div>
         <div class="gxi-warning" style="margin-bottom:12px">Esse canal é diferente do formulário próprio do GexFlow e do envio de conversões pra Meta. Aqui é o caminho contrário: um lead preenche o formulário nativo dentro do próprio anúncio (Facebook/Instagram) e este canal traz ele pro seu Pipeline.</div>
+        ${s.formsWarning?`<div class="gxi-warning" style="margin-bottom:12px">Não foi possível listar os formulários da Página no último salvamento: ${E(s.formsWarning)} — o canal continua funcionando normalmente no modo "Todos os formulários".</div>`:''}
         <div class="gxi-form-grid" style="margin-bottom:11px">
           <label class="gxi-field"><span class="gxi-label">ID da Página do Facebook</span><input class="gxi-input" id="gxi-lg-page" value="${A(s.pageId||'')}" placeholder="Ex.: 123456789012345"></label>
           <label class="gxi-field"><span class="gxi-label">Token de acesso da Página</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-lg-token" type="password" value="" placeholder="${s.hasToken?'Token protegido no servidor':'Cole o token de acesso da Página'}"><button class="gxi-secret-action" onclick="gxiToggleSecret('gxi-lg-token')">Mostrar</button></div></label>
           <label class="gxi-field"><span class="gxi-label">Chave secreta do App (opcional, recomendado)</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-lg-secret" type="password" value="" placeholder="${s.hasAppSecret?'Chave protegida no servidor':'App Secret do seu app no Meta for Developers'}"><button class="gxi-secret-action" onclick="gxiToggleSecret('gxi-lg-secret')">Mostrar</button></div></label>
           <label class="gxi-field"><span class="gxi-label">Etapa de destino no Pipeline</span><select class="gxi-select" id="gxi-lg-stage"><option value="">Selecione uma etapa</option>${ss.map(st=>`<option value="${A(st.id)}" data-name="${A(st.name)}" ${String(s.stageId)===String(st.id)?'selected':''}>${E(st.name)}</option>`).join('')}</select></label>
+          <label class="gxi-field"><span class="gxi-label">Formulário desta Página</span><select class="gxi-select" id="gxi-lg-form" ${(s.forms||[]).length?'':'disabled'}><option value="">Todos os formulários desta Página</option>${(s.forms||[]).map(f=>`<option value="${A(f.id)}" data-name="${A(f.name)}" ${String(s.formId)===String(f.id)?'selected':''}>${E(f.name)}${f.status&&f.status!=='ACTIVE'?` (${E(f.status)})`:''}</option>`).join('')}</select><small style="display:block;margin-top:5px;font-size:9.5px;color:var(--muted)">${(s.forms||[]).length?'Escolha um formulário específico, útil quando a Página roda vários anúncios com formulários diferentes. "Todos" aceita leads de qualquer um deles.':'Salve a Página e o token uma primeira vez pra listar os formulários disponíveis aqui.'}</small></label>
         </div>
         <div class="gxi-form-grid" style="margin-bottom:11px">
           <label class="gxi-field"><span class="gxi-label">URL do Webhook (cole no Meta for Developers)</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-lg-webhook" value="${A(webhookUrl)}" readonly><button class="gxi-secret-action" onclick="copyTextSafe('${A(webhookUrl)}','URL do webhook')">Copiar</button></div></label>
@@ -15684,25 +15686,30 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     const stageSel=document.getElementById('gxi-lg-stage');
     const stageId=stageSel?.value||'';
     const stageName=stageSel?.selectedOptions?.[0]?.dataset?.name||stageSel?.selectedOptions?.[0]?.textContent||'';
+    const formSel=document.getElementById('gxi-lg-form');
+    const formId=formSel?.value||'';
+    const formName=formId?(formSel?.selectedOptions?.[0]?.dataset?.name||formSel?.selectedOptions?.[0]?.textContent||''):'';
     if(!pageId){toast('Informe o ID da Página do Facebook','#EF4444');return}
     if(!stageId){toast('Selecione a etapa de destino no Pipeline','#EF4444');return}
     const funnel=typeof getActiveFunnel==='function'?getActiveFunnel():null;
-    let hasToken=!!old.hasToken,hasAppSecret=!!old.hasAppSecret,verifyToken=old.verifyToken||'',serverSaved=false;
+    let hasToken=!!old.hasToken,hasAppSecret=!!old.hasAppSecret,verifyToken=old.verifyToken||'',serverSaved=false,forms=old.forms||[],formsWarning='';
     try{
       if(!supabaseClient)throw new Error('Servidor indisponível');
-      const {data,error}=await supabaseClient.functions.invoke('leadgen-config-save',{body:{pageId,pageAccessToken:token,appSecret,funnelId:funnel?.id||'',funnelName:funnel?.name||'',stageId,stageName}});
+      const {data,error}=await supabaseClient.functions.invoke('leadgen-config-save',{body:{pageId,pageAccessToken:token,appSecret,funnelId:funnel?.id||'',funnelName:funnel?.name||'',stageId,stageName,formId,formName}});
       let detail='';
       if(error){
         detail=error.message||'';
         try{const ctx=error.context;if(ctx&&typeof ctx.json==='function'){const body=await ctx.clone().json().catch(()=>null);if(body?.message)detail=body.message}}catch(e2){}
       }
       if(error||data?.ok===false)throw new Error(data?.message||detail||'Não foi possível validar a Página');
-      hasToken=!!data.hasToken;hasAppSecret=!!data.hasAppSecret;verifyToken=data.verifyToken||verifyToken;serverSaved=true;
+      hasToken=!!data.hasToken;hasAppSecret=!!data.hasAppSecret;verifyToken=data.verifyToken||verifyToken;
+      forms=Array.isArray(data.forms)?data.forms:forms;formsWarning=data.formsWarning||'';
+      serverSaved=true;
     }catch(e){
       console.error('[GexFlow] leadgen-config-save falhou:',e);
       toast(`Configuração não ativada: ${e.message||'erro desconhecido'}`,'#F59E0B');
     }
-    const next={id:'leadgen_main',pageId,hasToken,hasAppSecret,verifyToken,funnelId:funnel?.id||'',funnelName:funnel?.name||'',stageId,stageName,configured:!!pageId&&hasToken&&!!stageId,updatedAt:new Date().toISOString()};
+    const next={id:'leadgen_main',pageId,hasToken,hasAppSecret,verifyToken,funnelId:funnel?.id||'',funnelName:funnel?.name||'',stageId,stageName,formId,formName,forms,formsWarning,configured:!!pageId&&hasToken&&!!stageId,updatedAt:new Date().toISOString()};
     DB.set('leadgen_settings',[next]);
     render();
     if(serverSaved)toast('Captação nativa configurada ✓','#10B981');
