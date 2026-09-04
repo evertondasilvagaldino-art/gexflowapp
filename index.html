@@ -627,6 +627,19 @@ textarea.form-input{resize:vertical;min-height:75px}
 .esquema-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
 .esquema-card{background:#fff;border:1px solid var(--border);border-radius:12px;padding:18px;cursor:pointer;transition:box-shadow .15s}
 .esquema-card:hover{box-shadow:0 4px 14px rgba(107,70,193,.12)}
+
+/* SQUAD FOLDERS (Projetos) */
+.squad-folder-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+.squad-folder-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:20px 18px;cursor:pointer;transition:box-shadow .15s,transform .15s;text-align:left;position:relative;overflow:hidden}
+.squad-folder-card:hover{box-shadow:0 6px 18px rgba(0,0,0,.08);transform:translateY(-2px)}
+.squad-folder-ico{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:14px}
+.squad-folder-name{font-size:14px;font-weight:700;color:var(--txt);margin-bottom:4px}
+.squad-folder-cnt{font-size:12px;color:var(--muted)}
+.squad-folder-bar{position:absolute;top:0;left:0;right:0;height:4px}
+.proj-breadcrumb{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);margin-bottom:14px}
+.proj-breadcrumb b{color:var(--txt)}
+.proj-breadcrumb .bc-back{cursor:pointer;color:var(--p2);font-weight:600}
+.proj-breadcrumb .bc-back:hover{text-decoration:underline}
 .esquema-ico{font-size:28px;margin-bottom:10px}
 .esquema-name{font-size:13px;font-weight:600;margin-bottom:4px}
 .esquema-desc{font-size:12px;color:var(--muted);line-height:1.4}
@@ -2172,6 +2185,21 @@ textarea.form-input{resize:vertical;min-height:75px}
   </div>
 </div>
 
+<!-- COMENTÁRIOS DO PROJETO -->
+<div class="overlay" id="proj-com-ov" onclick="if(event.target===this)closeProjComments()">
+  <div class="modal" style="width:460px;max-width:95vw">
+    <div class="modal-header"><div class="modal-title" id="proj-com-title">💬 Comentários</div><button class="modal-close" onclick="closeProjComments()">✕</button></div>
+    <div class="modal-body" id="proj-com-body" style="max-height:50vh;overflow-y:auto"></div>
+    <div class="modal-footer" style="flex-direction:column;align-items:stretch;gap:8px">
+      <textarea class="form-input" id="proj-com-input" rows="2" placeholder="Escreva um comentário..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addProjComment()}"></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:8px">
+        <button class="btn btn-ghost" onclick="closeProjComments()">Fechar</button>
+        <button class="btn btn-primary" onclick="addProjComment()">Comentar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL UNIVERSAL -->
 <div class="overlay" id="modal-ov" onclick="if(event.target===this)closeModal()">
   <div class="modal" id="modal-box">
@@ -2392,6 +2420,10 @@ let sessionUser = null;
 let currentSubPage = '';
 let dragId = '', dragType = '';
 let detailId = '';
+// Pasta de squad aberta em Projetos > Gestão de Entregas: null = mostrando as
+// pastas (squads); '__sem_squad__' = pasta dos clientes sem squad definido;
+// ou o nome do squad (string) cuja pasta está aberta.
+let projFolderView = null;
 let dashFilter = {mes: new Date().getMonth()+1, ano: new Date().getFullYear()};
 // Filtro de período do Pipeline (Comercial) — independente do filtro do Início.
 // Começa em "Todos os meses / Todos os anos" pra não esconder leads de quem
@@ -4428,6 +4460,56 @@ function setResultado(id,resultado){
   DB.update('projetos',id,{resultado});renderEntregas();toast(`Resultado: ${starLabels[resultado]}`,'#3B82F6');
 }
 
+// ═══ PRIORIDADE (usada na lista por squad de Projetos) ═══
+const PRIORIDADE_ORDEM=['Urgente','Alta','Normal'];
+const PRIORIDADE_COR={Urgente:'#EF4444',Alta:'#F59E0B',Normal:'#3B82F6'};
+
+function setPrioridade(id,prioridade){
+  const p=DB.find('projetos',id);
+  if(!projectAccessGuard(p,'alterar este projeto'))return;
+  DB.update('projetos',id,{prioridade});
+  renderEntregas();
+  toast(`Prioridade: ${prioridade}`,PRIORIDADE_COR[prioridade]);
+}
+
+// ═══ COMENTÁRIOS DO PROJETO ═══
+let currentProjComentarioId='';
+
+function openProjComments(id){
+  const p=DB.find('projetos',id);
+  if(!projectAccessGuard(p,'comentar neste projeto'))return;
+  currentProjComentarioId=id;
+  document.getElementById('proj-com-title').textContent=`💬 ${p.nome}`;
+  document.getElementById('proj-com-input').value='';
+  renderProjComments();
+  document.getElementById('proj-com-ov').classList.add('open');
+}
+function closeProjComments(){
+  document.getElementById('proj-com-ov').classList.remove('open');
+  currentProjComentarioId='';
+}
+function renderProjComments(){
+  const p=DB.find('projetos',currentProjComentarioId);
+  const coms=p?.comentarios||[];
+  const body=document.getElementById('proj-com-body');
+  if(!coms.length){body.innerHTML=`<div class="empty"><div class="empty-ico">💬</div><div class="empty-txt">Nenhum comentário ainda</div></div>`;return}
+  body.innerHTML=coms.map(c=>`<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px"><b style="color:var(--txt)">${c.autor||'Usuário'}</b><span>${new Date(c.data).toLocaleString('pt-BR')}</span></div>
+    <div style="font-size:13px">${(c.texto||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}</div>
+  </div>`).join('');
+}
+function addProjComment(){
+  const texto=(document.getElementById('proj-com-input').value||'').trim();
+  if(!texto)return;
+  const p=DB.find('projetos',currentProjComentarioId);
+  if(!p)return;
+  const comentarios=[...(p.comentarios||[]),{id:uid(),texto,autor:sessionUser?.nome||sessionUser?.name||'Usuário',data:new Date().toISOString()}];
+  DB.update('projetos',currentProjComentarioId,{comentarios});
+  document.getElementById('proj-com-input').value='';
+  renderProjComments();
+  renderEntregas();
+}
+
 // ═══ DnD ═══
 
 function dragStart(e,id,type){
@@ -6093,7 +6175,7 @@ async function saveModal(type,id=''){
       const oldProjeto=id?DB.find('projetos',id):null;
       if(id&&!projectAccessGuard(oldProjeto,'editar este projeto'))return;
       const ownerPick=resolveProjectResponsibleFromForm(oldProjeto);
-      const obj={nome:v('f-nome'),cliente:v('f-cliente'),status:v('f-status'),prazo:v('f-prazo'),desc:v('f-desc'),score:parseInt(v('f-score'))||0,resultado:parseInt(v('f-resultado'))||0,...projectOwnerFieldsFromPick(ownerPick)};
+      const obj={nome:v('f-nome'),cliente:v('f-cliente'),status:v('f-status'),prazo:v('f-prazo'),desc:v('f-desc'),score:parseInt(v('f-score'))||0,resultado:parseInt(v('f-resultado'))||0,prioridade:v('f-prioridade')||'Normal',...projectOwnerFieldsFromPick(ownerPick)};
       if(!obj.nome){toast('Nome obrigatório','#EF4444');return}
       if(id)DB.update('projetos',id,obj);else DB.push('projetos',{id:uid(),...obj,createdById:sessionUser?.id||'',createdByEmail:sessionUser?.email||'',createdBy:sessionUser?.nome||''});
       closeModal();renderProjetos();renderInicio();toast(id?'Projeto atualizado ✓':'Projeto criado ✓','#10B981');
@@ -6294,6 +6376,10 @@ function formProjeto(d){
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Prazo</label><input class="form-input" id="f-prazo" type="date" value="${d?.prazo||''}"></div>
+    <div class="form-group"><label class="form-label">🚩 Prioridade</label>
+      <select class="form-input" id="f-prioridade"><option ${(d?.prioridade||'Normal')==='Urgente'?'selected':''}>Urgente</option><option ${(d?.prioridade||'Normal')==='Alta'?'selected':''}>Alta</option><option ${(!d?.prioridade||d?.prioridade==='Normal')?'selected':''}>Normal</option></select></div>
+  </div>
+  <div class="form-row">
     <div class="form-group"><label class="form-label">🤝 Nível de relacionamento</label>
       <select class="form-input" id="f-score"><option value="0">— Não avaliado</option><option value="1" ${d?.score==1?'selected':''}>⭐ Ruim</option><option value="2" ${d?.score==2?'selected':''}>⭐⭐ Bom</option><option value="3" ${d?.score==3?'selected':''}>⭐⭐⭐ Ótimo</option><option value="4" ${d?.score==4?'selected':''}>⭐⭐⭐⭐ Excelente</option></select></div>
   </div>
@@ -8565,6 +8651,16 @@ function renderSquadMgrList(){
     </div>`).join(''):'<div style="color:var(--light);text-align:center;padding:16px">Nenhum squad cadastrado</div>';
 }
 
+// Squads agora também organizam a aba Projetos (pastas em "Gestão de
+// Entregas") — por isso addSquad/updateSquadName/updateSquadCor/deleteSquad
+// também atualizam essa tela quando ela estiver aberta, além do RH.
+function refreshSquadDependentViews(){
+  renderRH();
+  if(typeof currentProjView!=='undefined'&&currentProjView==='entregas'&&document.getElementById('proj-content')){
+    renderEntregas();
+  }
+}
+
 function addSquad(){
   const inp=document.getElementById('new-squad-input');
   const nome=(inp.value||'').trim();
@@ -8575,7 +8671,7 @@ function addSquad(){
   DB.push('squads',{id:uid(),nome,cor:CORES[squads.length%CORES.length]});
   inp.value='';
   renderSquadMgrList();
-  renderRH();
+  refreshSquadDependentViews();
   toast('Squad criado ✓','#10B981');
 }
 
@@ -8589,24 +8685,29 @@ function updateSquadName(id,novoNome){
   // Update clients
   const clis=DB.get('clientes').map(c=>c.squad===old.nome?{...c,squad:novoNome.trim()}:c);
   DB.set('clientes',clis);
-  renderRH();
+  // Se a pasta renomeada era a que estava aberta em Projetos, acompanha o novo nome
+  if(projFolderView===old.nome)projFolderView=novoNome.trim();
+  refreshSquadDependentViews();
   toast('Squad renomeado ✓','#10B981');
 }
 
 function updateSquadCor(id,cor){
   DB.update('squads',id,{cor});
   renderSquadMgrList();
-  renderRH();
+  refreshSquadDependentViews();
 }
 
 function deleteSquad(id){
   const s=DB.find('squads',id);
   if(!s)return;
-  const cnt=DB.get('membros').filter(m=>m.squad===s.nome).length;
-  if(cnt>0){toast(`${cnt} membro(s) neste squad. Reatribua antes de excluir.`,'#F59E0B');return}
+  const cntMembros=DB.get('membros').filter(m=>m.squad===s.nome).length;
+  const cntClientes=DB.get('clientes').filter(c=>c.squad===s.nome).length;
+  if(cntMembros>0){toast(`${cntMembros} membro(s) neste squad. Reatribua antes de excluir.`,'#F59E0B');return}
+  if(cntClientes>0){toast(`${cntClientes} cliente(s) neste squad. Reatribua antes de excluir.`,'#F59E0B');return}
   DB.remove('squads',id);
+  if(projFolderView===s.nome)projFolderView=null;
   renderSquadMgrList();
-  renderRH();
+  refreshSquadDependentViews();
   toast('Squad removido','#EF4444');
 }
 
@@ -9236,42 +9337,128 @@ function renderProjView(){
   map[currentProjView]?.();
 }
 
-// Gestão de Entregas (kanban)
+// Gestão de Entregas (kanban), organizada em pastas por Squad
+const SEM_SQUAD_KEY='__sem_squad__';
+
+// Squad ao qual um projeto pertence: herdado do squad cadastrado no cliente
+// vinculado ao projeto (campo "Squad responsável" do cadastro de Cliente).
+// Sem cliente, ou cliente sem squad definido ('—'), cai na pasta "Sem squad".
+function projectSquadName(p){
+  const cli=(DB.get('clientes')||[]).find(c=>c.nome===p.cliente);
+  const sq=cli?.squad;
+  return (sq&&sq!=='—')?sq:'';
+}
+
+function openProjSquadFolder(key){
+  projFolderView=key;
+  renderEntregas();
+}
+function backToProjFolders(){
+  projFolderView=null;
+  renderEntregas();
+}
+
 function renderEntregas(){
-  const cols=['A fazer','Em andamento','Em revisão','Concluído'];
-  const colBg={'A fazer':'#F3F4F6','Em andamento':'#DBEAFE','Em revisão':'#FEF3C7','Concluído':'#DCFCE7'};
-  const colDot={'A fazer':'#9CA3AF','Em andamento':'#3B82F6','Em revisão':'#F59E0B','Concluído':'#10B981'};
   const pros=getVisibleProjects();
+  if(projFolderView===null){renderEntregasFolders(pros);return;}
+  renderEntregasKanban(pros);
+}
+
+// Tela 1: pastas (uma por squad, estilo Google Drive), igual ao modelo que
+// a operação já usa pra dividir os clientes por time.
+function renderEntregasFolders(pros){
+  const squads=DB.get('squads')||[];
+  const semSquadCount=pros.filter(p=>!projectSquadName(p)).length;
+  const cards=squads.map(s=>{
+    const cnt=pros.filter(p=>projectSquadName(p)===s.nome).length;
+    return `<div class="squad-folder-card" onclick="openProjSquadFolder('${s.nome.replace(/'/g,"\\'")}')">
+      <div class="squad-folder-bar" style="background:${s.cor||'var(--muted)'}"></div>
+      <div class="squad-folder-ico" style="background:${s.cor||'var(--muted)'}22;color:${s.cor||'var(--muted)'}">📁</div>
+      <div class="squad-folder-name">${s.nome}</div>
+      <div class="squad-folder-cnt">${cnt} projeto${cnt===1?'':'s'}</div>
+    </div>`;
+  }).join('');
+  const semSquadCard=`<div class="squad-folder-card" onclick="openProjSquadFolder('${SEM_SQUAD_KEY}')">
+    <div class="squad-folder-bar" style="background:var(--light)"></div>
+    <div class="squad-folder-ico" style="background:#F3F4F6;color:var(--muted)">🗂️</div>
+    <div class="squad-folder-name">Sem squad</div>
+    <div class="squad-folder-cnt">${semSquadCount} projeto${semSquadCount===1?'':'s'}</div>
+  </div>`;
   document.getElementById('proj-content').innerHTML=`
     <div class="page-header">
-      <div><div class="page-title">📦 Gestão de Entregas</div><div class="page-sub">Arraste os cards para mover entre etapas</div></div>
+      <div><div class="page-title">📦 Gestão de Entregas</div><div class="page-sub">Projetos organizados por squad — igual à divisão de clientes da operação</div></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="openSquadMgr()">⚙️ Gerenciar Squads</button>
+        <button class="btn btn-primary" onclick="openModal('projeto')">+ Novo Projeto</button>
+      </div>
+    </div>
+    <div class="squad-folder-grid">${cards}${semSquadCard}</div>
+    ${!squads.length?`<div class="empty" style="margin-top:20px"><div class="empty-ico">🧩</div><div class="empty-txt">Nenhum squad cadastrado ainda — clique em "Gerenciar Squads" para criar o primeiro.</div></div>`:''}`;
+}
+
+// Tela 2: dentro da pasta — lista de clientes/projetos agrupada por
+// Prioridade (Urgente/Alta/Normal), como no board de referência da operação.
+function renderEntregasKanban(prosAll){
+  const isSemSquad=projFolderView===SEM_SQUAD_KEY;
+  const squad=isSemSquad?null:(DB.get('squads')||[]).find(s=>s.nome===projFolderView);
+  const folderNome=isSemSquad?'Sem squad':(squad?.nome||projFolderView);
+  const folderCor=isSemSquad?'var(--muted)':(squad?.cor||'var(--muted)');
+  const pros=prosAll.filter(p=>isSemSquad?!projectSquadName(p):projectSquadName(p)===folderNome);
+  const clientes=DB.get('clientes')||[];
+
+  document.getElementById('proj-content').innerHTML=`
+    <div class="proj-breadcrumb"><span class="bc-back" onclick="backToProjFolders()">📁 Squads</span> / <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${folderCor};display:inline-block"></span><b>${folderNome}</b></span></div>
+    <div class="page-header">
+      <div><div class="page-title">📦 ${folderNome}</div><div class="page-sub">Clientes e projetos deste squad, agrupados por prioridade</div></div>
       <button class="btn btn-primary" onclick="openModal('projeto')">+ Novo Projeto</button>
     </div>
-    <div class="kanban" id="kanban-board"></div>`;
-  document.getElementById('kanban-board').innerHTML=cols.map(col=>{
-    const items=pros.filter(p=>p.status===col);
-    return `<div class="kol" style="background:${colBg[col]}30;border-color:${colBg[col]}"
-      ondragover="dragOver(event)" ondragenter="dragEnter(event)" ondragleave="dragLeave(event)" ondrop="drop(event,'${col}')">
-      <div class="kol-header">
-        <div class="kol-title"><span style="width:8px;height:8px;border-radius:50%;background:${colDot[col]};display:inline-block"></span>${col}</div>
-        <div class="kol-count">${items.length}</div>
+    <div id="prio-groups" style="display:flex;flex-direction:column;gap:18px"></div>`;
+
+  const groupsEl=document.getElementById('prio-groups');
+  if(!pros.length){
+    groupsEl.innerHTML=`<div class="empty"><div class="empty-ico">📦</div><div class="empty-txt">Nenhum projeto neste squad ainda</div></div>`;
+    return;
+  }
+
+  groupsEl.innerHTML=PRIORIDADE_ORDEM.map(prio=>{
+    const items=pros.filter(p=>(p.prioridade||'Normal')===prio);
+    if(!items.length)return'';
+    const cor=PRIORIDADE_COR[prio];
+    const rows=items.map(p=>{
+      const cli=clientes.find(c=>c.nome===p.cliente);
+      const statusCli=cli?.status||'Ativo';
+      const nComentarios=(p.comentarios||[]).length;
+      return `<tr style="cursor:pointer" onclick="openModal('projeto','${p.id}')">
+        <td style="font-weight:600;font-size:13px">${p.nome}${p.cliente?`<div style="font-size:11px;color:var(--muted);font-weight:400">${p.cliente}</div>`:''}</td>
+        <td onclick="event.stopPropagation()">${p.responsavelNome?`<div style="display:flex;align-items:center;gap:6px"><div style="width:26px;height:26px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials(p.responsavelNome)}</div><span style="font-size:12px">${p.responsavelNome}</span></div>`:'<span style="color:var(--light);font-size:16px">👤</span>'}</td>
+        <td onclick="event.stopPropagation()">
+          <select class="form-input" style="padding:4px 8px;font-size:11px;font-weight:700;width:auto;color:${starColors[p.score||0]};background:${starColors[p.score||0]}15;border-color:${starColors[p.score||0]}44" onchange="setScore('${p.id}',parseInt(this.value))">
+            ${[0,1,2,3,4].map(i=>`<option value="${i}" ${(p.score||0)===i?'selected':''}>${starLabels[i]}</option>`).join('')}
+          </select>
+        </td>
+        <td onclick="event.stopPropagation();openProjComments('${p.id}')" style="cursor:pointer;color:var(--muted);font-size:12px">💬 ${nComentarios||''}</td>
+        <td onclick="event.stopPropagation()">
+          <select class="form-input" style="padding:4px 8px;font-size:11px;font-weight:700;width:auto;color:${PRIORIDADE_COR[p.prioridade||'Normal']};background:${PRIORIDADE_COR[p.prioridade||'Normal']}15;border-color:${PRIORIDADE_COR[p.prioridade||'Normal']}44" onchange="setPrioridade('${p.id}',this.value)">
+            ${PRIORIDADE_ORDEM.map(pr=>`<option ${(p.prioridade||'Normal')===pr?'selected':''}>${pr}</option>`).join('')}
+          </select>
+        </td>
+        <td>${badge(statusCli)}</td>
+        <td onclick="event.stopPropagation()" style="white-space:nowrap">
+          <span style="cursor:pointer;font-size:13px" onclick="openModal('projeto','${p.id}')">✏️</span>
+          <span style="cursor:pointer;font-size:13px;margin-left:6px" onclick="confirmDelete(function(){deleteProjetoSafe('${p.id}')})">🗑</span>
+        </td>
+      </tr>`;
+    }).join('');
+    return `<div class="card" style="padding:0;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:${cor}0D;border-bottom:1px solid var(--border)">
+        <span style="width:10px;height:10px;border-radius:3px;background:${cor};display:inline-block"></span>
+        <span style="font-weight:700;font-size:13px;color:${cor}">${prio}</span>
+        <span style="font-size:11px;color:var(--muted)">${items.length}</span>
       </div>
-      ${items.map(p=>`<div class="kcard" draggable="true" ondragstart="dragStart(event,'${p.id}','projeto')" ondragend="dragEnd(event)">
-        <div class="kcard-title">${p.nome}</div>
-        <div class="kcard-sub">${p.cliente||'Sem cliente'}${p.responsavelNome?` · 👤 ${p.responsavelNome}`:''}</div>
-        <div class="scores-row">
-          <div class="score-line"><span class="score-prefix">🤝 Relacionam.</span>${starWidget(p.score,p.id)}</div>
-          <div class="score-line"><span class="score-prefix">📈 Resultado</span>${resultadoWidget(p.resultado,p.id)}</div>
-        </div>
-        <div class="kcard-footer">
-          <div class="kcard-date">📅 ${p.prazo||'—'}</div>
-          <div style="display:flex;gap:4px">
-            <span style="cursor:pointer;font-size:13px" onclick="event.stopPropagation();openModal('projeto','${p.id}')">✏️</span>
-            <span style="cursor:pointer;font-size:13px" onclick="event.stopPropagation();confirmDelete(function(){deleteProjetoSafe('${p.id}')})">🗑</span>
-          </div>
-        </div>
-      </div>`).join('')}
-      <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:12px;border-style:dashed;margin-top:4px" onclick='openModal("projeto")'>+ Adicionar</button>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Nome</th><th>Responsável</th><th>Relacionamento</th><th>Comentários</th><th>Prioridade</th><th>Status</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
     </div>`;
   }).join('');
 }
