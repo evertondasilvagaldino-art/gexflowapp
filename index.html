@@ -1784,9 +1784,6 @@ textarea.form-input{resize:vertical;min-height:75px}
       <div class="nav-sub" data-sub="agenda" onclick="navigateSub('agenda','projetos')">
         <span class="nav-sub-ico">·</span>Agenda de projetos
       </div>
-      <div class="nav-sub" data-sub="aprovacao" onclick="navigateSub('aprovacao','projetos')">
-        <span class="nav-sub-ico">·</span>Aprovação de conteúdo
-      </div>
       <div class="nav-sub" data-sub="esquemas" onclick="navigateSub('esquemas','projetos')">
         <span class="nav-sub-ico">·</span>Esquemas
       </div>
@@ -6219,8 +6216,15 @@ const v=id=>document.getElementById(id)?.value?.trim()||'';
 async function saveModal(type,id=''){
   const saves={
     cliente(){
+      const existente=id?DB.find('clientes',id):null;
+      // A seção "Carteira — Squad de Tráfego" (status da conta, resultado,
+      // relacionamento, responsáveis e links) só existe no formulário aberto
+      // de dentro de Projetos — no formulário da aba Clientes esses campos
+      // não aparecem na tela, então preservamos o que já estava salvo em vez
+      // de sobrescrever com valores em branco/padrão.
       const contaRespSel=document.getElementById('f-conta-resp');
-      const contaResponsaveis=contaRespSel?[...contaRespSel.selectedOptions].map(o=>o.value):(DB.find('clientes',id)?.contaResponsaveis||[]);
+      const contaResponsaveis=contaRespSel?[...contaRespSel.selectedOptions].map(o=>o.value):(existente?.contaResponsaveis||[]);
+      const temCamposCarteira=!!document.getElementById('f-conta-status');
       // Squads: no formulário completo (aba Clientes) é um multi-seleção de
       // verdade — várias squads podem ser marcadas. No formulário reduzido
       // da carteira (aberto de dentro de Projetos) o campo é só um input
@@ -6229,10 +6233,16 @@ async function saveModal(type,id=''){
       const squadEl=document.getElementById('f-squad');
       const squads=(squadEl&&squadEl.tagName==='SELECT'&&squadEl.multiple)
         ?[...squadEl.selectedOptions].map(o=>o.value).filter(Boolean)
-        :(id?clienteSquads(DB.find('clientes',id)):(squadEl?.value&&squadEl.value!=='—'?[squadEl.value]:[]));
+        :(id?clienteSquads(existente):(squadEl?.value&&squadEl.value!=='—'?[squadEl.value]:[]));
       const obj={nome:v('f-nome'),email:v('f-email'),telefone:v('f-tel'),status:v('f-status'),squad:squads[0]||'—',squads,ltv:v('f-ltv')||'—',health:parseInt(v('f-health'))||0,desc:v('f-desc'),
-        contaStatus:v('f-conta-status')||'Integração',contaResultado:v('f-conta-resultado'),contaRelacionamento:v('f-conta-relacionamento'),contaResponsaveis,
-        linkDrive:v('f-link-drive'),linkMeta:v('f-link-meta'),linkGoogleAds:v('f-link-googleads'),linkGmn:v('f-link-gmn')};
+        contaStatus:temCamposCarteira?(v('f-conta-status')||'Integração'):(existente?.contaStatus||'Integração'),
+        contaResultado:temCamposCarteira?v('f-conta-resultado'):(existente?.contaResultado||''),
+        contaRelacionamento:temCamposCarteira?v('f-conta-relacionamento'):(existente?.contaRelacionamento||''),
+        contaResponsaveis,
+        linkDrive:temCamposCarteira?v('f-link-drive'):(existente?.linkDrive||''),
+        linkMeta:temCamposCarteira?v('f-link-meta'):(existente?.linkMeta||''),
+        linkGoogleAds:temCamposCarteira?v('f-link-googleads'):(existente?.linkGoogleAds||''),
+        linkGmn:temCamposCarteira?v('f-link-gmn'):(existente?.linkGmn||'')};
       if(!obj.nome){toast('Nome obrigatório','#EF4444');return}
       const statusAnterior=id?DB.find('clientes',id)?.status:'';
       const cliId=id||uid();
@@ -6450,30 +6460,7 @@ function formCliente(d,contexto='full'){
     <div class="form-group"><label class="form-label">Health Score (0–100)</label><input class="form-input" id="f-health" type="number" min="0" max="100" value="${d?.health||0}"></div>
     <div style="display:flex;flex-direction:column;justify-content:flex-end"><div style="font-size:13px;font-weight:700;color:${healthColor(d?.health||0)}">${d?.health||0} pts</div></div>
   </div>
-  <div class="form-group"><label class="form-label">Descrição / Observações</label><textarea class="form-input" id="f-desc" rows="3">${d?.desc||''}</textarea></div>
-  <div style="margin-top:6px;padding-top:14px;border-top:1px solid var(--border)">
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:10px">📊 Carteira — Squad de Tráfego</div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Status da conta</label>
-        <select class="form-input" id="f-conta-status">${CONTA_STATUS_ORDEM.map(s=>`<option ${(d?.contaStatus||'Integração')===s?'selected':''}>${s}</option>`).join('')}</select></div>
-      <div class="form-group"><label class="form-label">Resultado</label>
-        <select class="form-input" id="f-conta-resultado"><option value="">— Não avaliado —</option>${CONTA_RESULTADO_OPCOES.map(r=>`<option ${d?.contaResultado===r?'selected':''}>${r}</option>`).join('')}</select></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Relacionamento</label>
-        <select class="form-input" id="f-conta-relacionamento"><option value="">— Não avaliado —</option>${CONTA_RELACIONAMENTO_OPCOES.map(r=>`<option ${d?.contaRelacionamento===r?'selected':''}>${r}</option>`).join('')}</select></div>
-      <div class="form-group"><label class="form-label">Responsáveis (Ctrl/Cmd+clique para vários)</label>
-        <select class="form-input" id="f-conta-resp" multiple size="3">${DB.get('membros').map(m=>`<option value="${m.id}" ${(d?.contaResponsaveis||[]).includes(m.id)?'selected':''}>${m.nome}</option>`).join('')}</select></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">🔗 Drive</label><input class="form-input" id="f-link-drive" placeholder="https://drive.google.com/..." value="${d?.linkDrive||''}"></div>
-      <div class="form-group"><label class="form-label">🔗 Meta Ads</label><input class="form-input" id="f-link-meta" placeholder="https://adsmanager.facebook.com/..." value="${d?.linkMeta||''}"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">🔗 Google Ads</label><input class="form-input" id="f-link-googleads" placeholder="https://ads.google.com/..." value="${d?.linkGoogleAds||''}"></div>
-      <div class="form-group"><label class="form-label">🔗 GMN (Google Meu Negócio)</label><input class="form-input" id="f-link-gmn" placeholder="https://share.google/..." value="${d?.linkGmn||''}"></div>
-    </div>
-  </div>`;
+  <div class="form-group"><label class="form-label">Descrição / Observações</label><textarea class="form-input" id="f-desc" rows="3">${d?.desc||''}</textarea></div>`;
 }
 
 // Versão enxuta do formulário de cliente, usada quando ele é aberto de
@@ -16454,7 +16441,6 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     contratos:{label:'Contrato',icon:'📄',open:()=>navigateSub('contratos','clientes')},
     projetos:{label:'Projeto',icon:'📁',open:()=>navigateSub('entregas','projetos')},
     onboarding:{label:'Onboarding',icon:'🚀',open:()=>navigateSub('onboarding','projetos')},
-    conteudos:{label:'Aprovação de conteúdo',icon:'✅',open:()=>navigateSub('aprovacao','projetos')},
     esquemas:{label:'Esquema',icon:'🧩',open:()=>navigateSub('esquemas','projetos')},
     creators:{label:'Creator',icon:'🎥',open:()=>navigateSub('creators','projetos')},
     leads:{label:'Lead / Oportunidade',icon:'💼',open:()=>{navigateSub('comercial','comercial');setTimeout(()=>{try{switchComTab('pipeline')}catch(e){}},30)}},
