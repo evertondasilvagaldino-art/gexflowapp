@@ -2427,6 +2427,9 @@ let detailId = '';
 // projFolderView: '__sem_squad__' = clientes sem squad definido; ou o nome do squad.
 let projFolderView = null;
 let projClienteView = null;
+// Filtros personalizáveis do board de entregas (nível 3, dentro do cliente).
+// Combináveis entre si (E lógico); resetados sempre que troca de cliente.
+let entregasFiltro = {busca:'',responsavel:'',formato:'',objetivo:'',prioridade:''};
 let dashFilter = {mes: new Date().getMonth()+1, ano: new Date().getFullYear()};
 // Filtro de período do Pipeline (Comercial) — independente do filtro do Início.
 // Começa em "Todos os meses / Todos os anos" pra não esconder leads de quem
@@ -4476,6 +4479,16 @@ const FORMATO_OPCOES=['Reels','Post','Story','Carrossel','Vídeo','TV/Blog','An�
 const OBJETIVO_OPCOES=['Entretenimento','Quebra de objeção','Educar','Vender','Engajamento','Autoridade','Prova social'];
 const OBJETIVO_COR={Entretenimento:'#10B981','Quebra de objeção':'#EF4444',Educar:'#3B82F6',Vender:'#7C3AED',Engajamento:'#F59E0B',Autoridade:'#06B6D4','Prova social':'#EC4899'};
 
+// ═══ CARTEIRA DE TRÁFEGO (squads do tipo "tráfego") ═══
+// Board por status de CONTA (não por entrega/post) — cada linha é um cliente.
+const CONTA_STATUS_ORDEM=['Integração','Em Otimização','Pausado','Saiu da Carteira','Conta sem Saldo','Escala'];
+const CONTA_STATUS_COR={'Integração':'#06B6D4','Em Otimização':'#F59E0B',Pausado:'#3B82F6','Saiu da Carteira':'#EF4444','Conta sem Saldo':'#D946EF',Escala:'#10B981'};
+const CONTA_STATUS_ICO={'Integração':'🔄','Em Otimização':'🕓',Pausado:'⏸️','Saiu da Carteira':'❌','Conta sem Saldo':'💰',Escala:'✅'};
+const CONTA_RESULTADO_OPCOES=['Em análise','Ruim','Bom','Ótimo'];
+const CONTA_RESULTADO_COR={'Em análise':'#F59E0B',Ruim:'#EF4444',Bom:'#10B981','Ótimo':'#3B82F6'};
+const CONTA_RELACIONAMENTO_OPCOES=['Regular','Bom','Ótimo','Excelente'];
+const CONTA_RELACIONAMENTO_COR={Regular:'#F59E0B',Bom:'#10B981','Ótimo':'#3B82F6',Excelente:'#7C3AED'};
+
 function setPrioridade(id,prioridade){
   const p=DB.find('projetos',id);
   if(!projectAccessGuard(p,'alterar este projeto'))return;
@@ -4484,14 +4497,17 @@ function setPrioridade(id,prioridade){
   toast(`Prioridade: ${prioridade}`,PRIORIDADE_COR[prioridade]);
 }
 
-// ═══ COMENTÁRIOS DO PROJETO ═══
+// ═══ COMENTÁRIOS (projetos/entregas OU clientes — carteira de tráfego) ═══
 let currentProjComentarioId='';
+let currentComentarioCollection='projetos';
 
-function openProjComments(id){
-  const p=DB.find('projetos',id);
-  if(!projectAccessGuard(p,'comentar neste projeto'))return;
+function openProjComments(id,collection='projetos'){
+  const item=DB.find(collection,id);
+  if(!item)return;
+  if(collection==='projetos'&&!projectAccessGuard(item,'comentar neste projeto'))return;
+  currentComentarioCollection=collection;
   currentProjComentarioId=id;
-  document.getElementById('proj-com-title').textContent=`💬 ${p.nome}`;
+  document.getElementById('proj-com-title').textContent=`💬 ${item.nome}`;
   document.getElementById('proj-com-input').value='';
   renderProjComments();
   document.getElementById('proj-com-ov').classList.add('open');
@@ -4501,7 +4517,7 @@ function closeProjComments(){
   currentProjComentarioId='';
 }
 function renderProjComments(){
-  const p=DB.find('projetos',currentProjComentarioId);
+  const p=DB.find(currentComentarioCollection,currentProjComentarioId);
   const coms=p?.comentarios||[];
   const body=document.getElementById('proj-com-body');
   if(!coms.length){body.innerHTML=`<div class="empty"><div class="empty-ico">💬</div><div class="empty-txt">Nenhum comentário ainda</div></div>`;return}
@@ -4510,13 +4526,30 @@ function renderProjComments(){
     <div style="font-size:13px">${(c.texto||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}</div>
   </div>`).join('');
 }
+// ═══ CARTEIRA DE TRÁFEGO — edição inline dos selects da tabela ═══
+function setContaStatus(clienteId,valor){
+  DB.update('clientes',clienteId,{contaStatus:valor});
+  renderEntregas();
+  toast(`Status da conta: ${valor}`,CONTA_STATUS_COR[valor]);
+}
+function setContaResultado(clienteId,valor){
+  DB.update('clientes',clienteId,{contaResultado:valor});
+  renderEntregas();
+  toast(`Resultado: ${valor||'—'}`,CONTA_RESULTADO_COR[valor]||'#9CA3AF');
+}
+function setContaRelacionamento(clienteId,valor){
+  DB.update('clientes',clienteId,{contaRelacionamento:valor});
+  renderEntregas();
+  toast(`Relacionamento: ${valor||'—'}`,CONTA_RELACIONAMENTO_COR[valor]||'#9CA3AF');
+}
+
 function addProjComment(){
   const texto=(document.getElementById('proj-com-input').value||'').trim();
   if(!texto)return;
-  const p=DB.find('projetos',currentProjComentarioId);
+  const p=DB.find(currentComentarioCollection,currentProjComentarioId);
   if(!p)return;
   const comentarios=[...(p.comentarios||[]),{id:uid(),texto,autor:sessionUser?.nome||sessionUser?.name||'Usuário',data:new Date().toISOString()}];
-  DB.update('projetos',currentProjComentarioId,{comentarios});
+  DB.update(currentComentarioCollection,currentProjComentarioId,{comentarios});
   document.getElementById('proj-com-input').value='';
   renderProjComments();
   renderEntregas();
@@ -6166,7 +6199,11 @@ const v=id=>document.getElementById(id)?.value?.trim()||'';
 async function saveModal(type,id=''){
   const saves={
     cliente(){
-      const obj={nome:v('f-nome'),email:v('f-email'),telefone:v('f-tel'),status:v('f-status'),squad:v('f-squad')||'—',ltv:v('f-ltv')||'—',health:parseInt(v('f-health'))||0,desc:v('f-desc')};
+      const contaRespSel=document.getElementById('f-conta-resp');
+      const contaResponsaveis=contaRespSel?[...contaRespSel.selectedOptions].map(o=>o.value):(DB.find('clientes',id)?.contaResponsaveis||[]);
+      const obj={nome:v('f-nome'),email:v('f-email'),telefone:v('f-tel'),status:v('f-status'),squad:v('f-squad')||'—',ltv:v('f-ltv')||'—',health:parseInt(v('f-health'))||0,desc:v('f-desc'),
+        contaStatus:v('f-conta-status')||'Integração',contaResultado:v('f-conta-resultado'),contaRelacionamento:v('f-conta-relacionamento'),contaResponsaveis,
+        linkDrive:v('f-link-drive'),linkMeta:v('f-link-meta'),linkGoogleAds:v('f-link-googleads'),linkGmn:v('f-link-gmn')};
       if(!obj.nome){toast('Nome obrigatório','#EF4444');return}
       const statusAnterior=id?DB.find('clientes',id)?.status:'';
       const cliId=id||uid();
@@ -6376,7 +6413,30 @@ function formCliente(d){
     <div class="form-group"><label class="form-label">Health Score (0–100)</label><input class="form-input" id="f-health" type="number" min="0" max="100" value="${d?.health||0}"></div>
     <div style="display:flex;flex-direction:column;justify-content:flex-end"><div style="font-size:13px;font-weight:700;color:${healthColor(d?.health||0)}">${d?.health||0} pts</div></div>
   </div>
-  <div class="form-group"><label class="form-label">Descrição / Observações</label><textarea class="form-input" id="f-desc" rows="3">${d?.desc||''}</textarea></div>`;
+  <div class="form-group"><label class="form-label">Descrição / Observações</label><textarea class="form-input" id="f-desc" rows="3">${d?.desc||''}</textarea></div>
+  <div style="margin-top:6px;padding-top:14px;border-top:1px solid var(--border)">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:10px">📊 Carteira — Squad de Tráfego</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Status da conta</label>
+        <select class="form-input" id="f-conta-status">${CONTA_STATUS_ORDEM.map(s=>`<option ${(d?.contaStatus||'Integração')===s?'selected':''}>${s}</option>`).join('')}</select></div>
+      <div class="form-group"><label class="form-label">Resultado</label>
+        <select class="form-input" id="f-conta-resultado"><option value="">— Não avaliado —</option>${CONTA_RESULTADO_OPCOES.map(r=>`<option ${d?.contaResultado===r?'selected':''}>${r}</option>`).join('')}</select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Relacionamento</label>
+        <select class="form-input" id="f-conta-relacionamento"><option value="">— Não avaliado —</option>${CONTA_RELACIONAMENTO_OPCOES.map(r=>`<option ${d?.contaRelacionamento===r?'selected':''}>${r}</option>`).join('')}</select></div>
+      <div class="form-group"><label class="form-label">Responsáveis (Ctrl/Cmd+clique para vários)</label>
+        <select class="form-input" id="f-conta-resp" multiple size="3">${DB.get('membros').map(m=>`<option value="${m.id}" ${(d?.contaResponsaveis||[]).includes(m.id)?'selected':''}>${m.nome}</option>`).join('')}</select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">🔗 Drive</label><input class="form-input" id="f-link-drive" placeholder="https://drive.google.com/..." value="${d?.linkDrive||''}"></div>
+      <div class="form-group"><label class="form-label">🔗 Meta Ads</label><input class="form-input" id="f-link-meta" placeholder="https://adsmanager.facebook.com/..." value="${d?.linkMeta||''}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">🔗 Google Ads</label><input class="form-input" id="f-link-googleads" placeholder="https://ads.google.com/..." value="${d?.linkGoogleAds||''}"></div>
+      <div class="form-group"><label class="form-label">🔗 GMN (Google Meu Negócio)</label><input class="form-input" id="f-link-gmn" placeholder="https://share.google/..." value="${d?.linkGmn||''}"></div>
+    </div>
+  </div>`;
 }
 
 function formProjeto(d){
@@ -8670,6 +8730,10 @@ function renderSquadMgrList(){
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">
       <div style="width:12px;height:12px;border-radius:50%;background:${s.cor||'var(--muted)'};flex-shrink:0"></div>
       <input class="form-input" style="flex:1;padding:5px 10px;font-size:13px;font-weight:600" value="${s.nome}" onchange="updateSquadName('${s.id}',this.value)" id="sq-input-${s.id}">
+      <select class="form-input" style="width:auto;padding:4px 8px;font-size:11px;flex-shrink:0" title="Tipo de tela em Projetos > Gestão de Entregas" onchange="updateSquadTipo('${s.id}',this.value)">
+        <option value="conteudo" ${(s.tipo||'conteudo')==='conteudo'?'selected':''}>📱 Conteúdo</option>
+        <option value="trafego" ${s.tipo==='trafego'?'selected':''}>📊 Tráfego</option>
+      </select>
       <span style="font-size:12px;color:var(--muted);flex-shrink:0">${mbs.filter(m=>m.squad===s.nome).length} membros</span>
       <div style="display:flex;gap:4px;flex-wrap:wrap;max-width:120px">
         ${CORES.map(c=>`<div onclick="updateSquadCor('${s.id}','${c}')" style="width:14px;height:14px;border-radius:50%;background:${c};cursor:pointer;border:2px solid ${s.cor===c?'#333':'transparent'};flex-shrink:0"></div>`).join('')}
@@ -8695,11 +8759,19 @@ function addSquad(){
   const CORES=['#7C3AED','#3B82F6','#EC4899','#F59E0B','#10B981','#EF4444','#06B6D4','#84CC16'];
   const squads=DB.get('squads');
   if(squads.find(s=>s.nome.toLowerCase()===nome.toLowerCase())){toast('Squad já existe','#F59E0B');return}
-  DB.push('squads',{id:uid(),nome,cor:CORES[squads.length%CORES.length]});
+  DB.push('squads',{id:uid(),nome,cor:CORES[squads.length%CORES.length],tipo:'conteudo'});
   inp.value='';
   renderSquadMgrList();
   refreshSquadDependentViews();
   toast('Squad criado ✓','#10B981');
+}
+
+// "Conteúdo" = pastas de cliente → board de entregas por etapa (padrão).
+// "Tráfego" = board único por status de conta, com links de Drive/Meta/Ads.
+function updateSquadTipo(id,tipo){
+  DB.update('squads',id,{tipo});
+  refreshSquadDependentViews();
+  toast(`Squad configurado como ${tipo==='trafego'?'📊 Tráfego':'📱 Conteúdo'}`,'#7C3AED');
 }
 
 function updateSquadName(id,novoNome){
@@ -9383,21 +9455,37 @@ function openProjSquadFolder(key){
 function backToProjFolders(){
   projFolderView=null;
   projClienteView=null;
+  resetEntregasFiltro();
   renderEntregas();
 }
 
 function openProjClienteFolder(clienteNome){
   projClienteView=clienteNome;
+  resetEntregasFiltro();
   renderEntregas();
 }
 function backToProjClientes(){
   projClienteView=null;
+  resetEntregasFiltro();
   renderEntregas();
+}
+
+function resetEntregasFiltro(){
+  entregasFiltro={busca:'',responsavel:'',formato:'',objetivo:'',prioridade:''};
+}
+
+// Squad "Tráfego" (ver Gerenciar Squads) usa um board por status de CONTA
+// em vez das pastas de cliente → entregas por etapa (squad "Conteúdo").
+function squadEhTrafego(nomeSquad){
+  if(!nomeSquad||nomeSquad===SEM_SQUAD_KEY)return false;
+  const s=(DB.get('squads')||[]).find(sq=>sq.nome===nomeSquad);
+  return s?.tipo==='trafego';
 }
 
 function renderEntregas(){
   const pros=getVisibleProjects();
   if(projFolderView===null){renderEntregasFolders(pros);return;}
+  if(squadEhTrafego(projFolderView)){renderEntregasTrafego();return;}
   if(projClienteView===null){renderEntregasClientes(pros);return;}
   renderEntregasClienteBoard(pros);
 }
@@ -9432,6 +9520,82 @@ function renderEntregasFolders(pros){
     </div>
     <div class="squad-folder-grid">${cards}${semSquadCard}</div>
     ${!squads.length?`<div class="empty" style="margin-top:20px"><div class="empty-ico">🧩</div><div class="empty-txt">Nenhum squad cadastrado ainda — clique em "Gerenciar Squads" para criar o primeiro.</div></div>`:''}`;
+}
+
+function contaLinkCell(url,icon){
+  if(!url)return '<span style="color:var(--light)">–</span>';
+  let host='';
+  try{host=new URL(/^https?:\/\//i.test(url)?url:'https://'+url).hostname.replace(/^www\./,'');}catch(e){host=String(url).slice(0,24);}
+  const safeUrl=/^https?:\/\//i.test(url)?url:'https://'+url;
+  return `<a href="${safeUrl.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--p2);font-size:11px;text-decoration:none;white-space:nowrap">${icon} ${host}</a>`;
+}
+
+// Tela 2 (squads do tipo Tráfego): board único por status de CONTA — cada
+// linha já é o cliente (não existe nível de "entrega por post" aqui).
+function renderEntregasTrafego(){
+  const squad=(DB.get('squads')||[]).find(s=>s.nome===projFolderView);
+  const folderNome=squad?.nome||projFolderView;
+  const folderCor=squad?.cor||'var(--muted)';
+  const clientes=(DB.get('clientes')||[]).filter(c=>c.squad===folderNome);
+
+  document.getElementById('proj-content').innerHTML=`
+    <div class="proj-breadcrumb"><span class="bc-back" onclick="backToProjFolders()">📁 Squads</span> / <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${folderCor};display:inline-block"></span><b>${folderNome}</b></span></div>
+    <div class="page-header">
+      <div><div class="page-title">📊 ${folderNome}</div><div class="page-sub">Carteira de contas, agrupada por status</div></div>
+      <button class="btn btn-primary" onclick="openModal('cliente',{squad:'${folderNome.replace(/'/g,"\\'")}'})">+ Novo Cliente</button>
+    </div>
+    <div id="conta-groups" style="display:flex;flex-direction:column;gap:18px"></div>`;
+
+  const groupsEl=document.getElementById('conta-groups');
+  if(!clientes.length){
+    groupsEl.innerHTML=`<div class="empty"><div class="empty-ico">📊</div><div class="empty-txt">Nenhum cliente atribuído a este squad ainda</div></div>`;
+    return;
+  }
+
+  const membros=DB.get('membros')||[];
+  groupsEl.innerHTML=CONTA_STATUS_ORDEM.map(st=>{
+    const items=clientes.filter(c=>(c.contaStatus||'Integração')===st);
+    const cor=CONTA_STATUS_COR[st];
+    const rows=items.map(c=>{
+      const nComentarios=(c.comentarios||[]).length;
+      const resp=(c.contaResponsaveis||[]).map(mid=>membros.find(m=>m.id===mid)).filter(Boolean);
+      const avatares=resp.length?resp.map((m,i)=>`<div style="width:24px;height:24px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card);margin-left:${i?'-8px':'0'}" title="${m.nome}">${initials(m.nome)}</div>`).join(''):'<span style="color:var(--light);font-size:16px">👤</span>';
+      const resCor=CONTA_RESULTADO_COR[c.contaResultado]||'#9CA3AF';
+      const relCor=CONTA_RELACIONAMENTO_COR[c.contaRelacionamento]||'#9CA3AF';
+      return `<tr style="cursor:pointer" onclick="openModal('cliente','${c.id}')">
+        <td style="font-weight:600;font-size:13px">${c.nome}</td>
+        <td onclick="event.stopPropagation()">
+          <select class="form-input" style="padding:4px 8px;font-size:11px;font-weight:700;width:auto;color:${resCor};background:${resCor}15;border-color:${resCor}44" onchange="setContaResultado('${c.id}',this.value)">
+            <option value="" ${!c.contaResultado?'selected':''}>—</option>
+            ${CONTA_RESULTADO_OPCOES.map(r=>`<option ${c.contaResultado===r?'selected':''}>${r}</option>`).join('')}
+          </select>
+        </td>
+        <td onclick="event.stopPropagation()">
+          <select class="form-input" style="padding:4px 8px;font-size:11px;font-weight:700;width:auto;color:${relCor};background:${relCor}15;border-color:${relCor}44" onchange="setContaRelacionamento('${c.id}',this.value)">
+            <option value="" ${!c.contaRelacionamento?'selected':''}>—</option>
+            ${CONTA_RELACIONAMENTO_OPCOES.map(r=>`<option ${c.contaRelacionamento===r?'selected':''}>${r}</option>`).join('')}
+          </select>
+        </td>
+        <td onclick="event.stopPropagation()" style="white-space:nowrap">${avatares}</td>
+        <td onclick="event.stopPropagation();openProjComments('${c.id}','clientes')" style="cursor:pointer;color:var(--muted);font-size:12px">💬 ${nComentarios||''}</td>
+        <td>${contaLinkCell(c.linkDrive,'📁')}</td>
+        <td>${contaLinkCell(c.linkMeta,'∞')}</td>
+        <td>${contaLinkCell(c.linkGoogleAds,'🎯')}</td>
+        <td>${contaLinkCell(c.linkGmn,'📍')}</td>
+      </tr>`;
+    }).join('');
+    return `<div class="card" style="padding:0;overflow:hidden">
+      <div style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:${cor}0D;border-bottom:1px solid var(--border)">
+        <span class="badge" style="background:${cor}22;color:${cor};font-weight:700">${CONTA_STATUS_ICO[st]} ${st.toUpperCase()}</span>
+        <span style="font-size:11px;color:var(--muted)">${items.length}</span>
+      </div>
+      ${items.length?`<div class="tbl-wrap"><table>
+        <thead><tr><th>Nome</th><th>Resultado</th><th>Relacionamento</th><th>Responsável</th><th>Comentários</th><th>Drive</th><th>Meta</th><th>Google Ads</th><th>GMN</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`:`<div style="padding:14px 16px;color:var(--light);font-size:12px">Nenhum cliente nesta etapa</div>`}
+      <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;border-radius:0;border-style:dashed;border-width:1px 0 0 0" onclick="openModal('cliente',{squad:'${folderNome.replace(/'/g,"\\'")}',contaStatus:'${st.replace(/'/g,"\\'")}'})">+ Adicionar Cliente</button>
+    </div>`;
+  }).join('');
 }
 
 // Tela 2: dentro da pasta do squad — a "carteira de clientes" daquele
@@ -9470,33 +9634,85 @@ function renderEntregasClientes(prosAll){
 // Tela 3: dentro do cliente — board de entregas agrupado por Status
 // (Postado/Aprovado/Aguard. Aprovação/Revisão/A fazer), no molde do board
 // que a operação já usa hoje.
-function renderEntregasClienteBoard(prosAll){
-  const isSemSquad=projFolderView===SEM_SQUAD_KEY;
-  const squad=isSemSquad?null:(DB.get('squads')||[]).find(s=>s.nome===projFolderView);
-  const folderNome=isSemSquad?'Sem squad':(squad?.nome||projFolderView);
-  const folderCor=isSemSquad?'var(--muted)':(squad?.cor||'var(--muted)');
+// Aplica os filtros combináveis (busca por nome + selects) sobre a lista de
+// entregas do cliente. Todos em branco = mostra tudo (comportamento atual).
+function applyEntregasFiltro(pros){
+  const f=entregasFiltro;
+  return pros.filter(p=>{
+    if(f.busca&&!String(p.nome||'').toLowerCase().includes(f.busca.toLowerCase()))return false;
+    if(f.responsavel&&(p.responsavelNome||'')!==f.responsavel)return false;
+    if(f.formato&&(p.formato||'')!==f.formato)return false;
+    if(f.objetivo&&(p.objetivoPost||'')!==f.objetivo)return false;
+    if(f.prioridade&&(p.prioridade||'Normal')!==f.prioridade)return false;
+    return true;
+  });
+}
+
+function setEntregasFiltro(campo,valor){
+  entregasFiltro[campo]=valor;
+  renderEntregas();
+}
+
+// A busca por texto usa esta versão "leve": só atualiza a lista de entregas,
+// sem redesenhar a barra de filtro inteira — assim o campo de busca não
+// perde o foco a cada letra digitada (o que aconteceria com um re-render
+// completo da tela a cada tecla).
+function setEntregasFiltroBusca(valor){
+  entregasFiltro.busca=valor;
   const clienteNome=projClienteView;
-  const pros=prosAll.filter(p=>p.cliente===clienteNome);
+  if(!clienteNome)return;
+  const prosDoCliente=getVisibleProjects().filter(p=>p.cliente===clienteNome);
+  atualizarEntregasGroupsEl(prosDoCliente);
+}
 
-  document.getElementById('proj-content').innerHTML=`
-    <div class="proj-breadcrumb">
-      <span class="bc-back" onclick="backToProjFolders()">📁 Squads</span> /
-      <span class="bc-back" onclick="backToProjClientes()" style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${folderCor};display:inline-block"></span>${folderNome}</span> /
-      <b>${clienteNome}</b>
-    </div>
-    <div class="page-header">
-      <div><div class="page-title">📦 ${clienteNome}</div><div class="page-sub">Entregas agrupadas por etapa</div></div>
-      <button class="btn btn-primary" onclick="openModal('projeto',{cliente:'${clienteNome.replace(/'/g,"\\'")}'})">+ Nova Entrega</button>
-    </div>
-    <div id="status-groups" style="display:flex;flex-direction:column;gap:18px"></div>`;
+function limparEntregasFiltro(){
+  resetEntregasFiltro();
+  renderEntregas();
+}
 
+function entregasFiltroBarra(prosDoCliente){
+  const f=entregasFiltro;
+  const uniq=arr=>[...new Set(arr.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const responsaveis=uniq(prosDoCliente.map(p=>p.responsavelNome));
+  const formatos=uniq(prosDoCliente.map(p=>p.formato));
+  const objetivos=uniq(prosDoCliente.map(p=>p.objetivoPost));
+  const ativos=Object.values(f).filter(Boolean).length;
+  const sel=(id,campo,label,opcoes)=>`
+    <select class="form-input" id="${id}" style="padding:5px 8px;font-size:12px;width:auto" onchange="setEntregasFiltro('${campo}',this.value)">
+      <option value="">${label}</option>
+      ${opcoes.map(o=>`<option value="${o}" ${f[campo]===o?'selected':''}>${o}</option>`).join('')}
+    </select>`;
+  return `<div class="card" style="padding:10px 14px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:14px">
+    <input class="form-input" placeholder="🔎 Buscar por nome..." value="${(f.busca||'').replace(/"/g,'&quot;')}" style="flex:1;min-width:160px;padding:5px 10px;font-size:12px" oninput="setEntregasFiltroBusca(this.value)">
+    ${sel('flt-resp','responsavel','Responsável (todos)',responsaveis)}
+    ${sel('flt-formato','formato','Formato (todos)',formatos.length?formatos:FORMATO_OPCOES)}
+    ${sel('flt-objetivo','objetivo','Objetivo (todos)',objetivos.length?objetivos:OBJETIVO_OPCOES)}
+    ${sel('flt-prioridade','prioridade','Prioridade (todas)',PRIORIDADE_ORDEM)}
+    ${ativos?`<button class="btn btn-ghost btn-sm" onclick="limparEntregasFiltro()">✕ Limpar filtros (${ativos})</button>`:''}
+  </div>`;
+}
+
+// Recalcula só o miolo (grupos por status) a partir do entregasFiltro atual
+// e escreve em #status-groups, sem tocar no resto da tela (breadcrumb,
+// cabeçalho, barra de filtro) — usado pela busca por texto a cada tecla.
+function atualizarEntregasGroupsEl(prosDoCliente){
   const groupsEl=document.getElementById('status-groups');
-  if(!pros.length){
+  if(!groupsEl)return;
+  const clienteNome=projClienteView;
+  const pros=applyEntregasFiltro(prosDoCliente);
+  if(!prosDoCliente.length){
     groupsEl.innerHTML=`<div class="empty"><div class="empty-ico">📦</div><div class="empty-txt">Nenhuma entrega cadastrada para este cliente ainda</div></div>`;
     return;
   }
+  if(!pros.length){
+    groupsEl.innerHTML=`<div class="empty"><div class="empty-ico">🔎</div><div class="empty-txt">Nenhuma entrega corresponde aos filtros aplicados</div></div>`;
+    return;
+  }
+  groupsEl.innerHTML=buildEntregasStatusGroupsHtml(pros,clienteNome);
+}
 
-  groupsEl.innerHTML=STATUS_ENTREGA.map(st=>{
+function buildEntregasStatusGroupsHtml(pros,clienteNome){
+  return STATUS_ENTREGA.map(st=>{
     const items=pros.filter(p=>(p.status||'A fazer')===st);
     const cor=STATUS_ENTREGA_COR[st];
     const rows=items.map(p=>{
@@ -9533,6 +9749,30 @@ function renderEntregasClienteBoard(prosAll){
       <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center;border-radius:0;border-style:dashed;border-width:1px 0 0 0" onclick="openModal('projeto',{cliente:'${clienteNome.replace(/'/g,"\\'")}',status:'${st.replace(/'/g,"\\'")}'})">+ Adicionar Tarefa</button>
     </div>`;
   }).join('');
+}
+
+function renderEntregasClienteBoard(prosAll){
+  const isSemSquad=projFolderView===SEM_SQUAD_KEY;
+  const squad=isSemSquad?null:(DB.get('squads')||[]).find(s=>s.nome===projFolderView);
+  const folderNome=isSemSquad?'Sem squad':(squad?.nome||projFolderView);
+  const folderCor=isSemSquad?'var(--muted)':(squad?.cor||'var(--muted)');
+  const clienteNome=projClienteView;
+  const prosDoCliente=prosAll.filter(p=>p.cliente===clienteNome);
+
+  document.getElementById('proj-content').innerHTML=`
+    <div class="proj-breadcrumb">
+      <span class="bc-back" onclick="backToProjFolders()">📁 Squads</span> /
+      <span class="bc-back" onclick="backToProjClientes()" style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${folderCor};display:inline-block"></span>${folderNome}</span> /
+      <b>${clienteNome}</b>
+    </div>
+    <div class="page-header">
+      <div><div class="page-title">📦 ${clienteNome}</div><div class="page-sub">Entregas agrupadas por etapa</div></div>
+      <button class="btn btn-primary" onclick="openModal('projeto',{cliente:'${clienteNome.replace(/'/g,"\\'")}'})">+ Nova Entrega</button>
+    </div>
+    ${prosDoCliente.length?entregasFiltroBarra(prosDoCliente):''}
+    <div id="status-groups" style="display:flex;flex-direction:column;gap:18px"></div>`;
+
+  atualizarEntregasGroupsEl(prosDoCliente);
 }
 
 // Onboarding
