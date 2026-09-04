@@ -8769,8 +8769,21 @@ function addSquad(){
 // "Conteúdo" = pastas de cliente → board de entregas por etapa (padrão).
 // "Tráfego" = board único por status de conta, com links de Drive/Meta/Ads.
 function updateSquadTipo(id,tipo){
+  const s=DB.find('squads',id);
   DB.update('squads',id,{tipo});
+  renderSquadMgrList();
   refreshSquadDependentViews();
+  // Squads/clientes/membros são ligados pelo NOME do squad (não pelo id) em
+  // todo o sistema — então dois squads com o mesmo nome fazem a tela de
+  // Projetos enxergar só um deles às vezes. Avisa aqui pra evitar confusão.
+  if(s){
+    const nomeNorm=String(s.nome||'').trim().toLowerCase();
+    const duplicados=(DB.get('squads')||[]).filter(sq=>String(sq.nome||'').trim().toLowerCase()===nomeNorm);
+    if(duplicados.length>1){
+      toast(`⚠️ Existe mais de um squad chamado "${s.nome}" — renomeie um deles para evitar confusão nas telas.`,'#F59E0B');
+      return;
+    }
+  }
   toast(`Squad configurado como ${tipo==='trafego'?'📊 Tráfego':'📱 Conteúdo'}`,'#7C3AED');
 }
 
@@ -9476,10 +9489,15 @@ function resetEntregasFiltro(){
 
 // Squad "Tráfego" (ver Gerenciar Squads) usa um board por status de CONTA
 // em vez das pastas de cliente → entregas por etapa (squad "Conteúdo").
+// Comparação por nome "tolerante" (ignora espaços nas pontas e maiúsc/minúsc)
+// e usa .some() em vez de .find(): se por acaso existirem dois squads com o
+// mesmo nome (ex: duplicado por engano), basta UM deles estar marcado como
+// Tráfego pra essa tela valer — evita que o squad "certo" fique escondido
+// atrás de uma cópia antiga sem o campo tipo definido.
 function squadEhTrafego(nomeSquad){
   if(!nomeSquad||nomeSquad===SEM_SQUAD_KEY)return false;
-  const s=(DB.get('squads')||[]).find(sq=>sq.nome===nomeSquad);
-  return s?.tipo==='trafego';
+  const alvo=String(nomeSquad).trim().toLowerCase();
+  return (DB.get('squads')||[]).some(sq=>String(sq.nome||'').trim().toLowerCase()===alvo && sq.tipo==='trafego');
 }
 
 function renderEntregas(){
