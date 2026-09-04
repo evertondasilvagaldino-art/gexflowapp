@@ -5661,6 +5661,21 @@ function disconnectMetaAdsOAuth(){
   renderIntegracoes();
   toast('Meta Ads desconectado','#7C3AED');
 }
+async function disconnectLeadgenOAuth(){
+  try{
+    const token=await getGexSupabaseToken();
+    const res=await fetch(getSupabaseFunctionUrl('leadgen-disconnect'),{method:'POST',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'}});
+    const resJson=await res.json().catch(()=>({}));
+    if(!res.ok||resJson?.ok===false)throw new Error(resJson.message||'Não foi possível desconectar a Página.');
+    const old=(DB.get('leadgen_settings')||[])[0]||{id:'leadgen_main'};
+    const next={...old,id:'leadgen_main',pageId:'',pageName:'',hasToken:false,configured:false,updatedAt:new Date().toISOString()};
+    DB.set('leadgen_settings',[next]);
+    if(typeof renderIntegracoes==='function')renderIntegracoes();
+    toast('Página desconectada da Captação Nativa','#7C3AED');
+  }catch(err){
+    toast(err.message||'Erro ao desconectar a Página','#EF4444');
+  }
+}
 async function testMetaAdsOAuthConnection(cfg){
   const connectionId=cfg.oauthConnectionId;
   if(!connectionId)throw new Error('Conexão nativa sem ID. Conecte com Facebook novamente.');
@@ -15717,6 +15732,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
           <button class="gxi-btn primary small" onclick="gxiConfirmLeadgenOAuthPage()">Confirmar Página</button>
         </div>`:`<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
           <button class="meta-oauth-btn" id="leadgen-oauth-connect-btn" onclick="connectLeadgenOAuth()">${s.hasToken?'Reconectar com Facebook':'Conectar com Facebook'}</button>
+          ${s.hasToken?`<button class="gxi-btn danger small" onclick="confirmDelete(()=>disconnectLeadgenOAuth())">Desconectar</button>`:''}
           ${s.hasToken?`<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:#059669;background:#D1FAE5;border-radius:20px;padding:5px 12px"><span style="width:7px;height:7px;border-radius:50%;background:#059669;display:inline-block"></span>Conectado${s.pageName?`: ${E(s.pageName)}`:''}${s.pageId?` <span style="color:#047857;font-weight:600">(ID ${E(s.pageId)})</span>`:''}</span>`:''}
           <span style="font-size:11px;color:var(--muted)">${s.hasToken?'Pode reconectar a qualquer momento pra trocar de Página ou renovar a permissão.':'Faz login com o Facebook e já traz o Token de acesso da Página certo, sem precisar do Graph API Explorer.'}</span>
         </div>
