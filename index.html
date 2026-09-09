@@ -3446,7 +3446,7 @@ const GEX_DB_COLLECTIONS = [
   'com_tasks','esquemas','commercial_funnels','produtos_comercial',
   'tracking_links','integration_events','integration_connections','manual_trackings','tracking_events',
   'conversion_settings','conversion_events','lead_forms','lead_form_submissions','leadgen_settings',
-  'whatsapp_widgets','automacoes','automacao_tasks','automacao_log'
+  'whatsapp_widgets','automacoes','automacao_tasks','automacao_log','email_smtp_settings'
 ];
 const GEX_KV_EXCLUDED = new Set([
   // gx2_usuarios: mesmo "usuarios" já sendo excluído da sincronização por
@@ -5776,53 +5776,6 @@ async function getGexSupabaseToken(){
   const {data,error}=await supabaseClient.auth.getSession();
   if(error||!data?.session?.access_token)throw new Error('Sessão Supabase não encontrada. Faça login novamente.');
   return data.session.access_token;
-}
-async function gexLoadSmtpConnectionStatus(){
-  const statusEl=document.getElementById('smtp-cfg-status');
-  if(!statusEl)return;
-  try{
-    const token=await getGexSupabaseToken();
-    const res=await fetch(getSupabaseFunctionUrl('smtp-config-get'),{headers:{Authorization:`Bearer ${token}`}});
-    const j=await res.json().catch(()=>({}));
-    if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível carregar a conexão de e-mail.');
-    if(j.connected){
-      statusEl.innerHTML=`<span style="color:#059669;font-weight:800">● Conectado</span> — enviando por <b>${escHtml(j.host||'')}</b> como <b>${escHtml(j.fromEmail||j.username||'')}</b>`;
-    }else{
-      statusEl.innerHTML=`<span style="color:#94A3B8;font-weight:800">○ Não conectado</span> — preencha os dados abaixo para ativar o envio automático.`;
-    }
-    const set=(id,val)=>{const el=document.getElementById(id);if(el&&!el.value)el.value=val||''};
-    set('smtp-host',j.host);set('smtp-port',j.port||'587');set('smtp-user',j.username);
-    set('smtp-from-name',j.fromName);set('smtp-from-email',j.fromEmail);
-    const secureEl=document.getElementById('smtp-secure');if(secureEl&&j.secure)secureEl.value=j.secure;
-    const passEl=document.getElementById('smtp-pass');
-    if(passEl && j.hasPassword)passEl.placeholder='●●●●●●●● (senha salva — deixe em branco pra manter)';
-  }catch(err){
-    statusEl.innerHTML=`<span style="color:#EF4444">Erro ao carregar: ${escHtml(err.message||'')}</span>`;
-  }
-}
-async function gexSaveSmtpConnection(){
-  const host=document.getElementById('smtp-host')?.value.trim();
-  const port=document.getElementById('smtp-port')?.value.trim()||'587';
-  const username=document.getElementById('smtp-user')?.value.trim();
-  const password=document.getElementById('smtp-pass')?.value;
-  const fromName=document.getElementById('smtp-from-name')?.value.trim();
-  const fromEmail=document.getElementById('smtp-from-email')?.value.trim();
-  const secure=document.getElementById('smtp-secure')?.value||'tls';
-  if(!host||!username||!fromEmail){toast('Preencha servidor, usuário e e-mail remetente','#EF4444');return}
-  try{
-    const token=await getGexSupabaseToken();
-    const res=await fetch(getSupabaseFunctionUrl('smtp-config-save'),{
-      method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
-      body:JSON.stringify({host,port,username,password,fromName,fromEmail,secure})
-    });
-    const j=await res.json().catch(()=>({}));
-    if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível salvar a conexão.');
-    const passEl=document.getElementById('smtp-pass');if(passEl)passEl.value='';
-    toast('Conexão de e-mail salva ✓','#10B981');
-    gexLoadSmtpConnectionStatus();
-  }catch(err){
-    toast(err.message||'Erro ao salvar conexão de e-mail','#EF4444');
-  }
 }
 function setMetaOAuthButtonState(loading){
   const btn=document.getElementById('meta-oauth-connect-btn');
@@ -14383,23 +14336,6 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
             <div class="std-panel-title">Resultado do último teste</div>
             <div id="int-test-result"></div>
           </div>
-          <div class="std-panel" id="smtp-cfg-panel">
-            <div class="std-panel-title">✉️ Conexão de e-mail (SMTP)</div>
-            <div style="font-size:10.5px;color:var(--muted);line-height:1.5;margin-bottom:10px">Conecte a caixa de e-mail da sua empresa para que as automações de e-mail sejam enviadas automaticamente, sem depender do e-mail interno da GEX.</div>
-            <div id="smtp-cfg-status" style="font-size:10.5px;color:var(--muted);margin-bottom:10px">Carregando status...</div>
-            <div class="gl-grid" style="grid-template-columns:1fr;gap:8px">
-              <label class="gl-field"><span>Servidor SMTP</span><input class="gl-input" id="smtp-host" placeholder="smtp.seudominio.com"></label>
-              <div style="display:flex;gap:8px">
-                <label class="gl-field" style="flex:1"><span>Porta</span><input class="gl-input" id="smtp-port" placeholder="587" value="587"></label>
-                <label class="gl-field" style="flex:2"><span>Segurança</span><select class="gl-select" id="smtp-secure"><option value="tls">TLS / STARTTLS</option><option value="ssl">SSL</option></select></label>
-              </div>
-              <label class="gl-field"><span>Usuário SMTP</span><input class="gl-input" id="smtp-user" placeholder="email@seudominio.com"></label>
-              <label class="gl-field"><span>Senha / Token</span><input class="gl-input" id="smtp-pass" type="password" placeholder="●●●●●●●●"></label>
-              <label class="gl-field"><span>Nome do remetente</span><input class="gl-input" id="smtp-from-name" placeholder="Minha Empresa"></label>
-              <label class="gl-field"><span>E-mail remetente</span><input class="gl-input" id="smtp-from-email" placeholder="contato@seudominio.com"></label>
-            </div>
-            <button class="std-btn primary" style="width:100%;margin-top:10px" onclick="gexSaveSmtpConnection()">Salvar conexão</button>
-          </div>
           <div class="std-panel">
             <div class="std-panel-title">Eventos recentes</div>
             <div class="int-log" id="int-log"></div>
@@ -14410,7 +14346,6 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
     renderIntegrationApps();
     if(typeof renderIntegrationLog === 'function') renderIntegrationLog();
     renderIntegrationTestResult();
-    if(typeof gexLoadSmtpConnectionStatus === 'function') gexLoadSmtpConnectionStatus();
   };
 
   window.renderIntegrationApps = function(){
@@ -16832,13 +16767,33 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   const getConversionEvents=()=>{try{return (DB.get('conversion_events')||[]).slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0))}catch(e){return[]}};
   const getConversionSettings=()=>{try{return (DB.get('conversion_settings')||[])[0]||{id:'conversion_main',meta:{},google:{},mappings:[]}}catch(e){return{id:'conversion_main',meta:{},google:{},mappings:[]}}};
   const getLeadgenSettings=()=>{try{return (DB.get('leadgen_settings')||[])[0]||{id:'leadgen_main'}}catch(e){return{id:'leadgen_main'}}};
+  const getEmailSmtpSettings=()=>{try{return (DB.get('email_smtp_settings')||[])[0]||{id:'email_smtp_main'}}catch(e){return{id:'email_smtp_main'}}};
   const connection=id=>getConnections().find(x=>x.provider===id)||{provider:id,status:'disconnected',assets:{}};
   function saveConnection(provider,data){const all=getConnections(),i=all.findIndex(x=>x.provider===provider),next={...(i>=0?all[i]:{id:uid(),provider}),...data,updatedAt:new Date().toISOString()};if(i>=0)all[i]=next;else all.push(next);DB.set('integration_connections',all);return next}
   function event(type,detail,status='success',extra={}){DB.push('tracking_events',{id:uid(),type,detail,status,createdAt:new Date().toISOString(),...extra})}
   function stages(){try{if(typeof getActiveFunnelStages==='function')return getActiveFunnelStages().map(s=>({id:s.id,name:s.name}));return getStages().map((name,i)=>({id:String(i),name}))}catch(e){return['Prospecção','Qualificação','Proposta','Negociação','Fechamento'].map((name,i)=>({id:String(i),name}))}}
   function connectedCount(){return PROVIDERS.filter(p=>connection(p.id).status==='connected').length}
   function header(){return `<div class="gxi-head"><div><div class="gxi-kicker">GEX Connect</div><div class="gxi-title">Integrações e rastreamento</div><div class="gxi-sub">Conecte seus canais, crie regras comerciais e acompanhe automaticamente o caminho do lead até a venda.</div></div><div class="gxi-head-actions">${view==='tracking'?`<button class="gxi-btn primary" onclick="gxiNewTracking()">+ Novo rastreamento</button>`:''}</div></div><div class="gxi-tabs">${[['connections','Conexões'],['tracking','Tracking Manual'],['monitor','Monitoramento']].map(([id,label])=>`<button class="gxi-tab ${view===id?'active':''}" onclick="gxiSetView('${id}')">${label}</button>`).join('')}</div>`}
-  function connectionsHtml(){const rules=getTrackings();return `<div class="gxi-summary"><div class="gxi-stat"><span>Conexões ativas</span><b>${connectedCount()}</b><small>de ${PROVIDERS.length} disponíveis</small></div><div class="gxi-stat"><span>Regras de tracking</span><b>${rules.length}</b><small>${rules.filter(x=>x.active!==false).length} ativas</small></div><div class="gxi-stat"><span>Eventos processados</span><b>${getEvents().length}</b><small>últimos registros</small></div></div><div class="gxi-grid">${PROVIDERS.map(p=>{const c=connection(p.id),on=c.status==='connected',pending=c.status==='pending';return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft}"><div class="gxi-card-top"><div class="gxi-icon">${p.icon}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill ${on?'on':pending?'pending':'off'}">${on?'Conectado':pending?'Pendente':'Não conectado'}</span></div><p>${p.desc}</p><div class="gxi-card-note">${on?`Conta: ${E(c.assets?.name||c.assets?.account||'Conexão oficial')}`:'Autorização oficial, sem expor tokens no navegador.'}</div><div class="gxi-card-actions">${on?`<button class="gxi-btn small" onclick="gxiTestConnection('${p.id}')">Testar</button><button class="gxi-btn small danger" onclick="gxiDisconnect('${p.id}')">Desconectar</button>`:`<button class="gxi-btn primary small" onclick="gxiConnect('${p.id}')">${p.button}</button>`}</div></article>`}).join('')}</div>`}
+  function connectionsHtml(){const rules=getTrackings();return `<div class="gxi-summary"><div class="gxi-stat"><span>Conexões ativas</span><b>${connectedCount()}</b><small>de ${PROVIDERS.length} disponíveis</small></div><div class="gxi-stat"><span>Regras de tracking</span><b>${rules.length}</b><small>${rules.filter(x=>x.active!==false).length} ativas</small></div><div class="gxi-stat"><span>Eventos processados</span><b>${getEvents().length}</b><small>últimos registros</small></div></div><div class="gxi-grid">${PROVIDERS.map(p=>{const c=connection(p.id),on=c.status==='connected',pending=c.status==='pending';return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft}"><div class="gxi-card-top"><div class="gxi-icon">${p.icon}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill ${on?'on':pending?'pending':'off'}">${on?'Conectado':pending?'Pendente':'Não conectado'}</span></div><p>${p.desc}</p><div class="gxi-card-note">${on?`Conta: ${E(c.assets?.name||c.assets?.account||'Conexão oficial')}`:'Autorização oficial, sem expor tokens no navegador.'}</div><div class="gxi-card-actions">${on?`<button class="gxi-btn small" onclick="gxiTestConnection('${p.id}')">Testar</button><button class="gxi-btn small danger" onclick="gxiDisconnect('${p.id}')">Desconectar</button>`:`<button class="gxi-btn primary small" onclick="gxiConnect('${p.id}')">${p.button}</button>`}</div></article>`}).join('')}</div>${smtpConfigHtml()}`}
+  function smtpConfigHtml(){
+    const s=getEmailSmtpSettings(),on=!!s.connected;
+    return `<div class="gxi-conv-grid" style="grid-template-columns:1fr;margin-top:13px">
+      <div class="gxi-conv-card">
+        <div class="gxi-conv-head"><div class="gxi-conv-logo" style="background:#DBEAFE;color:#2563EB">✉</div><div><h3>Conexão de e-mail (SMTP)</h3><p>Conecte a caixa de e-mail da sua empresa para o envio automático das automações de e-mail</p></div><span class="gxi-config-status ${on?'on':''}" style="margin-left:auto">${on?'Conectado':'Pendente'}</span></div>
+        ${on?`<div class="gxi-card-note" style="margin-bottom:12px">Enviando por <b>${E(s.host||'')}</b> como <b>${E(s.fromEmail||s.username||'')}</b></div>`:''}
+        <div class="gxi-form-grid" style="margin-bottom:11px">
+          <label class="gxi-field"><span class="gxi-label">Servidor SMTP</span><input class="gxi-input" id="gxi-smtp-host" value="${A(s.host||'')}" placeholder="smtp.seudominio.com"></label>
+          <label class="gxi-field"><span class="gxi-label">Porta</span><input class="gxi-input" id="gxi-smtp-port" value="${A(s.port||'587')}" placeholder="587"></label>
+          <label class="gxi-field"><span class="gxi-label">Segurança</span><select class="gxi-select" id="gxi-smtp-secure"><option value="tls" ${s.secure!=='ssl'?'selected':''}>TLS / STARTTLS</option><option value="ssl" ${s.secure==='ssl'?'selected':''}>SSL</option></select></label>
+          <label class="gxi-field"><span class="gxi-label">Usuário SMTP</span><input class="gxi-input" id="gxi-smtp-user" value="${A(s.username||'')}" placeholder="email@seudominio.com"></label>
+          <label class="gxi-field"><span class="gxi-label">Senha / Token</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-smtp-pass" type="password" value="" placeholder="${s.hasPassword?'Senha protegida no servidor':'Cole a senha para salvar com segurança'}"><button class="gxi-secret-action" onclick="gxiToggleSecret('gxi-smtp-pass')">Mostrar</button></div></label>
+          <label class="gxi-field"><span class="gxi-label">Nome do remetente</span><input class="gxi-input" id="gxi-smtp-from-name" value="${A(s.fromName||'')}" placeholder="Minha Empresa"></label>
+          <label class="gxi-field full"><span class="gxi-label">E-mail remetente</span><input class="gxi-input" id="gxi-smtp-from-email" value="${A(s.fromEmail||'')}" placeholder="contato@seudominio.com"></label>
+        </div>
+        <div class="gxi-conv-footer"><span>A senha é enviada para uma função segura e nunca é gravada no navegador.</span><button class="gxi-btn primary" onclick="gxiSaveSmtpConfig()">Salvar conexão</button></div>
+      </div>
+    </div>`;
+  }
   function trackingListHtml(){const list=getTrackings();return `<div class="gxi-toolbar"><div class="gxi-toolbar-copy"><h2>Regras de rastreamento</h2><p>Mova leads no Pipeline quando uma mensagem corresponder ao critério configurado.</p></div><button class="gxi-btn primary" onclick="gxiNewTracking()">+ Novo rastreamento</button></div><div class="gxi-rules">${list.length?list.map(r=>`<div class="gxi-rule"><div><div class="gxi-rule-title">“${E(r.message)}”</div><div class="gxi-rule-sub">${E(MODES[r.mode]||r.mode)} • ${E(r.connectionName||'WhatsApp')}</div></div><div><span class="gxi-tag">${E(r.stageName||'Sem etapa')}</span></div><div><div class="gxi-rule-title">${r.executions||0} execuções</div><div class="gxi-rule-sub">${r.lastExecutedAt?new Date(r.lastExecutedAt).toLocaleString('pt-BR'):'Nunca executado'}</div></div><div><span class="gxi-pill ${r.active!==false?'on':'off'}">${r.active!==false?'Ativo':'Pausado'}</span></div><div class="gxi-rule-actions"><button class="gxi-btn small" onclick="gxiToggleTracking('${r.id}')">${r.active!==false?'Pausar':'Ativar'}</button><button class="gxi-btn small" onclick="gxiEditTracking('${r.id}')">Editar</button><button class="gxi-btn small danger" onclick="gxiDeleteTracking('${r.id}')">Excluir</button></div></div>`).join(''):`<div class="gxi-empty"><i>⌁</i><b>Nenhum rastreamento criado</b>Crie a primeira regra para automatizar a movimentação dos leads.</div>`}</div>`}
   function formHtml(){const isEdit=!!editingId&&editingId!=='new',r=isEdit?getTrackings().find(x=>x.id===editingId)||{}:{};const ss=stages();const wpp=getConnections().filter(x=>x.provider==='whatsapp'&&x.status==='connected');return `<div class="gxi-toolbar"><div class="gxi-toolbar-copy"><h2>${isEdit?'Editar rastreamento':'Novo rastreamento'}</h2><p>Defina o que deve acontecer quando uma mensagem for recebida.</p></div></div><div class="gxi-form"><div class="gxi-form-grid"><label class="gxi-field"><span class="gxi-label">Modo</span><select class="gxi-select" id="gxi-mode">${Object.entries(MODES).map(([k,v])=>`<option value="${k}" ${r.mode===k?'selected':''}>${v}</option>`).join('')}</select></label><label class="gxi-field"><span class="gxi-label">Etapa de destino</span><select class="gxi-select" id="gxi-stage"><option value="">Selecione uma etapa</option>${ss.map(s=>`<option value="${A(s.id)}" data-name="${A(s.name)}" ${String(r.stageId)===String(s.id)?'selected':''}>${E(s.name)}</option>`).join('')}</select></label><label class="gxi-field"><span class="gxi-label">Conexão do WhatsApp</span><select class="gxi-select" id="gxi-connection">${wpp.length?wpp.map(c=>`<option value="${A(c.id)}" data-name="${A(c.assets?.name||c.assets?.phone||'WhatsApp conectado')}" ${r.connectionId===c.id?'selected':''}>${E(c.assets?.name||c.assets?.phone||'WhatsApp conectado')}</option>`).join(''):`<option value="whatsapp_pending" data-name="WhatsApp não conectado">WhatsApp não conectado</option>`}</select></label><label class="gxi-field full"><span class="gxi-label">Mensagem</span><input class="gxi-input" id="gxi-message" value="${A(r.message||'')}" placeholder="Ex.: Quero comprar"></label></div><div class="gxi-help-grid"><div class="gxi-help"><b>Como funciona?</b><p>Quando o WhatsApp receber uma mensagem que corresponda ao critério, o lead será movido automaticamente para a etapa selecionada.</p></div><div class="gxi-help"><b>Registrando o valor da venda</b><p>Para registrar o valor automaticamente, use o formato <code>valor R$ 500</code> na mensagem configurada.</p></div></div>${!wpp.length?`<div class="gxi-warning" style="margin-top:14px">A regra poderá ser salva, mas ficará aguardando uma conexão oficial do WhatsApp para ser executada.</div>`:''}<div class="gxi-form-footer"><button class="gxi-btn" onclick="gxiCancelTracking()">Cancelar</button><button class="gxi-btn primary" onclick="gxiSaveTracking()">${isEdit?'Salvar alterações':'Criar rastreamento'}</button></div></div>`}
   function mappingRowsHtml(settings){
@@ -17034,6 +16989,34 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     const rec={id:uid(),eventId:`gex_${Date.now()}_${Math.random().toString(36).slice(2,9)}`,platform,eventName,stageId:mapping.stageId,stageName:mapping.stageName,leadId:lead?.id||'',leadName:lead?.nome||lead?.name||'',gclid:lead?.gclid||'',value:conversionValue(mapping,lead),currency:'BRL',status:'pending',source:payload.source||'crm',createdAt:new Date().toISOString()};DB.push('conversion_events',rec);
     try{if(!supabaseClient)throw new Error('Função de conversão não publicada');const testEventCode=getConversionSettings().meta?.testEventCode||'';const {data,error}=await supabaseClient.functions.invoke('send-crm-conversion',{body:{...rec,testEventCode,lead:{email:lead?.email||'',phone:lead?.telefone||lead?.phone||'',name:lead?.nome||lead?.name||'',gclid:lead?.gclid||'',fbclid:lead?.fbclid||'',externalId:lead?.id||''}}});if(error||data?.ok===false)throw new Error(data?.message||error?.message||'Envio rejeitado');DB.update('conversion_events',rec.id,{status:'sent',sentAt:new Date().toISOString(),responseId:data?.id||''});return true}catch(e){DB.update('conversion_events',rec.id,{status:'error',error:e.message||String(e),failedAt:new Date().toISOString()});return false}
   }
+  window.gxiSaveSmtpConfig=async()=>{
+    const host=document.getElementById('gxi-smtp-host')?.value.trim();
+    const port=document.getElementById('gxi-smtp-port')?.value.trim()||'587';
+    const username=document.getElementById('gxi-smtp-user')?.value.trim();
+    const password=document.getElementById('gxi-smtp-pass')?.value||'';
+    const fromName=document.getElementById('gxi-smtp-from-name')?.value.trim();
+    const fromEmail=document.getElementById('gxi-smtp-from-email')?.value.trim();
+    const secure=document.getElementById('gxi-smtp-secure')?.value||'tls';
+    if(!host||!username||!fromEmail){toast('Preencha servidor, usuário e e-mail remetente','#EF4444');return}
+    const old=getEmailSmtpSettings();
+    if(!password&&!old.hasPassword){toast('Informe a senha / token de acesso','#EF4444');return}
+    try{
+      if(!supabaseClient)throw new Error('Abra o sistema publicado para salvar a conexão.');
+      const token=await getGexSupabaseToken();
+      const res=await fetch(getSupabaseFunctionUrl('smtp-config-save'),{
+        method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+        body:JSON.stringify({host,port,username,password,fromName,fromEmail,secure})
+      });
+      const j=await res.json().catch(()=>({}));
+      if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível salvar a conexão.');
+      const next={id:'email_smtp_main',connected:true,hasPassword:true,host,port,username,fromName,fromEmail,secure,updatedAt:new Date().toISOString()};
+      DB.set('email_smtp_settings',[next]);
+      toast('Conexão de e-mail salva ✓','#10B981');
+      render();
+    }catch(e){
+      toast(e.message||'Erro ao salvar conexão de e-mail','#EF4444');
+    }
+  };
   window.gexSendCRMConversion=async(payload={})=>{const lead=payload.lead||{},stageId=payload.stageId||lead.stageId||'',stageName=payload.stageName||lead.estagio||'';const settings=getConversionSettings(),mapping=(settings.mappings||[]).find(x=>x.enabled&&((stageId&&String(x.stageId)===String(stageId))||(!stageId&&x.stageName===stageName)));if(!mapping)return[];const jobs=[];if(mapping.metaEvent&&settings.meta?.configured)jobs.push(sendConversionPlatform('meta',mapping.metaEvent,mapping,lead,payload));if(mapping.googleAction&&settings.google?.configured)jobs.push(sendConversionPlatform('google',mapping.googleAction,mapping,lead,payload));const result=await Promise.all(jobs);if(monitorView==='events'&&view==='monitor')render();return result};
   window.gxiTestConversion=async()=>{const mapping=(getConversionSettings().mappings||[]).find(x=>x.enabled);if(!mapping){toast('Ative ao menos uma etapa antes do teste.','#F59E0B');return}toast('Enviando evento de teste…','#3B82F6');const result=await window.gexSendCRMConversion({lead:{id:'test_'+Date.now(),nome:'Lead de teste',email:'teste@gex.local',telefone:'5500000000000',valor:mapping.fixedValue||1},stageId:mapping.stageId,stageName:mapping.stageName,source:'manual_test'});toast(result.length&&result.every(Boolean)?'Teste enviado ✓':'Teste registrado; verifique o histórico.',result.length&&result.every(Boolean)?'#10B981':'#F59E0B');monitorView='events';render()};
   window.gxiExportGoogleCSV=()=>{const rows=getConversionEvents().filter(x=>x.platform==='google'),head=['Google Click ID','Conversion Name','Conversion Time','Conversion Value','Conversion Currency','Lead ID','Status'],q=v=>`"${String(v??'').replace(/"/g,'""')}"`,lines=[head,...rows.map(x=>[x.gclid||'',x.eventName||'',x.createdAt||'',x.value||0,x.currency||'BRL',x.leadId||'',x.status||''])].map(r=>r.map(q).join(',')).join('\n'),blob=new Blob(['\uFEFF'+lines],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`gex-google-conversions-${new Date().toISOString().slice(0,10)}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)};
