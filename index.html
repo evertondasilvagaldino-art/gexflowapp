@@ -17599,9 +17599,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       desc:'Quando o lead chega na etapa escolhida, dispara uma sequência de e-mails em dias diferentes (ex.: dia 0, dia 2, dia 5) — cada um vira uma ação pronta pra enviar na hora certa.',
       gatilho:'cadencia_etapa',steps:[{dias:0,assunto:'Bem-vindo!',mensagem:'Olá {{nome}}, tudo bem? Recebemos seu interesse e já vamos te ajudar por aqui.'},{dias:2,assunto:'Ficou alguma dúvida?',mensagem:'Olá {{nome}}, passando pra saber se ficou alguma dúvida sobre a nossa proposta.'}],precisaConfigurar:true},
     {key:'whatsapp_api_oficial',icon:'🔒',locked:true,nome:'Envio automático via WhatsApp Business API',
-      desc:'Manda a mensagem sozinho, sem precisar abrir o WhatsApp pra clicar em enviar. Exige conta oficial Meta Business aprovada — em breve.'},
-    {key:'smtp_email',icon:'🔒',locked:true,nome:'Envio automático de e-mail (servidor próprio)',
-      desc:'Dispara o e-mail sozinho, sem abrir seu programa de e-mail. Exige um servidor de envio configurado (SMTP/Resend/SendGrid) — em breve.'}
+      desc:'Manda a mensagem sozinho, sem precisar abrir o WhatsApp pra clicar em enviar. Exige conta oficial Meta Business aprovada — em breve.'}
   ];
   const findTemplate=key=>TEMPLATES.find(t=>t.key===key);
   const instanceOf=key=>rules().find(r=>r.templateKey===key);
@@ -17773,7 +17771,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     </div>
     <div class="gl-footer"><button class="gl-btn" onclick="autoCancel()">Cancelar</button><button class="gl-btn primary" onclick="autoSave()">${autoEditId?'Salvar alterações':'Ativar automação'}</button></div>
     <div class="gl-card" style="padding:14px 16px;margin-top:14px;font-size:10.5px;color:var(--muted);line-height:1.6">
-      <b style="color:var(--txt)">Como funciona hoje:</b> automações de WhatsApp e e-mail preparam a mensagem em "Ações pendentes" — um clique abre a conversa ou o e-mail já prontos, faltando só enviar. Já a automação de "anexar observação" é 100% automática: ela mesma escreve na descrição do lead, sem precisar de clique. O envio de mensagem sem clique nenhum (WhatsApp Business API oficial e servidor de e-mail transacional) é um passo futuro, à parte — veja os cards bloqueados no Banco de Automações.
+      <b style="color:var(--txt)">Como funciona hoje:</b> automações de WhatsApp preparam a mensagem no Banco de Ações — um clique abre a conversa já pronta, faltando só enviar. As automações de e-mail são 100% automáticas quando a conexão de e-mail (SMTP) estiver ativa em Configurações &gt; Integrações: o e-mail sai sozinho, sem precisar clicar em nada — a ação já aparece marcada como enviada. Já a automação de "anexar observação" também é 100% automática: ela mesma escreve na descrição do lead. O envio de WhatsApp sem clique nenhum (WhatsApp Business API oficial) é um passo futuro, à parte — veja o card bloqueado no Banco de Automações.
     </div>`;
   }
   function cadenciaStepsHtml(){
