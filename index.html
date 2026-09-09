@@ -17013,7 +17013,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   function fieldsHtml(){return glFields.map((f,i)=>`<div class="gl-field-row" data-index="${i}"><div class="gl-drag">⋮⋮</div><input class="gl-input gl-flabel" value="${esc(f.label)}" placeholder="Pergunta" oninput="gxlFieldChange(${i},false)"><select class="gl-select gl-ftype" onchange="gxlFieldChange(${i},true)">${Object.entries(fieldTypes).map(([k,v])=>`<option value="${k}" ${f.type===k?'selected':''}>${v}</option>`).join('')}</select><label class="gl-required"><input class="gl-frequired" type="checkbox" ${f.required?'checked':''} onchange="gxlFieldChange(${i},false)"> Obrig.</label><button class="gl-remove" onclick="gxlRemoveField(${i})">×</button>${f.type==='select'?`<input class="gl-input gl-foptions" style="grid-column:2/-1" value="${esc((f.options||[]).join(', '))}" placeholder="Opções separadas por vírgula" oninput="gxlFieldChange(${i},false)">`:''}</div>`).join('')}
   function previewHtml(){const title=document.getElementById('gl-title')?.value||'Fale com um especialista',desc=document.getElementById('gl-description')?.value||'';return `<h2>${esc(title)}</h2><p>${esc(desc)}</p>${glFields.map(f=>`<div class="gl-pf"><label>${esc(f.label)}${f.required?' *':''}</label>${f.type==='textarea'?'<textarea disabled></textarea>':f.type==='select'?`<select disabled><option>Selecione</option></select>`:`<input type="${f.type==='email'?'email':f.type==='number'?'number':f.type==='date'?'date':'text'}" disabled placeholder="${esc(f.placeholder||'')}">`}</div>`).join('')}<button class="gl-submit">Enviar informações</button>`}
   function coming(type){const data={whatsapp:['Links de WhatsApp','Crie links rastreáveis para campanhas, registre a origem e envie os contatos diretamente ao CRM.','Abrir Integrações'],meta:['Campanhas da Meta','Sincronize formulários instantâneos, campanhas e parâmetros de atribuição da Meta Ads.','Conectar Meta Ads'],api:['API de captação','Receba leads de sites, landing pages e ferramentas externas por um endpoint seguro.','Ver Webhook & API']}[type];return `${head(data[0],data[1])}<div class="gl-coming"><div class="gl-card"><div class="gl-coming-icon">↗</div><h3>${data[0]}</h3><p>${data[1]}</p><button class="gl-btn primary" onclick="${type==='api'?"navigateSub('config-webhook-api','configuracoes')":"navigateSub('config-integracoes','configuracoes')"}">${data[2]}</button></div><div class="gl-card"><div class="gl-coming-icon">◎</div><h3>Atribuição automática</h3><p>UTMs, campanha, conjunto e anúncio podem acompanhar o lead até a venda.</p><span class="gl-status">Preparado</span></div><div class="gl-card"><div class="gl-coming-icon">⚡</div><h3>Entrada no Pipeline</h3><p>Todo contato captado será associado ao funil, etapa e responsável configurados.</p><span class="gl-status on">CRM conectado</span></div></div>`}
-  window.renderGerarLeads=function(){const page=document.getElementById('page-gerar-leads');if(!page)return;const sub=activeSub();page.innerHTML=`<div class="gl-shell">${sub==='gerar-leads-formularios'?(glView==='editor'?editorHtml():listHtml()):sub==='gerar-leads-whatsapp'?coming('whatsapp'):sub==='gerar-leads-meta'?metaAdsDashboardHtml():coming('api')}</div>`;if(glView==='editor')setTimeout(window.gxlPreview,0);if(sub==='gerar-leads-meta')metaDashBoot()};
+  window.renderGerarLeads=function(){const page=document.getElementById('page-gerar-leads');if(!page)return;const sub=activeSub();page.innerHTML=`<div class="gl-shell">${sub==='gerar-leads-formularios'?(glView==='editor'?editorHtml():listHtml()):sub==='gerar-leads-whatsapp'?(gxwView==='editor'?gxwEditorHtml():gxwListHtml()):sub==='gerar-leads-meta'?metaAdsDashboardHtml():coming('api')}</div>`;if(glView==='editor')setTimeout(window.gxlPreview,0);if(sub==='gerar-leads-meta')metaDashBoot()};
 
   // ===== Dashboard "Campanhas da Meta" (dentro de Gerar Leads) =====
   const metaEsc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -17158,6 +17158,290 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   window.gxlOpen=id=>{const f=forms().find(x=>x.id===id);if(!f)return;gxlCloseMenu();showPublicForm(f,true)};
   function openPublicForm(){const q=new URLSearchParams(location.search),slug=q.get('gex_form');if(!slug)return;const f=forms().find(x=>x.slug===slug&&(x.active||q.get('gex_preview')==='1'));if(f)showPublicForm(f,false)}
   setTimeout(openPublicForm,800);
+
+  // ═══ WhatsApp — botão flutuante com popup de captura pro site ═══
+  let gxwView='list',gxwEditId='';
+  const widgets=()=>{try{return DB.get('whatsapp_widgets')||[]}catch(e){return[]}};
+  function gxwDefaults(){
+    return {nome:'Minha Empresa',numero:'',saudacao:'Olá! Preencha os dados para atendimento via WhatsApp:',
+      mensagem:'Olá, meu nome é {{nome}}. Vim pelo site e gostaria de saber mais!',textoBotao:'Fale conosco!',
+      cor:'#25D366',posicao:'right',pedirEmail:false,ativo:true};
+  }
+  function gxwCss(cor,posicao,fixedMode){
+    const pos=fixedMode?'fixed':'absolute';
+    const side=posicao==='left'?'left':'right';
+    return '.gxw-fab{position:'+pos+';'+side+':0;bottom:0;width:58px;height:58px;border-radius:50%;background:'+cor+';display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(0,0,0,.28);cursor:pointer;z-index:999999;transition:transform .15s}'
+    +'.gxw-fab:hover{transform:scale(1.08)}'
+    +'.gxw-popup{position:'+pos+';'+side+':0;bottom:76px;width:296px;max-width:calc(100vw - 32px);background:#fff;border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.3);overflow:hidden;font-family:Arial,Helvetica,sans-serif;z-index:999999}'
+    +'.gxw-popup.gxw-hidden{display:none}'
+    +'.gxw-popup-header{background:'+cor+';color:#fff;padding:14px 16px;display:flex;align-items:center;gap:8px;font-weight:700;font-size:14.5px}'
+    +'.gxw-popup-header .gxw-close{margin-left:auto;cursor:pointer;font-size:17px;line-height:1;opacity:.9}'
+    +'.gxw-popup-body{padding:16px;background:#F0F2F5}'
+    +'.gxw-greeting{background:#fff;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#111;margin-bottom:14px;line-height:1.45}'
+    +'.gxw-field{margin-bottom:11px}'
+    +'.gxw-field label{display:block;font-size:11.5px;font-weight:700;color:#1F2937;margin-bottom:4px}'
+    +'.gxw-field input{width:100%;box-sizing:border-box;border:1px solid #D0D5DD;border-radius:7px;padding:9px 10px;font-size:13px;outline:none;font-family:inherit}'
+    +'.gxw-submit{width:100%;background:'+cor+';color:#fff;border:0;border-radius:8px;padding:11px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit}'
+    +'.gxw-submit:hover{filter:brightness(.95)}'
+    +'.gxw-footer{text-align:center;font-size:10px;color:#98A2B3;padding:9px 0 2px}'
+    +'.gxw-footer b{color:#667085}';
+  }
+  function gxwIconSvg(size){
+    return '<svg viewBox="0 0 32 32" width="'+(size||30)+'" height="'+(size||30)+'" fill="#fff"><path d="M16.001 3C9.11 3 3.5 8.6 3.5 15.49c0 2.5.68 4.85 1.98 6.93L3 29l6.77-2.4a12.9 12.9 0 0 0 6.23 1.6h.01c6.9 0 12.5-5.6 12.5-12.49C28.51 8.6 22.9 3 16 3Zm0 22.85h-.01a10.6 10.6 0 0 1-5.42-1.49l-.39-.23-4.02 1.43 1.34-3.93-.25-.4a10.34 10.34 0 0 1-1.6-5.54c0-5.72 4.66-10.38 10.4-10.38 2.78 0 5.39 1.08 7.35 3.05a10.32 10.32 0 0 1 3.04 7.34c0 5.72-4.66 10.38-10.44 10.38Zm5.7-7.77c-.31-.16-1.84-.9-2.12-1.01-.29-.1-.5-.16-.7.16-.21.31-.8 1-.99 1.22-.18.21-.36.23-.67.08-.31-.16-1.32-.49-2.51-1.56-.93-.83-1.55-1.86-1.74-2.17-.18-.31-.02-.48.14-.63.14-.14.31-.36.47-.55.16-.18.21-.31.31-.52.1-.21.05-.39-.03-.55-.08-.16-.7-1.69-.96-2.32-.25-.6-.51-.52-.7-.53-.18-.01-.39-.01-.6-.01-.21 0-.55.08-.84.39-.29.31-1.1 1.08-1.1 2.63s1.13 3.05 1.29 3.26c.16.21 2.22 3.39 5.38 4.75.75.32 1.34.52 1.8.66.76.24 1.44.21 1.99.13.61-.09 1.84-.75 2.1-1.48.26-.73.26-1.35.18-1.48-.08-.13-.29-.21-.6-.36Z"/></svg>';
+  }
+  function gxwPopupInnerHtml(d){
+    return '<div class="gxw-popup-header">'+gxwIconSvg(26)+'<span>'+esc(d.nome||'Minha Empresa')+'</span><span class="gxw-close">&times;</span></div>'
+    +'<div class="gxw-popup-body">'
+    +'<div class="gxw-greeting">'+esc(d.saudacao||'')+'</div>'
+    +'<div class="gxw-field"><label>Nome</label><input type="text" disabled></div>'
+    +(d.pedirEmail?'<div class="gxw-field"><label>E-mail</label><input type="email" disabled></div>':'')
+    +'<div class="gxw-field"><label>WhatsApp</label><input type="tel" disabled></div>'
+    +'<button type="button" class="gxw-submit">Ir para o WhatsApp</button>'
+    +'<div class="gxw-footer">Powered by <b>GexFlow</b></div>'
+    +'</div>';
+  }
+  function gxwPreviewMarkup(d){
+    const side=(d.posicao==='left')?'left':'right';
+    return '<style>'+gxwCss(d.cor||'#25D366',d.posicao||'right',false)+'</style>'
+    +'<div style="position:relative;height:380px">'
+    +'<div class="gxw-popup" style="position:absolute;'+side+':0;bottom:76px">'+gxwPopupInnerHtml(d)+'</div>'
+    +'<div class="gxw-fab" style="position:absolute;'+side+':0;bottom:0">'+gxwIconSvg(30)+'</div>'
+    +'</div>';
+  }
+  function gxwCollectForm(){
+    return {
+      nome:document.getElementById('gxw-nome')?.value||'',
+      numero:document.getElementById('gxw-numero')?.value||'',
+      cor:document.getElementById('gxw-cor')?.value||'#25D366',
+      posicao:document.getElementById('gxw-posicao')?.value||'right',
+      saudacao:document.getElementById('gxw-saudacao')?.value||'',
+      mensagem:document.getElementById('gxw-mensagem')?.value||'',
+      textoBotao:document.getElementById('gxw-textoBotao')?.value||'',
+      pedirEmail:document.getElementById('gxw-pedirEmail')?.checked||false
+    };
+  }
+  window.gxwPreview=function(){
+    const el=document.getElementById('gxw-preview-box');
+    if(!el)return;
+    el.innerHTML=gxwPreviewMarkup(gxwCollectForm());
+  };
+  function gxwListHtml(){
+    const ws=widgets(),leads=DB.get('leads')||[];
+    const countFor=id=>leads.filter(l=>l.widgetId===id).length;
+    const totalLeads=leads.filter(l=>l.widgetId).length;
+    const ultimo=leads.filter(l=>l.widgetId).sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0))[0];
+    return `${head('Links de WhatsApp','Crie um botão flutuante com popup de captura para o site — o contato preenche os dados, vira lead no Pipeline e cai direto numa conversa de WhatsApp.','<button class="gl-btn primary" onclick="gxwNew()">＋ Novo botão</button>')}
+    <div class="gl-stats">
+      <div class="gl-stat"><span>BOTÕES</span><b>${ws.length}</b><small>${ws.filter(w=>w.ativo!==false).length} ativos</small></div>
+      <div class="gl-stat"><span>LEADS CAPTADOS</span><b>${totalLeads}</b><small>via botão de WhatsApp</small></div>
+      <div class="gl-stat"><span>ÚLTIMO LEAD</span><b style="font-size:13px">${ultimo?new Date(ultimo.createdAt).toLocaleString('pt-BR'):'—'}</b><small>registro mais recente</small></div>
+    </div>
+    <div class="gl-card gl-table">${ws.length?`<div class="gl-row head"><div>Nome</div><div>Número</div><div>Leads</div><div>Status</div><div style="text-align:right">Ações</div></div>${ws.map(w=>`<div class="gl-row">
+      <div><div class="gl-name">${esc(w.nome)}</div><div class="gl-sub">Criado em ${new Date(w.createdAt||Date.now()).toLocaleDateString('pt-BR')}</div></div>
+      <div class="gl-link">${esc(w.numero||'—')}</div>
+      <div><b>${countFor(w.id)}</b> leads</div>
+      <div><span class="gl-status ${w.ativo!==false?'on':''}">${w.ativo!==false?'Ativo':'Pausado'}</span></div>
+      <div class="gl-actions"><button class="gl-btn sm" onclick="gxwCode('${w.id}')">Código</button><button class="gl-btn sm" onclick="gxwEdit('${w.id}')">Editar</button><button class="gl-btn sm" onclick="gxwToggle('${w.id}')">${w.ativo!==false?'Pausar':'Ativar'}</button><button class="gl-btn sm danger" onclick="gxwDelete('${w.id}')">Excluir</button></div>
+    </div>`).join('')}`:`<div class="gl-empty"><i>💬</i><b>Nenhum botão criado</b>Crie o primeiro botão flutuante de WhatsApp para o site.<div style="margin-top:15px"><button class="gl-btn primary" onclick="gxwNew()">Criar botão</button></div></div>`}</div>`;
+  }
+  function gxwEditorHtml(){
+    const old=gxwEditId?widgets().find(x=>x.id===gxwEditId)||{}:{};
+    const d={...gxwDefaults(),...old};
+    const funnel=typeof getActiveFunnel==='function'?getActiveFunnel():null,stages=funnel?.stages||[];
+    return `${head(gxwEditId?'Editar botão de WhatsApp':'Novo botão de WhatsApp','Configure a aparência, a mensagem e o destino dos leads capturados pelo botão.')}
+    <div class="gl-editor">
+      <div>
+        <div class="gl-panel">
+          <h3>Identidade</h3><p>Nome e número que aparecem no popup do visitante.</p>
+          <div class="gl-grid">
+            <label class="gl-field"><span>Nome da empresa</span><input class="gl-input" id="gxw-nome" value="${esc(d.nome)}" oninput="gxwPreview()"></label>
+            <label class="gl-field"><span>Número do WhatsApp (com DDI, só números)</span><input class="gl-input" id="gxw-numero" value="${esc(d.numero)}" placeholder="5511999999999" oninput="gxwPreview()"></label>
+            <label class="gl-field"><span>Cor do botão</span><input class="gl-input" id="gxw-cor" type="color" value="${esc(d.cor)}" style="padding:2px;height:38px" oninput="gxwPreview()"></label>
+            <label class="gl-field"><span>Posição na tela</span><select class="gl-select" id="gxw-posicao" onchange="gxwPreview()"><option value="right" ${d.posicao==='right'?'selected':''}>Direita</option><option value="left" ${d.posicao==='left'?'selected':''}>Esquerda</option></select></label>
+          </div>
+        </div>
+        <div class="gl-panel">
+          <h3>Mensagens</h3><p>O que o visitante vê no popup e a mensagem que chega pronta no WhatsApp.</p>
+          <div class="gl-grid">
+            <label class="gl-field full"><span>Saudação no popup</span><textarea class="gl-textarea" id="gxw-saudacao" oninput="gxwPreview()">${esc(d.saudacao)}</textarea></label>
+            <label class="gl-field full"><span>Mensagem enviada ao WhatsApp (use {{nome}} para o nome do visitante)</span><textarea class="gl-textarea" id="gxw-mensagem" oninput="gxwPreview()">${esc(d.mensagem)}</textarea></label>
+            <label class="gl-field"><span>Dica do botão flutuante (aparece ao passar o mouse)</span><input class="gl-input" id="gxw-textoBotao" value="${esc(d.textoBotao)}" oninput="gxwPreview()"></label>
+          </div>
+          <div class="gl-toggle-line"><span>Pedir e-mail no popup</span><label class="gl-switch"><input id="gxw-pedirEmail" type="checkbox" ${d.pedirEmail?'checked':''} onchange="gxwPreview()"><i></i></label></div>
+        </div>
+        <div class="gl-panel">
+          <h3>Destino no CRM</h3><p>Onde o lead entra no Pipeline assim que preenche o popup.</p>
+          <div class="gl-grid">
+            <label class="gl-field"><span>Funil</span><input class="gl-input" value="${esc(funnel?.name||'Funil comercial')}" disabled></label>
+            <label class="gl-field"><span>Etapa inicial</span><select class="gl-select" id="gxw-stage">${stages.map(s=>`<option value="${esc(s.id)}" data-name="${esc(s.name)}" ${d.stageId===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></label>
+          </div>
+          <div class="gl-toggle-line"><span>Botão ativo no site</span><label class="gl-switch"><input id="gxw-ativo" type="checkbox" ${d.ativo!==false?'checked':''}><i></i></label></div>
+        </div>
+        <div class="gl-footer"><button class="gl-btn" onclick="gxwCancel()">Cancelar</button><button class="gl-btn primary" onclick="gxwSave()">${gxwEditId?'Salvar alterações':'Criar botão'}</button></div>
+      </div>
+      <aside class="gl-preview-wrap">
+        <div class="gl-preview-label">Pré-visualização ao vivo</div>
+        <div class="gl-preview" id="gxw-preview-box" style="position:relative;min-height:420px">${gxwPreviewMarkup(d)}</div>
+      </aside>
+    </div>`;
+  }
+  window.gxwNew=()=>{gxwEditId='';gxwView='editor';renderGerarLeads()};
+  window.gxwEdit=id=>{gxwEditId=id;gxwView='editor';renderGerarLeads()};
+  window.gxwCancel=()=>{gxwView='list';gxwEditId='';renderGerarLeads()};
+  window.gxwToggle=id=>{const w=widgets().find(x=>x.id===id);if(!w)return;DB.update('whatsapp_widgets',id,{ativo:w.ativo===false});renderGerarLeads();toast(w.ativo===false?'Botão ativado ✓':'Botão pausado','#10B981')};
+  window.gxwDelete=id=>{confirmDelete(()=>{DB.remove('whatsapp_widgets',id);renderGerarLeads();toast('Botão excluído','#EF4444')})};
+  window.gxwSave=()=>{
+    const nome=document.getElementById('gxw-nome')?.value.trim();
+    const numero=String(document.getElementById('gxw-numero')?.value||'').replace(/\D/g,'');
+    if(!nome){toast('Informe o nome da empresa','#EF4444');return}
+    if(!numero){toast('Informe o número do WhatsApp (com DDI)','#EF4444');return}
+    const st=document.getElementById('gxw-stage');
+    const funnel=typeof getActiveFunnel==='function'?getActiveFunnel():null;
+    const obj={
+      nome,numero,
+      cor:document.getElementById('gxw-cor')?.value||'#25D366',
+      posicao:document.getElementById('gxw-posicao')?.value||'right',
+      saudacao:document.getElementById('gxw-saudacao')?.value.trim(),
+      mensagem:document.getElementById('gxw-mensagem')?.value.trim()||'Olá, meu nome é {{nome}}. Vim pelo site e gostaria de saber mais!',
+      textoBotao:document.getElementById('gxw-textoBotao')?.value.trim()||'Fale conosco!',
+      pedirEmail:document.getElementById('gxw-pedirEmail')?.checked||false,
+      ativo:document.getElementById('gxw-ativo')?.checked!==false,
+      funnelId:funnel?.id||'',funnelName:funnel?.name||'',
+      stageId:st?.value||'',stageName:st?.selectedOptions?.[0]?.dataset.name||st?.selectedOptions?.[0]?.textContent||'',
+      updatedAt:new Date().toISOString()
+    };
+    let savedId=gxwEditId;
+    if(gxwEditId){DB.update('whatsapp_widgets',gxwEditId,obj)}
+    else{savedId=uid();DB.push('whatsapp_widgets',{id:savedId,...obj,createdAt:new Date().toISOString(),createdBy:sessionUser?.id||''})}
+    gxwView='list';gxwEditId='';renderGerarLeads();
+    toast('Botão de WhatsApp salvo ✓','#10B981');
+    setTimeout(()=>gxwCode(savedId),250);
+  };
+  // Gera o <script> autocontido pra colar no site do cliente: injeta o botão
+  // flutuante + popup, e ao enviar abre o WhatsApp com a mensagem pronta e
+  // manda o lead direto pro Supabase (mesma chave publicável usada em todo o
+  // resto do sistema — sem exigir login de quem preenche no site externo).
+  function gxwEmbedSnippet(w){
+    const cfg={
+      id:w.id,nome:w.nome||'Minha Empresa',numero:String(w.numero||'').replace(/\D/g,''),
+      saudacao:w.saudacao||'',mensagem:w.mensagem||'Olá, meu nome é {{nome}}. Vim pelo site e gostaria de saber mais!',
+      textoBotao:w.textoBotao||'Fale conosco!',pedirEmail:!!w.pedirEmail,cor:w.cor||'#25D366',posicao:w.posicao==='left'?'left':'right',
+      funnelId:w.funnelId||'',funnelName:w.funnelName||'',stageId:w.stageId||'',stageName:w.stageName||'Novo Lead',
+      supabaseUrl:SUPABASE_URL,supabaseKey:SUPABASE_PUBLISHABLE_KEY,workspaceId:GEX_WORKSPACE_ID,table:GEX_CLOUD_TABLE
+    };
+    const lines=[
+      '(function(){',
+      '  var GXW = '+JSON.stringify(cfg)+';',
+      "  if(document.getElementById('gxw-fab-'+GXW.id)) return;",
+      "  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;')}",
+      "  var css = document.createElement('style');",
+      "  var side = GXW.posicao === 'left' ? 'left' : 'right';",
+      "  css.appendChild(document.createTextNode(",
+      "    '.gxw-fab{position:fixed;'+side+':20px;bottom:20px;width:58px;height:58px;border-radius:50%;background:'+GXW.cor+';display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(0,0,0,.28);cursor:pointer;z-index:999999;transition:transform .15s}'+",
+      "    '.gxw-fab:hover{transform:scale(1.08)}'+",
+      "    '.gxw-popup{position:fixed;'+side+':20px;bottom:90px;width:296px;max-width:calc(100vw - 32px);background:#fff;border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.3);overflow:hidden;font-family:Arial,Helvetica,sans-serif;z-index:999999}'+",
+      "    '.gxw-popup.gxw-hidden{display:none}'+",
+      "    '.gxw-popup-header{background:'+GXW.cor+';color:#fff;padding:14px 16px;display:flex;align-items:center;gap:8px;font-weight:700;font-size:14.5px}'+",
+      "    '.gxw-popup-header .gxw-close{margin-left:auto;cursor:pointer;font-size:17px;line-height:1;opacity:.9}'+",
+      "    '.gxw-popup-body{padding:16px;background:#F0F2F5}'+",
+      "    '.gxw-greeting{background:#fff;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#111;margin-bottom:14px;line-height:1.45}'+",
+      "    '.gxw-field{margin-bottom:11px}'+",
+      "    '.gxw-field label{display:block;font-size:11.5px;font-weight:700;color:#1F2937;margin-bottom:4px}'+",
+      "    '.gxw-field input{width:100%;box-sizing:border-box;border:1px solid #D0D5DD;border-radius:7px;padding:9px 10px;font-size:13px;outline:none;font-family:inherit}'+",
+      "    '.gxw-submit{width:100%;background:'+GXW.cor+';color:#fff;border:0;border-radius:8px;padding:11px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit}'+",
+      "    '.gxw-submit:hover{filter:brightness(.95)}'+",
+      "    '.gxw-footer{text-align:center;font-size:10px;color:#98A2B3;padding:9px 0 2px}'+",
+      "    '.gxw-footer b{color:#667085}'",
+      "  ));",
+      "  document.head.appendChild(css);",
+      "  var iconSvg = '<svg viewBox=\"0 0 32 32\" width=\"28\" height=\"28\" fill=\"#fff\"><path d=\"M16.001 3C9.11 3 3.5 8.6 3.5 15.49c0 2.5.68 4.85 1.98 6.93L3 29l6.77-2.4a12.9 12.9 0 0 0 6.23 1.6h.01c6.9 0 12.5-5.6 12.5-12.49C28.51 8.6 22.9 3 16 3Zm0 22.85h-.01a10.6 10.6 0 0 1-5.42-1.49l-.39-.23-4.02 1.43 1.34-3.93-.25-.4a10.34 10.34 0 0 1-1.6-5.54c0-5.72 4.66-10.38 10.4-10.38 2.78 0 5.39 1.08 7.35 3.05a10.32 10.32 0 0 1 3.04 7.34c0 5.72-4.66 10.38-10.44 10.38Zm5.7-7.77c-.31-.16-1.84-.9-2.12-1.01-.29-.1-.5-.16-.7.16-.21.31-.8 1-.99 1.22-.18.21-.36.23-.67.08-.31-.16-1.32-.49-2.51-1.56-.93-.83-1.55-1.86-1.74-2.17-.18-.31-.02-.48.14-.63.14-.14.31-.36.47-.55.16-.18.21-.31.31-.52.1-.21.05-.39-.03-.55-.08-.16-.7-1.69-.96-2.32-.25-.6-.51-.52-.7-.53-.18-.01-.39-.01-.6-.01-.21 0-.55.08-.84.39-.29.31-1.1 1.08-1.1 2.63s1.13 3.05 1.29 3.26c.16.21 2.22 3.39 5.38 4.75.75.32 1.34.52 1.8.66.76.24 1.44.21 1.99.13.61-.09 1.84-.75 2.1-1.48.26-.73.26-1.35.18-1.48-.08-.13-.29-.21-.6-.36Z\"/></svg>';",
+      "  var popup = document.createElement('div');",
+      "  popup.className = 'gxw-popup gxw-hidden';",
+      "  popup.id = 'gxw-popup-'+GXW.id;",
+      "  var emailField = GXW.pedirEmail ? ('<div class=\"gxw-field\"><label>E-mail</label><input type=\"email\" id=\"gxw-email-'+GXW.id+'\"></div>') : '';",
+      "  popup.innerHTML =",
+      "    '<div class=\"gxw-popup-header\">'+iconSvg+'<span>'+esc(GXW.nome)+'</span><span class=\"gxw-close\">&times;</span></div>'+",
+      "    '<div class=\"gxw-popup-body\">'+",
+      "      '<div class=\"gxw-greeting\">'+esc(GXW.saudacao)+'</div>'+",
+      "      '<div class=\"gxw-field\"><label>Nome</label><input type=\"text\" id=\"gxw-nome-'+GXW.id+'\"></div>'+",
+      "      emailField+",
+      "      '<div class=\"gxw-field\"><label>WhatsApp</label><input type=\"tel\" id=\"gxw-tel-'+GXW.id+'\"></div>'+",
+      "      '<button type=\"button\" class=\"gxw-submit\" id=\"gxw-submit-'+GXW.id+'\">Ir para o WhatsApp</button>'+",
+      "      '<div class=\"gxw-footer\">Powered by <b>GexFlow</b></div>'+",
+      "    '</div>';",
+      "  document.body.appendChild(popup);",
+      "  var fab = document.createElement('div');",
+      "  fab.className = 'gxw-fab';",
+      "  fab.id = 'gxw-fab-'+GXW.id;",
+      "  fab.title = GXW.textoBotao;",
+      "  fab.innerHTML = iconSvg;",
+      "  document.body.appendChild(fab);",
+      "  function togglePopup(){ popup.classList.toggle('gxw-hidden'); }",
+      "  fab.addEventListener('click', togglePopup);",
+      "  popup.querySelector('.gxw-close').addEventListener('click', togglePopup);",
+      "  document.getElementById('gxw-submit-'+GXW.id).addEventListener('click', function(){",
+      "    var nomeEl = document.getElementById('gxw-nome-'+GXW.id);",
+      "    var telEl = document.getElementById('gxw-tel-'+GXW.id);",
+      "    var emailEl = document.getElementById('gxw-email-'+GXW.id);",
+      "    var nomeV = (nomeEl.value||'').trim();",
+      "    var telV = (telEl.value||'').trim();",
+      "    var emailV = emailEl ? (emailEl.value||'').trim() : '';",
+      "    if(!nomeV){ nomeEl.style.borderColor = '#EF4444'; nomeEl.focus(); return; }",
+      "    if(!telV){ telEl.style.borderColor = '#EF4444'; telEl.focus(); return; }",
+      "    var msg = GXW.mensagem.split('{{nome}}').join(nomeV);",
+      "    var waUrl = 'https://wa.me/' + GXW.numero + '?text=' + encodeURIComponent(msg);",
+      "    window.open(waUrl, '_blank');",
+      "    try{",
+      "      var qs = new URLSearchParams(window.location.search);",
+      "      var leadId = 'gxw' + Date.now().toString(36) + Math.random().toString(36).slice(2,8);",
+      "      var lead = {",
+      "        id: leadId, nome: nomeV, email: emailV, telefone: telV,",
+      "        origem: 'WhatsApp: ' + GXW.nome, widgetId: GXW.id, widgetName: GXW.nome,",
+      "        estagio: GXW.stageName || 'Novo Lead', stageId: GXW.stageId || '', funnelId: GXW.funnelId || '',",
+      "        data: new Date().toLocaleDateString('pt-BR'), createdAt: new Date().toISOString(),",
+      "        utm_source: qs.get('utm_source')||'', utm_medium: qs.get('utm_medium')||'',",
+      "        utm_campaign: qs.get('utm_campaign')||'', utm_content: qs.get('utm_content')||'',",
+      "        _clientId: 'gxw-widget-' + GXW.id",
+      "      };",
+      "      var payload = { workspace_id: GXW.workspaceId, collection: 'leads', record_id: leadId, data: lead, updated_by: null, deleted_at: null };",
+      "      fetch(GXW.supabaseUrl + '/rest/v1/' + GXW.table, {",
+      "        method: 'POST',",
+      "        headers: { 'Content-Type': 'application/json', 'apikey': GXW.supabaseKey, 'Authorization': 'Bearer ' + GXW.supabaseKey, 'Prefer': 'return=minimal' },",
+      "        body: JSON.stringify([payload])",
+      "      }).catch(function(){});",
+      "    }catch(e){}",
+      "    popup.classList.add('gxw-hidden');",
+      "    nomeEl.value=''; telEl.value=''; if(emailEl) emailEl.value='';",
+      "  });",
+      "})();"
+    ];
+    return '<!-- GexFlow • Botão de WhatsApp ('+w.nome+') -->\n<script>\n'+lines.join('\n')+'\n<\/script>';
+  }
+  window.gxwCode=function(id){
+    const w=widgets().find(x=>x.id===id);
+    if(!w){toast('Salve o botão antes de gerar o código','#F59E0B');return}
+    document.getElementById('gxw-code-ov')?.remove();
+    const code=gxwEmbedSnippet(w);
+    const ov=document.createElement('div');
+    ov.id='gxw-code-ov';
+    ov.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.innerHTML=`<div style="background:#fff;border-radius:16px;max-width:640px;width:100%;padding:24px;box-shadow:0 24px 70px rgba(0,0,0,.35)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h3 style="font-size:16px">Código de instalação — ${esc(w.nome)}</h3><span style="cursor:pointer;font-size:20px;color:#94A3B8" onclick="document.getElementById('gxw-code-ov').remove()">×</span></div>
+      <p style="font-size:12px;color:#64748B;margin-bottom:14px">Cole este código antes do <code>&lt;/body&gt;</code> do site. O botão flutuante aparece sozinho, sem precisar de mais nada.</p>
+      <textarea readonly style="width:100%;height:220px;font-family:monospace;font-size:11px;border:1px solid #E2E8F0;border-radius:10px;padding:12px;background:#F8FAFC;box-sizing:border-box" id="gxw-code-text">${esc(code)}</textarea>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="gl-btn" onclick="document.getElementById('gxw-code-ov').remove()">Fechar</button><button class="gl-btn primary" onclick="gxwCopyCode()">📋 Copiar código</button></div>
+    </div>`;
+    document.body.appendChild(ov);
+  };
+  window.gxwCopyCode=function(){
+    const ta=document.getElementById('gxw-code-text');
+    if(!ta)return;
+    ta.select();
+    try{document.execCommand('copy')}catch(e){}
+    if(navigator.clipboard?.writeText)navigator.clipboard.writeText(ta.value).catch(()=>{});
+    toast('Código copiado ✓','#10B981');
+  };
+
 })();
 </script>
 </body>
