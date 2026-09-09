@@ -17469,6 +17469,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
 .auto-rule-ico{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:16px;flex:none}
 .auto-rule-ico.email{background:#EFF6FF;color:#2563EB}
 .auto-rule-ico.whatsapp{background:#ECFDF5;color:#059669}
+.auto-rule-ico.sistema{background:#FDF4E7;color:#B45309}
 .auto-rule-name{font-weight:850;color:var(--txt);font-size:12.5px;display:flex;align-items:center;gap:8px}
 .auto-rule-desc{font-size:10.5px;color:var(--muted);margin-top:4px;max-width:520px;line-height:1.5}
 .auto-rule-meta{font-size:9.5px;color:#94A3B8;margin-top:7px}
@@ -17491,7 +17492,10 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
 .auto-card-ico{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:19px;margin-bottom:12px}
 .auto-card-ico.whatsapp{background:#ECFDF5;color:#059669}
 .auto-card-ico.email{background:#EFF6FF;color:#2563EB}
+.auto-card-ico.sistema{background:#FDF4E7;color:#B45309}
 .auto-card-ico.locked{background:#F1F5F9;color:#94A3B8}
+.auto-step-row{background:#F8FAFC;border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px}
+.auto-step-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:11px}
 .auto-card-name{font-weight:850;color:var(--txt);font-size:12.5px;margin-bottom:6px}
 .auto-card-desc{font-size:10.5px;color:var(--muted);line-height:1.55;flex:1;margin-bottom:14px}
 .auto-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
@@ -17508,11 +17512,13 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     return {nome:'',templateKey:'',canal:'whatsapp',gatilho:'sem_atividade',dias:3,funilId:'',funilName:'',etapaId:'',etapaName:'',
       assunto:'Ainda por aí? Vamos continuar nossa conversa',
       mensagem:'Olá {{nome}}, tudo bem? Vi que ainda não conseguimos avançar por aqui — posso te ajudar com alguma dúvida?',
-      ativo:true};
+      steps:[],ativo:true};
   }
   function gatilhoLabel(r){
     if(r.gatilho==='lead_novo')return `Lead novo sem 1º contato há ${r.dias} dia(s)`;
     if(r.gatilho==='parado_etapa')return `Parado ${r.dias}+ dia(s) na etapa "${r.etapaName||'qualquer'}"`;
+    if(r.gatilho==='entrou_etapa')return `Anexa observação ao chegar na etapa "${r.etapaName||'?'}"`;
+    if(r.gatilho==='cadencia_etapa')return `Cadência de ${(r.steps||[]).length} e-mail(s) ao chegar na etapa "${r.etapaName||'?'}"`;
     return `Sem atividade há ${r.dias}+ dia(s)`;
   }
   function head(title,sub,button=''){return `<div class="gl-head"><div><h1>${title}</h1><p>${sub}</p></div>${button}</div>`}
@@ -17538,6 +17544,12 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     {key:'lead_parado_etapa',icon:'🚦',canal:'whatsapp',nome:'Lead parado numa etapa do funil',
       desc:'Escolha uma etapa do funil comercial e um prazo — quando um lead travar ali, o sistema prepara o retorno automaticamente.',
       gatilho:'parado_etapa',dias:5,mensagem:'Olá {{nome}}, ficou alguma dúvida pra seguirmos com a proposta?',precisaConfigurar:true},
+    {key:'anexar_desc_etapa',icon:'🏷️',canal:'sistema',nome:'Anexar observação ao chegar numa etapa',
+      desc:'Quando o lead chega na etapa escolhida, o sistema anexa sozinho um texto padrão na descrição do lead — sem precisar clicar em nada, é feito na hora.',
+      gatilho:'entrou_etapa',mensagem:'Lead qualificado automaticamente pela automação ao chegar nesta etapa do funil.',precisaConfigurar:true},
+    {key:'cadencia_email_etapa',icon:'📧',canal:'email',nome:'Cadência de e-mails por etapa',
+      desc:'Quando o lead chega na etapa escolhida, dispara uma sequência de e-mails em dias diferentes (ex.: dia 0, dia 2, dia 5) — cada um vira uma ação pronta pra enviar na hora certa.',
+      gatilho:'cadencia_etapa',steps:[{dias:0,assunto:'Bem-vindo!',mensagem:'Olá {{nome}}, tudo bem? Recebemos seu interesse e já vamos te ajudar por aqui.'},{dias:2,assunto:'Ficou alguma dúvida?',mensagem:'Olá {{nome}}, passando pra saber se ficou alguma dúvida sobre a nossa proposta.'}],precisaConfigurar:true},
     {key:'whatsapp_api_oficial',icon:'🔒',locked:true,nome:'Envio automático via WhatsApp Business API',
       desc:'Manda a mensagem sozinho, sem precisar abrir o WhatsApp pra clicar em enviar. Exige conta oficial Meta Business aprovada — em breve.'},
     {key:'smtp_email',icon:'🔒',locked:true,nome:'Envio automático de e-mail (servidor próprio)',
@@ -17587,10 +17599,10 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
         <div class="auto-card-name">${esc(t.nome)}</div>
         <div class="auto-card-desc">${esc(t.desc)}</div>
         <div class="auto-card-foot">
-          <span class="auto-pill ${status==='on'?'on':''}">${status==='on'?'Ativa':status==='paused'?'Pausada':'Nativa do sistema'}</span>
+          <span class="auto-pill ${status==='on'?'on':''}">${status==='on'?'Ativa':status==='paused'?'Desativada':'Nativa do sistema'}</span>
           ${inst?`<div style="display:flex;gap:6px">
             <button class="gl-btn sm" onclick="autoEdit('${inst.id}')">Configurar</button>
-            <button class="gl-btn sm" onclick="autoToggle('${inst.id}')">${inst.ativo!==false?'Pausar':'Reativar'}</button>
+            <button class="gl-btn sm" onclick="autoToggle('${inst.id}')">${inst.ativo!==false?'Desativar':'Ativar'}</button>
           </div>`:`<button class="gl-btn sm primary" onclick="autoActivateTemplate('${t.key}')">${t.precisaConfigurar?'Configurar e ativar':'Ativar'}</button>`}
         </div>
       </div>`;
@@ -17599,16 +17611,16 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     return `<div class="auto-grid">${cards}</div>
     ${custom.length?`<div class="auto-section-title">Automações personalizadas</div>${custom.map(r=>`<div class="auto-rule-card">
       <div class="auto-rule-left">
-        <div class="auto-rule-ico ${r.canal}">${r.canal==='email'?'✉️':'💬'}</div>
+        <div class="auto-rule-ico ${r.canal}">${r.canal==='email'?'✉️':r.canal==='sistema'?'🏷️':'💬'}</div>
         <div>
-          <div class="auto-rule-name">${esc(r.nome)}<span class="auto-pill ${r.ativo!==false?'on':''}">${r.ativo!==false?'Ativa':'Pausada'}</span></div>
+          <div class="auto-rule-name">${esc(r.nome)}<span class="auto-pill ${r.ativo!==false?'on':''}">${r.ativo!==false?'Ativa':'Desativada'}</span></div>
           <div class="auto-rule-desc">${esc(gatilhoLabel(r))} → envia por <b>${r.canal==='email'?'e-mail':'WhatsApp'}</b>${r.funilName?` · Funil: ${esc(r.funilName)}`:''}</div>
           <div class="auto-rule-meta">Criada em ${new Date(r.createdAt||Date.now()).toLocaleDateString('pt-BR')}</div>
         </div>
       </div>
       <div class="auto-rule-actions">
         <button class="gl-btn sm" onclick="autoEdit('${r.id}')">Editar</button>
-        <button class="gl-btn sm" onclick="autoToggle('${r.id}')">${r.ativo!==false?'Pausar':'Ativar'}</button>
+        <button class="gl-btn sm" onclick="autoToggle('${r.id}')">${r.ativo!==false?'Desativar':'Ativar'}</button>
         <button class="gl-btn sm danger" onclick="autoDelete('${r.id}')">Excluir</button>
       </div>
     </div>`).join('')}`:''}`;
@@ -17617,15 +17629,18 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     const t=findTemplate(key);
     if(!t||t.locked)return;
     if(t.precisaConfigurar){
-      autoEditId='';autoView='editor';
+      autoEditId='';
+      autoCadenciaSteps=t.steps?JSON.parse(JSON.stringify(t.steps)):null;
+      autoView='editor';
       window.renderAutomacoes();
       setTimeout(()=>{
         const nomeEl=document.getElementById('auto-nome');if(nomeEl)nomeEl.value=t.nome;
         const gatilhoEl=document.getElementById('auto-gatilho');if(gatilhoEl)gatilhoEl.value=t.gatilho;
-        window.autoRenderStageField();
-        const diasEl=document.getElementById('auto-dias');if(diasEl)diasEl.value=t.dias;
-        const msgEl=document.getElementById('auto-mensagem');if(msgEl)msgEl.value=t.mensagem;
-        window.autoSetCanal(t.canal);
+        window.autoRenderGatilhoFields();
+        const diasEl=document.getElementById('auto-dias');if(diasEl)diasEl.value=t.dias||3;
+        const msgEl=document.getElementById('auto-mensagem');if(msgEl)msgEl.value=t.mensagem||'';
+        const anexoEl=document.getElementById('auto-anexo-texto');if(anexoEl)anexoEl.value=t.mensagem||'';
+        if(t.canal!=='sistema')window.autoSetCanal(t.canal);
         const tkEl=document.getElementById('auto-template-key');if(tkEl)tkEl.value=t.key;
       },0);
       return;
@@ -17641,42 +17656,52 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     if(typeof gexRunAutomationEngine==='function')gexRunAutomationEngine();
   };
 
+  let autoCadenciaSteps=[];
   function editorHtml(){
     const old=autoEditId?rules().find(x=>x.id===autoEditId)||{}:{};
     const d={...defaults(),...old};
+    if(autoCadenciaSteps===null||autoCadenciaSteps===undefined)autoCadenciaSteps=(old.steps&&old.steps.length?JSON.parse(JSON.stringify(old.steps)):[{dias:0,assunto:'',mensagem:''}]);
     const funnels=availFunnels(),active=typeof getActiveFunnel==='function'?getActiveFunnel():null;
     const funnel=funnels.find(f=>f.id===d.funilId)||active||funnels[0]||null,stages=funnel?.stages||[];
-    return `${head(autoEditId?'Configurar automação':'Automação personalizada','Configure o gatilho, o canal e a mensagem que o sistema vai preparar sozinho.')}
+    const gAtivEtapa=d.gatilho==='entrou_etapa',gCadencia=d.gatilho==='cadencia_etapa',gComEtapa=d.gatilho==='parado_etapa'||gAtivEtapa||gCadencia;
+    const gComDias=d.gatilho==='sem_atividade'||d.gatilho==='lead_novo'||d.gatilho==='parado_etapa';
+    const gComMsgPadrao=d.gatilho==='sem_atividade'||d.gatilho==='lead_novo'||d.gatilho==='parado_etapa';
+    return `${head(autoEditId?'Configurar automação':'Automação personalizada','Configure o gatilho, o canal e o que o sistema vai preparar sozinho.')}
     <input type="hidden" id="auto-template-key" value="${esc(d.templateKey||'')}">
     <div class="gl-panel">
       <h3>Identidade</h3><p>Um nome interno pra você reconhecer essa automação no banco.</p>
       <label class="gl-field"><span>Nome da automação</span><input class="gl-input" id="auto-nome" value="${esc(d.nome)}" placeholder="Ex.: Follow-up leads frios"></label>
     </div>
-    <div class="gl-panel">
-      <h3>Canal</h3><p>Por onde o follow-up será preparado.</p>
+    <div class="gl-panel" id="auto-canal-panel" style="${gAtivEtapa?'display:none':''}">
+      <h3>Canal</h3><p>Por onde a ação será preparada.</p>
       <div class="auto-seg" id="auto-canal-seg">
-        <button type="button" class="${d.canal==='whatsapp'?'active whatsapp':''}" onclick="autoSetCanal('whatsapp')" id="auto-canal-whatsapp">💬 WhatsApp</button>
-        <button type="button" class="${d.canal==='email'?'active email':''}" onclick="autoSetCanal('email')" id="auto-canal-email">✉️ E-mail</button>
+        <button type="button" class="${d.canal==='whatsapp'?'active whatsapp':''}" onclick="autoSetCanal('whatsapp')" id="auto-canal-whatsapp" ${gCadencia?'disabled style="opacity:.4;cursor:not-allowed"':''}>💬 WhatsApp</button>
+        <button type="button" class="${d.canal==='email'||gCadencia?'active email':''}" onclick="autoSetCanal('email')" id="auto-canal-email">✉️ E-mail</button>
       </div>
-      <input type="hidden" id="auto-canal" value="${esc(d.canal)}">
+      ${gCadencia?'<p style="font-size:9.5px;color:#94A3B8;margin-top:8px">Cadência funciona por e-mail — cada etapa da sequência vira um e-mail pronto.</p>':''}
+      <input type="hidden" id="auto-canal" value="${esc(gCadencia?'email':d.canal)}">
     </div>
     <div class="gl-panel">
-      <h3>Gatilho</h3><p>Quando o sistema deve considerar que o lead precisa de um follow-up.</p>
+      <h3>Gatilho</h3><p>Quando o sistema deve agir sozinho.</p>
       <div class="gl-grid">
-        <label class="gl-field"><span>Condição</span><select class="gl-select" id="auto-gatilho" onchange="autoRenderStageField()">
+        <label class="gl-field full"><span>Condição</span><select class="gl-select" id="auto-gatilho" onchange="autoRenderGatilhoFields()">
           <option value="sem_atividade" ${d.gatilho==='sem_atividade'?'selected':''}>Sem nenhuma atividade registrada há X dias</option>
           <option value="lead_novo" ${d.gatilho==='lead_novo'?'selected':''}>Lead novo sem 1º contato há X dias</option>
           <option value="parado_etapa" ${d.gatilho==='parado_etapa'?'selected':''}>Parado numa etapa do funil há X dias</option>
+          <option value="entrou_etapa" ${gAtivEtapa?'selected':''}>Chegou numa etapa do funil (anexa observação na hora)</option>
+          <option value="cadencia_etapa" ${gCadencia?'selected':''}>Chegou numa etapa do funil (dispara cadência de e-mails)</option>
         </select></label>
+      </div>
+      <div class="gl-grid" id="auto-dias-field" style="${gComDias?'':'display:none'};margin-top:11px">
         <label class="gl-field"><span>Dias</span><input class="gl-input" id="auto-dias" type="number" min="1" value="${d.dias||3}"></label>
       </div>
-      <div class="gl-grid" id="auto-stage-field" style="${d.gatilho==='parado_etapa'?'':'display:none'};margin-top:11px">
+      <div class="gl-grid" id="auto-stage-field" style="${gComEtapa?'':'display:none'};margin-top:11px">
         <label class="gl-field"><span>Funil</span><select class="gl-select" id="auto-funnel" onchange="autoFunnelChange()">${funnels.length?funnels.map(f=>`<option value="${esc(f.id)}" ${funnel?.id===f.id?'selected':''}>${esc(f.name)}</option>`).join(''):`<option value="">Funil comercial</option>`}</select></label>
         <label class="gl-field"><span>Etapa</span><select class="gl-select" id="auto-stage">${stages.map(s=>`<option value="${esc(s.id)}" data-name="${esc(s.name)}" ${d.etapaId===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></label>
       </div>
       <p style="font-size:9.5px;color:#94A3B8;margin-top:10px">A checagem roda automaticamente enquanto alguém estiver com o sistema aberto (a cada poucos minutos), e também sempre que esta tela é aberta.</p>
     </div>
-    <div class="gl-panel" id="auto-msg-panel">
+    <div class="gl-panel" id="auto-msg-panel" style="${gComMsgPadrao?'':'display:none'}">
       <h3>Mensagem</h3><p>Use <code>{{nome}}</code> para o sistema colocar o primeiro nome do lead automaticamente.</p>
       <div class="gl-grid" id="auto-assunto-wrap" style="${d.canal==='email'?'':'display:none'}">
         <label class="gl-field full"><span>Assunto do e-mail</span><input class="gl-input" id="auto-assunto" value="${esc(d.assunto)}"></label>
@@ -17684,13 +17709,37 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       <div class="gl-grid">
         <label class="gl-field full"><span>${d.canal==='email'?'Corpo do e-mail':'Mensagem do WhatsApp'}</span><textarea class="gl-textarea" id="auto-mensagem" style="height:110px">${esc(d.mensagem)}</textarea></label>
       </div>
-      <div class="gl-toggle-line"><span>Automação ativa</span><label class="gl-switch"><input id="auto-ativo" type="checkbox" ${d.ativo!==false?'checked':''}><i></i></label></div>
+    </div>
+    <div class="gl-panel" id="auto-anexo-panel" style="${gAtivEtapa?'':'display:none'}">
+      <h3>Observação a anexar</h3><p>Esse texto é adicionado automaticamente na descrição do lead assim que ele chega na etapa escolhida. Use <code>{{nome}}</code> se quiser.</p>
+      <div class="gl-grid"><label class="gl-field full"><span>Texto</span><textarea class="gl-textarea" id="auto-anexo-texto" style="height:90px">${esc(d.mensagem)}</textarea></label></div>
+    </div>
+    <div class="gl-panel" id="auto-cadencia-panel" style="${gCadencia?'':'display:none'}">
+      <h3>Sequência de e-mails</h3><p>Cada etapa dispara sozinha quando o lead completa o número de dias configurado na etapa do funil. Use <code>{{nome}}</code> nos textos.</p>
+      <div id="auto-cadencia-steps">${cadenciaStepsHtml()}</div>
+      <button class="gl-btn sm" style="margin-top:8px" onclick="autoAddStep()">＋ Adicionar e-mail à sequência</button>
+    </div>
+    <div class="gl-panel">
+      <div class="gl-toggle-line" style="border-top:0;padding-top:0"><span>Automação ativa</span><label class="gl-switch"><input id="auto-ativo" type="checkbox" ${d.ativo!==false?'checked':''}><i></i></label></div>
     </div>
     <div class="gl-footer"><button class="gl-btn" onclick="autoCancel()">Cancelar</button><button class="gl-btn primary" onclick="autoSave()">${autoEditId?'Salvar alterações':'Ativar automação'}</button></div>
     <div class="gl-card" style="padding:14px 16px;margin-top:14px;font-size:10.5px;color:var(--muted);line-height:1.6">
-      <b style="color:var(--txt)">Como funciona hoje:</b> o sistema identifica sozinho quem se encaixa na automação e prepara a mensagem pronta em "Ações pendentes". Para o WhatsApp, um clique abre a conversa já com o texto preenchido; para o e-mail, um clique abre seu programa de e-mail com assunto e corpo prontos. O envio automático sem clique nenhum (WhatsApp Business API oficial e servidor de e-mail transacional) é um passo futuro, à parte, que exige credenciais e aprovação de uma plataforma externa — veja os cards bloqueados no Banco de Automações.
+      <b style="color:var(--txt)">Como funciona hoje:</b> automações de WhatsApp e e-mail preparam a mensagem em "Ações pendentes" — um clique abre a conversa ou o e-mail já prontos, faltando só enviar. Já a automação de "anexar observação" é 100% automática: ela mesma escreve na descrição do lead, sem precisar de clique. O envio de mensagem sem clique nenhum (WhatsApp Business API oficial e servidor de e-mail transacional) é um passo futuro, à parte — veja os cards bloqueados no Banco de Automações.
     </div>`;
   }
+  function cadenciaStepsHtml(){
+    return autoCadenciaSteps.map((s,i)=>`<div class="auto-step-row" data-index="${i}">
+      <div class="auto-step-head"><b>E-mail ${i+1}</b>${autoCadenciaSteps.length>1?`<button class="gl-btn sm danger" onclick="autoRemoveStep(${i})">Remover</button>`:''}</div>
+      <div class="gl-grid">
+        <label class="gl-field"><span>Dias após chegar na etapa</span><input class="gl-input" type="number" min="0" value="${s.dias||0}" oninput="autoStepChange(${i},'dias',this.value)"></label>
+        <label class="gl-field"><span>Assunto</span><input class="gl-input" value="${esc(s.assunto)}" oninput="autoStepChange(${i},'assunto',this.value)"></label>
+      </div>
+      <label class="gl-field full" style="margin-top:8px"><span>Corpo do e-mail</span><textarea class="gl-textarea" style="height:70px" oninput="autoStepChange(${i},'mensagem',this.value)">${esc(s.mensagem)}</textarea></label>
+    </div>`).join('');
+  }
+  window.autoAddStep=()=>{autoCadenciaSteps.push({dias:(autoCadenciaSteps[autoCadenciaSteps.length-1]?.dias||0)+2,assunto:'',mensagem:''});document.getElementById('auto-cadencia-steps').innerHTML=cadenciaStepsHtml()};
+  window.autoRemoveStep=i=>{if(autoCadenciaSteps.length<=1)return;autoCadenciaSteps.splice(i,1);document.getElementById('auto-cadencia-steps').innerHTML=cadenciaStepsHtml()};
+  window.autoStepChange=(i,field,value)=>{if(!autoCadenciaSteps[i])return;autoCadenciaSteps[i][field]=field==='dias'?Math.max(0,Number(value)||0):value};
 
   window.autoSetCanal=canal=>{
     document.getElementById('auto-canal').value=canal;
@@ -17703,10 +17752,18 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     const label=document.querySelector('#auto-msg-panel .gl-field.full span');
     if(label)label.textContent=canal==='email'?'Corpo do e-mail':'Mensagem do WhatsApp';
   };
-  window.autoRenderStageField=()=>{
+  window.autoRenderGatilhoFields=()=>{
     const g=document.getElementById('auto-gatilho')?.value;
-    const el=document.getElementById('auto-stage-field');
-    if(el)el.style.display=g==='parado_etapa'?'':'none';
+    const comEtapa=g==='parado_etapa'||g==='entrou_etapa'||g==='cadencia_etapa';
+    const comDias=g==='sem_atividade'||g==='lead_novo'||g==='parado_etapa';
+    const comMsgPadrao=comDias;
+    const stageEl=document.getElementById('auto-stage-field');if(stageEl)stageEl.style.display=comEtapa?'':'none';
+    const diasEl=document.getElementById('auto-dias-field');if(diasEl)diasEl.style.display=comDias?'':'none';
+    const msgEl=document.getElementById('auto-msg-panel');if(msgEl)msgEl.style.display=comMsgPadrao?'':'none';
+    const anexoEl=document.getElementById('auto-anexo-panel');if(anexoEl)anexoEl.style.display=g==='entrou_etapa'?'':'none';
+    const cadEl=document.getElementById('auto-cadencia-panel');if(cadEl)cadEl.style.display=g==='cadencia_etapa'?'':'none';
+    const canalPanel=document.getElementById('auto-canal-panel');if(canalPanel)canalPanel.style.display=g==='entrou_etapa'?'none':'';
+    if(g==='cadencia_etapa')window.autoSetCanal('email');
   };
   window.autoFunnelChange=preferred=>{
     const funnelId=document.getElementById('auto-funnel')?.value,fn=availFunnels().find(f=>f.id===funnelId);
@@ -17715,37 +17772,49 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     stage.innerHTML=(fn?.stages||[]).slice().sort((a,b)=>(a.order||0)-(b.order||0)).map(s=>`<option value="${esc(s.id)}" data-name="${esc(s.name)}" ${s.id===wanted?'selected':''}>${esc(s.name)}</option>`).join('');
   };
 
-  window.autoNew=()=>{autoEditId='';autoView='editor';window.renderAutomacoes()};
-  window.autoEdit=id=>{autoEditId=id;autoView='editor';window.renderAutomacoes()};
+  window.autoNew=()=>{autoEditId='';autoCadenciaSteps=null;autoView='editor';window.renderAutomacoes()};
+  window.autoEdit=id=>{autoEditId=id;autoCadenciaSteps=null;autoView='editor';window.renderAutomacoes()};
   window.autoCancel=()=>{autoView='banco';autoEditId='';window.renderAutomacoes()};
-  window.autoToggle=id=>{const r=rules().find(x=>x.id===id);if(!r)return;DB.update('automacoes',id,{ativo:r.ativo===false});window.renderAutomacoes();toast(r.ativo===false?'Automação ativada ✓':'Automação pausada','#10B981')};
+  window.autoToggle=id=>{const r=rules().find(x=>x.id===id);if(!r)return;DB.update('automacoes',id,{ativo:r.ativo===false});window.renderAutomacoes();toast(r.ativo===false?'Automação ativada ✓':'Automação desativada','#6B7280')};
   window.autoDelete=id=>{confirmDelete(()=>{DB.remove('automacoes',id);window.renderAutomacoes();toast('Automação excluída','#EF4444')})};
   window.autoSave=()=>{
     const nome=document.getElementById('auto-nome')?.value.trim();
     if(!nome){toast('Informe o nome da automação','#EF4444');return}
-    const canal=document.getElementById('auto-canal')?.value||'whatsapp';
     const gatilho=document.getElementById('auto-gatilho')?.value||'sem_atividade';
-    const dias=Math.max(1,Number(document.getElementById('auto-dias')?.value)||3);
-    const mensagem=document.getElementById('auto-mensagem')?.value.trim();
-    if(!mensagem){toast('Escreva a mensagem da automação','#EF4444');return}
+    const comEtapa=gatilho==='parado_etapa'||gatilho==='entrou_etapa'||gatilho==='cadencia_etapa';
     let funilId='',funilName='',etapaId='',etapaName='';
-    if(gatilho==='parado_etapa'){
+    if(comEtapa){
       const fSel=document.getElementById('auto-funnel'),sSel=document.getElementById('auto-stage');
       const fn=availFunnels().find(f=>f.id===fSel?.value);
       funilId=fn?.id||'';funilName=fn?.name||'';
       etapaId=sSel?.value||'';etapaName=sSel?.selectedOptions?.[0]?.dataset.name||sSel?.selectedOptions?.[0]?.textContent||'';
+      if(!etapaId){toast('Escolha a etapa do funil','#EF4444');return}
     }
-    const obj={
-      nome,canal,gatilho,dias,funilId,funilName,etapaId,etapaName,
+    const base={
+      nome,gatilho,funilId,funilName,etapaId,etapaName,
       templateKey:document.getElementById('auto-template-key')?.value||'',
-      assunto:document.getElementById('auto-assunto')?.value.trim()||'',
-      mensagem,
       ativo:document.getElementById('auto-ativo')?.checked!==false,
       updatedAt:new Date().toISOString()
     };
+    let obj;
+    if(gatilho==='entrou_etapa'){
+      const texto=document.getElementById('auto-anexo-texto')?.value.trim();
+      if(!texto){toast('Escreva o texto que será anexado ao lead','#EF4444');return}
+      obj={...base,canal:'sistema',dias:0,mensagem:texto,assunto:'',steps:[]};
+    }else if(gatilho==='cadencia_etapa'){
+      const steps=(autoCadenciaSteps||[]).map(s=>({dias:Math.max(0,Number(s.dias)||0),assunto:String(s.assunto||'').trim(),mensagem:String(s.mensagem||'').trim()}));
+      if(!steps.length||steps.some(s=>!s.mensagem)){toast('Preencha o corpo de todos os e-mails da cadência','#EF4444');return}
+      obj={...base,canal:'email',dias:0,mensagem:'',assunto:'',steps:steps.sort((a,b)=>a.dias-b.dias)};
+    }else{
+      const canal=document.getElementById('auto-canal')?.value||'whatsapp';
+      const dias=Math.max(1,Number(document.getElementById('auto-dias')?.value)||3);
+      const mensagem=document.getElementById('auto-mensagem')?.value.trim();
+      if(!mensagem){toast('Escreva a mensagem da automação','#EF4444');return}
+      obj={...base,canal,dias,mensagem,assunto:document.getElementById('auto-assunto')?.value.trim()||'',steps:[]};
+    }
     if(autoEditId)DB.update('automacoes',autoEditId,obj);
     else DB.push('automacoes',{id:uid(),...obj,createdAt:new Date().toISOString(),createdBy:sessionUser?.id||''});
-    autoView='banco';autoEditId='';window.renderAutomacoes();
+    autoView='banco';autoEditId='';autoCadenciaSteps=null;window.renderAutomacoes();
     toast('Automação salva ✓','#10B981');
     if(typeof gexRunAutomationEngine==='function')gexRunAutomationEngine();
   };
@@ -17762,7 +17831,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     ${list.length?list.map(t=>`<div class="auto-task-card">
       <div class="auto-task-top">
         <div>
-          <div class="auto-task-who">${t.canal==='email'?'✉️':'💬'} ${esc(t.leadNome)}</div>
+          <div class="auto-task-who">${t.canal==='email'?'✉️':t.canal==='sistema'?'🏷️':'💬'} ${esc(t.leadNome)}</div>
           <div class="auto-task-rule">Automação: ${esc(t.ruleName)} · ${new Date(t.createdAt).toLocaleString('pt-BR')}</div>
         </div>
         <div class="auto-task-actions">
@@ -17812,6 +17881,10 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     if(cur.some(x=>x.id===id))DB.update('automacao_log',id,data);
     else DB.push('automacao_log',{id,...data});
   }
+  function leadEmEtapa(lead,rule){
+    if(!rule.etapaId)return false;
+    return String(lead.stageId||'')===String(rule.etapaId) || lead.estagio===rule.etapaName;
+  }
   window.gexRunAutomationEngine=function(){
     let rs=[];
     try{rs=(DB.get('automacoes')||[]).filter(r=>r.ativo!==false)}catch(e){return}
@@ -17819,13 +17892,65 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     const leads=(DB.get('leads')||[]).filter(l=>!l.deleted_at);
     const logs=DB.get('automacao_log')||[];
     const logMap={};logs.forEach(l=>logMap[l.id]=l);
-    let created=0;
+    let created=0,aplicadas=0;
     rs.forEach(rule=>{
+      // ── Chegou numa etapa → anexa observação (100% automático, sem clique) ──
+      if(rule.gatilho==='entrou_etapa'){
+        leads.forEach(lead=>{
+          if(!leadEmEtapa(lead,rule))return;
+          const logId=rule.id+'__'+lead.id;
+          if(logMap[logId])return; // já aplicado nesse lead, uma vez só
+          const texto=renderTpl(rule.mensagem,lead);
+          const descAtual=String(lead.desc||'').trim();
+          const novoDesc=descAtual?`${descAtual}\n\n${texto}`:texto;
+          DB.update('leads',lead.id,{desc:novoDesc});
+          try{DB.push('atividades',{id:uid(),leadId:lead.id,tipo:'Automação',ico:'🏷️',texto:`Automação "${rule.nome}" anexou uma observação ao lead.`,data:new Date().toLocaleString('pt-BR'),usuario:'Automações'});}catch(e){}
+          DB.push('automacao_tasks',{
+            id:uid(),ruleId:rule.id,ruleName:rule.nome,canal:'sistema',
+            leadId:lead.id,leadNome:lead.nome||'Lead',leadTelefone:'',leadEmail:'',
+            assunto:'',mensagem:texto,status:'feita',createdAt:new Date().toISOString(),doneAt:new Date().toISOString()
+          });
+          upsertLog(logId,{ruleId:rule.id,leadId:lead.id,lastTriggeredAt:new Date().toISOString()});
+          logMap[logId]={id:logId,ruleId:rule.id,leadId:lead.id};
+          aplicadas++;
+        });
+        return;
+      }
+      // ── Chegou numa etapa → cadência de e-mails em dias sucessivos ──
+      if(rule.gatilho==='cadencia_etapa'){
+        const steps=rule.steps||[];
+        leads.forEach(lead=>{
+          if(!leadEmEtapa(lead,rule))return;
+          const entradaId=rule.id+'__'+lead.id+'__entrada';
+          let entradaLog=logMap[entradaId];
+          if(!entradaLog){
+            entradaLog={id:entradaId,ruleId:rule.id,leadId:lead.id,entradaISO:new Date().toISOString()};
+            DB.push('automacao_log',entradaLog);
+            logMap[entradaId]=entradaLog;
+          }
+          const diasNaEtapa=(Date.now()-new Date(entradaLog.entradaISO).getTime())/86400000;
+          steps.forEach((step,i)=>{
+            if(diasNaEtapa<Number(step.dias||0))return;
+            const stepId=rule.id+'__'+lead.id+'__step'+i;
+            if(logMap[stepId])return;
+            const task={
+              id:uid(),ruleId:rule.id,ruleName:`${rule.nome} (e-mail ${i+1}/${steps.length})`,canal:'email',
+              leadId:lead.id,leadNome:lead.nome||'Lead',leadTelefone:'',leadEmail:lead.email||'',
+              assunto:renderTpl(step.assunto,lead),mensagem:renderTpl(step.mensagem,lead),
+              status:'pendente',createdAt:new Date().toISOString()
+            };
+            DB.push('automacao_tasks',task);
+            upsertLog(stepId,{ruleId:rule.id,leadId:lead.id,step:i,lastTriggeredAt:new Date().toISOString()});
+            logMap[stepId]={id:stepId,ruleId:rule.id,leadId:lead.id,step:i};
+            created++;
+          });
+        });
+        return;
+      }
+      // ── Gatilhos por tempo: sem atividade / lead novo / parado numa etapa ──
       const thresh=Math.max(1,Number(rule.dias)||3);
       leads.forEach(lead=>{
-        if(rule.gatilho==='parado_etapa' && rule.etapaId){
-          if(String(lead.stageId||'')!==String(rule.etapaId) && lead.estagio!==rule.etapaName)return;
-        }
+        if(rule.gatilho==='parado_etapa' && rule.etapaId && !leadEmEtapa(lead,rule))return;
         const lastAtiv=lastAtividadeDate(lead.id);
         if(rule.gatilho==='lead_novo' && lastAtiv)return; // já teve algum contato
         const ref=lastAtiv||(lead.createdAt?new Date(lead.createdAt):null);
@@ -17852,8 +17977,11 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       });
     });
     window.__gexAutoLastRun=Date.now();
-    if(created>0){
-      toast(`${created} novo(s) follow-up(s) preparado(s) pelas automações ✓`,'#10B981');
+    if(created>0||aplicadas>0){
+      const partes=[];
+      if(created>0)partes.push(`${created} nova(s) ação(ões) preparada(s)`);
+      if(aplicadas>0)partes.push(`${aplicadas} observação(ões) anexada(s) automaticamente`);
+      toast(`${partes.join(' · ')} ✓`,'#10B981');
       if(document.getElementById('page-automacoes')?.classList.contains('active'))window.renderAutomacoes();
     }
   };
