@@ -5777,6 +5777,53 @@ async function getGexSupabaseToken(){
   if(error||!data?.session?.access_token)throw new Error('Sessão Supabase não encontrada. Faça login novamente.');
   return data.session.access_token;
 }
+async function gexLoadSmtpConnectionStatus(){
+  const statusEl=document.getElementById('smtp-cfg-status');
+  if(!statusEl)return;
+  try{
+    const token=await getGexSupabaseToken();
+    const res=await fetch(getSupabaseFunctionUrl('smtp-config-get'),{headers:{Authorization:`Bearer ${token}`}});
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível carregar a conexão de e-mail.');
+    if(j.connected){
+      statusEl.innerHTML=`<span style="color:#059669;font-weight:800">● Conectado</span> — enviando por <b>${escHtml(j.host||'')}</b> como <b>${escHtml(j.fromEmail||j.username||'')}</b>`;
+    }else{
+      statusEl.innerHTML=`<span style="color:#94A3B8;font-weight:800">○ Não conectado</span> — preencha os dados abaixo para ativar o envio automático.`;
+    }
+    const set=(id,val)=>{const el=document.getElementById(id);if(el&&!el.value)el.value=val||''};
+    set('smtp-host',j.host);set('smtp-port',j.port||'587');set('smtp-user',j.username);
+    set('smtp-from-name',j.fromName);set('smtp-from-email',j.fromEmail);
+    const secureEl=document.getElementById('smtp-secure');if(secureEl&&j.secure)secureEl.value=j.secure;
+    const passEl=document.getElementById('smtp-pass');
+    if(passEl && j.hasPassword)passEl.placeholder='●●●●●●●● (senha salva — deixe em branco pra manter)';
+  }catch(err){
+    statusEl.innerHTML=`<span style="color:#EF4444">Erro ao carregar: ${escHtml(err.message||'')}</span>`;
+  }
+}
+async function gexSaveSmtpConnection(){
+  const host=document.getElementById('smtp-host')?.value.trim();
+  const port=document.getElementById('smtp-port')?.value.trim()||'587';
+  const username=document.getElementById('smtp-user')?.value.trim();
+  const password=document.getElementById('smtp-pass')?.value;
+  const fromName=document.getElementById('smtp-from-name')?.value.trim();
+  const fromEmail=document.getElementById('smtp-from-email')?.value.trim();
+  const secure=document.getElementById('smtp-secure')?.value||'tls';
+  if(!host||!username||!fromEmail){toast('Preencha servidor, usuário e e-mail remetente','#EF4444');return}
+  try{
+    const token=await getGexSupabaseToken();
+    const res=await fetch(getSupabaseFunctionUrl('smtp-config-save'),{
+      method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({host,port,username,password,fromName,fromEmail,secure})
+    });
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível salvar a conexão.');
+    const passEl=document.getElementById('smtp-pass');if(passEl)passEl.value='';
+    toast('Conexão de e-mail salva ✓','#10B981');
+    gexLoadSmtpConnectionStatus();
+  }catch(err){
+    toast(err.message||'Erro ao salvar conexão de e-mail','#EF4444');
+  }
+}
 function setMetaOAuthButtonState(loading){
   const btn=document.getElementById('meta-oauth-connect-btn');
   if(btn){btn.disabled=!!loading;btn.textContent=loading?'Abrindo Facebook...':'Conectar com Facebook';}
@@ -14336,6 +14383,23 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
             <div class="std-panel-title">Resultado do último teste</div>
             <div id="int-test-result"></div>
           </div>
+          <div class="std-panel" id="smtp-cfg-panel">
+            <div class="std-panel-title">✉️ Conexão de e-mail (SMTP)</div>
+            <div style="font-size:10.5px;color:var(--muted);line-height:1.5;margin-bottom:10px">Conecte a caixa de e-mail da sua empresa para que as automações de e-mail sejam enviadas automaticamente, sem depender do e-mail interno da GEX.</div>
+            <div id="smtp-cfg-status" style="font-size:10.5px;color:var(--muted);margin-bottom:10px">Carregando status...</div>
+            <div class="gl-grid" style="grid-template-columns:1fr;gap:8px">
+              <label class="gl-field"><span>Servidor SMTP</span><input class="gl-input" id="smtp-host" placeholder="smtp.seudominio.com"></label>
+              <div style="display:flex;gap:8px">
+                <label class="gl-field" style="flex:1"><span>Porta</span><input class="gl-input" id="smtp-port" placeholder="587" value="587"></label>
+                <label class="gl-field" style="flex:2"><span>Segurança</span><select class="gl-select" id="smtp-secure"><option value="tls">TLS / STARTTLS</option><option value="ssl">SSL</option></select></label>
+              </div>
+              <label class="gl-field"><span>Usuário SMTP</span><input class="gl-input" id="smtp-user" placeholder="email@seudominio.com"></label>
+              <label class="gl-field"><span>Senha / Token</span><input class="gl-input" id="smtp-pass" type="password" placeholder="●●●●●●●●"></label>
+              <label class="gl-field"><span>Nome do remetente</span><input class="gl-input" id="smtp-from-name" placeholder="Minha Empresa"></label>
+              <label class="gl-field"><span>E-mail remetente</span><input class="gl-input" id="smtp-from-email" placeholder="contato@seudominio.com"></label>
+            </div>
+            <button class="std-btn primary" style="width:100%;margin-top:10px" onclick="gexSaveSmtpConnection()">Salvar conexão</button>
+          </div>
           <div class="std-panel">
             <div class="std-panel-title">Eventos recentes</div>
             <div class="int-log" id="int-log"></div>
@@ -14346,6 +14410,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
     renderIntegrationApps();
     if(typeof renderIntegrationLog === 'function') renderIntegrationLog();
     renderIntegrationTestResult();
+    if(typeof gexLoadSmtpConnectionStatus === 'function') gexLoadSmtpConnectionStatus();
   };
 
   window.renderIntegrationApps = function(){
@@ -17653,7 +17718,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     });
     window.renderAutomacoes();
     toast('Automação ativada ✓','#10B981');
-    if(typeof gexRunAutomationEngine==='function')gexRunAutomationEngine();
+    if(typeof gexRunAutomationEngine==='function')Promise.resolve(gexRunAutomationEngine()).catch(e=>console.error('[GexFlow] Erro no motor de automações:',e));
   };
 
   let autoCadenciaSteps=[];
@@ -17695,10 +17760,11 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       <div class="gl-grid" id="auto-dias-field" style="${gComDias?'':'display:none'};margin-top:11px">
         <label class="gl-field"><span>Dias</span><input class="gl-input" id="auto-dias" type="number" min="1" value="${d.dias||3}"></label>
       </div>
-      <div class="gl-grid" id="auto-stage-field" style="${gComEtapa?'':'display:none'};margin-top:11px">
-        <label class="gl-field"><span>Funil</span><select class="gl-select" id="auto-funnel" onchange="autoFunnelChange()">${funnels.length?funnels.map(f=>`<option value="${esc(f.id)}" ${funnel?.id===f.id?'selected':''}>${esc(f.name)}</option>`).join(''):`<option value="">Funil comercial</option>`}</select></label>
-        <label class="gl-field"><span>Etapa</span><select class="gl-select" id="auto-stage">${stages.map(s=>`<option value="${esc(s.id)}" data-name="${esc(s.name)}" ${d.etapaId===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></label>
+      <div class="gl-grid" id="auto-stage-field" style="margin-top:11px">
+        <label class="gl-field"><span>Funil</span><select class="gl-select" id="auto-funnel" onchange="autoFunnelChange()">${(!gComEtapa?`<option value="" ${!d.funilId?'selected':''}>Todos os funis</option>`:'')}${funnels.length?funnels.map(f=>`<option value="${esc(f.id)}" ${funnel?.id===f.id&&d.funilId?'selected':''}>${esc(f.name)}</option>`).join(''):(gComEtapa?`<option value="">Funil comercial</option>`:'')}</select></label>
+        <label class="gl-field" id="auto-etapa-wrap" style="${gComEtapa?'':'display:none'}"><span>Etapa</span><select class="gl-select" id="auto-stage">${stages.map(s=>`<option value="${esc(s.id)}" data-name="${esc(s.name)}" ${d.etapaId===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></label>
       </div>
+      <p style="font-size:9.5px;color:#94A3B8;margin-top:6px;${gComEtapa?'display:none':''}" id="auto-funil-hint">Opcional: restrinja essa automação a um único funil, ou deixe em "Todos os funis" para aplicar em qualquer lead.</p>
       <p style="font-size:9.5px;color:#94A3B8;margin-top:10px">A checagem roda automaticamente enquanto alguém estiver com o sistema aberto (a cada poucos minutos), e também sempre que esta tela é aberta.</p>
     </div>
     <div class="gl-panel" id="auto-msg-panel" style="${gComMsgPadrao?'':'display:none'}">
@@ -17757,12 +17823,24 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     const comEtapa=g==='parado_etapa'||g==='entrou_etapa'||g==='cadencia_etapa';
     const comDias=g==='sem_atividade'||g==='lead_novo'||g==='parado_etapa';
     const comMsgPadrao=comDias;
-    const stageEl=document.getElementById('auto-stage-field');if(stageEl)stageEl.style.display=comEtapa?'':'none';
+    const etapaWrap=document.getElementById('auto-etapa-wrap');if(etapaWrap)etapaWrap.style.display=comEtapa?'':'none';
+    const hintEl=document.getElementById('auto-funil-hint');if(hintEl)hintEl.style.display=comEtapa?'none':'';
     const diasEl=document.getElementById('auto-dias-field');if(diasEl)diasEl.style.display=comDias?'':'none';
     const msgEl=document.getElementById('auto-msg-panel');if(msgEl)msgEl.style.display=comMsgPadrao?'':'none';
     const anexoEl=document.getElementById('auto-anexo-panel');if(anexoEl)anexoEl.style.display=g==='entrou_etapa'?'':'none';
     const cadEl=document.getElementById('auto-cadencia-panel');if(cadEl)cadEl.style.display=g==='cadencia_etapa'?'':'none';
     const canalPanel=document.getElementById('auto-canal-panel');if(canalPanel)canalPanel.style.display=g==='entrou_etapa'?'none':'';
+    const funnelSel=document.getElementById('auto-funnel');
+    if(funnelSel){
+      const allOpt=funnelSel.querySelector('option[value=""]');
+      if(comEtapa){
+        if(allOpt)allOpt.remove();
+        if(!funnelSel.value)window.autoFunnelChange();
+      }else if(!allOpt){
+        const o=document.createElement('option');o.value='';o.textContent='Todos os funis';
+        funnelSel.insertBefore(o,funnelSel.firstChild);funnelSel.value='';
+      }
+    }
     if(g==='cadencia_etapa')window.autoSetCanal('email');
   };
   window.autoFunnelChange=preferred=>{
@@ -17789,6 +17867,10 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       funilId=fn?.id||'';funilName=fn?.name||'';
       etapaId=sSel?.value||'';etapaName=sSel?.selectedOptions?.[0]?.dataset.name||sSel?.selectedOptions?.[0]?.textContent||'';
       if(!etapaId){toast('Escolha a etapa do funil','#EF4444');return}
+    }else{
+      const fSel=document.getElementById('auto-funnel');
+      const fn=availFunnels().find(f=>f.id===fSel?.value);
+      funilId=fn?.id||'';funilName=fn?.name||'';
     }
     const base={
       nome,gatilho,funilId,funilName,etapaId,etapaName,
@@ -17816,7 +17898,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     else DB.push('automacoes',{id:uid(),...obj,createdAt:new Date().toISOString(),createdBy:sessionUser?.id||''});
     autoView='banco';autoEditId='';autoCadenciaSteps=null;window.renderAutomacoes();
     toast('Automação salva ✓','#10B981');
-    if(typeof gexRunAutomationEngine==='function')gexRunAutomationEngine();
+    if(typeof gexRunAutomationEngine==='function')Promise.resolve(gexRunAutomationEngine()).catch(e=>console.error('[GexFlow] Erro no motor de automações:',e));
   };
 
   function tasksHtml(){
@@ -17885,7 +17967,27 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     if(!rule.etapaId)return false;
     return String(lead.stageId||'')===String(rule.etapaId) || lead.estagio===rule.etapaName;
   }
-  window.gexRunAutomationEngine=function(){
+  // Manda o e-mail de verdade pela mesma caixa de Gmail já configurada nos
+  // Secrets do Supabase (função irmã da que já avisa a equipe quando um
+  // lead chega). Se a função ainda não foi publicada, ou o Gmail não está
+  // configurado, falha em silêncio — a ação fica pendente pro clique manual
+  // de "Abrir e-mail" continuar funcionando como plano B.
+  async function sendAutomationEmail({to,toName,subject,text}){
+    try{
+      const token=await getGexSupabaseToken();
+      const res=await fetch(getSupabaseFunctionUrl('send-automation-email'),{
+        method:'POST',
+        headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+        body:JSON.stringify({to,toName,subject,text})
+      });
+      const j=await res.json().catch(()=>({}));
+      return j;
+    }catch(err){
+      console.warn('[GexFlow] Falha ao enviar e-mail de automação:',err);
+      return {ok:false,error:err.message||'Falha de conexão'};
+    }
+  }
+  window.gexRunAutomationEngine=async function(){
     let rs=[];
     try{rs=(DB.get('automacoes')||[]).filter(r=>r.ativo!==false)}catch(e){return}
     if(!rs.length){window.__gexAutoLastRun=Date.now();return}
@@ -17893,6 +17995,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     const logs=DB.get('automacao_log')||[];
     const logMap={};logs.forEach(l=>logMap[l.id]=l);
     let created=0,aplicadas=0;
+    const emailsParaEnviar=[]; // {taskId,to,toName,subject,text}
     rs.forEach(rule=>{
       // ── Chegou numa etapa → anexa observação (100% automático, sem clique) ──
       if(rule.gatilho==='entrou_etapa'){
@@ -17940,6 +18043,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
               status:'pendente',createdAt:new Date().toISOString()
             };
             DB.push('automacao_tasks',task);
+            if(lead.email)emailsParaEnviar.push({taskId:task.id,to:lead.email,toName:lead.nome||'',subject:task.assunto,text:task.mensagem});
             upsertLog(stepId,{ruleId:rule.id,leadId:lead.id,step:i,lastTriggeredAt:new Date().toISOString()});
             logMap[stepId]={id:stepId,ruleId:rule.id,leadId:lead.id,step:i};
             created++;
@@ -17951,6 +18055,12 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       const thresh=Math.max(1,Number(rule.dias)||3);
       leads.forEach(lead=>{
         if(rule.gatilho==='parado_etapa' && rule.etapaId && !leadEmEtapa(lead,rule))return;
+        if(rule.gatilho!=='parado_etapa' && rule.funilId){
+          const leadFunilId=lead.funnelId||'';
+          const funilPadrao=(availFunnels().find(f=>f.isDefault)||{}).id||'';
+          const leadFunilEfetivo=leadFunilId||funilPadrao;
+          if(leadFunilEfetivo!==rule.funilId)return;
+        }
         const lastAtiv=lastAtividadeDate(lead.id);
         if(rule.gatilho==='lead_novo' && lastAtiv)return; // já teve algum contato
         const ref=lastAtiv||(lead.createdAt?new Date(lead.createdAt):null);
@@ -17971,15 +18081,24 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
           status:'pendente',createdAt:new Date().toISOString()
         };
         DB.push('automacao_tasks',task);
+        if(rule.canal==='email' && lead.email)emailsParaEnviar.push({taskId:task.id,to:lead.email,toName:lead.nome||'',subject:task.assunto||task.ruleName,text:task.mensagem});
         upsertLog(logId,{ruleId:rule.id,leadId:lead.id,lastRefISO:refISO,lastTriggeredAt:new Date().toISOString()});
         logMap[logId]={id:logId,ruleId:rule.id,leadId:lead.id,lastRefISO:refISO,lastTriggeredAt:new Date().toISOString()};
         created++;
       });
     });
+    let enviados=0;
+    for(const em of emailsParaEnviar){
+      try{
+        const r=await sendAutomationEmail(em);
+        if(r&&r.ok){DB.update('automacao_tasks',em.taskId,{status:'feita',doneAt:new Date().toISOString(),enviadoAuto:true});enviados++}
+      }catch(e){/* fica pendente — clique manual de "Abrir e-mail" continua funcionando */}
+    }
     window.__gexAutoLastRun=Date.now();
     if(created>0||aplicadas>0){
-      const partes=[];
-      if(created>0)partes.push(`${created} nova(s) ação(ões) preparada(s)`);
+      const partes=[],aindaPendentes=created-enviados;
+      if(enviados>0)partes.push(`${enviados} e-mail(s) enviado(s) automaticamente`);
+      if(aindaPendentes>0)partes.push(`${aindaPendentes} ação(ões) aguardando um clique`);
       if(aplicadas>0)partes.push(`${aplicadas} observação(ões) anexada(s) automaticamente`);
       toast(`${partes.join(' · ')} ✓`,'#10B981');
       if(document.getElementById('page-automacoes')?.classList.contains('active'))window.renderAutomacoes();
@@ -17988,8 +18107,9 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   let __gexAutoInterval=null;
   window.startGexAutomationEngine=function(){
     if(__gexAutoInterval)return;
-    setTimeout(()=>{try{window.gexRunAutomationEngine()}catch(e){console.error('[GexFlow] Erro no motor de automações:',e)}},4000);
-    __gexAutoInterval=setInterval(()=>{try{window.gexRunAutomationEngine()}catch(e){console.error('[GexFlow] Erro no motor de automações:',e)}},5*60*1000);
+    const runSafe=()=>{try{Promise.resolve(window.gexRunAutomationEngine()).catch(e=>console.error('[GexFlow] Erro no motor de automações:',e))}catch(e){console.error('[GexFlow] Erro no motor de automações:',e)}};
+    setTimeout(runSafe,4000);
+    __gexAutoInterval=setInterval(runSafe,5*60*1000);
   };
 })();
 </script>
