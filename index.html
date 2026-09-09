@@ -1827,6 +1827,12 @@ textarea.form-input{resize:vertical;min-height:75px}
       <div class="nav-sub" data-sub="gerar-leads-api" onclick="navigateSub('gerar-leads-api','gerar-leads')"><span class="nav-sub-ico">·</span>API</div>
     </div>
 
+    <!-- AUTOMAÇÕES -->
+    <div class="nav-item" data-page="automacoes" onclick="navigate('automacoes')">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.983 1.907a.75.75 0 00-1.292-.657L4.522 9.315a.75.75 0 00.55 1.235h4.634l-1.7 7.543a.75.75 0 001.292.657l6.169-8.065a.75.75 0 00-.55-1.235h-4.634l1.7-7.543z" clip-rule="evenodd"/></svg>
+      Automações
+    </div>
+
     <!-- Finanças group (collapsed) -->
     <div class="nav-grp-hdr" id="grp-hdr-financas" onclick="toggleGrp('financas')">
       <div class="nav-grp-left">
@@ -2108,6 +2114,7 @@ textarea.form-input{resize:vertical;min-height:75px}
 
   <!-- GERAR LEADS -->
   <div class="page" id="page-gerar-leads"></div>
+  <div class="page" id="page-automacoes"></div>
 
   <!-- CONFIGURAÇÕES -->
   <div class="page" id="page-configuracoes"></div>
@@ -2505,6 +2512,7 @@ const PERMISSION_SECTIONS = [
     {id:'config_preferencias', label:'Preferências', parent:'configuracoes'}
   ]},
   {id:'integracoes', label:'Integrações (legado)', color:'#64748B', tabs:[{id:'integracoes', label:'Central de integrações', parent:'integracoes'}]},
+  {id:'automacoes', label:'Automações', color:'#10B981', tabs:[{id:'automacoes', label:'Automações', parent:'automacoes'}]},
   {id:'rh', label:'Recursos Humanos', color:'#64748B', tabs:[{id:'rh', label:'Recursos Humanos', parent:'rh'}]},
   {id:'perfil', label:'Meu Perfil', color:'#8B5CF6', tabs:[{id:'perfil', label:'Meu perfil', parent:'perfil'}]}
 ];
@@ -3437,7 +3445,8 @@ const GEX_DB_COLLECTIONS = [
   'fornecedores','creators','onboarding','atividades','followups','tarefas_cli','contratos',
   'com_tasks','esquemas','commercial_funnels','produtos_comercial',
   'tracking_links','integration_events','integration_connections','manual_trackings','tracking_events',
-  'conversion_settings','conversion_events','lead_forms','lead_form_submissions','leadgen_settings'
+  'conversion_settings','conversion_events','lead_forms','lead_form_submissions','leadgen_settings',
+  'whatsapp_widgets','automacoes','automacao_tasks','automacao_log'
 ];
 const GEX_KV_EXCLUDED = new Set([
   // gx2_usuarios: mesmo "usuarios" já sendo excluído da sincronização por
@@ -3803,6 +3812,7 @@ async function initGexCloudDataSync(){
 
     gexCloudReady=true;
     startGexRecordsRealtime();
+    if(typeof startGexAutomationEngine==='function')startGexAutomationEngine();
     rerenderActivePageAfterCloudSync();
     console.log('[GexCloudDB] ✅ Dados carregados/sincronizados com Supabase:',(data||[]).length,'registros');
     return true;
@@ -4408,12 +4418,12 @@ function navigate(page){
   const navPermPage = page==='integracoes' ? 'config_integracoes' : page;
   if(!can(navPermPage,'view')){
     if(pageEl){
-      const pageNames={configuracoes:'Configurações',integracoes:'Integrações',rh:'Recursos Humanos',usuarios:'Gestão de Usuários',perfil:'Perfil',inicio:'Início'};
+      const pageNames={configuracoes:'Configurações',integracoes:'Integrações',rh:'Recursos Humanos',usuarios:'Gestão de Usuários',perfil:'Perfil',inicio:'Início',automacoes:'Automações'};
       showAccessDenied(pageEl,pageNames[page]||page);
     }
     return;
   }
-  ({inicio:renderInicio,configuracoes:renderConfiguracoes,integracoes:renderIntegracoes,rh:renderRH,usuarios:renderUsuarios,perfil:renderPerfil})[page]?.();
+  ({inicio:renderInicio,configuracoes:renderConfiguracoes,integracoes:renderIntegracoes,rh:renderRH,usuarios:renderUsuarios,perfil:renderPerfil,automacoes:renderAutomacoes})[page]?.();
 }
 
 // ═══ TOAST ═══
@@ -17449,5 +17459,412 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
 
 })();
 </script>
+<style id="gex-automacoes-style">
+.auto-shell{padding:2px 0 32px}
+.auto-tabs{display:flex;gap:8px;margin-bottom:16px}
+.auto-tab{border:1px solid var(--border);background:#fff;color:var(--muted);border-radius:9px;height:34px;padding:0 16px;font-size:11px;font-weight:800;cursor:pointer}
+.auto-tab.active{background:#111827;color:#fff;border-color:#111827}
+.auto-rule-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:10px;display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+.auto-rule-left{display:flex;gap:12px;align-items:flex-start;min-width:0}
+.auto-rule-ico{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:16px;flex:none}
+.auto-rule-ico.email{background:#EFF6FF;color:#2563EB}
+.auto-rule-ico.whatsapp{background:#ECFDF5;color:#059669}
+.auto-rule-name{font-weight:850;color:var(--txt);font-size:12.5px;display:flex;align-items:center;gap:8px}
+.auto-rule-desc{font-size:10.5px;color:var(--muted);margin-top:4px;max-width:520px;line-height:1.5}
+.auto-rule-meta{font-size:9.5px;color:#94A3B8;margin-top:7px}
+.auto-rule-actions{display:flex;flex-wrap:wrap;gap:6px;flex:none;justify-content:flex-end}
+.auto-pill{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:850;padding:2px 8px;border-radius:20px;background:#F3F4F6;color:#6B7280}
+.auto-pill.on{background:#D1FAE5;color:#047857}
+.auto-task-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:10px}
+.auto-task-top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
+.auto-task-who{font-weight:850;color:var(--txt);font-size:12px}
+.auto-task-rule{font-size:9.5px;color:var(--muted);margin-top:2px}
+.auto-task-msg{font-size:10.5px;color:#475569;margin-top:9px;background:#F8FAFC;border-radius:8px;padding:9px 11px;white-space:pre-wrap;line-height:1.5}
+.auto-task-actions{display:flex;gap:6px;flex:none}
+.auto-seg{display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;width:fit-content}
+.auto-seg button{border:0;background:#fff;color:var(--muted);height:36px;padding:0 16px;font-size:11px;font-weight:800;cursor:pointer}
+.auto-seg button.active.email{background:#2563EB;color:#fff}
+.auto-seg button.active.whatsapp{background:#059669;color:#fff}
+.auto-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px;margin-bottom:22px}
+.auto-card{display:flex;flex-direction:column;background:#fff;border:1px solid var(--border);border-radius:16px;padding:18px}
+.auto-card.locked{background:#F8FAFC;border-style:dashed}
+.auto-card-ico{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:19px;margin-bottom:12px}
+.auto-card-ico.whatsapp{background:#ECFDF5;color:#059669}
+.auto-card-ico.email{background:#EFF6FF;color:#2563EB}
+.auto-card-ico.locked{background:#F1F5F9;color:#94A3B8}
+.auto-card-name{font-weight:850;color:var(--txt);font-size:12.5px;margin-bottom:6px}
+.auto-card-desc{font-size:10.5px;color:var(--muted);line-height:1.55;flex:1;margin-bottom:14px}
+.auto-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.auto-section-title{font-size:11px;font-weight:850;color:var(--txt);text-transform:uppercase;letter-spacing:.05em;margin:6px 0 12px}
+</style>
+<script id="gex-automacoes-script">
+(function(){
+  let autoView='banco',autoEditId='',autoTaskFilter='pendente';
+  const esc=escHtml;
+  const rules=()=>{try{return DB.get('automacoes')||[]}catch(e){return[]}};
+  const tasks=()=>{try{return DB.get('automacao_tasks')||[]}catch(e){return[]}};
+  function availFunnels(){try{ensureDefaultCommercialFunnel();return getCommercialFunnels().filter(f=>!f.isArchived)}catch(e){return[]}}
+  function defaults(){
+    return {nome:'',templateKey:'',canal:'whatsapp',gatilho:'sem_atividade',dias:3,funilId:'',funilName:'',etapaId:'',etapaName:'',
+      assunto:'Ainda por aí? Vamos continuar nossa conversa',
+      mensagem:'Olá {{nome}}, tudo bem? Vi que ainda não conseguimos avançar por aqui — posso te ajudar com alguma dúvida?',
+      ativo:true};
+  }
+  function gatilhoLabel(r){
+    if(r.gatilho==='lead_novo')return `Lead novo sem 1º contato há ${r.dias} dia(s)`;
+    if(r.gatilho==='parado_etapa')return `Parado ${r.dias}+ dia(s) na etapa "${r.etapaName||'qualquer'}"`;
+    return `Sem atividade há ${r.dias}+ dia(s)`;
+  }
+  function head(title,sub,button=''){return `<div class="gl-head"><div><h1>${title}</h1><p>${sub}</p></div>${button}</div>`}
+
+  // ═══ BANCO DE AUTOMAÇÕES ═══
+  // Catálogo visual de automações nativas do sistema — prontas pra ativar
+  // com um clique, sem precisar entender "gatilho/dias/canal" antes. Quem
+  // quiser ajustar o comportamento clica em "Configurar" e cai no editor
+  // completo. Os dois cards no fim mostram, de forma transparente, o que
+  // ainda depende de integração externa (WhatsApp Business API oficial e
+  // servidor de e-mail) — fazem parte do "banco", mas ainda não podem ser
+  // ativados por aqui.
+  const TEMPLATES=[
+    {key:'lead_frio_whatsapp',icon:'💬',canal:'whatsapp',nome:'Reaquecer lead frio via WhatsApp',
+      desc:'Encontra sozinho os leads sem nenhuma atividade registrada há alguns dias e deixa uma mensagem de retomada pronta pra enviar no WhatsApp.',
+      gatilho:'sem_atividade',dias:3,mensagem:'Olá {{nome}}, tudo bem? Vi que ainda não conseguimos avançar por aqui — posso te ajudar com alguma dúvida?'},
+    {key:'lead_frio_email',icon:'✉️',canal:'email',nome:'Reaquecer lead frio via E-mail',
+      desc:'Mesma ideia do WhatsApp, mas prepara um e-mail de retomada pronto pra revisar e enviar.',
+      gatilho:'sem_atividade',dias:3,assunto:'Ainda por aí?',mensagem:'Olá {{nome}}, tudo bem? Vi que ainda não conseguimos avançar por aqui — posso te ajudar com alguma dúvida?'},
+    {key:'lead_novo_sem_contato',icon:'🆕',canal:'whatsapp',nome:'Cobrar 1º contato de lead novo',
+      desc:'Avisa quando um lead acabou de entrar e ninguém deu retorno ainda, pra ele não esfriar logo no início.',
+      gatilho:'lead_novo',dias:1,mensagem:'Olá {{nome}}! Recebemos seu contato e já vamos te atender por aqui 🙂'},
+    {key:'lead_parado_etapa',icon:'🚦',canal:'whatsapp',nome:'Lead parado numa etapa do funil',
+      desc:'Escolha uma etapa do funil comercial e um prazo — quando um lead travar ali, o sistema prepara o retorno automaticamente.',
+      gatilho:'parado_etapa',dias:5,mensagem:'Olá {{nome}}, ficou alguma dúvida pra seguirmos com a proposta?',precisaConfigurar:true},
+    {key:'whatsapp_api_oficial',icon:'🔒',locked:true,nome:'Envio automático via WhatsApp Business API',
+      desc:'Manda a mensagem sozinho, sem precisar abrir o WhatsApp pra clicar em enviar. Exige conta oficial Meta Business aprovada — em breve.'},
+    {key:'smtp_email',icon:'🔒',locked:true,nome:'Envio automático de e-mail (servidor próprio)',
+      desc:'Dispara o e-mail sozinho, sem abrir seu programa de e-mail. Exige um servidor de envio configurado (SMTP/Resend/SendGrid) — em breve.'}
+  ];
+  const findTemplate=key=>TEMPLATES.find(t=>t.key===key);
+  const instanceOf=key=>rules().find(r=>r.templateKey===key);
+
+  window.renderAutomacoes=function(){
+    const page=document.getElementById('page-automacoes');
+    if(!page)return;
+    const rs=rules(),ts=tasks();
+    const pendentes=ts.filter(t=>t.status==='pendente').length;
+    const feitos=ts.filter(t=>t.status==='feita').length;
+    const ativas=rs.filter(r=>r.ativo!==false).length;
+    page.innerHTML=`<div class="auto-shell">
+      ${head('Automações','Um banco de automações nativas do sistema — ative com um clique e deixe o CRM cuidar sozinho de identificar quem precisa de atenção.','<button class="gl-btn primary" onclick="autoNew()">＋ Automação personalizada</button>')}
+      <div class="gl-stats">
+        <div class="gl-stat"><span>AUTOMAÇÕES ATIVAS</span><b>${ativas}</b><small>de ${rs.length} configuradas</small></div>
+        <div class="gl-stat"><span>AÇÕES PENDENTES</span><b>${pendentes}</b><small>aguardando um clique</small></div>
+        <div class="gl-stat"><span>AÇÕES CONCLUÍDAS</span><b>${feitos}</b><small>já resolvidas</small></div>
+        <div class="gl-stat"><span>ÚLTIMA VARREDURA</span><b style="font-size:13px">${window.__gexAutoLastRun?new Date(window.__gexAutoLastRun).toLocaleTimeString('pt-BR'):'—'}</b><small>checagem automática</small></div>
+      </div>
+      <div class="auto-tabs">
+        <button class="auto-tab ${autoView==='banco'||autoView==='editor'?'active':''}" onclick="autoSwitch('banco')">Banco de Automações</button>
+        <button class="auto-tab ${autoView==='tarefas'?'active':''}" onclick="autoSwitch('tarefas')">Ações pendentes ${pendentes?`<span style="opacity:.7">(${pendentes})</span>`:''}</button>
+      </div>
+      ${autoView==='editor'?editorHtml():autoView==='tarefas'?tasksHtml():catalogoHtml()}
+    </div>`;
+  };
+  window.autoSwitch=v=>{autoView=v;window.renderAutomacoes()};
+
+  function catalogoHtml(){
+    const cards=TEMPLATES.map(t=>{
+      if(t.locked){
+        return `<div class="auto-card locked">
+          <div class="auto-card-ico locked">${t.icon}</div>
+          <div class="auto-card-name">${esc(t.nome)}</div>
+          <div class="auto-card-desc">${esc(t.desc)}</div>
+          <div class="auto-card-foot"><span class="auto-pill">Em breve · integração externa</span></div>
+        </div>`;
+      }
+      const inst=instanceOf(t.key);
+      const status=inst?(inst.ativo!==false?'on':'paused'):'novo';
+      return `<div class="auto-card">
+        <div class="auto-card-ico ${t.canal}">${t.icon}</div>
+        <div class="auto-card-name">${esc(t.nome)}</div>
+        <div class="auto-card-desc">${esc(t.desc)}</div>
+        <div class="auto-card-foot">
+          <span class="auto-pill ${status==='on'?'on':''}">${status==='on'?'Ativa':status==='paused'?'Pausada':'Nativa do sistema'}</span>
+          ${inst?`<div style="display:flex;gap:6px">
+            <button class="gl-btn sm" onclick="autoEdit('${inst.id}')">Configurar</button>
+            <button class="gl-btn sm" onclick="autoToggle('${inst.id}')">${inst.ativo!==false?'Pausar':'Reativar'}</button>
+          </div>`:`<button class="gl-btn sm primary" onclick="autoActivateTemplate('${t.key}')">${t.precisaConfigurar?'Configurar e ativar':'Ativar'}</button>`}
+        </div>
+      </div>`;
+    }).join('');
+    const custom=rules().filter(r=>!r.templateKey);
+    return `<div class="auto-grid">${cards}</div>
+    ${custom.length?`<div class="auto-section-title">Automações personalizadas</div>${custom.map(r=>`<div class="auto-rule-card">
+      <div class="auto-rule-left">
+        <div class="auto-rule-ico ${r.canal}">${r.canal==='email'?'✉️':'💬'}</div>
+        <div>
+          <div class="auto-rule-name">${esc(r.nome)}<span class="auto-pill ${r.ativo!==false?'on':''}">${r.ativo!==false?'Ativa':'Pausada'}</span></div>
+          <div class="auto-rule-desc">${esc(gatilhoLabel(r))} → envia por <b>${r.canal==='email'?'e-mail':'WhatsApp'}</b>${r.funilName?` · Funil: ${esc(r.funilName)}`:''}</div>
+          <div class="auto-rule-meta">Criada em ${new Date(r.createdAt||Date.now()).toLocaleDateString('pt-BR')}</div>
+        </div>
+      </div>
+      <div class="auto-rule-actions">
+        <button class="gl-btn sm" onclick="autoEdit('${r.id}')">Editar</button>
+        <button class="gl-btn sm" onclick="autoToggle('${r.id}')">${r.ativo!==false?'Pausar':'Ativar'}</button>
+        <button class="gl-btn sm danger" onclick="autoDelete('${r.id}')">Excluir</button>
+      </div>
+    </div>`).join('')}`:''}`;
+  }
+  window.autoActivateTemplate=key=>{
+    const t=findTemplate(key);
+    if(!t||t.locked)return;
+    if(t.precisaConfigurar){
+      autoEditId='';autoView='editor';
+      window.renderAutomacoes();
+      setTimeout(()=>{
+        const nomeEl=document.getElementById('auto-nome');if(nomeEl)nomeEl.value=t.nome;
+        const gatilhoEl=document.getElementById('auto-gatilho');if(gatilhoEl)gatilhoEl.value=t.gatilho;
+        window.autoRenderStageField();
+        const diasEl=document.getElementById('auto-dias');if(diasEl)diasEl.value=t.dias;
+        const msgEl=document.getElementById('auto-mensagem');if(msgEl)msgEl.value=t.mensagem;
+        window.autoSetCanal(t.canal);
+        const tkEl=document.getElementById('auto-template-key');if(tkEl)tkEl.value=t.key;
+      },0);
+      return;
+    }
+    DB.push('automacoes',{
+      id:uid(),nome:t.nome,templateKey:t.key,canal:t.canal,gatilho:t.gatilho,dias:t.dias,
+      funilId:'',funilName:'',etapaId:'',etapaName:'',
+      assunto:t.assunto||'',mensagem:t.mensagem,ativo:true,
+      createdAt:new Date().toISOString(),createdBy:sessionUser?.id||''
+    });
+    window.renderAutomacoes();
+    toast('Automação ativada ✓','#10B981');
+    if(typeof gexRunAutomationEngine==='function')gexRunAutomationEngine();
+  };
+
+  function editorHtml(){
+    const old=autoEditId?rules().find(x=>x.id===autoEditId)||{}:{};
+    const d={...defaults(),...old};
+    const funnels=availFunnels(),active=typeof getActiveFunnel==='function'?getActiveFunnel():null;
+    const funnel=funnels.find(f=>f.id===d.funilId)||active||funnels[0]||null,stages=funnel?.stages||[];
+    return `${head(autoEditId?'Configurar automação':'Automação personalizada','Configure o gatilho, o canal e a mensagem que o sistema vai preparar sozinho.')}
+    <input type="hidden" id="auto-template-key" value="${esc(d.templateKey||'')}">
+    <div class="gl-panel">
+      <h3>Identidade</h3><p>Um nome interno pra você reconhecer essa automação no banco.</p>
+      <label class="gl-field"><span>Nome da automação</span><input class="gl-input" id="auto-nome" value="${esc(d.nome)}" placeholder="Ex.: Follow-up leads frios"></label>
+    </div>
+    <div class="gl-panel">
+      <h3>Canal</h3><p>Por onde o follow-up será preparado.</p>
+      <div class="auto-seg" id="auto-canal-seg">
+        <button type="button" class="${d.canal==='whatsapp'?'active whatsapp':''}" onclick="autoSetCanal('whatsapp')" id="auto-canal-whatsapp">💬 WhatsApp</button>
+        <button type="button" class="${d.canal==='email'?'active email':''}" onclick="autoSetCanal('email')" id="auto-canal-email">✉️ E-mail</button>
+      </div>
+      <input type="hidden" id="auto-canal" value="${esc(d.canal)}">
+    </div>
+    <div class="gl-panel">
+      <h3>Gatilho</h3><p>Quando o sistema deve considerar que o lead precisa de um follow-up.</p>
+      <div class="gl-grid">
+        <label class="gl-field"><span>Condição</span><select class="gl-select" id="auto-gatilho" onchange="autoRenderStageField()">
+          <option value="sem_atividade" ${d.gatilho==='sem_atividade'?'selected':''}>Sem nenhuma atividade registrada há X dias</option>
+          <option value="lead_novo" ${d.gatilho==='lead_novo'?'selected':''}>Lead novo sem 1º contato há X dias</option>
+          <option value="parado_etapa" ${d.gatilho==='parado_etapa'?'selected':''}>Parado numa etapa do funil há X dias</option>
+        </select></label>
+        <label class="gl-field"><span>Dias</span><input class="gl-input" id="auto-dias" type="number" min="1" value="${d.dias||3}"></label>
+      </div>
+      <div class="gl-grid" id="auto-stage-field" style="${d.gatilho==='parado_etapa'?'':'display:none'};margin-top:11px">
+        <label class="gl-field"><span>Funil</span><select class="gl-select" id="auto-funnel" onchange="autoFunnelChange()">${funnels.length?funnels.map(f=>`<option value="${esc(f.id)}" ${funnel?.id===f.id?'selected':''}>${esc(f.name)}</option>`).join(''):`<option value="">Funil comercial</option>`}</select></label>
+        <label class="gl-field"><span>Etapa</span><select class="gl-select" id="auto-stage">${stages.map(s=>`<option value="${esc(s.id)}" data-name="${esc(s.name)}" ${d.etapaId===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></label>
+      </div>
+      <p style="font-size:9.5px;color:#94A3B8;margin-top:10px">A checagem roda automaticamente enquanto alguém estiver com o sistema aberto (a cada poucos minutos), e também sempre que esta tela é aberta.</p>
+    </div>
+    <div class="gl-panel" id="auto-msg-panel">
+      <h3>Mensagem</h3><p>Use <code>{{nome}}</code> para o sistema colocar o primeiro nome do lead automaticamente.</p>
+      <div class="gl-grid" id="auto-assunto-wrap" style="${d.canal==='email'?'':'display:none'}">
+        <label class="gl-field full"><span>Assunto do e-mail</span><input class="gl-input" id="auto-assunto" value="${esc(d.assunto)}"></label>
+      </div>
+      <div class="gl-grid">
+        <label class="gl-field full"><span>${d.canal==='email'?'Corpo do e-mail':'Mensagem do WhatsApp'}</span><textarea class="gl-textarea" id="auto-mensagem" style="height:110px">${esc(d.mensagem)}</textarea></label>
+      </div>
+      <div class="gl-toggle-line"><span>Automação ativa</span><label class="gl-switch"><input id="auto-ativo" type="checkbox" ${d.ativo!==false?'checked':''}><i></i></label></div>
+    </div>
+    <div class="gl-footer"><button class="gl-btn" onclick="autoCancel()">Cancelar</button><button class="gl-btn primary" onclick="autoSave()">${autoEditId?'Salvar alterações':'Ativar automação'}</button></div>
+    <div class="gl-card" style="padding:14px 16px;margin-top:14px;font-size:10.5px;color:var(--muted);line-height:1.6">
+      <b style="color:var(--txt)">Como funciona hoje:</b> o sistema identifica sozinho quem se encaixa na automação e prepara a mensagem pronta em "Ações pendentes". Para o WhatsApp, um clique abre a conversa já com o texto preenchido; para o e-mail, um clique abre seu programa de e-mail com assunto e corpo prontos. O envio automático sem clique nenhum (WhatsApp Business API oficial e servidor de e-mail transacional) é um passo futuro, à parte, que exige credenciais e aprovação de uma plataforma externa — veja os cards bloqueados no Banco de Automações.
+    </div>`;
+  }
+
+  window.autoSetCanal=canal=>{
+    document.getElementById('auto-canal').value=canal;
+    document.getElementById('auto-canal-whatsapp')?.classList.toggle('active',canal==='whatsapp');
+    document.getElementById('auto-canal-whatsapp')?.classList.toggle('whatsapp',canal==='whatsapp');
+    document.getElementById('auto-canal-email')?.classList.toggle('active',canal==='email');
+    document.getElementById('auto-canal-email')?.classList.toggle('email',canal==='email');
+    const wrap=document.getElementById('auto-assunto-wrap');
+    if(wrap)wrap.style.display=canal==='email'?'':'none';
+    const label=document.querySelector('#auto-msg-panel .gl-field.full span');
+    if(label)label.textContent=canal==='email'?'Corpo do e-mail':'Mensagem do WhatsApp';
+  };
+  window.autoRenderStageField=()=>{
+    const g=document.getElementById('auto-gatilho')?.value;
+    const el=document.getElementById('auto-stage-field');
+    if(el)el.style.display=g==='parado_etapa'?'':'none';
+  };
+  window.autoFunnelChange=preferred=>{
+    const funnelId=document.getElementById('auto-funnel')?.value,fn=availFunnels().find(f=>f.id===funnelId);
+    const stage=document.getElementById('auto-stage'),wanted=typeof preferred==='string'?preferred:stage?.value;
+    if(!stage)return;
+    stage.innerHTML=(fn?.stages||[]).slice().sort((a,b)=>(a.order||0)-(b.order||0)).map(s=>`<option value="${esc(s.id)}" data-name="${esc(s.name)}" ${s.id===wanted?'selected':''}>${esc(s.name)}</option>`).join('');
+  };
+
+  window.autoNew=()=>{autoEditId='';autoView='editor';window.renderAutomacoes()};
+  window.autoEdit=id=>{autoEditId=id;autoView='editor';window.renderAutomacoes()};
+  window.autoCancel=()=>{autoView='banco';autoEditId='';window.renderAutomacoes()};
+  window.autoToggle=id=>{const r=rules().find(x=>x.id===id);if(!r)return;DB.update('automacoes',id,{ativo:r.ativo===false});window.renderAutomacoes();toast(r.ativo===false?'Automação ativada ✓':'Automação pausada','#10B981')};
+  window.autoDelete=id=>{confirmDelete(()=>{DB.remove('automacoes',id);window.renderAutomacoes();toast('Automação excluída','#EF4444')})};
+  window.autoSave=()=>{
+    const nome=document.getElementById('auto-nome')?.value.trim();
+    if(!nome){toast('Informe o nome da automação','#EF4444');return}
+    const canal=document.getElementById('auto-canal')?.value||'whatsapp';
+    const gatilho=document.getElementById('auto-gatilho')?.value||'sem_atividade';
+    const dias=Math.max(1,Number(document.getElementById('auto-dias')?.value)||3);
+    const mensagem=document.getElementById('auto-mensagem')?.value.trim();
+    if(!mensagem){toast('Escreva a mensagem da automação','#EF4444');return}
+    let funilId='',funilName='',etapaId='',etapaName='';
+    if(gatilho==='parado_etapa'){
+      const fSel=document.getElementById('auto-funnel'),sSel=document.getElementById('auto-stage');
+      const fn=availFunnels().find(f=>f.id===fSel?.value);
+      funilId=fn?.id||'';funilName=fn?.name||'';
+      etapaId=sSel?.value||'';etapaName=sSel?.selectedOptions?.[0]?.dataset.name||sSel?.selectedOptions?.[0]?.textContent||'';
+    }
+    const obj={
+      nome,canal,gatilho,dias,funilId,funilName,etapaId,etapaName,
+      templateKey:document.getElementById('auto-template-key')?.value||'',
+      assunto:document.getElementById('auto-assunto')?.value.trim()||'',
+      mensagem,
+      ativo:document.getElementById('auto-ativo')?.checked!==false,
+      updatedAt:new Date().toISOString()
+    };
+    if(autoEditId)DB.update('automacoes',autoEditId,obj);
+    else DB.push('automacoes',{id:uid(),...obj,createdAt:new Date().toISOString(),createdBy:sessionUser?.id||''});
+    autoView='banco';autoEditId='';window.renderAutomacoes();
+    toast('Automação salva ✓','#10B981');
+    if(typeof gexRunAutomationEngine==='function')gexRunAutomationEngine();
+  };
+
+  function tasksHtml(){
+    const all=tasks().slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+    const list=autoTaskFilter==='todas'?all:all.filter(t=>t.status===autoTaskFilter);
+    return `<div class="auto-tabs" style="margin-bottom:12px">
+      <button class="auto-tab ${autoTaskFilter==='pendente'?'active':''}" onclick="autoTaskFilterSet('pendente')">Pendentes</button>
+      <button class="auto-tab ${autoTaskFilter==='feita'?'active':''}" onclick="autoTaskFilterSet('feita')">Feitos</button>
+      <button class="auto-tab ${autoTaskFilter==='ignorada'?'active':''}" onclick="autoTaskFilterSet('ignorada')">Ignorados</button>
+      <button class="auto-tab ${autoTaskFilter==='todas'?'active':''}" onclick="autoTaskFilterSet('todas')">Todos</button>
+    </div>
+    ${list.length?list.map(t=>`<div class="auto-task-card">
+      <div class="auto-task-top">
+        <div>
+          <div class="auto-task-who">${t.canal==='email'?'✉️':'💬'} ${esc(t.leadNome)}</div>
+          <div class="auto-task-rule">Automação: ${esc(t.ruleName)} · ${new Date(t.createdAt).toLocaleString('pt-BR')}</div>
+        </div>
+        <div class="auto-task-actions">
+          ${t.status==='pendente'?`<button class="gl-btn sm primary" onclick="autoDoTask('${t.id}')">${t.canal==='email'?'Abrir e-mail':'Abrir WhatsApp'}</button><button class="gl-btn sm" onclick="autoIgnoreTask('${t.id}')">Ignorar</button>`:`<span class="auto-pill ${t.status==='feita'?'on':''}">${t.status==='feita'?'Feito':'Ignorado'}</span>`}
+        </div>
+      </div>
+      ${t.canal==='email'&&t.assunto?`<div class="auto-task-msg"><b>Assunto:</b> ${esc(t.assunto)}\n\n${esc(t.mensagem)}</div>`:`<div class="auto-task-msg">${esc(t.mensagem)}</div>`}
+    </div>`).join(''):`<div class="gl-card gl-empty"><i>✓</i><b>Nada por aqui</b>Quando uma regra encontrar um lead parado, o follow-up aparece nesta lista.</div>`}`;
+  }
+  window.autoTaskFilterSet=v=>{autoTaskFilter=v;window.renderAutomacoes()};
+  window.autoDoTask=id=>{
+    const t=tasks().find(x=>x.id===id);if(!t)return;
+    if(t.canal==='whatsapp'){
+      const digits=String(t.leadTelefone||'').replace(/\D/g,'');
+      if(!digits){toast('Esse lead não tem WhatsApp cadastrado','#F59E0B');return}
+      window.open(`https://wa.me/${digits}?text=${encodeURIComponent(t.mensagem)}`,'_blank');
+    }else{
+      if(!t.leadEmail){toast('Esse lead não tem e-mail cadastrado','#F59E0B');return}
+      window.open(`mailto:${encodeURIComponent(t.leadEmail)}?subject=${encodeURIComponent(t.assunto||'')}&body=${encodeURIComponent(t.mensagem)}`,'_blank');
+    }
+    DB.update('automacao_tasks',id,{status:'feita',doneAt:new Date().toISOString()});
+    window.renderAutomacoes();
+  };
+  window.autoIgnoreTask=id=>{DB.update('automacao_tasks',id,{status:'ignorada',doneAt:new Date().toISOString()});window.renderAutomacoes();toast('Follow-up ignorado','#6B7280')};
+
+  // ═══ MOTOR DE AUTOMAÇÃO ═══
+  // Roda periodicamente enquanto alguém está com o sistema aberto: varre os
+  // leads, aplica as regras ativas e — quando encontra um lead que se encaixa
+  // e ainda não foi tratado nesse "ciclo" — cria um follow-up pronto pra
+  // enviar. Não manda nada sozinho: só deixa o clique de enviar a um passo
+  // de distância, no WhatsApp ou no e-mail de quem for tratar o lead.
+  function lastAtividadeDate(leadId){
+    let max=0;
+    (DB.get('atividades')||[]).forEach(a=>{
+      if(String(a.leadId)!==String(leadId))return;
+      const t=new Date(a.data||a.createdAt||0).getTime();
+      if(t>max)max=t;
+    });
+    return max?new Date(max):null;
+  }
+  function renderTpl(tpl,lead){
+    const primeiro=String(lead.nome||'').trim().split(' ')[0]||lead.nome||'';
+    return String(tpl||'').split('{{nome}}').join(primeiro);
+  }
+  function upsertLog(id,data){
+    const cur=DB.get('automacao_log')||[];
+    if(cur.some(x=>x.id===id))DB.update('automacao_log',id,data);
+    else DB.push('automacao_log',{id,...data});
+  }
+  window.gexRunAutomationEngine=function(){
+    let rs=[];
+    try{rs=(DB.get('automacoes')||[]).filter(r=>r.ativo!==false)}catch(e){return}
+    if(!rs.length){window.__gexAutoLastRun=Date.now();return}
+    const leads=(DB.get('leads')||[]).filter(l=>!l.deleted_at);
+    const logs=DB.get('automacao_log')||[];
+    const logMap={};logs.forEach(l=>logMap[l.id]=l);
+    let created=0;
+    rs.forEach(rule=>{
+      const thresh=Math.max(1,Number(rule.dias)||3);
+      leads.forEach(lead=>{
+        if(rule.gatilho==='parado_etapa' && rule.etapaId){
+          if(String(lead.stageId||'')!==String(rule.etapaId) && lead.estagio!==rule.etapaName)return;
+        }
+        const lastAtiv=lastAtividadeDate(lead.id);
+        if(rule.gatilho==='lead_novo' && lastAtiv)return; // já teve algum contato
+        const ref=lastAtiv||(lead.createdAt?new Date(lead.createdAt):null);
+        if(!ref)return;
+        const diffDays=(Date.now()-ref.getTime())/86400000;
+        if(diffDays<thresh)return;
+        const logId=rule.id+'__'+lead.id,refISO=ref.toISOString(),log=logMap[logId];
+        if(log){
+          const sinceTrigger=(Date.now()-new Date(log.lastTriggeredAt||0).getTime())/86400000;
+          if(log.lastRefISO===refISO && sinceTrigger<thresh)return; // ainda dentro do mesmo ciclo
+        }
+        const task={
+          id:uid(),ruleId:rule.id,ruleName:rule.nome,canal:rule.canal,
+          leadId:lead.id,leadNome:lead.nome||'Lead',
+          leadTelefone:lead.telefone||lead.whatsapp||'',leadEmail:lead.email||'',
+          assunto:rule.canal==='email'?renderTpl(rule.assunto,lead):'',
+          mensagem:renderTpl(rule.mensagem,lead),
+          status:'pendente',createdAt:new Date().toISOString()
+        };
+        DB.push('automacao_tasks',task);
+        upsertLog(logId,{ruleId:rule.id,leadId:lead.id,lastRefISO:refISO,lastTriggeredAt:new Date().toISOString()});
+        logMap[logId]={id:logId,ruleId:rule.id,leadId:lead.id,lastRefISO:refISO,lastTriggeredAt:new Date().toISOString()};
+        created++;
+      });
+    });
+    window.__gexAutoLastRun=Date.now();
+    if(created>0){
+      toast(`${created} novo(s) follow-up(s) preparado(s) pelas automações ✓`,'#10B981');
+      if(document.getElementById('page-automacoes')?.classList.contains('active'))window.renderAutomacoes();
+    }
+  };
+  let __gexAutoInterval=null;
+  window.startGexAutomationEngine=function(){
+    if(__gexAutoInterval)return;
+    setTimeout(()=>{try{window.gexRunAutomationEngine()}catch(e){console.error('[GexFlow] Erro no motor de automações:',e)}},4000);
+    __gexAutoInterval=setInterval(()=>{try{window.gexRunAutomationEngine()}catch(e){console.error('[GexFlow] Erro no motor de automações:',e)}},5*60*1000);
+  };
+})();
+</script>
+
 </body>
 </html>
