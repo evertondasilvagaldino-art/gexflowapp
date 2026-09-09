@@ -17623,7 +17623,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       </div>
       <div class="auto-tabs">
         <button class="auto-tab ${autoView==='banco'||autoView==='editor'?'active':''}" onclick="autoSwitch('banco')">Banco de Automações</button>
-        <button class="auto-tab ${autoView==='tarefas'?'active':''}" onclick="autoSwitch('tarefas')">Ações pendentes ${pendentes?`<span style="opacity:.7">(${pendentes})</span>`:''}</button>
+        <button class="auto-tab ${autoView==='tarefas'?'active':''}" onclick="autoSwitch('tarefas')">Banco de Ações ${pendentes?`<span style="opacity:.7">(${pendentes})</span>`:''}</button>
       </div>
       ${autoView==='editor'?editorHtml():autoView==='tarefas'?tasksHtml():catalogoHtml()}
     </div>`;
@@ -17887,7 +17887,9 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   function tasksHtml(){
     const all=tasks().slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
     const list=autoTaskFilter==='todas'?all:all.filter(t=>t.status===autoTaskFilter);
-    return `<div class="auto-tabs" style="margin-bottom:12px">
+    return `<div class="auto-section-title">Banco de ações automáticas</div>
+    <p style="font-size:11px;color:var(--muted);margin:-6px 0 14px;max-width:640px">Cada vez que uma automação encontra um lead que se encaixa na regra, uma ação é gerada aqui. As de e-mail e WhatsApp de clique ficam prontas pra você disparar em 1 clique (ou são enviadas sozinhas quando a conexão automática estiver ativa); as 100% automáticas (como anexar observação) já chegam marcadas como feitas.</p>
+    <div class="auto-tabs" style="margin-bottom:12px">
       <button class="auto-tab ${autoTaskFilter==='pendente'?'active':''}" onclick="autoTaskFilterSet('pendente')">Pendentes</button>
       <button class="auto-tab ${autoTaskFilter==='feita'?'active':''}" onclick="autoTaskFilterSet('feita')">Feitos</button>
       <button class="auto-tab ${autoTaskFilter==='ignorada'?'active':''}" onclick="autoTaskFilterSet('ignorada')">Ignorados</button>
@@ -17897,14 +17899,14 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       <div class="auto-task-top">
         <div>
           <div class="auto-task-who">${t.canal==='email'?'✉️':t.canal==='sistema'?'🏷️':'💬'} ${esc(t.leadNome)}</div>
-          <div class="auto-task-rule">Automação: ${esc(t.ruleName)} · ${new Date(t.createdAt).toLocaleString('pt-BR')}</div>
+          <div class="auto-task-rule">Automação: ${esc(t.ruleName)}${t.enviadoAuto?' · enviado automaticamente':''} · ${new Date(t.createdAt).toLocaleString('pt-BR')}</div>
         </div>
         <div class="auto-task-actions">
           ${t.status==='pendente'?`<button class="gl-btn sm primary" onclick="autoDoTask('${t.id}')">${t.canal==='email'?'Abrir e-mail':'Abrir WhatsApp'}</button><button class="gl-btn sm" onclick="autoIgnoreTask('${t.id}')">Ignorar</button>`:`<span class="auto-pill ${t.status==='feita'?'on':''}">${t.status==='feita'?'Feito':'Ignorado'}</span>`}
         </div>
       </div>
       ${t.canal==='email'&&t.assunto?`<div class="auto-task-msg"><b>Assunto:</b> ${esc(t.assunto)}\n\n${esc(t.mensagem)}</div>`:`<div class="auto-task-msg">${esc(t.mensagem)}</div>`}
-    </div>`).join(''):`<div class="gl-card gl-empty"><i>✓</i><b>Nada por aqui</b>Quando uma regra encontrar um lead parado, o follow-up aparece nesta lista.</div>`}`;
+    </div>`).join(''):`<div class="gl-card gl-empty"><i>✓</i><b>Nada por aqui</b>Quando uma regra encontrar um lead parado, a ação aparece nesta lista.</div>`}`;
   }
   window.autoTaskFilterSet=v=>{autoTaskFilter=v;window.renderAutomacoes()};
   window.autoDoTask=id=>{
@@ -17920,7 +17922,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     DB.update('automacao_tasks',id,{status:'feita',doneAt:new Date().toISOString()});
     window.renderAutomacoes();
   };
-  window.autoIgnoreTask=id=>{DB.update('automacao_tasks',id,{status:'ignorada',doneAt:new Date().toISOString()});window.renderAutomacoes();toast('Follow-up ignorado','#6B7280')};
+  window.autoIgnoreTask=id=>{DB.update('automacao_tasks',id,{status:'ignorada',doneAt:new Date().toISOString()});window.renderAutomacoes();toast('Ação ignorada','#6B7280')};
 
   // ═══ MOTOR DE AUTOMAÇÃO ═══
   // Roda periodicamente enquanto alguém está com o sistema aberto: varre os
