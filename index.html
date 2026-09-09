@@ -3446,7 +3446,7 @@ const GEX_DB_COLLECTIONS = [
   'com_tasks','esquemas','commercial_funnels','produtos_comercial',
   'tracking_links','integration_events','integration_connections','manual_trackings','tracking_events',
   'conversion_settings','conversion_events','lead_forms','lead_form_submissions','leadgen_settings',
-  'whatsapp_widgets','automacoes','automacao_tasks','automacao_log','email_smtp_settings'
+  'whatsapp_widgets','automacoes','automacao_tasks','automacao_log','email_smtp_settings','zapi_settings'
 ];
 const GEX_KV_EXCLUDED = new Set([
   // gx2_usuarios: mesmo "usuarios" já sendo excluído da sincronização por
@@ -16768,6 +16768,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   const getConversionSettings=()=>{try{return (DB.get('conversion_settings')||[])[0]||{id:'conversion_main',meta:{},google:{},mappings:[]}}catch(e){return{id:'conversion_main',meta:{},google:{},mappings:[]}}};
   const getLeadgenSettings=()=>{try{return (DB.get('leadgen_settings')||[])[0]||{id:'leadgen_main'}}catch(e){return{id:'leadgen_main'}}};
   const getEmailSmtpSettings=()=>{try{return (DB.get('email_smtp_settings')||[])[0]||{id:'email_smtp_main'}}catch(e){return{id:'email_smtp_main'}}};
+  const getZapiSettings=()=>{try{return (DB.get('zapi_settings')||[])[0]||{id:'zapi_main'}}catch(e){return{id:'zapi_main'}}};
   const connection=id=>getConnections().find(x=>x.provider===id)||{provider:id,status:'disconnected',assets:{}};
   function saveConnection(provider,data){const all=getConnections(),i=all.findIndex(x=>x.provider===provider),next={...(i>=0?all[i]:{id:uid(),provider}),...data,updatedAt:new Date().toISOString()};if(i>=0)all[i]=next;else all.push(next);DB.set('integration_connections',all);return next}
   function event(type,detail,status='success',extra={}){DB.push('tracking_events',{id:uid(),type,detail,status,createdAt:new Date().toISOString(),...extra})}
@@ -16791,6 +16792,22 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
           <label class="gxi-field full"><span class="gxi-label">E-mail remetente</span><input class="gxi-input" id="gxi-smtp-from-email" value="${A(s.fromEmail||'')}" placeholder="contato@seudominio.com"></label>
         </div>
         <div class="gxi-conv-footer"><span>A senha é enviada para uma função segura e nunca é gravada no navegador.</span><button class="gxi-btn primary" onclick="gxiSaveSmtpConfig()">Salvar conexão</button></div>
+      </div>
+    </div>${zapiConfigHtml()}`;
+  }
+  function zapiConfigHtml(){
+    const s=getZapiSettings(),on=!!s.connected;
+    return `<div class="gxi-conv-grid" style="grid-template-columns:1fr;margin-top:13px">
+      <div class="gxi-conv-card">
+        <div class="gxi-conv-head"><div class="gxi-conv-logo" style="background:#E7F9EF;color:#128C7E">◉</div><div><h3>Conexão de WhatsApp (Z-API)</h3><p>Envio automático de mensagens de WhatsApp pelas automações, sem precisar clicar</p></div><span class="gxi-config-status ${on?'on':''}" style="margin-left:auto">${on?'Conectado':'Pendente'}</span></div>
+        <div class="gxi-warning" style="margin-bottom:12px">Z-API é uma integração não oficial com o WhatsApp — existe risco real de banimento do número conectado. Use um número dedicado só pra automações, nunca o WhatsApp principal da empresa. <a href="https://www.z-api.io" target="_blank" rel="noopener" style="color:#92400E;text-decoration:underline">Criar conta na Z-API</a>.</div>
+        ${on?`<div class="gxi-card-note" style="margin-bottom:12px">Enviando pela instância <b>${E(s.instanceId||'')}</b></div>`:''}
+        <div class="gxi-form-grid" style="margin-bottom:11px">
+          <label class="gxi-field"><span class="gxi-label">Instance ID</span><input class="gxi-input" id="gxi-zapi-instance" value="${A(s.instanceId||'')}" placeholder="Ex.: 3D9F2A1B..."></label>
+          <label class="gxi-field"><span class="gxi-label">Token</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-zapi-token" type="password" value="" placeholder="${s.hasToken?'Token protegido no servidor':'Cole o token da instância'}"><button class="gxi-secret-action" onclick="gxiToggleSecret('gxi-zapi-token')">Mostrar</button></div></label>
+          <label class="gxi-field full"><span class="gxi-label">Client-Token (segurança da conta)</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-zapi-client-token" type="password" value="" placeholder="${s.hasClientToken?'Client-Token protegido no servidor':'Cole o Client-Token da conta Z-API'}"><button class="gxi-secret-action" onclick="gxiToggleSecret('gxi-zapi-client-token')">Mostrar</button></div></label>
+        </div>
+        <div class="gxi-conv-footer"><span>Token e Client-Token são enviados para uma função segura e nunca são gravados no navegador.</span><button class="gxi-btn primary" onclick="gxiSaveZapiConfig()">Salvar conexão</button></div>
       </div>
     </div>`;
   }
@@ -17015,6 +17032,31 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       render();
     }catch(e){
       toast(e.message||'Erro ao salvar conexão de e-mail','#EF4444');
+    }
+  };
+  window.gxiSaveZapiConfig=async()=>{
+    const instanceId=document.getElementById('gxi-zapi-instance')?.value.trim();
+    const zapiToken=document.getElementById('gxi-zapi-token')?.value||'';
+    const clientToken=document.getElementById('gxi-zapi-client-token')?.value||'';
+    if(!instanceId){toast('Preencha o Instance ID','#EF4444');return}
+    const old=getZapiSettings();
+    if(!zapiToken&&!old.hasToken){toast('Informe o Token da instância','#EF4444');return}
+    if(!clientToken&&!old.hasClientToken){toast('Informe o Client-Token da conta','#EF4444');return}
+    try{
+      if(!supabaseClient)throw new Error('Abra o sistema publicado para salvar a conexão.');
+      const token=await getGexSupabaseToken();
+      const res=await fetch(getSupabaseFunctionUrl('zapi-config-save'),{
+        method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+        body:JSON.stringify({instanceId,token:zapiToken,clientToken})
+      });
+      const j=await res.json().catch(()=>({}));
+      if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível salvar a conexão.');
+      const next={id:'zapi_main',connected:true,hasToken:true,hasClientToken:true,instanceId,updatedAt:new Date().toISOString()};
+      DB.set('zapi_settings',[next]);
+      toast('Conexão de WhatsApp salva ✓','#10B981');
+      render();
+    }catch(e){
+      toast(e.message||'Erro ao salvar conexão de WhatsApp','#EF4444');
     }
   };
   window.gexSendCRMConversion=async(payload={})=>{const lead=payload.lead||{},stageId=payload.stageId||lead.stageId||'',stageName=payload.stageName||lead.estagio||'';const settings=getConversionSettings(),mapping=(settings.mappings||[]).find(x=>x.enabled&&((stageId&&String(x.stageId)===String(stageId))||(!stageId&&x.stageName===stageName)));if(!mapping)return[];const jobs=[];if(mapping.metaEvent&&settings.meta?.configured)jobs.push(sendConversionPlatform('meta',mapping.metaEvent,mapping,lead,payload));if(mapping.googleAction&&settings.google?.configured)jobs.push(sendConversionPlatform('google',mapping.googleAction,mapping,lead,payload));const result=await Promise.all(jobs);if(monitorView==='events'&&view==='monitor')render();return result};
@@ -17771,7 +17813,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     </div>
     <div class="gl-footer"><button class="gl-btn" onclick="autoCancel()">Cancelar</button><button class="gl-btn primary" onclick="autoSave()">${autoEditId?'Salvar alterações':'Ativar automação'}</button></div>
     <div class="gl-card" style="padding:14px 16px;margin-top:14px;font-size:10.5px;color:var(--muted);line-height:1.6">
-      <b style="color:var(--txt)">Como funciona hoje:</b> automações de WhatsApp preparam a mensagem no Banco de Ações — um clique abre a conversa já pronta, faltando só enviar. As automações de e-mail são 100% automáticas quando a conexão de e-mail (SMTP) estiver ativa em Configurações &gt; Integrações: o e-mail sai sozinho, sem precisar clicar em nada — a ação já aparece marcada como enviada. Já a automação de "anexar observação" também é 100% automática: ela mesma escreve na descrição do lead. O envio de WhatsApp sem clique nenhum (WhatsApp Business API oficial) é um passo futuro, à parte — veja o card bloqueado no Banco de Automações.
+      <b style="color:var(--txt)">Como funciona hoje:</b> as automações de e-mail e WhatsApp são 100% automáticas quando a conexão correspondente estiver ativa em Configurações &gt; Integrações (e-mail via SMTP, WhatsApp via Z-API): a mensagem sai sozinha, sem precisar clicar em nada, e a ação já aparece marcada como enviada. Sem a conexão ativa, a mensagem fica pronta no Banco de Ações — um clique abre a conversa ou o e-mail já prontos, faltando só enviar. Já a automação de "anexar observação" é sempre 100% automática: ela mesma escreve na descrição do lead. O WhatsApp via Z-API é uma integração não oficial — veja o aviso de risco na aba Integrações antes de conectar; o envio oficial (WhatsApp Business API) é um passo futuro, à parte, veja o card bloqueado no Banco de Automações.
     </div>`;
   }
   function cadenciaStepsHtml(){
@@ -17970,6 +18012,21 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       return {ok:false,error:err.message||'Falha de conexão'};
     }
   }
+  async function sendAutomationWhatsapp({phone,message}){
+    try{
+      const token=await getGexSupabaseToken();
+      const res=await fetch(getSupabaseFunctionUrl('send-whatsapp-message'),{
+        method:'POST',
+        headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+        body:JSON.stringify({phone,message})
+      });
+      const j=await res.json().catch(()=>({}));
+      return j;
+    }catch(err){
+      console.warn('[GexFlow] Falha ao enviar WhatsApp de automação:',err);
+      return {ok:false,error:err.message||'Falha de conexão'};
+    }
+  }
   window.gexRunAutomationEngine=async function(){
     let rs=[];
     try{rs=(DB.get('automacoes')||[]).filter(r=>r.ativo!==false)}catch(e){return}
@@ -17979,6 +18036,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     const logMap={};logs.forEach(l=>logMap[l.id]=l);
     let created=0,aplicadas=0;
     const emailsParaEnviar=[]; // {taskId,to,toName,subject,text}
+    const whatsappParaEnviar=[]; // {taskId,phone,message}
     rs.forEach(rule=>{
       // ── Chegou numa etapa → anexa observação (100% automático, sem clique) ──
       if(rule.gatilho==='entrou_etapa'){
@@ -18065,22 +18123,30 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
         };
         DB.push('automacao_tasks',task);
         if(rule.canal==='email' && lead.email)emailsParaEnviar.push({taskId:task.id,to:lead.email,toName:lead.nome||'',subject:task.assunto||task.ruleName,text:task.mensagem});
+        if(rule.canal==='whatsapp' && task.leadTelefone)whatsappParaEnviar.push({taskId:task.id,phone:task.leadTelefone,message:task.mensagem});
         upsertLog(logId,{ruleId:rule.id,leadId:lead.id,lastRefISO:refISO,lastTriggeredAt:new Date().toISOString()});
         logMap[logId]={id:logId,ruleId:rule.id,leadId:lead.id,lastRefISO:refISO,lastTriggeredAt:new Date().toISOString()};
         created++;
       });
     });
-    let enviados=0;
+    let enviados=0,whatsappEnviados=0;
     for(const em of emailsParaEnviar){
       try{
         const r=await sendAutomationEmail(em);
         if(r&&r.ok){DB.update('automacao_tasks',em.taskId,{status:'feita',doneAt:new Date().toISOString(),enviadoAuto:true});enviados++}
       }catch(e){/* fica pendente — clique manual de "Abrir e-mail" continua funcionando */}
     }
+    for(const wm of whatsappParaEnviar){
+      try{
+        const r=await sendAutomationWhatsapp(wm);
+        if(r&&r.ok){DB.update('automacao_tasks',wm.taskId,{status:'feita',doneAt:new Date().toISOString(),enviadoAuto:true});whatsappEnviados++}
+      }catch(e){/* fica pendente — clique manual de "Abrir WhatsApp" continua funcionando */}
+    }
     window.__gexAutoLastRun=Date.now();
     if(created>0||aplicadas>0){
-      const partes=[],aindaPendentes=created-enviados;
+      const partes=[],aindaPendentes=created-enviados-whatsappEnviados;
       if(enviados>0)partes.push(`${enviados} e-mail(s) enviado(s) automaticamente`);
+      if(whatsappEnviados>0)partes.push(`${whatsappEnviados} WhatsApp(s) enviado(s) automaticamente`);
       if(aindaPendentes>0)partes.push(`${aindaPendentes} ação(ões) aguardando um clique`);
       if(aplicadas>0)partes.push(`${aplicadas} observação(ões) anexada(s) automaticamente`);
       toast(`${partes.join(' · ')} ✓`,'#10B981');
