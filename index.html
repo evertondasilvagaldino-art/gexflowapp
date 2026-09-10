@@ -16815,7 +16815,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
           <label class="gxi-field"><span class="gxi-label">Token</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-zapi-token" type="password" value="" placeholder="${s.hasToken?'Token protegido no servidor':'Cole o token da instância'}"><button class="gxi-secret-action" onclick="gxiToggleSecret('gxi-zapi-token')">Mostrar</button></div></label>
           <label class="gxi-field full"><span class="gxi-label">Client-Token (segurança da conta)</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-zapi-client-token" type="password" value="" placeholder="${s.hasClientToken?'Client-Token protegido no servidor':'Cole o Client-Token da conta Z-API'}"><button class="gxi-secret-action" onclick="gxiToggleSecret('gxi-zapi-client-token')">Mostrar</button></div></label>
         </div>
-        <div class="gxi-conv-footer"><span>Token e Client-Token são enviados para uma função segura e nunca são gravados no navegador.</span><div style="display:flex;gap:7px">${on?`<button class="gxi-btn" onclick="window.wacOpenQr&&window.wacOpenQr()">📷 Ver QR Code</button>`:''}<button class="gxi-btn primary" onclick="gxiSaveZapiConfig()">Salvar conexão</button></div></div>
+        <div class="gxi-conv-footer"><span>Token e Client-Token são enviados para uma função segura e nunca são gravados no navegador.</span><div style="display:flex;gap:7px">${on?`<button class="gxi-btn" onclick="window.wacOpenQr&&window.wacOpenQr()">📷 Ver QR Code</button>`:''}<button class="gxi-btn danger" id="gxi-zapi-disconnect-btn" style="display:none" onclick="gxiDisconnectZapi()">Desconectar</button><button class="gxi-btn primary" onclick="gxiSaveZapiConfig()">Salvar conexão</button></div></div>
       </div>
     </div>`;
   }
@@ -16828,13 +16828,38 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       const res=await fetch(getSupabaseFunctionUrl('zapi-status'),{headers:{Authorization:`Bearer ${token}`}});
       const j=await res.json().catch(()=>({}));
       if(!document.getElementById('gxi-zapi-live-status'))return;
+      const discBtn=document.getElementById('gxi-zapi-disconnect-btn');
       if(j&&j.ok!==false&&j.connected){
         el.textContent='Conectado';el.classList.add('on');
+        if(discBtn)discBtn.style.display='';
       }else{
         el.textContent='Credenciais salvas — número não conectado';el.classList.remove('on');
+        if(discBtn)discBtn.style.display='none';
       }
     }catch(e){/* mantém o texto padrão */}
   }
+  window.gxiDisconnectZapi=function(){
+    const run=async()=>{
+      const btn=document.getElementById('gxi-zapi-disconnect-btn');
+      if(btn){btn.disabled=true;btn.textContent='Desconectando...'}
+      try{
+        const token=await getGexSupabaseToken();
+        const res=await fetch(getSupabaseFunctionUrl('zapi-disconnect'),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'}});
+        const j=await res.json().catch(()=>({}));
+        if(j&&j.ok){
+          toast('WhatsApp desconectado. Escaneie um novo QR Code para reconectar.','#F59E0B');
+        }else{
+          toast(j?.message||'Não foi possível desconectar','#EF4444');
+        }
+      }catch(e){
+        toast('Falha de conexão ao desconectar','#EF4444');
+      }
+      if(btn){btn.disabled=false;btn.textContent='Desconectar'}
+      gxiLoadZapiLiveStatus();
+    };
+    if(typeof confirmDelete==='function')confirmDelete(run);
+    else if(confirm('Desconectar o número do WhatsApp? Será preciso escanear um novo QR Code para reconectar.'))run();
+  };
   function trackingListHtml(){const list=getTrackings();return `<div class="gxi-toolbar"><div class="gxi-toolbar-copy"><h2>Regras de rastreamento</h2><p>Mova leads no Pipeline quando uma mensagem corresponder ao critério configurado.</p></div><button class="gxi-btn primary" onclick="gxiNewTracking()">+ Novo rastreamento</button></div><div class="gxi-rules">${list.length?list.map(r=>`<div class="gxi-rule"><div><div class="gxi-rule-title">“${E(r.message)}”</div><div class="gxi-rule-sub">${E(MODES[r.mode]||r.mode)} • ${E(r.connectionName||'WhatsApp')}</div></div><div><span class="gxi-tag">${E(r.stageName||'Sem etapa')}</span></div><div><div class="gxi-rule-title">${r.executions||0} execuções</div><div class="gxi-rule-sub">${r.lastExecutedAt?new Date(r.lastExecutedAt).toLocaleString('pt-BR'):'Nunca executado'}</div></div><div><span class="gxi-pill ${r.active!==false?'on':'off'}">${r.active!==false?'Ativo':'Pausado'}</span></div><div class="gxi-rule-actions"><button class="gxi-btn small" onclick="gxiToggleTracking('${r.id}')">${r.active!==false?'Pausar':'Ativar'}</button><button class="gxi-btn small" onclick="gxiEditTracking('${r.id}')">Editar</button><button class="gxi-btn small danger" onclick="gxiDeleteTracking('${r.id}')">Excluir</button></div></div>`).join(''):`<div class="gxi-empty"><i>⌁</i><b>Nenhum rastreamento criado</b>Crie a primeira regra para automatizar a movimentação dos leads.</div>`}</div>`}
   function formHtml(){const isEdit=!!editingId&&editingId!=='new',r=isEdit?getTrackings().find(x=>x.id===editingId)||{}:{};const ss=stages();const wpp=getConnections().filter(x=>x.provider==='whatsapp'&&x.status==='connected');return `<div class="gxi-toolbar"><div class="gxi-toolbar-copy"><h2>${isEdit?'Editar rastreamento':'Novo rastreamento'}</h2><p>Defina o que deve acontecer quando uma mensagem for recebida.</p></div></div><div class="gxi-form"><div class="gxi-form-grid"><label class="gxi-field"><span class="gxi-label">Modo</span><select class="gxi-select" id="gxi-mode">${Object.entries(MODES).map(([k,v])=>`<option value="${k}" ${r.mode===k?'selected':''}>${v}</option>`).join('')}</select></label><label class="gxi-field"><span class="gxi-label">Etapa de destino</span><select class="gxi-select" id="gxi-stage"><option value="">Selecione uma etapa</option>${ss.map(s=>`<option value="${A(s.id)}" data-name="${A(s.name)}" ${String(r.stageId)===String(s.id)?'selected':''}>${E(s.name)}</option>`).join('')}</select></label><label class="gxi-field"><span class="gxi-label">Conexão do WhatsApp</span><select class="gxi-select" id="gxi-connection">${wpp.length?wpp.map(c=>`<option value="${A(c.id)}" data-name="${A(c.assets?.name||c.assets?.phone||'WhatsApp conectado')}" ${r.connectionId===c.id?'selected':''}>${E(c.assets?.name||c.assets?.phone||'WhatsApp conectado')}</option>`).join(''):`<option value="whatsapp_pending" data-name="WhatsApp não conectado">WhatsApp não conectado</option>`}</select></label><label class="gxi-field full"><span class="gxi-label">Mensagem</span><input class="gxi-input" id="gxi-message" value="${A(r.message||'')}" placeholder="Ex.: Quero comprar"></label></div><div class="gxi-help-grid"><div class="gxi-help"><b>Como funciona?</b><p>Quando o WhatsApp receber uma mensagem que corresponda ao critério, o lead será movido automaticamente para a etapa selecionada.</p></div><div class="gxi-help"><b>Registrando o valor da venda</b><p>Para registrar o valor automaticamente, use o formato <code>valor R$ 500</code> na mensagem configurada.</p></div></div>${!wpp.length?`<div class="gxi-warning" style="margin-top:14px">A regra poderá ser salva, mas ficará aguardando uma conexão oficial do WhatsApp para ser executada.</div>`:''}<div class="gxi-form-footer"><button class="gxi-btn" onclick="gxiCancelTracking()">Cancelar</button><button class="gxi-btn primary" onclick="gxiSaveTracking()">${isEdit?'Salvar alterações':'Criar rastreamento'}</button></div></div>`}
   function mappingRowsHtml(settings){
@@ -18213,48 +18238,102 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
 
 <!-- ═══ WHATSAPP — CAIXA DE CONVERSAS ═══ -->
 <style id="gex-whatsapp-chat-style">
-.wac-shell{display:flex;flex-direction:column;gap:14px;height:calc(100vh - 150px);min-height:520px}
-.wac-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1px solid var(--border);border-radius:15px;padding:12px 16px}
-.wac-topbar-status{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:800;color:#6B7280}
-.wac-topbar-status.on{color:#059669}
-.wac-topbar-status:before{content:'';width:8px;height:8px;border-radius:50%;background:currentColor}
-.wac-body{flex:1;display:grid;grid-template-columns:300px 1fr;gap:14px;min-height:0}
-.wac-list{background:#fff;border:1px solid var(--border);border-radius:15px;overflow-y:auto;display:flex;flex-direction:column}
+.wac-shell{display:flex;flex-direction:column;gap:14px;height:calc(100vh - 150px);min-height:560px}
+.wac-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;background:linear-gradient(135deg,#075E54,#128C7E);border-radius:15px;padding:14px 18px;color:#fff;box-shadow:0 8px 22px rgba(7,94,84,.25)}
+.wac-topbar-brand{display:flex;align-items:center;gap:11px}
+.wac-topbar-icon{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;font-size:17px;flex:0 0 auto}
+.wac-topbar-title{font-size:14.5px;font-weight:900}
+.wac-topbar-sub{font-size:10px;color:rgba(255,255,255,.78);margin-top:2px}
+.wac-topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.wac-topbar-status{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;color:rgba(255,255,255,.9);background:rgba(255,255,255,.12);padding:5px 11px;border-radius:20px}
+.wac-topbar-status:before{content:'';width:7px;height:7px;border-radius:50%;background:#F87171}
+.wac-topbar-status.on:before{background:#4ADE80}
+.wac-btn-ghost{border:1.5px solid rgba(255,255,255,.55);background:rgba(255,255,255,.08);color:#fff;border-radius:9px;height:34px;padding:0 14px;font-size:11px;font-weight:800;cursor:pointer}
+.wac-btn-ghost:hover{background:rgba(255,255,255,.2)}
+.wac-btn-solid{border:0;background:#fff;color:#075E54;border-radius:9px;height:34px;padding:0 14px;font-size:11px;font-weight:850;cursor:pointer}
+.wac-btn-solid:hover{background:#ECFDF5}
+.wac-btn-danger{border:1.5px solid rgba(255,255,255,.55);background:rgba(220,38,38,.22);color:#fff;border-radius:9px;height:34px;padding:0 14px;font-size:11px;font-weight:800;cursor:pointer}
+.wac-btn-danger:hover{background:rgba(220,38,38,.38)}
+.wac-body{flex:1;display:grid;grid-template-columns:310px 1fr;gap:14px;min-height:0}
+.wac-list{background:#fff;border:1px solid var(--border);border-radius:15px;overflow:hidden;display:flex;flex-direction:column}
+.wac-list-tools{padding:10px 12px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.wac-search{position:relative}
+.wac-search input{width:100%;height:34px;border:1px solid var(--border);background:#F0F2F5;border-radius:20px;padding:0 13px 0 30px;font-size:11.5px;outline:none}
+.wac-search input:focus{border-color:#128C7E;background:#fff}
+.wac-search:before{content:'🔎';position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:11px;opacity:.55}
+.wac-filters{display:flex;gap:6px}
+.wac-filter-chip{border:1px solid var(--border);background:#F8FAFC;color:#475569;border-radius:20px;height:26px;padding:0 11px;font-size:10px;font-weight:800;cursor:pointer}
+.wac-filter-chip.active{background:#128C7E;border-color:#128C7E;color:#fff}
+.wac-list-items{flex:1;overflow-y:auto}
 .wac-list-empty{padding:30px 16px;text-align:center;color:var(--muted);font-size:11.5px}
-.wac-item{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer}
+.wac-item{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer}
 .wac-item:hover{background:#F8FAFC}
-.wac-item.active{background:#ECFDF5}
-.wac-item-avatar{width:38px;height:38px;border-radius:50%;background:#E7F9EF;color:#128C7E;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;flex:0 0 auto}
+.wac-item.active{background:#E9FBF3}
+.wac-item-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;flex:0 0 auto;color:#fff}
+.wac-item-avatar.group{border-radius:12px}
 .wac-item-body{flex:1;min-width:0}
+.wac-item-name-row{display:flex;align-items:center;gap:5px;min-width:0}
 .wac-item-name{font-size:12px;font-weight:850;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wac-group-badge{font-size:10px;flex:0 0 auto}
 .wac-item-msg{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.wac-item-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.wac-tag{display:inline-flex;align-items:center;font-size:8.5px;font-weight:850;color:#075E54;background:#E7F9EF;border:1px solid #BBF0D9;border-radius:20px;padding:2px 7px;white-space:nowrap}
 .wac-item-meta{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:0 0 auto}
 .wac-item-time{font-size:9px;color:var(--muted)}
-.wac-badge{background:#059669;color:#fff;font-size:9.5px;font-weight:900;border-radius:20px;min-width:17px;height:17px;padding:0 5px;display:flex;align-items:center;justify-content:center}
-.wac-thread{background:#fff;border:1px solid var(--border);border-radius:15px;display:flex;flex-direction:column;min-height:0}
-.wac-thread-head{padding:13px 16px;border-bottom:1px solid var(--border);font-size:12.5px;font-weight:850;color:var(--txt)}
-.wac-thread-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;background:#F8FAFC}
-.wac-msg{max-width:65%;padding:8px 12px;border-radius:13px;font-size:12px;line-height:1.45;white-space:pre-wrap}
-.wac-msg.in{align-self:flex-start;background:#fff;border:1px solid var(--border);color:var(--txt)}
-.wac-msg.out{align-self:flex-end;background:#DCF8C6;color:#111827}
-.wac-msg-time{display:block;font-size:9px;color:var(--muted);margin-top:4px;text-align:right}
-.wac-thread-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;text-align:center;padding:30px}
-.wac-composer{display:flex;gap:8px;padding:12px;border-top:1px solid var(--border)}
-.wac-composer input{flex:1;height:40px;border:1.5px solid var(--border);border-radius:10px;padding:0 13px;font-size:12px;outline:none}
-.wac-composer input:focus{border-color:#128C7E}
-.wac-composer button{border:0;background:#128C7E;color:#fff;border-radius:10px;padding:0 18px;font-weight:850;font-size:12px;cursor:pointer}
+.wac-badge{background:#25D366;color:#fff;font-size:9.5px;font-weight:900;border-radius:20px;min-width:17px;height:17px;padding:0 5px;display:flex;align-items:center;justify-content:center}
+.wac-thread{background:#fff;border:1px solid var(--border);border-radius:15px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.wac-thread-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:11px;background:#F8FAFC}
+.wac-thread-head-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#fff;flex:0 0 auto}
+.wac-thread-head-avatar.group{border-radius:11px}
+.wac-thread-head-info{flex:1;min-width:0}
+.wac-thread-head-name{font-size:12.5px;font-weight:850;color:var(--txt);display:flex;align-items:center;gap:6px}
+.wac-thread-head-phone{font-size:10px;color:var(--muted);margin-top:1px}
+.wac-tag-btn{border:1px solid var(--border);background:#fff;color:#475569;border-radius:8px;height:28px;padding:0 10px;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap}
+.wac-tag-btn:hover{border-color:#128C7E;color:#128C7E}
+.wac-tag-editor{padding:10px 16px;border-bottom:1px solid var(--border);background:#FBFDFC;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.wac-tag.editable{padding-right:4px;gap:5px}
+.wac-tag.editable button{border:0;background:transparent;color:#075E54;cursor:pointer;font-size:10px;line-height:1;padding:0}
+.wac-tag-editor input{flex:1;min-width:120px;border:1px solid var(--border);border-radius:8px;height:26px;padding:0 9px;font-size:10.5px;outline:none}
+.wac-tag-editor input:focus{border-color:#128C7E}
+.wac-thread-msgs{flex:1;overflow-y:auto;padding:18px 16px;display:flex;flex-direction:column;gap:3px;background-color:#E9EEF1;background-image:radial-gradient(circle at 3px 3px,rgba(7,94,84,.05) 1.4px,transparent 0);background-size:26px 26px}
+.wac-msg{max-width:65%;padding:7px 10px 8px;border-radius:9px;font-size:12px;line-height:1.45;white-space:pre-wrap;position:relative;box-shadow:0 1px 1px rgba(0,0,0,.08);margin:3px 0}
+.wac-msg.in{align-self:flex-start;background:#fff;color:#111827;border-top-left-radius:2px}
+.wac-msg.out{align-self:flex-end;background:#D9FDD3;color:#111827;border-top-right-radius:2px}
+.wac-msg-time{display:block;font-size:9px;color:#00000073;margin-top:3px;text-align:right}
+.wac-msg-media-img{max-width:240px;max-height:280px;border-radius:7px;display:block;cursor:pointer;object-fit:cover}
+.wac-msg-media-video{max-width:260px;border-radius:7px;display:block}
+.wac-msg-media-audio{width:230px}
+.wac-msg-media-doc{display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.04);border-radius:8px;padding:8px 10px;text-decoration:none;color:inherit;font-weight:800;font-size:11.5px}
+.wac-msg-media-doc-icon{font-size:18px}
+.wac-msg-caption{margin-top:5px}
+.wac-attach-btn{border:0;background:transparent;color:#54656F;font-size:19px;cursor:pointer;flex:0 0 auto;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.wac-attach-btn:hover{background:#F0F2F5}
+.wac-attach-btn:disabled{opacity:.4;cursor:not-allowed}
+.wac-attach-preview{display:flex;align-items:center;gap:8px;padding:8px 14px;border-top:1px solid var(--border);background:#F8FAFC;font-size:11px;color:var(--txt)}
+.wac-attach-preview img{width:34px;height:34px;object-fit:cover;border-radius:6px}
+.wac-attach-preview button{border:0;background:#FEE2E2;color:#DC2626;border-radius:7px;width:22px;height:22px;cursor:pointer;font-size:11px;margin-left:auto}
+.wac-thread-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--muted);font-size:12px;text-align:center;padding:30px;background:#E9EEF1}
+.wac-thread-empty i{font-size:34px;opacity:.5}
+.wac-composer{display:flex;gap:8px;padding:12px;border-top:1px solid var(--border);align-items:center}
+.wac-composer input{flex:1;height:40px;border:1.5px solid var(--border);border-radius:22px;padding:0 15px;font-size:12px;outline:none;background:#F0F2F5}
+.wac-composer input:focus{border-color:#128C7E;background:#fff}
+.wac-composer button{border:0;background:#128C7E;color:#fff;border-radius:50%;width:40px;height:40px;font-weight:850;font-size:15px;cursor:pointer;flex:0 0 auto;display:flex;align-items:center;justify-content:center}
 .wac-composer button:disabled{opacity:.5;cursor:not-allowed}
 .wac-qr-panel{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;z-index:9999}
 .wac-qr-card{background:#fff;border-radius:18px;padding:26px;max-width:340px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.25)}
 .wac-qr-card img{width:220px;height:220px;margin:14px auto;display:block;border-radius:10px;border:1px solid var(--border)}
 .wac-qr-card p{font-size:11.5px;color:var(--muted);line-height:1.5}
+@media(max-width:820px){.wac-body{grid-template-columns:1fr}.wac-list{max-height:260px}}
 </style>
 <script id="gex-whatsapp-chat-script">
 (function(){
-  let wacChats=[],wacSelectedPhone='',wacMessages=[],wacConn={connected:false,configured:false},wacQrOpen=false,wacQrInterval=null,wacPollInterval=null,wacSending=false;
+  let wacChats=[],wacSelectedPhone='',wacMessages=[],wacConn={connected:false,configured:false},wacQrOpen=false,wacQrInterval=null,wacPollInterval=null,wacSending=false,wacSearch='',wacFilter='all',wacTagEditorOpen=false,wacTagDraft=[],wacDisconnecting=false,wacPendingAttachment=null;
+  const MAX_ATTACHMENT_BYTES=8*1024*1024; // 8MB — sem storage próprio, o arquivo vai em base64 no corpo da requisição
   const esc=escHtml;
+  const AVATAR_COLORS=['#128C7E','#2563EB','#7C3AED','#DB2777','#EA580C','#059669','#4F46E5','#0891B2'];
   function pageActive(){return document.getElementById('page-whatsapp-chat')?.classList.contains('active')}
   function initials(name){return String(name||'?').trim().slice(0,2).toUpperCase()}
+  function avatarColor(key){const s=String(key||'');let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return AVATAR_COLORS[h%AVATAR_COLORS.length]}
   function fmtTime(iso){try{return new Date(iso).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}catch(e){return ''}}
   function fmtTimeShort(iso){try{return new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}catch(e){return ''}}
 
@@ -18283,47 +18362,129 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   function shellHtml(){
     return `<div class="wac-shell">
       <div class="wac-topbar">
-        <div>
-          <div style="font-size:15px;font-weight:900;color:var(--txt)">Caixa de Conversas — WhatsApp</div>
-          <div style="font-size:10.5px;color:var(--muted);margin-top:2px">Conversas recebidas e enviadas pela conexão Z-API. Integração não oficial — veja o aviso em Integrações.</div>
+        <div class="wac-topbar-brand">
+          <div class="wac-topbar-icon">💬</div>
+          <div>
+            <div class="wac-topbar-title">Caixa de Conversas — WhatsApp</div>
+            <div class="wac-topbar-sub">Via conexão Z-API (não oficial) · veja o aviso em Integrações</div>
+          </div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px">
+        <div class="wac-topbar-right">
           <span class="wac-topbar-status ${wacConn.connected?'on':''}" id="wac-status-label">${wacConn.connected?'Conectado':wacConn.configured?'Desconectado':'Sem conexão configurada'}</span>
-          <button class="gl-btn sm primary" onclick="wacOpenQr()">📷 Conectar com QR Code</button>
+          ${wacConn.connected?`<button class="wac-btn-danger" onclick="wacDisconnect()" id="wac-disconnect-btn">Desconectar</button>`:''}
+          <button class="wac-btn-solid" onclick="wacOpenQr()">📷 ${wacConn.connected?'Reconectar':'Conectar com QR Code'}</button>
         </div>
       </div>
       <div class="wac-body">
-        <div class="wac-list" id="wac-list">${listHtml()}</div>
+        <div class="wac-list">
+          <div class="wac-list-tools">
+            <div class="wac-search"><input id="wac-search-input" placeholder="Buscar conversa ou etiqueta..." value="${esc(wacSearch)}" oninput="wacSetSearch(this.value)"></div>
+            <div class="wac-filters">
+              <button class="wac-filter-chip ${wacFilter==='all'?'active':''}" onclick="wacSetFilter('all')">Todas</button>
+              <button class="wac-filter-chip ${wacFilter==='unread'?'active':''}" onclick="wacSetFilter('unread')">Não lidas</button>
+              <button class="wac-filter-chip ${wacFilter==='groups'?'active':''}" onclick="wacSetFilter('groups')">Grupos</button>
+            </div>
+          </div>
+          <div class="wac-list-items" id="wac-list">${listHtml()}</div>
+        </div>
         <div class="wac-thread" id="wac-thread">${threadHtml()}</div>
       </div>
     </div>`;
   }
 
-  function listHtml(){
-    if(!wacChats.length)return `<div class="wac-list-empty">Nenhuma conversa ainda.<br>Assim que uma mensagem chegar (ou você conectar e mandar uma), ela aparece aqui.</div>`;
-    return wacChats.map(c=>`<div class="wac-item ${c.phone===wacSelectedPhone?'active':''}" onclick="wacSelectChat('${esc(c.phone)}')">
-      <div class="wac-item-avatar">${esc(initials(c.name))}</div>
+  function filteredChats(){
+    const q=wacSearch.trim().toLocaleLowerCase('pt-BR');
+    return wacChats.filter(c=>{
+      if(wacFilter==='unread'&&!(c.unread_count>0))return false;
+      if(wacFilter==='groups'&&!c.is_group)return false;
+      if(!q)return true;
+      const hay=[c.name,c.phone,...(c.tags||[])].join(' ').toLocaleLowerCase('pt-BR');
+      return hay.includes(q);
+    });
+  }
+
+  function chatItemHtml(c){
+    const color=avatarColor(c.phone);
+    return `<div class="wac-item ${c.phone===wacSelectedPhone?'active':''}" onclick="wacSelectChat('${esc(c.phone)}')">
+      <div class="wac-item-avatar ${c.is_group?'group':''}" style="background:${color}">${c.is_group?'👥':esc(initials(c.name))}</div>
       <div class="wac-item-body">
-        <div class="wac-item-name">${esc(c.name||c.phone)}</div>
+        <div class="wac-item-name-row"><span class="wac-item-name">${esc(c.name||c.phone)}</span>${c.is_group?`<span class="wac-group-badge" title="Grupo">👥</span>`:''}</div>
         <div class="wac-item-msg">${esc(c.last_message||'')}</div>
+        ${(c.tags&&c.tags.length)?`<div class="wac-item-tags">${c.tags.map(t=>`<span class="wac-tag">${esc(t)}</span>`).join('')}</div>`:''}
       </div>
       <div class="wac-item-meta">
         <div class="wac-item-time">${c.last_message_at?fmtTimeShort(c.last_message_at):''}</div>
         ${c.unread_count>0?`<span class="wac-badge">${c.unread_count>99?'99+':c.unread_count}</span>`:''}
       </div>
-    </div>`).join('');
+    </div>`;
+  }
+
+  function listHtml(){
+    const list=filteredChats();
+    if(!wacChats.length)return `<div class="wac-list-empty">Nenhuma conversa ainda.<br>Assim que uma mensagem chegar (ou você conectar e mandar uma), ela aparece aqui.</div>`;
+    if(!list.length)return `<div class="wac-list-empty">Nenhuma conversa encontrada para esse filtro/busca.</div>`;
+    return list.map(chatItemHtml).join('');
+  }
+
+  function tagEditorHtml(chat){
+    if(!wacTagEditorOpen)return '';
+    return `<div class="wac-tag-editor" id="wac-tag-editor">
+      ${wacTagDraft.map((t,i)=>`<span class="wac-tag editable">${esc(t)}<button onclick="wacRemoveTagDraft(${i})" title="Remover">✕</button></span>`).join('')}
+      <input id="wac-tag-input" placeholder="Nova etiqueta e Enter..." onkeydown="if(event.key==='Enter'){event.preventDefault();wacAddTagDraft(this.value);this.value=''}">
+      <button class="wac-tag-btn" onclick="wacSaveTags()">Salvar</button>
+      <button class="wac-tag-btn" onclick="wacToggleTagEditor()">Cancelar</button>
+    </div>`;
   }
 
   function threadHtml(){
-    if(!wacSelectedPhone)return `<div class="wac-thread-empty">Selecione uma conversa à esquerda pra ver o histórico de mensagens.</div>`;
-    const chat=wacChats.find(c=>c.phone===wacSelectedPhone);
-    return `<div class="wac-thread-head">${esc(chat?.name||wacSelectedPhone)} <span style="font-weight:600;color:var(--muted);font-size:10.5px">· ${esc(wacSelectedPhone)}</span></div>
-    <div class="wac-thread-msgs" id="wac-thread-msgs">${wacMessages.length?wacMessages.map(m=>`<div class="wac-msg ${m.from_me?'out':'in'}">${esc(m.text||'')}<span class="wac-msg-time">${fmtTime(m.momment)}</span></div>`).join(''):`<div style="text-align:center;color:var(--muted);font-size:11px;margin:auto">Sem mensagens ainda nessa conversa.</div>`}</div>
+    if(!wacSelectedPhone)return `<div class="wac-thread-empty"><i>💬</i>Selecione uma conversa à esquerda pra ver o histórico de mensagens.</div>`;
+    const chat=wacChats.find(c=>c.phone===wacSelectedPhone)||{phone:wacSelectedPhone};
+    const color=avatarColor(chat.phone);
+    return `<div class="wac-thread-head">
+      <div class="wac-thread-head-avatar ${chat.is_group?'group':''}" style="background:${color}">${chat.is_group?'👥':esc(initials(chat.name))}</div>
+      <div class="wac-thread-head-info">
+        <div class="wac-thread-head-name">${esc(chat.name||wacSelectedPhone)}${chat.is_group?`<span title="Grupo">👥</span>`:''}</div>
+        <div class="wac-thread-head-phone">${esc(wacSelectedPhone)}${(chat.tags&&chat.tags.length)?' · '+chat.tags.length+' etiqueta(s)':''}</div>
+      </div>
+      <button class="wac-tag-btn" onclick="wacToggleTagEditor()">🏷️ Etiquetas</button>
+    </div>
+    ${tagEditorHtml(chat)}
+    <div class="wac-thread-msgs" id="wac-thread-msgs">${messagesHtml()}</div>
+    ${wacPendingAttachment?attachPreviewHtml():''}
     <div class="wac-composer">
+      <input type="file" id="wac-file-input" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none" onchange="wacPickFile(this.files[0])">
+      <button class="wac-attach-btn" onclick="document.getElementById('wac-file-input').click()" ${wacConn.connected?'':'disabled'} title="Anexar arquivo">📎</button>
       <input id="wac-input" placeholder="Escreva uma mensagem..." onkeydown="if(event.key==='Enter')wacSendMessage()">
-      <button onclick="wacSendMessage()" id="wac-send-btn" ${wacConn.connected?'':'disabled'}>Enviar</button>
+      <button onclick="wacSendMessage()" id="wac-send-btn" ${wacConn.connected?'':'disabled'} title="Enviar">➤</button>
     </div>`;
   }
+
+  function messagesHtml(){
+    if(!wacMessages.length)return `<div style="text-align:center;color:var(--muted);font-size:11px;margin:auto">Sem mensagens ainda nessa conversa.</div>`;
+    return wacMessages.map(messageHtml).join('');
+  }
+
+  function messageHtml(m){
+    const mediaHtml=mediaContentHtml(m);
+    return `<div class="wac-msg ${m.from_me?'out':'in'}">${mediaHtml}${m.text&&!mediaHtml?esc(m.text):(m.media_caption?`<div class="wac-msg-caption">${esc(m.media_caption)}</div>`:'')}<span class="wac-msg-time">${fmtTime(m.momment)}</span></div>`;
+  }
+
+  function mediaContentHtml(m){
+    if(!m.media_type||!m.media_url)return '';
+    if(m.media_type==='image')return `<img class="wac-msg-media-img" src="${A(m.media_url)}" alt="Imagem" onclick="window.open('${A(m.media_url)}','_blank')">`;
+    if(m.media_type==='video')return `<video class="wac-msg-media-video" src="${A(m.media_url)}" controls></video>`;
+    if(m.media_type==='audio')return `<audio class="wac-msg-media-audio" src="${A(m.media_url)}" controls></audio>`;
+    if(m.media_type==='document')return `<a class="wac-msg-media-doc" href="${A(m.media_url)}" target="_blank" rel="noopener"><span class="wac-msg-media-doc-icon">📎</span>${esc(m.media_filename||'Arquivo')}</a>`;
+    return '';
+  }
+
+  function attachPreviewHtml(){
+    const a=wacPendingAttachment;
+    if(!a)return '';
+    const icon=a.type==='image'?`<img src="${A(a.data)}" alt="">`:a.type==='video'?'🎥':a.type==='audio'?'🎤':'📎';
+    return `<div class="wac-attach-preview" id="wac-attach-preview">${typeof icon==='string'?`<span style="font-size:18px">${icon}</span>`:icon}<span>${esc(a.name)}</span><button onclick="wacClearAttachment()" title="Remover anexo">✕</button></div>`;
+  }
+  function A(s){return String(s==null?'':s).replace(/"/g,'&quot;')}
 
   async function loadStatus(){
     try{
@@ -18334,6 +18495,16 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     if(label){label.textContent=wacConn.connected?'Conectado':wacConn.configured?'Desconectado':'Sem conexão configurada';label.classList.toggle('on',wacConn.connected)}
     const sendBtn=document.getElementById('wac-send-btn');
     if(sendBtn)sendBtn.disabled=!wacConn.connected;
+    const shell=document.querySelector('.wac-topbar-right');
+    if(shell){
+      const hasDiscBtn=!!document.getElementById('wac-disconnect-btn');
+      if(wacConn.connected!==hasDiscBtn){
+        const page=document.getElementById('page-whatsapp-chat');
+        if(page)page.innerHTML=shellHtml();
+        const listEl=document.getElementById('wac-list');if(listEl)listEl.innerHTML=listHtml();
+        const threadEl=document.getElementById('wac-thread');if(threadEl)threadEl.innerHTML=threadHtml();
+      }
+    }
   }
 
   async function loadInbox(phone){
@@ -18347,15 +18518,25 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
         const msgsEl=document.getElementById('wac-thread-msgs');
         if(msgsEl){
           const nearBottom=msgsEl.scrollHeight-msgsEl.scrollTop-msgsEl.clientHeight<80;
-          msgsEl.innerHTML=wacMessages.length?wacMessages.map(m=>`<div class="wac-msg ${m.from_me?'out':'in'}">${esc(m.text||'')}<span class="wac-msg-time">${fmtTime(m.momment)}</span></div>`).join(''):`<div style="text-align:center;color:var(--muted);font-size:11px;margin:auto">Sem mensagens ainda nessa conversa.</div>`;
+          msgsEl.innerHTML=messagesHtml();
           if(nearBottom)msgsEl.scrollTop=msgsEl.scrollHeight;
         }
       }
     }catch(e){/* mantém o que já tinha carregado */}
   }
 
+  window.wacSetSearch=function(v){wacSearch=v;const listEl=document.getElementById('wac-list');if(listEl)listEl.innerHTML=listHtml()};
+  window.wacSetFilter=function(f){
+    wacFilter=f;
+    document.querySelectorAll('.wac-filter-chip').forEach(b=>b.classList.remove('active'));
+    const btn=[...document.querySelectorAll('.wac-filter-chip')].find(b=>b.textContent.trim()===({all:'Todas',unread:'Não lidas',groups:'Grupos'}[f]));
+    if(btn)btn.classList.add('active');
+    const listEl=document.getElementById('wac-list');if(listEl)listEl.innerHTML=listHtml();
+  };
+
   window.wacSelectChat=async function(phone){
     wacSelectedPhone=phone;
+    wacTagEditorOpen=false;wacTagDraft=[];wacPendingAttachment=null;
     const listEl=document.getElementById('wac-list');if(listEl)listEl.innerHTML=listHtml();
     const threadEl=document.getElementById('wac-thread');if(threadEl)threadEl.innerHTML=threadHtml();
     const msgsEl=document.getElementById('wac-thread-msgs');if(msgsEl)msgsEl.scrollTop=msgsEl.scrollHeight;
@@ -18367,20 +18548,87 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     await loadInbox(phone);
   };
 
+  window.wacToggleTagEditor=function(){
+    const chat=wacChats.find(c=>c.phone===wacSelectedPhone);
+    wacTagDraft=chat?.tags?[...chat.tags]:[];
+    wacTagEditorOpen=!wacTagEditorOpen;
+    const threadEl=document.getElementById('wac-thread');if(threadEl)threadEl.innerHTML=threadHtml();
+    if(wacTagEditorOpen)document.getElementById('wac-tag-input')?.focus();
+  };
+  window.wacAddTagDraft=function(v){
+    const val=String(v||'').trim();
+    if(!val||wacTagDraft.includes(val)||wacTagDraft.length>=8)return;
+    wacTagDraft.push(val);
+    const editor=document.getElementById('wac-tag-editor');
+    if(editor)editor.outerHTML=tagEditorHtml(wacChats.find(c=>c.phone===wacSelectedPhone));
+    document.getElementById('wac-tag-input')?.focus();
+  };
+  window.wacRemoveTagDraft=function(i){
+    wacTagDraft.splice(i,1);
+    const editor=document.getElementById('wac-tag-editor');
+    if(editor)editor.outerHTML=tagEditorHtml(wacChats.find(c=>c.phone===wacSelectedPhone));
+  };
+  window.wacSaveTags=async function(){
+    if(!wacSelectedPhone)return;
+    try{
+      const j=await apiPost('whatsapp-chat-tags-set',{phone:wacSelectedPhone,tags:wacTagDraft});
+      if(j&&j.ok){
+        const chat=wacChats.find(c=>c.phone===wacSelectedPhone);
+        if(chat)chat.tags=j.tags||wacTagDraft;
+        wacTagEditorOpen=false;
+        toast('Etiquetas salvas ✓','#10B981');
+        const listEl=document.getElementById('wac-list');if(listEl)listEl.innerHTML=listHtml();
+        const threadEl=document.getElementById('wac-thread');if(threadEl)threadEl.innerHTML=threadHtml();
+      }else{
+        toast(j?.message||'Não foi possível salvar as etiquetas','#EF4444');
+      }
+    }catch(e){
+      toast('Falha de conexão ao salvar etiquetas','#EF4444');
+    }
+  };
+
+  window.wacPickFile=function(file){
+    if(!file)return;
+    if(file.size>MAX_ATTACHMENT_BYTES){toast('Arquivo muito grande (máx. 8MB por enquanto)','#EF4444');return}
+    const mime=file.type||'';
+    const type=mime.startsWith('image/')?'image':mime.startsWith('video/')?'video':mime.startsWith('audio/')?'audio':'document';
+    const reader=new FileReader();
+    reader.onload=()=>{
+      wacPendingAttachment={type,name:file.name,mime,data:reader.result};
+      document.getElementById('wac-attach-preview')?.remove();
+      const composer=document.querySelector('.wac-composer');
+      if(composer)composer.insertAdjacentHTML('beforebegin',attachPreviewHtml());
+    };
+    reader.onerror=()=>toast('Não foi possível ler o arquivo','#EF4444');
+    reader.readAsDataURL(file);
+  };
+  window.wacClearAttachment=function(){
+    wacPendingAttachment=null;
+    document.getElementById('wac-attach-preview')?.remove();
+    const fileInput=document.getElementById('wac-file-input');if(fileInput)fileInput.value='';
+  };
+
   window.wacSendMessage=async function(){
     const input=document.getElementById('wac-input');
     const message=input?.value.trim();
-    if(!message||!wacSelectedPhone||wacSending)return;
+    if(!wacSelectedPhone||wacSending)return;
+    if(!message&&!wacPendingAttachment)return;
     wacSending=true;
     const btn=document.getElementById('wac-send-btn');if(btn)btn.disabled=true;
     try{
       const chat=wacChats.find(c=>c.phone===wacSelectedPhone);
-      const j=await apiPost('send-whatsapp-message',{phone:wacSelectedPhone,message,toName:chat?.name||''});
+      let j;
+      if(wacPendingAttachment){
+        j=await apiPost('send-whatsapp-media',{phone:wacSelectedPhone,type:wacPendingAttachment.type,data:wacPendingAttachment.data,caption:message,fileName:wacPendingAttachment.name,toName:chat?.name||''});
+      }else{
+        j=await apiPost('send-whatsapp-message',{phone:wacSelectedPhone,message,toName:chat?.name||''});
+      }
       if(j&&j.ok){
         if(input)input.value='';
+        window.wacClearAttachment();
         await loadInbox(wacSelectedPhone);
       }else{
-        toast(j?.message||'Não foi possível enviar a mensagem','#EF4444');
+        toast(j?.message||'Não foi possível enviar','#EF4444');
       }
     }catch(e){
       toast('Falha de conexão ao enviar','#EF4444');
@@ -18388,6 +18636,31 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     wacSending=false;
     if(btn)btn.disabled=!wacConn.connected;
   };
+
+  window.wacDisconnect=function(){
+    if(wacDisconnecting)return;
+    if(typeof confirmDelete==='function'){
+      confirmDelete(async()=>{await doDisconnect()});
+    }else if(confirm('Desconectar o número do WhatsApp? Será preciso escanear um novo QR Code para reconectar.')){
+      doDisconnect();
+    }
+  };
+  async function doDisconnect(){
+    wacDisconnecting=true;
+    const btn=document.getElementById('wac-disconnect-btn');if(btn){btn.disabled=true;btn.textContent='Desconectando...'}
+    try{
+      const j=await apiPost('zapi-disconnect',{});
+      if(j&&j.ok){
+        toast('WhatsApp desconectado. Escaneie um novo QR Code para reconectar.','#F59E0B');
+      }else{
+        toast(j?.message||'Não foi possível desconectar','#EF4444');
+      }
+    }catch(e){
+      toast('Falha de conexão ao desconectar','#EF4444');
+    }
+    wacDisconnecting=false;
+    await loadStatus();
+  }
 
   window.wacOpenQr=async function(){
     wacQrOpen=true;
