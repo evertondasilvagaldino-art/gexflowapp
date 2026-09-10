@@ -13257,9 +13257,18 @@ async function loadDealWhatsappMirror(l,dealIdAtRequest){
     box.innerHTML=`<div class="empty"><div class="empty-ico">💬</div><div class="empty-txt">Este lead não tem telefone cadastrado</div></div>`;
     return;
   }
+  // Cada usuário tem sua própria conexão de WhatsApp agora — o espelho
+  // precisa ver a conexão do VENDEDOR RESPONSÁVEL pelo lead (não a de
+  // quem está olhando o card), senão um gestor olhando o negócio de outro
+  // vendedor nunca veria nada.
+  const ownerId=(typeof getLeadOwnerId==='function'?getLeadOwnerId(l):'')||'';
+  if(!ownerId){
+    box.innerHTML=`<div class="empty"><div class="empty-ico">💬</div><div class="empty-txt">Este lead ainda não tem um responsável definido — atribua um vendedor pra ver a conversa de WhatsApp dele aqui.</div></div>`;
+    return;
+  }
   try{
     const token=await getGexSupabaseToken();
-    const res=await fetch(`${getSupabaseFunctionUrl('whatsapp-inbox-get')}?phone=${encodeURIComponent(phone)}`,{headers:{Authorization:`Bearer ${token}`}});
+    const res=await fetch(`${getSupabaseFunctionUrl('whatsapp-inbox-get')}?phone=${encodeURIComponent(phone)}&ownerId=${encodeURIComponent(ownerId)}`,{headers:{Authorization:`Bearer ${token}`}});
     const j=await res.json().catch(()=>({}));
     // Se o usuário já trocou de aba/lead enquanto isso carregava, não pisa no que está na tela agora.
     if(currentHistTab!=='wpp'||currentDealId!==dealIdAtRequest||!document.getElementById('deal-wpp-mirror'))return;
@@ -16829,7 +16838,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   const A=E;
   const PROVIDERS=[
     {id:'meta_ads',name:'Meta Ads',cat:'Anúncios',icon:'∞',accent:'#0866FF',soft:'#EAF2FF',desc:'Campanhas, contas de anúncios, Pixels, formulários e atribuição de leads.',button:'Conectar com Facebook'},
-    {id:'whatsapp',name:'WhatsApp (não oficial)',cat:'Comunicação',icon:'◉',accent:'#128C7E',soft:'#E7F9EF',desc:'Mensagens recebidas, atendimento, tracking manual e automações comerciais — via Z-API.',button:'Conectar com WhatsApp'},
+    {id:'whatsapp',name:'WhatsApp (não oficial)',cat:'Comunicação',icon:'◉',accent:'#128C7E',soft:'#E7F9EF',desc:'Conexão pessoal do seu número — mensagens recebidas, atendimento e automações comerciais, via Z-API. Cada usuário conecta o seu próprio número.',button:'Conectar com WhatsApp'},
     {id:'google_ads',name:'Google Ads',cat:'Anúncios',icon:'G',accent:'#4285F4',soft:'#FFF8E1',desc:'Campanhas, custos, cliques, conversões e envio de vendas qualificadas.',button:'Conectar com Google'},
     {id:'whatsapp_oficial',name:'WhatsApp Oficial',cat:'Comunicação',icon:'✔',accent:'#25D366',soft:'#E7F9EF',desc:'Conexão via API oficial da Meta (WhatsApp Cloud API), com número verificado e templates aprovados.',button:'Em breve',comingSoon:true}
   ];
@@ -16841,7 +16850,13 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   const getConversionSettings=()=>{try{return (DB.get('conversion_settings')||[])[0]||{id:'conversion_main',meta:{},google:{},mappings:[]}}catch(e){return{id:'conversion_main',meta:{},google:{},mappings:[]}}};
   const getLeadgenSettings=()=>{try{return (DB.get('leadgen_settings')||[])[0]||{id:'leadgen_main'}}catch(e){return{id:'leadgen_main'}}};
   const getEmailSmtpSettings=()=>{try{return (DB.get('email_smtp_settings')||[])[0]||{id:'email_smtp_main'}}catch(e){return{id:'email_smtp_main'}}};
-  const getZapiSettings=()=>{try{return (DB.get('zapi_settings')||[])[0]||{id:'zapi_main'}}catch(e){return{id:'zapi_main'}}};
+  // MULTIUSUÁRIO: cada usuário logado tem sua própria conexão de WhatsApp
+  // (seu próprio número). Antes existia só UM registro local "zapi_main"
+  // compartilhado — agora cada usuário tem o seu próprio, guardado com o
+  // id "zapi_main__<seu id>", pra não misturar o status de um usuário com
+  // o de outro na mesma tela.
+  const getMyZapiId=()=>`zapi_main__${(typeof sessionUser!=='undefined'&&sessionUser?.id)||'sem_login'}`;
+  const getZapiSettings=()=>{try{const myId=getMyZapiId();return (DB.get('zapi_settings')||[]).find(x=>x.id===myId)||{id:myId}}catch(e){return{id:getMyZapiId()}}};
   const connection=id=>getConnections().find(x=>x.provider===id)||{provider:id,status:'disconnected',assets:{}};
   function saveConnection(provider,data){const all=getConnections(),i=all.findIndex(x=>x.provider===provider),next={...(i>=0?all[i]:{id:uid(),provider}),...data,updatedAt:new Date().toISOString()};if(i>=0)all[i]=next;else all.push(next);DB.set('integration_connections',all);return next}
   function event(type,detail,status='success',extra={}){DB.push('tracking_events',{id:uid(),type,detail,status,createdAt:new Date().toISOString(),...extra})}
@@ -16877,7 +16892,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     const s=getZapiSettings(),on=!!s.connected;
     return `<div class="gxi-conv-grid" style="grid-template-columns:1fr;margin-top:13px" id="gxi-zapi-card-anchor">
       <div class="gxi-conv-card">
-        <div class="gxi-conv-head"><div class="gxi-conv-logo" style="background:#E7F9EF;color:#128C7E">◉</div><div><h3>Conexão de WhatsApp (Z-API)</h3><p>Envio automático de mensagens de WhatsApp pelas automações, sem precisar clicar</p></div><span class="gxi-config-status" id="gxi-zapi-live-status" style="margin-left:auto">${on?'Credenciais salvas':'Pendente'}</span></div>
+        <div class="gxi-conv-head"><div class="gxi-conv-logo" style="background:#E7F9EF;color:#128C7E">◉</div><div><h3>Conexão de WhatsApp (Z-API) — meu número</h3><p>Sua conexão pessoal: cada usuário do sistema conecta o seu próprio WhatsApp, e todas as conexões da equipe ficam ativas ao mesmo tempo.</p></div><span class="gxi-config-status" id="gxi-zapi-live-status" style="margin-left:auto">${on?'Credenciais salvas':'Pendente'}</span></div>
         <div class="gxi-warning" style="margin-bottom:12px">Z-API é uma integração não oficial com o WhatsApp — existe risco real de banimento do número conectado. Use um número dedicado só pra automações, nunca o WhatsApp principal da empresa. <a href="https://www.z-api.io" target="_blank" rel="noopener" style="color:#92400E;text-decoration:underline">Criar conta na Z-API</a>.</div>
         ${on?`<div class="gxi-card-note" style="margin-bottom:12px">Enviando pela instância <b>${E(s.instanceId||'')}</b>${s.webhookUrl?` · <a href="#" onclick="navigator.clipboard&&navigator.clipboard.writeText('${A(s.webhookUrl)}');toast('URL do webhook copiada ✓','#10B981');return false" style="color:#128C7E;text-decoration:underline">copiar URL do webhook</a>`:''}${on?` · <a href="#" onclick="window.wacOpenQr&&window.wacOpenQr();return false" style="color:#128C7E;text-decoration:underline">ver QR Code</a>`:''}</div>`:''}
         <div class="gxi-form-grid" style="margin-bottom:11px">
@@ -17208,8 +17223,9 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       });
       const j=await res.json().catch(()=>({}));
       if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível salvar a conexão.');
-      const next={id:'zapi_main',connected:true,hasToken:true,hasClientToken:true,instanceId,webhookUrl:j?.webhookUrl||old.webhookUrl||'',updatedAt:new Date().toISOString()};
-      DB.set('zapi_settings',[next]);
+      const next={id:getMyZapiId(),connected:true,hasToken:true,hasClientToken:true,instanceId,webhookUrl:j?.webhookUrl||old.webhookUrl||'',updatedAt:new Date().toISOString()};
+      const others=(DB.get('zapi_settings')||[]).filter(x=>x.id!==next.id);
+      DB.set('zapi_settings',[...others,next]);
       toast('Conexão de WhatsApp salva ✓','#10B981');
       render();
     }catch(e){
