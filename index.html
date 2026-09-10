@@ -18271,8 +18271,9 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
 .wac-item{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer}
 .wac-item:hover{background:#F8FAFC}
 .wac-item.active{background:#E9FBF3}
-.wac-item-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;flex:0 0 auto;color:#fff}
+.wac-item-avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;flex:0 0 auto;color:#fff;overflow:hidden}
 .wac-item-avatar.group{border-radius:12px}
+.wac-item-avatar img,.wac-thread-head-avatar img{width:100%;height:100%;object-fit:cover}
 .wac-item-body{flex:1;min-width:0}
 .wac-item-name-row{display:flex;align-items:center;gap:5px;min-width:0}
 .wac-item-name{font-size:12px;font-weight:850;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -18285,7 +18286,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
 .wac-badge{background:#25D366;color:#fff;font-size:9.5px;font-weight:900;border-radius:20px;min-width:17px;height:17px;padding:0 5px;display:flex;align-items:center;justify-content:center}
 .wac-thread{background:#fff;border:1px solid var(--border);border-radius:15px;display:flex;flex-direction:column;min-height:0;overflow:hidden}
 .wac-thread-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:11px;background:#F8FAFC}
-.wac-thread-head-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#fff;flex:0 0 auto}
+.wac-thread-head-avatar{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#fff;flex:0 0 auto;overflow:hidden}
 .wac-thread-head-avatar.group{border-radius:11px}
 .wac-thread-head-info{flex:1;min-width:0}
 .wac-thread-head-name{font-size:12.5px;font-weight:850;color:var(--txt);display:flex;align-items:center;gap:6px}
@@ -18347,6 +18348,29 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   function pageActive(){return document.getElementById('page-whatsapp-chat')?.classList.contains('active')}
   function initials(name){return String(name||'?').trim().slice(0,2).toUpperCase()}
   function avatarColor(key){const s=String(key||'');let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return AVATAR_COLORS[h%AVATAR_COLORS.length]}
+  function avatarInnerHtml(c){
+    if(c.photo_url)return `<img src="${A(c.photo_url)}" alt="" onerror="this.parentElement.innerHTML='${c.is_group?'👥':esc(initials(c.name))}'">`;
+    return c.is_group?'👥':esc(initials(c.name));
+  }
+  const wacPhotoTried=new Set();
+  async function wacFetchPhotosFor(chats){
+    const targets=chats.filter(c=>!c.is_group&&!c.photo_url&&!wacPhotoTried.has(c.phone));
+    for(const c of targets){
+      wacPhotoTried.add(c.phone);
+      try{
+        const j=await apiGet('whatsapp-contact-photo',{phone:c.phone});
+        if(j&&j.ok&&j.url){
+          c.photo_url=j.url;
+          const itemEl=document.querySelector(`.wac-item[onclick="wacSelectChat('${esc(c.phone)}')"] .wac-item-avatar`);
+          if(itemEl)itemEl.innerHTML=avatarInnerHtml(c);
+          if(c.phone===wacSelectedPhone){
+            const headEl=document.querySelector('.wac-thread-head-avatar');
+            if(headEl)headEl.innerHTML=avatarInnerHtml(c);
+          }
+        }
+      }catch(e){/* sem foto disponível, mantém iniciais */}
+    }
+  }
   function fmtTime(iso){try{return new Date(iso).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}catch(e){return ''}}
   function fmtTimeShort(iso){try{return new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}catch(e){return ''}}
 
@@ -18440,7 +18464,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   function chatItemHtml(c){
     const color=avatarColor(c.phone);
     return `<div class="wac-item ${c.phone===wacSelectedPhone?'active':''}" onclick="wacSelectChat('${esc(c.phone)}')">
-      <div class="wac-item-avatar ${c.is_group?'group':''}" style="background:${color}">${c.is_group?'👥':esc(initials(c.name))}</div>
+      <div class="wac-item-avatar ${c.is_group?'group':''}" style="background:${color}">${avatarInnerHtml(c)}</div>
       <div class="wac-item-body">
         <div class="wac-item-name-row"><span class="wac-item-name">${esc(c.name||c.phone)}</span>${c.is_group?`<span class="wac-group-badge" title="Grupo">👥</span>`:''}</div>
         <div class="wac-item-msg">${esc(c.last_message||'')}</div>
@@ -18487,7 +18511,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     const chat=wacChats.find(c=>c.phone===wacSelectedPhone)||{phone:wacSelectedPhone};
     const color=avatarColor(chat.phone);
     return `<div class="wac-thread-head">
-      <div class="wac-thread-head-avatar ${chat.is_group?'group':''}" style="background:${color}">${chat.is_group?'👥':esc(initials(chat.name))}</div>
+      <div class="wac-thread-head-avatar ${chat.is_group?'group':''}" style="background:${color}">${avatarInnerHtml(chat)}</div>
       <div class="wac-thread-head-info">
         <div class="wac-thread-head-name">${esc(chat.name||wacSelectedPhone)}${chat.is_group?`<span title="Grupo">👥</span>`:''}</div>
         <div class="wac-thread-head-phone">${esc(wacSelectedPhone)}</div>
@@ -18562,6 +18586,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       wacChats=j.chats||[];
       if(phone)wacMessages=j.messages||[];
       const listEl=document.getElementById('wac-list');if(listEl)listEl.innerHTML=listHtml();
+      wacFetchPhotosFor(wacChats);
       if(phone){
         const msgsEl=document.getElementById('wac-thread-msgs');
         if(msgsEl){
