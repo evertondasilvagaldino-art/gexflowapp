@@ -13290,6 +13290,10 @@ async function loadDealWhatsappMirror(l,dealIdAtRequest){
   }
 }
 window.dealOpenWhatsappChat=function(phone){
+  // O card do negócio é um overlay por cima da página — precisa fechar
+  // ele antes de trocar de página, senão a Caixa de Conversas abre atrás
+  // e fica escondida.
+  closeDealDetail();
   navigate('whatsapp-chat');
   if(phone&&typeof window.wacSelectChat==='function')setTimeout(()=>window.wacSelectChat(phone),500);
 };
