@@ -1833,6 +1833,12 @@ textarea.form-input{resize:vertical;min-height:75px}
       Automações
     </div>
 
+    <!-- WHATSAPP (caixa de conversas) -->
+    <div class="nav-item" data-page="whatsapp-chat" onclick="navigate('whatsapp-chat')">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a8 8 0 00-6.93 11.98L2 18l4.15-1.05A8 8 0 1010 2zm0 1.6a6.4 6.4 0 11-3.36 11.85l-.24-.15-2.46.63.65-2.4-.16-.25A6.4 6.4 0 0110 3.6zm-2.98 3.4c-.16 0-.42.06-.64.31-.22.25-.85.83-.85 2.03 0 1.2.87 2.36.99 2.52.12.16 1.71 2.6 4.15 3.55 2.03.8 2.45.64 2.89.6.44-.04 1.42-.58 1.62-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.92-1.18-.71-.63-1.19-1.41-1.33-1.65-.14-.24-.01-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.32-.76-1.8-.2-.47-.4-.4-.54-.41-.14-.01-.3-.01-.46-.01z"/></svg>
+      WhatsApp
+    </div>
+
     <!-- Finanças group (collapsed) -->
     <div class="nav-grp-hdr" id="grp-hdr-financas" onclick="toggleGrp('financas')">
       <div class="nav-grp-left">
@@ -2115,6 +2121,7 @@ textarea.form-input{resize:vertical;min-height:75px}
   <!-- GERAR LEADS -->
   <div class="page" id="page-gerar-leads"></div>
   <div class="page" id="page-automacoes"></div>
+  <div class="page" id="page-whatsapp-chat"></div>
 
   <!-- CONFIGURAÇÕES -->
   <div class="page" id="page-configuracoes"></div>
@@ -2513,6 +2520,7 @@ const PERMISSION_SECTIONS = [
   ]},
   {id:'integracoes', label:'Integrações (legado)', color:'#64748B', tabs:[{id:'integracoes', label:'Central de integrações', parent:'integracoes'}]},
   {id:'automacoes', label:'Automações', color:'#10B981', tabs:[{id:'automacoes', label:'Automações', parent:'automacoes'}]},
+  {id:'whatsapp-chat', label:'WhatsApp', color:'#128C7E', tabs:[{id:'whatsapp-chat', label:'WhatsApp', parent:'whatsapp-chat'}]},
   {id:'rh', label:'Recursos Humanos', color:'#64748B', tabs:[{id:'rh', label:'Recursos Humanos', parent:'rh'}]},
   {id:'perfil', label:'Meu Perfil', color:'#8B5CF6', tabs:[{id:'perfil', label:'Meu perfil', parent:'perfil'}]}
 ];
@@ -4418,12 +4426,12 @@ function navigate(page){
   const navPermPage = page==='integracoes' ? 'config_integracoes' : page;
   if(!can(navPermPage,'view')){
     if(pageEl){
-      const pageNames={configuracoes:'Configurações',integracoes:'Integrações',rh:'Recursos Humanos',usuarios:'Gestão de Usuários',perfil:'Perfil',inicio:'Início',automacoes:'Automações'};
+      const pageNames={configuracoes:'Configurações',integracoes:'Integrações',rh:'Recursos Humanos',usuarios:'Gestão de Usuários',perfil:'Perfil',inicio:'Início',automacoes:'Automações','whatsapp-chat':'WhatsApp'};
       showAccessDenied(pageEl,pageNames[page]||page);
     }
     return;
   }
-  ({inicio:renderInicio,configuracoes:renderConfiguracoes,integracoes:renderIntegracoes,rh:renderRH,usuarios:renderUsuarios,perfil:renderPerfil,automacoes:renderAutomacoes})[page]?.();
+  ({inicio:renderInicio,configuracoes:renderConfiguracoes,integracoes:renderIntegracoes,rh:renderRH,usuarios:renderUsuarios,perfil:renderPerfil,automacoes:renderAutomacoes,'whatsapp-chat':renderWhatsappChat})[page]?.();
 }
 
 // ═══ TOAST ═══
@@ -16799,17 +16807,33 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     const s=getZapiSettings(),on=!!s.connected;
     return `<div class="gxi-conv-grid" style="grid-template-columns:1fr;margin-top:13px">
       <div class="gxi-conv-card">
-        <div class="gxi-conv-head"><div class="gxi-conv-logo" style="background:#E7F9EF;color:#128C7E">◉</div><div><h3>Conexão de WhatsApp (Z-API)</h3><p>Envio automático de mensagens de WhatsApp pelas automações, sem precisar clicar</p></div><span class="gxi-config-status ${on?'on':''}" style="margin-left:auto">${on?'Conectado':'Pendente'}</span></div>
+        <div class="gxi-conv-head"><div class="gxi-conv-logo" style="background:#E7F9EF;color:#128C7E">◉</div><div><h3>Conexão de WhatsApp (Z-API)</h3><p>Envio automático de mensagens de WhatsApp pelas automações, sem precisar clicar</p></div><span class="gxi-config-status" id="gxi-zapi-live-status" style="margin-left:auto">${on?'Credenciais salvas':'Pendente'}</span></div>
         <div class="gxi-warning" style="margin-bottom:12px">Z-API é uma integração não oficial com o WhatsApp — existe risco real de banimento do número conectado. Use um número dedicado só pra automações, nunca o WhatsApp principal da empresa. <a href="https://www.z-api.io" target="_blank" rel="noopener" style="color:#92400E;text-decoration:underline">Criar conta na Z-API</a>.</div>
-        ${on?`<div class="gxi-card-note" style="margin-bottom:12px">Enviando pela instância <b>${E(s.instanceId||'')}</b></div>`:''}
+        ${on?`<div class="gxi-card-note" style="margin-bottom:12px">Enviando pela instância <b>${E(s.instanceId||'')}</b>${s.webhookUrl?` · <a href="#" onclick="navigator.clipboard&&navigator.clipboard.writeText('${A(s.webhookUrl)}');toast('URL do webhook copiada ✓','#10B981');return false" style="color:#128C7E;text-decoration:underline">copiar URL do webhook</a>`:''}${on?` · <a href="#" onclick="window.wacOpenQr&&window.wacOpenQr();return false" style="color:#128C7E;text-decoration:underline">ver QR Code</a>`:''}</div>`:''}
         <div class="gxi-form-grid" style="margin-bottom:11px">
           <label class="gxi-field"><span class="gxi-label">Instance ID</span><input class="gxi-input" id="gxi-zapi-instance" value="${A(s.instanceId||'')}" placeholder="Ex.: 3D9F2A1B..."></label>
           <label class="gxi-field"><span class="gxi-label">Token</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-zapi-token" type="password" value="" placeholder="${s.hasToken?'Token protegido no servidor':'Cole o token da instância'}"><button class="gxi-secret-action" onclick="gxiToggleSecret('gxi-zapi-token')">Mostrar</button></div></label>
           <label class="gxi-field full"><span class="gxi-label">Client-Token (segurança da conta)</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-zapi-client-token" type="password" value="" placeholder="${s.hasClientToken?'Client-Token protegido no servidor':'Cole o Client-Token da conta Z-API'}"><button class="gxi-secret-action" onclick="gxiToggleSecret('gxi-zapi-client-token')">Mostrar</button></div></label>
         </div>
-        <div class="gxi-conv-footer"><span>Token e Client-Token são enviados para uma função segura e nunca são gravados no navegador.</span><button class="gxi-btn primary" onclick="gxiSaveZapiConfig()">Salvar conexão</button></div>
+        <div class="gxi-conv-footer"><span>Token e Client-Token são enviados para uma função segura e nunca são gravados no navegador.</span><div style="display:flex;gap:7px">${on?`<button class="gxi-btn" onclick="window.wacOpenQr&&window.wacOpenQr()">📷 Ver QR Code</button>`:''}<button class="gxi-btn primary" onclick="gxiSaveZapiConfig()">Salvar conexão</button></div></div>
       </div>
     </div>`;
+  }
+  async function gxiLoadZapiLiveStatus(){
+    const s=getZapiSettings();
+    const el=document.getElementById('gxi-zapi-live-status');
+    if(!el||!s.connected)return;
+    try{
+      const token=await getGexSupabaseToken();
+      const res=await fetch(getSupabaseFunctionUrl('zapi-status'),{headers:{Authorization:`Bearer ${token}`}});
+      const j=await res.json().catch(()=>({}));
+      if(!document.getElementById('gxi-zapi-live-status'))return;
+      if(j&&j.ok!==false&&j.connected){
+        el.textContent='Conectado';el.classList.add('on');
+      }else{
+        el.textContent='Credenciais salvas — número não conectado';el.classList.remove('on');
+      }
+    }catch(e){/* mantém o texto padrão */}
   }
   function trackingListHtml(){const list=getTrackings();return `<div class="gxi-toolbar"><div class="gxi-toolbar-copy"><h2>Regras de rastreamento</h2><p>Mova leads no Pipeline quando uma mensagem corresponder ao critério configurado.</p></div><button class="gxi-btn primary" onclick="gxiNewTracking()">+ Novo rastreamento</button></div><div class="gxi-rules">${list.length?list.map(r=>`<div class="gxi-rule"><div><div class="gxi-rule-title">“${E(r.message)}”</div><div class="gxi-rule-sub">${E(MODES[r.mode]||r.mode)} • ${E(r.connectionName||'WhatsApp')}</div></div><div><span class="gxi-tag">${E(r.stageName||'Sem etapa')}</span></div><div><div class="gxi-rule-title">${r.executions||0} execuções</div><div class="gxi-rule-sub">${r.lastExecutedAt?new Date(r.lastExecutedAt).toLocaleString('pt-BR'):'Nunca executado'}</div></div><div><span class="gxi-pill ${r.active!==false?'on':'off'}">${r.active!==false?'Ativo':'Pausado'}</span></div><div class="gxi-rule-actions"><button class="gxi-btn small" onclick="gxiToggleTracking('${r.id}')">${r.active!==false?'Pausar':'Ativar'}</button><button class="gxi-btn small" onclick="gxiEditTracking('${r.id}')">Editar</button><button class="gxi-btn small danger" onclick="gxiDeleteTracking('${r.id}')">Excluir</button></div></div>`).join(''):`<div class="gxi-empty"><i>⌁</i><b>Nenhum rastreamento criado</b>Crie a primeira regra para automatizar a movimentação dos leads.</div>`}</div>`}
   function formHtml(){const isEdit=!!editingId&&editingId!=='new',r=isEdit?getTrackings().find(x=>x.id===editingId)||{}:{};const ss=stages();const wpp=getConnections().filter(x=>x.provider==='whatsapp'&&x.status==='connected');return `<div class="gxi-toolbar"><div class="gxi-toolbar-copy"><h2>${isEdit?'Editar rastreamento':'Novo rastreamento'}</h2><p>Defina o que deve acontecer quando uma mensagem for recebida.</p></div></div><div class="gxi-form"><div class="gxi-form-grid"><label class="gxi-field"><span class="gxi-label">Modo</span><select class="gxi-select" id="gxi-mode">${Object.entries(MODES).map(([k,v])=>`<option value="${k}" ${r.mode===k?'selected':''}>${v}</option>`).join('')}</select></label><label class="gxi-field"><span class="gxi-label">Etapa de destino</span><select class="gxi-select" id="gxi-stage"><option value="">Selecione uma etapa</option>${ss.map(s=>`<option value="${A(s.id)}" data-name="${A(s.name)}" ${String(r.stageId)===String(s.id)?'selected':''}>${E(s.name)}</option>`).join('')}</select></label><label class="gxi-field"><span class="gxi-label">Conexão do WhatsApp</span><select class="gxi-select" id="gxi-connection">${wpp.length?wpp.map(c=>`<option value="${A(c.id)}" data-name="${A(c.assets?.name||c.assets?.phone||'WhatsApp conectado')}" ${r.connectionId===c.id?'selected':''}>${E(c.assets?.name||c.assets?.phone||'WhatsApp conectado')}</option>`).join(''):`<option value="whatsapp_pending" data-name="WhatsApp não conectado">WhatsApp não conectado</option>`}</select></label><label class="gxi-field full"><span class="gxi-label">Mensagem</span><input class="gxi-input" id="gxi-message" value="${A(r.message||'')}" placeholder="Ex.: Quero comprar"></label></div><div class="gxi-help-grid"><div class="gxi-help"><b>Como funciona?</b><p>Quando o WhatsApp receber uma mensagem que corresponda ao critério, o lead será movido automaticamente para a etapa selecionada.</p></div><div class="gxi-help"><b>Registrando o valor da venda</b><p>Para registrar o valor automaticamente, use o formato <code>valor R$ 500</code> na mensagem configurada.</p></div></div>${!wpp.length?`<div class="gxi-warning" style="margin-top:14px">A regra poderá ser salva, mas ficará aguardando uma conexão oficial do WhatsApp para ser executada.</div>`:''}<div class="gxi-form-footer"><button class="gxi-btn" onclick="gxiCancelTracking()">Cancelar</button><button class="gxi-btn primary" onclick="gxiSaveTracking()">${isEdit?'Salvar alterações':'Criar rastreamento'}</button></div></div>`}
@@ -16876,7 +16900,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     </div>`;
   }
   function monitorHtml(){return `<div class="gxi-toolbar"><div class="gxi-toolbar-copy"><h2>Monitoramento de conversões</h2><p>Envie eventos do CRM para otimizar as campanhas nas plataformas de anúncios, ou traga leads direto dos anúncios pro Pipeline.</p></div></div><div class="gxi-monitor-tabs"><button class="gxi-monitor-tab ${monitorView==='config'?'active':''}" onclick="gxiMonitorView('config')">Configurar Pixels e Eventos</button><button class="gxi-monitor-tab ${monitorView==='events'?'active':''}" onclick="gxiMonitorView('events')">Histórico de Conversões</button><button class="gxi-monitor-tab ${monitorView==='leadgen'?'active':''}" onclick="gxiMonitorView('leadgen')">Captação Nativa (Meta)</button></div>${monitorView==='config'?conversionConfigHtml():monitorView==='leadgen'?leadgenConfigHtml():conversionEventsHtml()}`}
-  function render(){const page=document.getElementById('page-integracoes');if(!page)return;page.innerHTML=`<div class="gxi-shell">${header()}${view==='connections'?connectionsHtml():view==='tracking'?(editingId==='new'||editingId?formHtml():trackingListHtml()):monitorHtml()}</div>`}
+  function render(){const page=document.getElementById('page-integracoes');if(!page)return;page.innerHTML=`<div class="gxi-shell">${header()}${view==='connections'?connectionsHtml():view==='tracking'?(editingId==='new'||editingId?formHtml():trackingListHtml()):monitorHtml()}</div>`;if(view==='connections'&&typeof gxiLoadZapiLiveStatus==='function')gxiLoadZapiLiveStatus()}
   window.renderIntegracoes=render;window.gxiSetView=v=>{view=v;editingId='';render()};window.gxiNewTracking=()=>{view='tracking';editingId='new';render()};window.gxiCancelTracking=()=>{editingId='';render()};window.gxiEditTracking=id=>{view='tracking';editingId=id;render()};
   window.gxiSaveTracking=()=>{const mode=document.getElementById('gxi-mode')?.value||'exact',st=document.getElementById('gxi-stage'),co=document.getElementById('gxi-connection'),message=document.getElementById('gxi-message')?.value?.trim()||'';if(!st?.value){toast('Selecione a etapa de destino','#EF4444');return}if(!message){toast('Informe a mensagem do rastreamento','#EF4444');return}const funnel=typeof getActiveFunnel==='function'?getActiveFunnel():null,obj={mode,funnelId:funnel?.id||'',funnelName:funnel?.name||'',stageId:st.value,stageName:st.selectedOptions[0]?.dataset.name||st.selectedOptions[0]?.textContent||'',connectionId:co?.value||'whatsapp_pending',connectionName:co?.selectedOptions[0]?.dataset.name||co?.selectedOptions[0]?.textContent||'WhatsApp',message,active:true,updatedAt:new Date().toISOString()};if(editingId&&editingId!=='new'){const old=getTrackings().find(x=>x.id===editingId);DB.update('manual_trackings',editingId,{...obj,active:old?.active!==false})}else DB.push('manual_trackings',{id:uid(),...obj,executions:0,createdAt:new Date().toISOString()});event('Rastreamento configurado',`Mensagem: ${message}`);editingId='';render();toast('Rastreamento salvo ✓','#10B981')};
   window.gxiToggleTracking=id=>{const r=getTrackings().find(x=>x.id===id);if(!r)return;DB.update('manual_trackings',id,{active:r.active===false,updatedAt:new Date().toISOString()});render()};window.gxiDeleteTracking=id=>confirmDelete(()=>{DB.remove('manual_trackings',id);event('Rastreamento removido',id);render();toast('Rastreamento excluído','#EF4444')});
@@ -17051,7 +17075,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       });
       const j=await res.json().catch(()=>({}));
       if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível salvar a conexão.');
-      const next={id:'zapi_main',connected:true,hasToken:true,hasClientToken:true,instanceId,updatedAt:new Date().toISOString()};
+      const next={id:'zapi_main',connected:true,hasToken:true,hasClientToken:true,instanceId,webhookUrl:j?.webhookUrl||old.webhookUrl||'',updatedAt:new Date().toISOString()};
       DB.set('zapi_settings',[next]);
       toast('Conexão de WhatsApp salva ✓','#10B981');
       render();
@@ -17609,6 +17633,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     if(r.gatilho==='parado_etapa')return `Parado ${r.dias}+ dia(s) na etapa "${r.etapaName||'qualquer'}"`;
     if(r.gatilho==='entrou_etapa')return `Anexa observação ao chegar na etapa "${r.etapaName||'?'}"`;
     if(r.gatilho==='cadencia_etapa')return `Cadência de ${(r.steps||[]).length} e-mail(s) ao chegar na etapa "${r.etapaName||'?'}"`;
+    if(r.gatilho==='cadencia_whatsapp_etapa')return `Cadência de ${(r.steps||[]).length} WhatsApp ao chegar na etapa "${r.etapaName||'?'}"`;
     return `Sem atividade há ${r.dias}+ dia(s)`;
   }
   function head(title,sub,button=''){return `<div class="gl-head"><div><h1>${title}</h1><p>${sub}</p></div>${button}</div>`}
@@ -17617,10 +17642,9 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   // Catálogo visual de automações nativas do sistema — prontas pra ativar
   // com um clique, sem precisar entender "gatilho/dias/canal" antes. Quem
   // quiser ajustar o comportamento clica em "Configurar" e cai no editor
-  // completo. Os dois cards no fim mostram, de forma transparente, o que
-  // ainda depende de integração externa (WhatsApp Business API oficial e
-  // servidor de e-mail) — fazem parte do "banco", mas ainda não podem ser
-  // ativados por aqui.
+  // completo. Todos os canais (e-mail via SMTP, WhatsApp via Z-API) já
+  // enviam de forma automática quando a conexão correspondente está ativa
+  // em Configurações > Integrações.
   const TEMPLATES=[
     {key:'lead_frio_whatsapp',icon:'💬',canal:'whatsapp',nome:'Reaquecer lead frio via WhatsApp',
       desc:'Encontra sozinho os leads sem nenhuma atividade registrada há alguns dias e deixa uma mensagem de retomada pronta pra enviar no WhatsApp.',
@@ -17638,10 +17662,11 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       desc:'Quando o lead chega na etapa escolhida, o sistema anexa sozinho um texto padrão na descrição do lead — sem precisar clicar em nada, é feito na hora.',
       gatilho:'entrou_etapa',mensagem:'Lead qualificado automaticamente pela automação ao chegar nesta etapa do funil.',precisaConfigurar:true},
     {key:'cadencia_email_etapa',icon:'📧',canal:'email',nome:'Cadência de e-mails por etapa',
-      desc:'Quando o lead chega na etapa escolhida, dispara uma sequência de e-mails em dias diferentes (ex.: dia 0, dia 2, dia 5) — cada um vira uma ação pronta pra enviar na hora certa.',
+      desc:'Quando o lead chega na etapa escolhida, dispara uma sequência de e-mails em dias diferentes (ex.: dia 0, dia 2, dia 5) — cada um vira uma ação pronta pra enviar (ou enviada sozinha, se a conexão de e-mail estiver ativa). Dá pra trocar o canal pra WhatsApp na hora de configurar.',
       gatilho:'cadencia_etapa',steps:[{dias:0,assunto:'Bem-vindo!',mensagem:'Olá {{nome}}, tudo bem? Recebemos seu interesse e já vamos te ajudar por aqui.'},{dias:2,assunto:'Ficou alguma dúvida?',mensagem:'Olá {{nome}}, passando pra saber se ficou alguma dúvida sobre a nossa proposta.'}],precisaConfigurar:true},
-    {key:'whatsapp_api_oficial',icon:'🔒',locked:true,nome:'Envio automático via WhatsApp Business API',
-      desc:'Manda a mensagem sozinho, sem precisar abrir o WhatsApp pra clicar em enviar. Exige conta oficial Meta Business aprovada — em breve.'}
+    {key:'cadencia_whatsapp_etapa',icon:'💬',canal:'whatsapp',nome:'Cadência de WhatsApp por etapa',
+      desc:'Quando o lead chega na etapa escolhida, dispara uma sequência de mensagens de WhatsApp em dias diferentes (ex.: dia 0, dia 2, dia 5) — enviadas sozinhas se a conexão Z-API estiver ativa, ou prontas pra 1 clique.',
+      gatilho:'cadencia_whatsapp_etapa',steps:[{dias:0,mensagem:'Olá {{nome}}, tudo bem? Recebemos seu interesse e já vamos te ajudar por aqui.'},{dias:2,mensagem:'Olá {{nome}}, passando pra saber se ficou alguma dúvida sobre a nossa proposta.'}],precisaConfigurar:true}
   ];
   const findTemplate=key=>TEMPLATES.find(t=>t.key===key);
   const instanceOf=key=>rules().find(r=>r.templateKey===key);
@@ -17751,7 +17776,8 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     if(autoCadenciaSteps===null||autoCadenciaSteps===undefined)autoCadenciaSteps=(old.steps&&old.steps.length?JSON.parse(JSON.stringify(old.steps)):[{dias:0,assunto:'',mensagem:''}]);
     const funnels=availFunnels(),active=typeof getActiveFunnel==='function'?getActiveFunnel():null;
     const funnel=funnels.find(f=>f.id===d.funilId)||active||funnels[0]||null,stages=funnel?.stages||[];
-    const gAtivEtapa=d.gatilho==='entrou_etapa',gCadencia=d.gatilho==='cadencia_etapa',gComEtapa=d.gatilho==='parado_etapa'||gAtivEtapa||gCadencia;
+    const gAtivEtapa=d.gatilho==='entrou_etapa',gCadenciaEmail=d.gatilho==='cadencia_etapa',gCadenciaWhats=d.gatilho==='cadencia_whatsapp_etapa',gCadencia=gCadenciaEmail||gCadenciaWhats,gComEtapa=d.gatilho==='parado_etapa'||gAtivEtapa||gCadencia;
+    const canalEfetivo=gCadenciaWhats?'whatsapp':gCadenciaEmail?'email':d.canal;
     const gComDias=d.gatilho==='sem_atividade'||d.gatilho==='lead_novo'||d.gatilho==='parado_etapa';
     const gComMsgPadrao=d.gatilho==='sem_atividade'||d.gatilho==='lead_novo'||d.gatilho==='parado_etapa';
     return `${head(autoEditId?'Configurar automação':'Automação personalizada','Configure o gatilho, o canal e o que o sistema vai preparar sozinho.')}
@@ -17760,14 +17786,13 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       <h3>Identidade</h3><p>Um nome interno pra você reconhecer essa automação no banco.</p>
       <label class="gl-field"><span>Nome da automação</span><input class="gl-input" id="auto-nome" value="${esc(d.nome)}" placeholder="Ex.: Follow-up leads frios"></label>
     </div>
-    <div class="gl-panel" id="auto-canal-panel" style="${gAtivEtapa?'display:none':''}">
+    <div class="gl-panel" id="auto-canal-panel" style="${gAtivEtapa||gCadencia?'display:none':''}">
       <h3>Canal</h3><p>Por onde a ação será preparada.</p>
       <div class="auto-seg" id="auto-canal-seg">
-        <button type="button" class="${d.canal==='whatsapp'?'active whatsapp':''}" onclick="autoSetCanal('whatsapp')" id="auto-canal-whatsapp" ${gCadencia?'disabled style="opacity:.4;cursor:not-allowed"':''}>💬 WhatsApp</button>
-        <button type="button" class="${d.canal==='email'||gCadencia?'active email':''}" onclick="autoSetCanal('email')" id="auto-canal-email">✉️ E-mail</button>
+        <button type="button" class="${d.canal==='whatsapp'?'active whatsapp':''}" onclick="autoSetCanal('whatsapp')" id="auto-canal-whatsapp">💬 WhatsApp</button>
+        <button type="button" class="${d.canal==='email'?'active email':''}" onclick="autoSetCanal('email')" id="auto-canal-email">✉️ E-mail</button>
       </div>
-      ${gCadencia?'<p style="font-size:9.5px;color:#94A3B8;margin-top:8px">Cadência funciona por e-mail — cada etapa da sequência vira um e-mail pronto.</p>':''}
-      <input type="hidden" id="auto-canal" value="${esc(gCadencia?'email':d.canal)}">
+      <input type="hidden" id="auto-canal" value="${esc(canalEfetivo||'whatsapp')}">
     </div>
     <div class="gl-panel">
       <h3>Gatilho</h3><p>Quando o sistema deve agir sozinho.</p>
@@ -17777,7 +17802,8 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
           <option value="lead_novo" ${d.gatilho==='lead_novo'?'selected':''}>Lead novo sem 1º contato há X dias</option>
           <option value="parado_etapa" ${d.gatilho==='parado_etapa'?'selected':''}>Parado numa etapa do funil há X dias</option>
           <option value="entrou_etapa" ${gAtivEtapa?'selected':''}>Chegou numa etapa do funil (anexa observação na hora)</option>
-          <option value="cadencia_etapa" ${gCadencia?'selected':''}>Chegou numa etapa do funil (dispara cadência de e-mails)</option>
+          <option value="cadencia_etapa" ${gCadenciaEmail?'selected':''}>Chegou numa etapa do funil (dispara cadência de e-mails)</option>
+          <option value="cadencia_whatsapp_etapa" ${gCadenciaWhats?'selected':''}>Chegou numa etapa do funil (dispara cadência de WhatsApp)</option>
         </select></label>
       </div>
       <div class="gl-grid" id="auto-dias-field" style="${gComDias?'':'display:none'};margin-top:11px">
@@ -17804,26 +17830,27 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       <div class="gl-grid"><label class="gl-field full"><span>Texto</span><textarea class="gl-textarea" id="auto-anexo-texto" style="height:90px">${esc(d.mensagem)}</textarea></label></div>
     </div>
     <div class="gl-panel" id="auto-cadencia-panel" style="${gCadencia?'':'display:none'}">
-      <h3>Sequência de e-mails</h3><p>Cada etapa dispara sozinha quando o lead completa o número de dias configurado na etapa do funil. Use <code>{{nome}}</code> nos textos.</p>
+      <h3 id="auto-cadencia-title">Sequência de ${gCadenciaWhats?'WhatsApp':'e-mails'}</h3><p>Cada etapa dispara sozinha quando o lead completa o número de dias configurado na etapa do funil. Use <code>{{nome}}</code> nos textos.</p>
       <div id="auto-cadencia-steps">${cadenciaStepsHtml()}</div>
-      <button class="gl-btn sm" style="margin-top:8px" onclick="autoAddStep()">＋ Adicionar e-mail à sequência</button>
+      <button class="gl-btn sm" style="margin-top:8px" onclick="autoAddStep()" id="auto-cadencia-add-btn">＋ Adicionar ${gCadenciaWhats?'mensagem':'e-mail'} à sequência</button>
     </div>
     <div class="gl-panel">
       <div class="gl-toggle-line" style="border-top:0;padding-top:0"><span>Automação ativa</span><label class="gl-switch"><input id="auto-ativo" type="checkbox" ${d.ativo!==false?'checked':''}><i></i></label></div>
     </div>
     <div class="gl-footer"><button class="gl-btn" onclick="autoCancel()">Cancelar</button><button class="gl-btn primary" onclick="autoSave()">${autoEditId?'Salvar alterações':'Ativar automação'}</button></div>
     <div class="gl-card" style="padding:14px 16px;margin-top:14px;font-size:10.5px;color:var(--muted);line-height:1.6">
-      <b style="color:var(--txt)">Como funciona hoje:</b> as automações de e-mail e WhatsApp são 100% automáticas quando a conexão correspondente estiver ativa em Configurações &gt; Integrações (e-mail via SMTP, WhatsApp via Z-API): a mensagem sai sozinha, sem precisar clicar em nada, e a ação já aparece marcada como enviada. Sem a conexão ativa, a mensagem fica pronta no Banco de Ações — um clique abre a conversa ou o e-mail já prontos, faltando só enviar. Já a automação de "anexar observação" é sempre 100% automática: ela mesma escreve na descrição do lead. O WhatsApp via Z-API é uma integração não oficial — veja o aviso de risco na aba Integrações antes de conectar; o envio oficial (WhatsApp Business API) é um passo futuro, à parte, veja o card bloqueado no Banco de Automações.
+      <b style="color:var(--txt)">Como funciona hoje:</b> as automações de e-mail e WhatsApp são 100% automáticas quando a conexão correspondente estiver ativa em Configurações &gt; Integrações (e-mail via SMTP, WhatsApp via Z-API): a mensagem sai sozinha, sem precisar clicar em nada, e a ação já aparece marcada como enviada. Sem a conexão ativa, a mensagem fica pronta no Banco de Ações — um clique abre a conversa ou o e-mail já prontos, faltando só enviar. Já a automação de "anexar observação" é sempre 100% automática: ela mesma escreve na descrição do lead. O WhatsApp via Z-API é uma integração não oficial — veja o aviso de risco na aba Integrações antes de conectar.
     </div>`;
   }
   function cadenciaStepsHtml(){
+    const canal=document.getElementById('auto-canal')?.value||'email',isEmail=canal==='email';
     return autoCadenciaSteps.map((s,i)=>`<div class="auto-step-row" data-index="${i}">
-      <div class="auto-step-head"><b>E-mail ${i+1}</b>${autoCadenciaSteps.length>1?`<button class="gl-btn sm danger" onclick="autoRemoveStep(${i})">Remover</button>`:''}</div>
+      <div class="auto-step-head"><b>${isEmail?'E-mail':'Mensagem'} ${i+1}</b>${autoCadenciaSteps.length>1?`<button class="gl-btn sm danger" onclick="autoRemoveStep(${i})">Remover</button>`:''}</div>
       <div class="gl-grid">
         <label class="gl-field"><span>Dias após chegar na etapa</span><input class="gl-input" type="number" min="0" value="${s.dias||0}" oninput="autoStepChange(${i},'dias',this.value)"></label>
-        <label class="gl-field"><span>Assunto</span><input class="gl-input" value="${esc(s.assunto)}" oninput="autoStepChange(${i},'assunto',this.value)"></label>
+        ${isEmail?`<label class="gl-field"><span>Assunto</span><input class="gl-input" value="${esc(s.assunto)}" oninput="autoStepChange(${i},'assunto',this.value)"></label>`:''}
       </div>
-      <label class="gl-field full" style="margin-top:8px"><span>Corpo do e-mail</span><textarea class="gl-textarea" style="height:70px" oninput="autoStepChange(${i},'mensagem',this.value)">${esc(s.mensagem)}</textarea></label>
+      <label class="gl-field full" style="margin-top:8px"><span>${isEmail?'Corpo do e-mail':'Mensagem do WhatsApp'}</span><textarea class="gl-textarea" style="height:70px" oninput="autoStepChange(${i},'mensagem',this.value)">${esc(s.mensagem)}</textarea></label>
     </div>`).join('');
   }
   window.autoAddStep=()=>{autoCadenciaSteps.push({dias:(autoCadenciaSteps[autoCadenciaSteps.length-1]?.dias||0)+2,assunto:'',mensagem:''});document.getElementById('auto-cadencia-steps').innerHTML=cadenciaStepsHtml()};
@@ -17840,10 +17867,17 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     if(wrap)wrap.style.display=canal==='email'?'':'none';
     const label=document.querySelector('#auto-msg-panel .gl-field.full span');
     if(label)label.textContent=canal==='email'?'Corpo do e-mail':'Mensagem do WhatsApp';
+    const cadTitle=document.getElementById('auto-cadencia-title');
+    if(cadTitle)cadTitle.textContent=`Sequência de ${canal==='whatsapp'?'WhatsApp':'e-mails'}`;
+    const cadBtn=document.getElementById('auto-cadencia-add-btn');
+    if(cadBtn)cadBtn.textContent=`＋ Adicionar ${canal==='whatsapp'?'mensagem':'e-mail'} à sequência`;
+    const stepsWrap=document.getElementById('auto-cadencia-steps');
+    if(stepsWrap)stepsWrap.innerHTML=cadenciaStepsHtml();
   };
   window.autoRenderGatilhoFields=()=>{
     const g=document.getElementById('auto-gatilho')?.value;
-    const comEtapa=g==='parado_etapa'||g==='entrou_etapa'||g==='cadencia_etapa';
+    const gCadenciaEmail=g==='cadencia_etapa',gCadenciaWhats=g==='cadencia_whatsapp_etapa',gCadencia=gCadenciaEmail||gCadenciaWhats;
+    const comEtapa=g==='parado_etapa'||g==='entrou_etapa'||gCadencia;
     const comDias=g==='sem_atividade'||g==='lead_novo'||g==='parado_etapa';
     const comMsgPadrao=comDias;
     const etapaWrap=document.getElementById('auto-etapa-wrap');if(etapaWrap)etapaWrap.style.display=comEtapa?'':'none';
@@ -17851,8 +17885,18 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     const diasEl=document.getElementById('auto-dias-field');if(diasEl)diasEl.style.display=comDias?'':'none';
     const msgEl=document.getElementById('auto-msg-panel');if(msgEl)msgEl.style.display=comMsgPadrao?'':'none';
     const anexoEl=document.getElementById('auto-anexo-panel');if(anexoEl)anexoEl.style.display=g==='entrou_etapa'?'':'none';
-    const cadEl=document.getElementById('auto-cadencia-panel');if(cadEl)cadEl.style.display=g==='cadencia_etapa'?'':'none';
-    const canalPanel=document.getElementById('auto-canal-panel');if(canalPanel)canalPanel.style.display=g==='entrou_etapa'?'none':'';
+    const cadEl=document.getElementById('auto-cadencia-panel');if(cadEl)cadEl.style.display=gCadencia?'':'none';
+    const canalPanel=document.getElementById('auto-canal-panel');if(canalPanel)canalPanel.style.display=(g==='entrou_etapa'||gCadencia)?'none':'';
+    if(gCadencia){
+      const canalHidden=document.getElementById('auto-canal');
+      if(canalHidden)canalHidden.value=gCadenciaWhats?'whatsapp':'email';
+      const cadTitle=document.getElementById('auto-cadencia-title');
+      if(cadTitle)cadTitle.textContent=`Sequência de ${gCadenciaWhats?'WhatsApp':'e-mails'}`;
+      const cadBtn=document.getElementById('auto-cadencia-add-btn');
+      if(cadBtn)cadBtn.textContent=`＋ Adicionar ${gCadenciaWhats?'mensagem':'e-mail'} à sequência`;
+      const stepsWrap=document.getElementById('auto-cadencia-steps');
+      if(stepsWrap)stepsWrap.innerHTML=cadenciaStepsHtml();
+    }
     const funnelSel=document.getElementById('auto-funnel');
     if(funnelSel){
       const allOpt=funnelSel.querySelector('option[value=""]');
@@ -17864,7 +17908,6 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
         funnelSel.insertBefore(o,funnelSel.firstChild);funnelSel.value='';
       }
     }
-    if(g==='cadencia_etapa')window.autoSetCanal('email');
   };
   window.autoFunnelChange=preferred=>{
     const funnelId=document.getElementById('auto-funnel')?.value,fn=availFunnels().find(f=>f.id===funnelId);
@@ -17882,7 +17925,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     const nome=document.getElementById('auto-nome')?.value.trim();
     if(!nome){toast('Informe o nome da automação','#EF4444');return}
     const gatilho=document.getElementById('auto-gatilho')?.value||'sem_atividade';
-    const comEtapa=gatilho==='parado_etapa'||gatilho==='entrou_etapa'||gatilho==='cadencia_etapa';
+    const comEtapa=gatilho==='parado_etapa'||gatilho==='entrou_etapa'||gatilho==='cadencia_etapa'||gatilho==='cadencia_whatsapp_etapa';
     let funilId='',funilName='',etapaId='',etapaName='';
     if(comEtapa){
       const fSel=document.getElementById('auto-funnel'),sSel=document.getElementById('auto-stage');
@@ -17906,10 +17949,11 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       const texto=document.getElementById('auto-anexo-texto')?.value.trim();
       if(!texto){toast('Escreva o texto que será anexado ao lead','#EF4444');return}
       obj={...base,canal:'sistema',dias:0,mensagem:texto,assunto:'',steps:[]};
-    }else if(gatilho==='cadencia_etapa'){
-      const steps=(autoCadenciaSteps||[]).map(s=>({dias:Math.max(0,Number(s.dias)||0),assunto:String(s.assunto||'').trim(),mensagem:String(s.mensagem||'').trim()}));
-      if(!steps.length||steps.some(s=>!s.mensagem)){toast('Preencha o corpo de todos os e-mails da cadência','#EF4444');return}
-      obj={...base,canal:'email',dias:0,mensagem:'',assunto:'',steps:steps.sort((a,b)=>a.dias-b.dias)};
+    }else if(gatilho==='cadencia_etapa'||gatilho==='cadencia_whatsapp_etapa'){
+      const canalCad=gatilho==='cadencia_whatsapp_etapa'?'whatsapp':'email';
+      const steps=(autoCadenciaSteps||[]).map(s=>({dias:Math.max(0,Number(s.dias)||0),assunto:canalCad==='email'?String(s.assunto||'').trim():'',mensagem:String(s.mensagem||'').trim()}));
+      if(!steps.length||steps.some(s=>!s.mensagem)){toast(`Preencha o corpo de todas as mensagens da cadência`,'#EF4444');return}
+      obj={...base,canal:canalCad,dias:0,mensagem:'',assunto:'',steps:steps.sort((a,b)=>a.dias-b.dias)};
     }else{
       const canal=document.getElementById('auto-canal')?.value||'whatsapp';
       const dias=Math.max(1,Number(document.getElementById('auto-dias')?.value)||3);
@@ -18060,9 +18104,10 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
         });
         return;
       }
-      // ── Chegou numa etapa → cadência de e-mails em dias sucessivos ──
-      if(rule.gatilho==='cadencia_etapa'){
+      // ── Chegou numa etapa → cadência de mensagens em dias sucessivos (e-mail ou WhatsApp) ──
+      if(rule.gatilho==='cadencia_etapa'||rule.gatilho==='cadencia_whatsapp_etapa'){
         const steps=rule.steps||[];
+        const canalCad=rule.canal==='whatsapp'?'whatsapp':'email';
         leads.forEach(lead=>{
           if(!leadEmEtapa(lead,rule))return;
           const entradaId=rule.id+'__'+lead.id+'__entrada';
@@ -18078,13 +18123,16 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
             const stepId=rule.id+'__'+lead.id+'__step'+i;
             if(logMap[stepId])return;
             const task={
-              id:uid(),ruleId:rule.id,ruleName:`${rule.nome} (e-mail ${i+1}/${steps.length})`,canal:'email',
-              leadId:lead.id,leadNome:lead.nome||'Lead',leadTelefone:'',leadEmail:lead.email||'',
-              assunto:renderTpl(step.assunto,lead),mensagem:renderTpl(step.mensagem,lead),
+              id:uid(),ruleId:rule.id,ruleName:`${rule.nome} (${canalCad==='whatsapp'?'WhatsApp':'e-mail'} ${i+1}/${steps.length})`,canal:canalCad,
+              leadId:lead.id,leadNome:lead.nome||'Lead',
+              leadTelefone:canalCad==='whatsapp'?(lead.telefone||lead.whatsapp||''):'',
+              leadEmail:canalCad==='email'?(lead.email||''):'',
+              assunto:canalCad==='email'?renderTpl(step.assunto,lead):'',mensagem:renderTpl(step.mensagem,lead),
               status:'pendente',createdAt:new Date().toISOString()
             };
             DB.push('automacao_tasks',task);
-            if(lead.email)emailsParaEnviar.push({taskId:task.id,to:lead.email,toName:lead.nome||'',subject:task.assunto,text:task.mensagem});
+            if(canalCad==='email' && lead.email)emailsParaEnviar.push({taskId:task.id,to:lead.email,toName:lead.nome||'',subject:task.assunto,text:task.mensagem});
+            if(canalCad==='whatsapp' && task.leadTelefone)whatsappParaEnviar.push({taskId:task.id,phone:task.leadTelefone,message:task.mensagem});
             upsertLog(stepId,{ruleId:rule.id,leadId:lead.id,step:i,lastTriggeredAt:new Date().toISOString()});
             logMap[stepId]={id:stepId,ruleId:rule.id,leadId:lead.id,step:i};
             created++;
@@ -18160,6 +18208,230 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     setTimeout(runSafe,4000);
     __gexAutoInterval=setInterval(runSafe,5*60*1000);
   };
+})();
+</script>
+
+<!-- ═══ WHATSAPP — CAIXA DE CONVERSAS ═══ -->
+<style id="gex-whatsapp-chat-style">
+.wac-shell{display:flex;flex-direction:column;gap:14px;height:calc(100vh - 150px);min-height:520px}
+.wac-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border:1px solid var(--border);border-radius:15px;padding:12px 16px}
+.wac-topbar-status{display:flex;align-items:center;gap:8px;font-size:11.5px;font-weight:800;color:#6B7280}
+.wac-topbar-status.on{color:#059669}
+.wac-topbar-status:before{content:'';width:8px;height:8px;border-radius:50%;background:currentColor}
+.wac-body{flex:1;display:grid;grid-template-columns:300px 1fr;gap:14px;min-height:0}
+.wac-list{background:#fff;border:1px solid var(--border);border-radius:15px;overflow-y:auto;display:flex;flex-direction:column}
+.wac-list-empty{padding:30px 16px;text-align:center;color:var(--muted);font-size:11.5px}
+.wac-item{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer}
+.wac-item:hover{background:#F8FAFC}
+.wac-item.active{background:#ECFDF5}
+.wac-item-avatar{width:38px;height:38px;border-radius:50%;background:#E7F9EF;color:#128C7E;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;flex:0 0 auto}
+.wac-item-body{flex:1;min-width:0}
+.wac-item-name{font-size:12px;font-weight:850;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wac-item-msg{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.wac-item-meta{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:0 0 auto}
+.wac-item-time{font-size:9px;color:var(--muted)}
+.wac-badge{background:#059669;color:#fff;font-size:9.5px;font-weight:900;border-radius:20px;min-width:17px;height:17px;padding:0 5px;display:flex;align-items:center;justify-content:center}
+.wac-thread{background:#fff;border:1px solid var(--border);border-radius:15px;display:flex;flex-direction:column;min-height:0}
+.wac-thread-head{padding:13px 16px;border-bottom:1px solid var(--border);font-size:12.5px;font-weight:850;color:var(--txt)}
+.wac-thread-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px;background:#F8FAFC}
+.wac-msg{max-width:65%;padding:8px 12px;border-radius:13px;font-size:12px;line-height:1.45;white-space:pre-wrap}
+.wac-msg.in{align-self:flex-start;background:#fff;border:1px solid var(--border);color:var(--txt)}
+.wac-msg.out{align-self:flex-end;background:#DCF8C6;color:#111827}
+.wac-msg-time{display:block;font-size:9px;color:var(--muted);margin-top:4px;text-align:right}
+.wac-thread-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px;text-align:center;padding:30px}
+.wac-composer{display:flex;gap:8px;padding:12px;border-top:1px solid var(--border)}
+.wac-composer input{flex:1;height:40px;border:1.5px solid var(--border);border-radius:10px;padding:0 13px;font-size:12px;outline:none}
+.wac-composer input:focus{border-color:#128C7E}
+.wac-composer button{border:0;background:#128C7E;color:#fff;border-radius:10px;padding:0 18px;font-weight:850;font-size:12px;cursor:pointer}
+.wac-composer button:disabled{opacity:.5;cursor:not-allowed}
+.wac-qr-panel{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;z-index:9999}
+.wac-qr-card{background:#fff;border-radius:18px;padding:26px;max-width:340px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+.wac-qr-card img{width:220px;height:220px;margin:14px auto;display:block;border-radius:10px;border:1px solid var(--border)}
+.wac-qr-card p{font-size:11.5px;color:var(--muted);line-height:1.5}
+</style>
+<script id="gex-whatsapp-chat-script">
+(function(){
+  let wacChats=[],wacSelectedPhone='',wacMessages=[],wacConn={connected:false,configured:false},wacQrOpen=false,wacQrInterval=null,wacPollInterval=null,wacSending=false;
+  const esc=escHtml;
+  function pageActive(){return document.getElementById('page-whatsapp-chat')?.classList.contains('active')}
+  function initials(name){return String(name||'?').trim().slice(0,2).toUpperCase()}
+  function fmtTime(iso){try{return new Date(iso).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}catch(e){return ''}}
+  function fmtTimeShort(iso){try{return new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}catch(e){return ''}}
+
+  async function apiGet(fn,params){
+    const token=await getGexSupabaseToken();
+    const qs=params?('?'+new URLSearchParams(params).toString()):'';
+    const res=await fetch(getSupabaseFunctionUrl(fn)+qs,{headers:{Authorization:`Bearer ${token}`}});
+    return res.json().catch(()=>({}));
+  }
+  async function apiPost(fn,body){
+    const token=await getGexSupabaseToken();
+    const res=await fetch(getSupabaseFunctionUrl(fn),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body||{})});
+    return res.json().catch(()=>({}));
+  }
+
+  window.renderWhatsappChat=async function(){
+    const page=document.getElementById('page-whatsapp-chat');
+    if(!page)return;
+    page.innerHTML=shellHtml();
+    await Promise.all([loadStatus(),loadInbox()]);
+    if(!wacPollInterval){
+      wacPollInterval=setInterval(()=>{if(pageActive())loadInbox(wacSelectedPhone)},6000);
+    }
+  };
+
+  function shellHtml(){
+    return `<div class="wac-shell">
+      <div class="wac-topbar">
+        <div>
+          <div style="font-size:15px;font-weight:900;color:var(--txt)">Caixa de Conversas — WhatsApp</div>
+          <div style="font-size:10.5px;color:var(--muted);margin-top:2px">Conversas recebidas e enviadas pela conexão Z-API. Integração não oficial — veja o aviso em Integrações.</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="wac-topbar-status ${wacConn.connected?'on':''}" id="wac-status-label">${wacConn.connected?'Conectado':wacConn.configured?'Desconectado':'Sem conexão configurada'}</span>
+          <button class="gl-btn sm primary" onclick="wacOpenQr()">📷 Conectar com QR Code</button>
+        </div>
+      </div>
+      <div class="wac-body">
+        <div class="wac-list" id="wac-list">${listHtml()}</div>
+        <div class="wac-thread" id="wac-thread">${threadHtml()}</div>
+      </div>
+    </div>`;
+  }
+
+  function listHtml(){
+    if(!wacChats.length)return `<div class="wac-list-empty">Nenhuma conversa ainda.<br>Assim que uma mensagem chegar (ou você conectar e mandar uma), ela aparece aqui.</div>`;
+    return wacChats.map(c=>`<div class="wac-item ${c.phone===wacSelectedPhone?'active':''}" onclick="wacSelectChat('${esc(c.phone)}')">
+      <div class="wac-item-avatar">${esc(initials(c.name))}</div>
+      <div class="wac-item-body">
+        <div class="wac-item-name">${esc(c.name||c.phone)}</div>
+        <div class="wac-item-msg">${esc(c.last_message||'')}</div>
+      </div>
+      <div class="wac-item-meta">
+        <div class="wac-item-time">${c.last_message_at?fmtTimeShort(c.last_message_at):''}</div>
+        ${c.unread_count>0?`<span class="wac-badge">${c.unread_count>99?'99+':c.unread_count}</span>`:''}
+      </div>
+    </div>`).join('');
+  }
+
+  function threadHtml(){
+    if(!wacSelectedPhone)return `<div class="wac-thread-empty">Selecione uma conversa à esquerda pra ver o histórico de mensagens.</div>`;
+    const chat=wacChats.find(c=>c.phone===wacSelectedPhone);
+    return `<div class="wac-thread-head">${esc(chat?.name||wacSelectedPhone)} <span style="font-weight:600;color:var(--muted);font-size:10.5px">· ${esc(wacSelectedPhone)}</span></div>
+    <div class="wac-thread-msgs" id="wac-thread-msgs">${wacMessages.length?wacMessages.map(m=>`<div class="wac-msg ${m.from_me?'out':'in'}">${esc(m.text||'')}<span class="wac-msg-time">${fmtTime(m.momment)}</span></div>`).join(''):`<div style="text-align:center;color:var(--muted);font-size:11px;margin:auto">Sem mensagens ainda nessa conversa.</div>`}</div>
+    <div class="wac-composer">
+      <input id="wac-input" placeholder="Escreva uma mensagem..." onkeydown="if(event.key==='Enter')wacSendMessage()">
+      <button onclick="wacSendMessage()" id="wac-send-btn" ${wacConn.connected?'':'disabled'}>Enviar</button>
+    </div>`;
+  }
+
+  async function loadStatus(){
+    try{
+      const j=await apiGet('zapi-status');
+      if(j&&j.ok!==false)wacConn={connected:!!j.connected,configured:!!j.configured};
+    }catch(e){/* mantém último status conhecido */}
+    const label=document.getElementById('wac-status-label');
+    if(label){label.textContent=wacConn.connected?'Conectado':wacConn.configured?'Desconectado':'Sem conexão configurada';label.classList.toggle('on',wacConn.connected)}
+    const sendBtn=document.getElementById('wac-send-btn');
+    if(sendBtn)sendBtn.disabled=!wacConn.connected;
+  }
+
+  async function loadInbox(phone){
+    try{
+      const j=await apiGet('whatsapp-inbox-get',phone?{phone}:undefined);
+      if(!j||j.ok===false)return;
+      wacChats=j.chats||[];
+      if(phone)wacMessages=j.messages||[];
+      const listEl=document.getElementById('wac-list');if(listEl)listEl.innerHTML=listHtml();
+      if(phone){
+        const msgsEl=document.getElementById('wac-thread-msgs');
+        if(msgsEl){
+          const nearBottom=msgsEl.scrollHeight-msgsEl.scrollTop-msgsEl.clientHeight<80;
+          msgsEl.innerHTML=wacMessages.length?wacMessages.map(m=>`<div class="wac-msg ${m.from_me?'out':'in'}">${esc(m.text||'')}<span class="wac-msg-time">${fmtTime(m.momment)}</span></div>`).join(''):`<div style="text-align:center;color:var(--muted);font-size:11px;margin:auto">Sem mensagens ainda nessa conversa.</div>`;
+          if(nearBottom)msgsEl.scrollTop=msgsEl.scrollHeight;
+        }
+      }
+    }catch(e){/* mantém o que já tinha carregado */}
+  }
+
+  window.wacSelectChat=async function(phone){
+    wacSelectedPhone=phone;
+    const listEl=document.getElementById('wac-list');if(listEl)listEl.innerHTML=listHtml();
+    const threadEl=document.getElementById('wac-thread');if(threadEl)threadEl.innerHTML=threadHtml();
+    const msgsEl=document.getElementById('wac-thread-msgs');if(msgsEl)msgsEl.scrollTop=msgsEl.scrollHeight;
+    const chat=wacChats.find(c=>c.phone===phone);
+    if(chat&&chat.unread_count>0){
+      chat.unread_count=0;
+      try{await apiPost('whatsapp-mark-read',{phone})}catch(e){}
+    }
+    await loadInbox(phone);
+  };
+
+  window.wacSendMessage=async function(){
+    const input=document.getElementById('wac-input');
+    const message=input?.value.trim();
+    if(!message||!wacSelectedPhone||wacSending)return;
+    wacSending=true;
+    const btn=document.getElementById('wac-send-btn');if(btn)btn.disabled=true;
+    try{
+      const chat=wacChats.find(c=>c.phone===wacSelectedPhone);
+      const j=await apiPost('send-whatsapp-message',{phone:wacSelectedPhone,message,toName:chat?.name||''});
+      if(j&&j.ok){
+        if(input)input.value='';
+        await loadInbox(wacSelectedPhone);
+      }else{
+        toast(j?.message||'Não foi possível enviar a mensagem','#EF4444');
+      }
+    }catch(e){
+      toast('Falha de conexão ao enviar','#EF4444');
+    }
+    wacSending=false;
+    if(btn)btn.disabled=!wacConn.connected;
+  };
+
+  window.wacOpenQr=async function(){
+    wacQrOpen=true;
+    const div=document.createElement('div');
+    div.className='wac-qr-panel';div.id='wac-qr-panel';
+    div.innerHTML=`<div class="wac-qr-card">
+      <div style="font-size:14px;font-weight:900;color:var(--txt)">Conectar WhatsApp</div>
+      <div id="wac-qr-body"><p style="margin-top:14px">Carregando QR Code...</p></div>
+      <button class="gl-btn sm" style="margin-top:14px" onclick="wacCloseQr()">Fechar</button>
+    </div>`;
+    document.body.appendChild(div);
+    await wacRefreshQr();
+    wacQrInterval=setInterval(wacRefreshQr,15000);
+  };
+  window.wacCloseQr=function(){
+    wacQrOpen=false;
+    if(wacQrInterval){clearInterval(wacQrInterval);wacQrInterval=null}
+    document.getElementById('wac-qr-panel')?.remove();
+  };
+  async function wacRefreshQr(){
+    if(!wacQrOpen)return;
+    const body=document.getElementById('wac-qr-body');
+    try{
+      const j=await apiGet('zapi-qrcode');
+      if(!body)return;
+      if(!j||j.ok===false){
+        body.innerHTML=`<p style="margin-top:14px;color:#DC2626">${esc(j?.message||'Não foi possível gerar o QR Code.')}</p>`;
+        return;
+      }
+      if(j.connected){
+        body.innerHTML=`<p style="margin-top:14px;color:#059669;font-weight:800">✓ Número já conectado!</p>`;
+        if(wacQrInterval){clearInterval(wacQrInterval);wacQrInterval=null}
+        await loadStatus();
+        setTimeout(()=>window.wacCloseQr(),1500);
+        return;
+      }
+      if(j.qrcode){
+        const src=String(j.qrcode).startsWith('data:')?j.qrcode:`data:image/png;base64,${j.qrcode}`;
+        body.innerHTML=`<img src="${src}" alt="QR Code WhatsApp"><p>Abra o WhatsApp no celular → Aparelhos conectados → Conectar um aparelho, e escaneie. O código muda a cada ~20 segundos.</p>`;
+      }
+    }catch(e){
+      if(body)body.innerHTML=`<p style="margin-top:14px;color:#DC2626">Falha ao carregar o QR Code.</p>`;
+    }
+  }
 })();
 </script>
 
