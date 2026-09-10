@@ -18292,6 +18292,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
 .wac-thread-head-phone{font-size:10px;color:var(--muted);margin-top:1px}
 .wac-tag-btn{border:1px solid var(--border);background:#fff;color:#475569;border-radius:8px;height:28px;padding:0 10px;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap}
 .wac-tag-btn:hover{border-color:#128C7E;color:#128C7E}
+.wac-tag-btn-danger:hover{border-color:#DC2626;color:#DC2626}
 .wac-tag-editor{padding:12px 16px;border-bottom:1px solid var(--border);background:#FBFDFC;display:flex;flex-direction:column;gap:10px}
 .wac-tag-check-list{display:flex;flex-direction:column;gap:2px;max-height:180px;overflow-y:auto}
 .wac-tag-check-row{display:flex;align-items:center;gap:8px;padding:6px 4px;border-radius:8px;cursor:pointer;font-size:11.5px;color:var(--txt)}
@@ -18493,6 +18494,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
         ${(chat.tags&&chat.tags.length)?`<div class="wac-item-tags" style="margin-top:4px">${chat.tags.map(tagPillHtml).join('')}</div>`:''}
       </div>
       <button class="wac-tag-btn" onclick="wacToggleTagEditor()">🏷️ Etiquetas</button>
+      <button class="wac-tag-btn wac-tag-btn-danger" onclick="wacDeleteChat('${A(wacSelectedPhone)}')" title="Excluir esta conversa">🗑️ Excluir</button>
     </div>
     ${tagEditorHtml(chat)}
     <div class="wac-thread-msgs" id="wac-thread-msgs">${messagesHtml()}</div>
@@ -18666,9 +18668,12 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
         if(j&&j.ok){
           wacTagCatalog=wacTagCatalog.filter(t=>t.name!==name);
           wacTagDraft=wacTagDraft.filter(t=>t!==name);
-          const editor=document.getElementById('wac-tag-editor');
-          if(editor)editor.outerHTML=tagEditorHtml(wacChats.find(c=>c.phone===wacSelectedPhone));
+          // Remove a etiqueta também das conversas já carregadas localmente,
+          // senão o pill continua aparecendo até a próxima atualização da lista.
+          wacChats.forEach(c=>{if(c.tags&&c.tags.includes(name))c.tags=c.tags.filter(t=>t!==name)});
           const listEl=document.getElementById('wac-list');if(listEl)listEl.innerHTML=listHtml();
+          const threadEl=document.getElementById('wac-thread');if(threadEl)threadEl.innerHTML=threadHtml();
+          document.getElementById('wac-tag-new-name')?.focus();
           toast('Etiqueta excluída','#F59E0B');
         }else{
           toast(j?.message||'Não foi possível excluir a etiqueta','#EF4444');
@@ -18679,6 +18684,30 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     };
     if(typeof confirmDelete==='function')confirmDelete(run);
     else if(confirm(`Excluir a etiqueta "${name}" do catálogo?`))run();
+  };
+
+  window.wacDeleteChat=function(phone){
+    if(!phone)return;
+    const chat=wacChats.find(c=>c.phone===phone);
+    const label=chat?.name||phone;
+    const run=async()=>{
+      try{
+        const j=await apiPost('whatsapp-chat-delete',{phone});
+        if(j&&j.ok){
+          wacChats=wacChats.filter(c=>c.phone!==phone);
+          if(wacSelectedPhone===phone){wacSelectedPhone='';wacMessages=[];wacTagEditorOpen=false;wacTagDraft=[]}
+          const listEl=document.getElementById('wac-list');if(listEl)listEl.innerHTML=listHtml();
+          const threadEl=document.getElementById('wac-thread');if(threadEl)threadEl.innerHTML=threadHtml();
+          toast('Conversa excluída','#F59E0B');
+        }else{
+          toast(j?.message||'Não foi possível excluir a conversa','#EF4444');
+        }
+      }catch(e){
+        toast('Falha de conexão ao excluir conversa','#EF4444');
+      }
+    };
+    if(typeof confirmDelete==='function')confirmDelete(run);
+    else if(confirm(`Excluir a conversa com "${label}"? As mensagens salvas no histórico também serão apagadas.`))run();
   };
 
   window.wacPickFile=function(file){
