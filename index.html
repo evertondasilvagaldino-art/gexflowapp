@@ -16849,8 +16849,8 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
         if(j&&j.ok){
           toast('✓ WhatsApp desconectado com sucesso. Escaneie um novo QR Code para reconectar.','#10B981');
         }else{
-          console.error('[gxiDisconnectZapi] Resposta inesperada da função zapi-disconnect:',j);
-          toast('Não foi possível desconectar. Confira se a função "zapi-disconnect" está publicada corretamente no Supabase.','#EF4444');
+          console.error('[gxiDisconnectZapi] Resposta da função zapi-disconnect:',j);
+          toast(j?.message||'Não foi possível desconectar. Confira os logs da função "zapi-disconnect" no Supabase.','#EF4444');
         }
       }catch(e){
         console.error('[gxiDisconnectZapi] Erro:',e);
@@ -18748,8 +18748,8 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       if(j&&j.ok){
         toast('✓ WhatsApp desconectado com sucesso. Escaneie um novo QR Code para reconectar.','#10B981');
       }else{
-        console.error('[wacDisconnect] Resposta inesperada da função zapi-disconnect:',j);
-        toast('Não foi possível desconectar. Confira se a função "zapi-disconnect" está publicada corretamente no Supabase.','#EF4444');
+        console.error('[wacDisconnect] Resposta da função zapi-disconnect:',j);
+        toast(j?.message||'Não foi possível desconectar. Confira os logs da função "zapi-disconnect" no Supabase.','#EF4444');
       }
     }catch(e){
       console.error('[wacDisconnect] Erro:',e);
