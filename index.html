@@ -18314,6 +18314,8 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
 .wac-msg.in{align-self:flex-start;background:#fff;color:#111827;border-top-left-radius:2px}
 .wac-msg.out{align-self:flex-end;background:#D9FDD3;color:#111827;border-top-right-radius:2px}
 .wac-msg-time{display:block;font-size:9px;color:#00000073;margin-top:3px;text-align:right}
+.wac-msg-ticks{display:inline-flex;margin-left:4px;vertical-align:middle}
+.wac-msg-ticks svg{display:block}
 .wac-msg-media-img{max-width:240px;max-height:280px;border-radius:7px;display:block;cursor:pointer;object-fit:cover}
 .wac-msg-media-video{max-width:260px;border-radius:7px;display:block}
 .wac-msg-media-audio{width:230px}
@@ -18538,7 +18540,20 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
 
   function messageHtml(m){
     const mediaHtml=mediaContentHtml(m);
-    return `<div class="wac-msg ${m.from_me?'out':'in'}">${mediaHtml}${m.text&&!mediaHtml?esc(m.text):(m.media_caption?`<div class="wac-msg-caption">${esc(m.media_caption)}</div>`:'')}<span class="wac-msg-time">${fmtTime(m.momment)}</span></div>`;
+    return `<div class="wac-msg ${m.from_me?'out':'in'}">${mediaHtml}${m.text&&!mediaHtml?esc(m.text):(m.media_caption?`<div class="wac-msg-caption">${esc(m.media_caption)}</div>`:'')}<span class="wac-msg-time">${fmtTime(m.momment)}${m.from_me?ticksHtml(m.status):''}</span></div>`;
+  }
+
+  // Ícones de status estilo WhatsApp: 1 check (enviado), 2 checks cinza
+  // (entregue) e 2 checks azuis (lido/reproduzido). O status vem do
+  // webhook "MessageStatusCallback" da Z-API, atualizado em tempo real.
+  function ticksHtml(status){
+    const s=String(status||'').toUpperCase();
+    const single=`<svg width="14" height="10" viewBox="0 0 16 11" fill="none"><path d="M1 5.5L5 9.5L11 1.5" stroke="CURRENT" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    const double=(color)=>`<svg width="17" height="10" viewBox="0 0 20 11" fill="none"><path d="M1 5.5L5 9.5L11 1.5" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.5 5.5L10.5 9.5L18 1" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    if(s==='READ'||s==='READ_BY_ME'||s==='PLAYED')return `<span class="wac-msg-ticks">${double('#53BDEB')}</span>`;
+    if(s==='RECEIVED'||s==='DELIVERED')return `<span class="wac-msg-ticks">${double('#8696A0')}</span>`;
+    // "SENT" ou qualquer outro status conhecido (ou nenhum ainda) = só 1 check.
+    return `<span class="wac-msg-ticks">${single.replace('CURRENT','#8696A0')}</span>`;
   }
 
   function mediaContentHtml(m){
