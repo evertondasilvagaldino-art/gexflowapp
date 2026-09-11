@@ -11699,8 +11699,12 @@ function getVisibleCommercialFunnels(funnels){
   try{
     if(typeof isSalesManagerView==='function'&&isSalesManagerView())return list;
   }catch(e){return list}
+  // O funil padrão da empresa fica de fora pra quem não tem visão
+  // gerencial — ele só existe como MODELO (ensurePersonalCommercialFunnel
+  // copia a estrutura dele pra criar o funil próprio), nunca aparece no
+  // filtro/seletor de um papel restrito.
   const myId=String((typeof sessionUser!=='undefined'&&sessionUser?.id)||'');
-  return list.filter(f=>f.isDefault||String(f.createdBy||'')===myId);
+  return list.filter(f=>String(f.createdBy||'')===myId);
 }
 
 // Um usuário sem visão gerencial (ex.: Gex Parceiro) não deve editar o
