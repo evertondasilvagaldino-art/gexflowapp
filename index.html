@@ -2603,33 +2603,6 @@ const ROLE_PERMS = {
     usuarios:{view:true,create:true,edit:true,manage:true},
     perfil:{view:true,edit:true},
   },
-  'Gerente Comercial': {
-    inicio:{view:true},
-    clientes:{view:true,create:true,edit:true,export:true},
-    contratos:{view:true,create:true,edit:true,approve:true},
-    comercial:{view:true,create:true,edit:true,delete:true,approve:true,export:true,manage:true},
-    churn:{view:true},
-    perfil:{view:true,edit:true},
-  },
-  'Gerente Operacional': {
-    inicio:{view:true},
-    projetos:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
-    onboarding:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
-    entregas:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
-    tarefas:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
-    agenda:{view:true,create:true,edit:true,delete:true,manage:true},
-    aprovacao:{view:true,create:true,edit:true,approve:true,manage:true},
-    creators:{view:true,create:true,edit:true,delete:true,manage:true},
-    rh:{view:true,create:true,edit:true},
-    perfil:{view:true,edit:true},
-  },
-  'Financeiro': {
-    inicio:{view:true},
-    financas:{view:true,create:true,edit:true,delete:true,export:true,approve:true,manage:true},
-    contratos:{view:true,export:true},
-    clientes:{view:true},
-    perfil:{view:true,edit:true},
-  },
   'CS/Atendimento': {
     inicio:{view:true},
     clientes:{view:true,create:true,edit:true,export:true},
@@ -2648,22 +2621,18 @@ const ROLE_PERMS = {
     aprovacao:{view:true,create:true},
     perfil:{view:true,edit:true},
   },
-  'Colaborador Vendedor': {
+  // Papel enxuto pra parceiros externos da agência: só o chat do WhatsApp,
+  // o essencial do setor comercial (tarefas do dia, pipeline e relatório)
+  // e o próprio perfil — incluindo a conexão do WhatsApp dele mesmo (via
+  // Z-API, na tela de Integrações, que já é filtrada só pra mostrar o
+  // card de WhatsApp pra este papel — veja connectionsHtml()).
+  'Gex Parceiro': {
     inicio:{view:true},
-    comercial:{view:true,create:true,edit:true},
-    clientes:{view:true},
-    contratos:{view:true},
-    tarefas:{view:true,create:true,edit:true},
-    agenda:{view:true},
-    perfil:{view:true,edit:true},
-  },
-  'Visualizador': {
-    inicio:{view:true},
-    clientes:{view:true},
-    contratos:{view:true},
-    projetos:{view:true},
-    financas:{view:true},
-    comercial:{view:true},
+    comercial_tarefas:{view:true,create:true,edit:true},
+    comercial_pipeline:{view:true,create:true,edit:true},
+    comercial_relatorio:{view:true},
+    'whatsapp-chat':{view:true,create:true,edit:true},
+    integracoes:{view:true},
     perfil:{view:true,edit:true},
   },
   'Admin': null,
@@ -2800,8 +2769,16 @@ function normalizeProfileRole(role){
     lower === 'gerente'
   ) return 'Adm Gerente';
 
-  if(lower.includes('vendedor') || lower.includes('sdr')) return 'Colaborador Vendedor';
-  if(lower.includes('visualizador')) return 'Visualizador';
+  // Papéis antigos que deixaram de existir (simplificação de hierarquia).
+  // Mapeamos pra um papel válido em vez de deixar o usuário sem nenhuma
+  // permissão (ROLE_PERMS[papel_removido] viraria undefined). "Gerente
+  // Comercial"/"Gerente Operacional" sobem pra Adm Gerente (mesmo nível de
+  // acesso amplo que já tinham); os demais caem pra Colaborador.
+  if(lower.includes('gerente comercial') || lower.includes('gerente operacional')) return 'Adm Gerente';
+  if(lower.includes('parceiro')) return 'Gex Parceiro';
+  if(lower.includes('vendedor') || lower.includes('sdr')) return 'Colaborador';
+  if(lower.includes('visualizador')) return 'Colaborador';
+  if(lower.includes('financeiro')) return 'Colaborador';
   if(lower.includes('colaborador')) return 'Colaborador';
 
   return r;
@@ -2888,9 +2865,9 @@ function buildMinimalAuthenticatedProfile(authUser){
     nome:(email.split('@')[0]||'Usuário'),
     name:(email.split('@')[0]||'Usuário'),
     email,
-    permissao:'Visualizador',
-    role:'Visualizador',
-    cargo:'Visualizador',
+    permissao:'Colaborador',
+    role:'Colaborador',
+    cargo:'Colaborador',
     telefone:'',
     status:'Ativo',
     perm_overrides:{
@@ -6741,7 +6718,7 @@ function formUsuario(d){
   // Não permitimos criar novos usuários Fundador/Admin.
   // O Fundador principal deve existir previamente no Supabase Auth.
   const isNew=!d?.id;
-  const rolesBase=['Adm Gerente','Gerente Comercial','Gerente Operacional','Financeiro','CS/Atendimento','Colaborador','Colaborador Vendedor','Visualizador'];
+  const rolesBase=['Adm Gerente','CS/Atendimento','Colaborador','Gex Parceiro'];
   const curRole=resolveRole(sessionUser?.permissao||'Colaborador');
   const dRole=resolveRole(d?.permissao||'Colaborador');
   const isFundadorTarget=dRole==='Fundador';
@@ -7510,8 +7487,14 @@ function renderProjetos(){renderProjView();}
    PERFORMANCE COMERCIAL POR VENDEDOR
 ════════════════════════════════════════════ */
 function isSalesManagerView(){
+  // Hierarquia simplificada: só Fundador e Adm Gerente enxergam o funil
+  // comercial inteiro da empresa. Todo mundo abaixo disso (Colaborador,
+  // CS/Atendimento, Gex Parceiro etc.) só vê os próprios leads/cards —
+  // por isso o "escape hatch" antigo (qualquer papel com permissão de
+  // usuários + comercial) foi removido, ele deixava qualquer aba de
+  // permissão liberada furar essa regra sem querer.
   const role=resolveRole(sessionUser?.permissao||sessionUser?.cargo||'Colaborador');
-  return ['Fundador','Adm Gerente','Gerente Comercial'].includes(role) || (can('usuarios','view')&&can('comercial','view'));
+  return ['Fundador','Adm Gerente'].includes(role);
 }
 
 function normalizeSalesName(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
@@ -7563,7 +7546,7 @@ function getCommercialTeamUsers(){
         nome:nome||email||'Responsável no CRM',
         email:email||'',
         cargo:'Responsável no CRM',
-        permissao:'Colaborador Vendedor',
+        permissao:'Colaborador',
         status:'Ativo',
         authProvider:isUuidLike(oid)?'supabase':'crm'
       });
@@ -7972,7 +7955,7 @@ function renderLeadOwnerSelect(d={}){
       supabaseId:isUuidLike(selected)?selected:'',
       nome:d?.responsavelNome||d?.ownerName||d?.vendedorNome||filterUser?.nome||sessionUser?.nome||selectedEmail||'Responsável selecionado',
       email:selectedEmail||'',
-      permissao:'Colaborador Vendedor',
+      permissao:'Colaborador',
       cargo:'Responsável no CRM',
       status:'Ativo'
     });
@@ -12722,8 +12705,12 @@ function _normTaskIdentity(v){
     .normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 }
 function isFounderTaskAdmin(){
+  // Hierarquia simplificada: Fundador E Adm Gerente veem/gerenciam as
+  // tarefas de todo mundo; qualquer papel abaixo disso só vê e mexe nas
+  // próprias (ver taskBelongsToCurrentUser/_taskAccessGuard).
   try{
     const role=sessionUser?.permissao||sessionUser?.cargo||sessionUser?.role||'';
+    if(typeof resolveRole==='function'&&resolveRole(role)==='Adm Gerente')return true;
     return isFounderLikeRole ? isFounderLikeRole(role) : _normTaskIdentity(role).includes('fundador');
   }catch{
     return _normTaskIdentity(sessionUser?.permissao||sessionUser?.cargo).includes('fundador');
@@ -13690,13 +13677,9 @@ function applySession(){
   const roleSubs={
     'Fundador':'Visão executiva completa',
     'Adm Gerente':'Visão gerencial da operação',
-    'Gerente Comercial':'Painel de vendas e CRM',
-    'Gerente Operacional':'Painel de projetos e operação',
-    'Financeiro':'Painel financeiro',
     'CS/Atendimento':'Painel de atendimento ao cliente',
     'Colaborador':'Suas tarefas e entregas',
-    'Colaborador Vendedor':'Painel comercial e tarefas',
-    'Visualizador':'Painel de acompanhamento',
+    'Gex Parceiro':'Seu WhatsApp, tarefas e pipeline',
   };
   if(wSub)wSub.textContent=roleSubs[role]||'Bem-vindo ao GexFlow';
 
@@ -17017,7 +17000,14 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   function stages(){try{if(typeof getActiveFunnelStages==='function')return getActiveFunnelStages().map(s=>({id:s.id,name:s.name}));return getStages().map((name,i)=>({id:String(i),name}))}catch(e){return['Prospecção','Qualificação','Proposta','Negociação','Fechamento'].map((name,i)=>({id:String(i),name}))}}
   function connectedCount(){return PROVIDERS.filter(p=>connection(p.id).status==='connected').length}
   function header(){return `<div class="gxi-head"><div><div class="gxi-kicker">GEX Connect</div><div class="gxi-title">Integrações e rastreamento</div><div class="gxi-sub">Conecte seus canais, crie regras comerciais e acompanhe automaticamente o caminho do lead até a venda.</div></div><div class="gxi-head-actions">${view==='tracking'?`<button class="gxi-btn primary" onclick="gxiNewTracking()">+ Novo rastreamento</button>`:''}</div></div><div class="gxi-tabs">${[['connections','Conexões'],['tracking','Tracking Manual'],['monitor','Monitoramento']].map(([id,label])=>`<button class="gxi-tab ${view===id?'active':''}" onclick="gxiSetView('${id}')">${label}</button>`).join('')}</div>`}
-  function connectionsHtml(){const rules=getTrackings();const connectable=PROVIDERS.filter(p=>!p.comingSoon);return `<div class="gxi-summary"><div class="gxi-stat"><span>Conexões ativas</span><b>${connectedCount()}</b><small>de ${connectable.length} disponíveis</small></div><div class="gxi-stat"><span>Regras de tracking</span><b>${rules.length}</b><small>${rules.filter(x=>x.active!==false).length} ativas</small></div><div class="gxi-stat"><span>Eventos processados</span><b>${getEvents().length}</b><small>últimos registros</small></div></div><div class="gxi-grid">${PROVIDERS.map(p=>{if(p.comingSoon){return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft};opacity:.85"><div class="gxi-card-top"><div class="gxi-icon">${p.icon}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill soon">Em breve</span></div><p>${p.desc}</p><div class="gxi-card-note">Fica registrado aqui como o próximo canal — ainda sem previsão fechada.</div><div class="gxi-card-actions"><button class="gxi-btn small" disabled style="opacity:.55;cursor:not-allowed">Em breve</button></div></article>`}
+  function connectionsHtml(){const rules=getTrackings();
+    // Gex Parceiro é um papel enxuto pra parceiro externo — só pode
+    // conectar o próprio WhatsApp, não deve ver/mexer em Meta Ads, Google
+    // Ads etc. dessa tela geral de Integrações (que continua igual pra
+    // todo mundo com acesso total, como Fundador e Adm Gerente).
+    const _visRole=(typeof resolveRole==='function'&&typeof sessionUser!=='undefined')?resolveRole(sessionUser?.permissao||sessionUser?.cargo||''):'';
+    const VISIBLE_PROVIDERS=_visRole==='Gex Parceiro'?PROVIDERS.filter(p=>p.id==='whatsapp'):PROVIDERS;
+    const connectable=VISIBLE_PROVIDERS.filter(p=>!p.comingSoon);return `<div class="gxi-summary"><div class="gxi-stat"><span>Conexões ativas</span><b>${connectedCount()}</b><small>de ${connectable.length} disponíveis</small></div><div class="gxi-stat"><span>Regras de tracking</span><b>${rules.length}</b><small>${rules.filter(x=>x.active!==false).length} ativas</small></div><div class="gxi-stat"><span>Eventos processados</span><b>${getEvents().length}</b><small>últimos registros</small></div></div><div class="gxi-grid">${VISIBLE_PROVIDERS.map(p=>{if(p.comingSoon){return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft};opacity:.85"><div class="gxi-card-top"><div class="gxi-icon">${p.icon}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill soon">Em breve</span></div><p>${p.desc}</p><div class="gxi-card-note">Fica registrado aqui como o próximo canal — ainda sem previsão fechada.</div><div class="gxi-card-actions"><button class="gxi-btn small" disabled style="opacity:.55;cursor:not-allowed">Em breve</button></div></article>`}
     if(p.id==='whatsapp'){
       const zs=getZapiSettings(),hasCreds=!!zs.connected;
       return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft}"><div class="gxi-card-top"><div class="gxi-icon">${p.icon}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill ${hasCreds?'pending':'off'}" id="gxi-whatsapp-top-pill">${hasCreds?'Credenciais salvas':'Não conectado'}</span></div><p>${p.desc}</p><div class="gxi-card-note">${hasCreds?`Instância <b>${E(zs.instanceId||'')}</b> — status real logo abaixo, no card de conexão Z-API.`:'Configure a instância e o token da Z-API no card abaixo.'}</div><div class="gxi-card-actions" id="gxi-whatsapp-top-actions">${hasCreds?`<button class="gxi-btn small danger" onclick="gxiDisconnectZapi()">Desconectar</button>`:''}<button class="gxi-btn primary small" onclick="document.getElementById('gxi-zapi-card-anchor')?.scrollIntoView({behavior:'smooth',block:'start'})">${hasCreds?'Ver conexão':p.button}</button></div></article>`;
