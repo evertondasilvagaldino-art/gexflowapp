@@ -6716,7 +6716,7 @@ function formUsuario(d){
     ${isNew?`<div class="form-group"><label class="form-label">Destino</label><input class="form-input" value="Supabase Auth + public.profiles" disabled></div>`:origemHtml}
   </div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-status"><option ${d?.status==='Ativo'?'selected':''}>Ativo</option><option ${d?.status==='Inativo'?'selected':''}>Inativo</option></select></div>
+    <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-status"><option ${(d?.status||(isNew?'Inativo':'Ativo'))==='Ativo'?'selected':''}>Ativo</option><option ${(d?.status||(isNew?'Inativo':'Ativo'))==='Inativo'?'selected':''}>Inativo</option></select>${isNew?'<div style="font-size:11px;color:var(--muted);margin-top:5px">Novo usuário já entra Inativo — você ativa manualmente (grátis) ou gera o link de pagamento pra ele ativar sozinho ao pagar.</div>':''}</div>
     <div class="form-group"><label class="form-label">Senha ${d?'(nova)':''}</label><input class="form-input" id="f-senha" type="password" placeholder="••••••••" autocomplete="new-password">${newPwdHint}</div>
   </div>
   ${isNew?origemHtml:''}
