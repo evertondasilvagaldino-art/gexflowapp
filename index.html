@@ -11678,11 +11678,24 @@ function funelsSafeDedup(funnels){
   });
 }
 
+// Papéis sem visão gerencial (ex.: Gex Parceiro) só podem usar o funil
+// padrão da empresa e os funis que eles mesmos criaram — não veem nem
+// conseguem ativar os funis de outros usuários. Fundador/Adm Gerente
+// continuam vendo todos, sem mudança nenhuma.
+function getVisibleCommercialFunnels(funnels){
+  const list=Array.isArray(funnels)?funnels:getCommercialFunnels();
+  try{
+    if(typeof isSalesManagerView==='function'&&isSalesManagerView())return list;
+  }catch(e){return list}
+  const myId=String((typeof sessionUser!=='undefined'&&sessionUser?.id)||'');
+  return list.filter(f=>f.isDefault||String(f.createdBy||'')===myId);
+}
+
 function getActiveFunnel(){
-  let funnels=getCommercialFunnels().filter(f=>!f.isArchived);
+  let funnels=getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>!f.isArchived));
   if(!funnels.length){
     ensureDefaultCommercialFunnel();
-    funnels=getCommercialFunnels().filter(f=>!f.isArchived);
+    funnels=getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>!f.isArchived));
   }
   if(!funnels.length) return null;
   const id=getActiveFunnelId();
@@ -11753,12 +11766,21 @@ function migrateOldOpportunitiesToDefaultFunnel(){
 // ── Funnel Operations ──────────────────────────────────────────
 function createCommercialFunnel(data){
   const funnels=getCommercialFunnels();
+  // Só Fundador/Adm Gerente podem definir o funil padrão da empresa — um
+  // papel restrito (ex.: Gex Parceiro) nunca pode virar "dono" do padrão
+  // global, mesmo manipulando a chamada.
+  const canSetDefault=(typeof isSalesManagerView!=='function')||isSalesManagerView();
   const f={
     id:'funnel_'+uid(),
     name:data.name||'Novo Funil',
     description:data.description||'',
-    isDefault:data.isDefault||false,
+    isDefault:canSetDefault&&!!data.isDefault,
     isArchived:false,
+    // Dono do funil — usado por getVisibleCommercialFunnels() pra restringir
+    // quem não tem visão gerencial a só ver/usar o funil padrão e os funis
+    // que ele mesmo criou.
+    createdBy:(typeof sessionUser!=='undefined'&&sessionUser?.id)||'',
+    createdByEmail:(typeof sessionUser!=='undefined'&&sessionUser?.email)||'',
     createdAt:new Date().toISOString(),
     updatedAt:new Date().toISOString(),
     stages:data.stages||[
@@ -11779,8 +11801,12 @@ function updateCommercialFunnel(funnelId,data){
   const funnels=getCommercialFunnels();
   const idx=funnels.findIndex(f=>f.id===funnelId);
   if(idx<0) return;
-  if(data.isDefault) funnels.forEach(f=>f.isDefault=false);
-  funnels[idx]={...funnels[idx],...data,updatedAt:new Date().toISOString()};
+  // Só Fundador/Adm Gerente podem mudar qual é o funil padrão da empresa.
+  const canSetDefault=(typeof isSalesManagerView!=='function')||isSalesManagerView();
+  const nextData={...data};
+  if('isDefault' in nextData && !canSetDefault) delete nextData.isDefault;
+  if(nextData.isDefault) funnels.forEach(f=>f.isDefault=false);
+  funnels[idx]={...funnels[idx],...nextData,updatedAt:new Date().toISOString()};
   saveCommercialFunnels(funnels);
 }
 
@@ -11789,7 +11815,12 @@ function duplicateCommercialFunnel(funnelId){
   const src=funnels.find(f=>f.id===funnelId);
   if(!src){toast('Funil não encontrado','#EF4444');return;}
   const newStages=(src.stages||[]).map(s=>({...s,id:'stage_'+uid()}));
+  // A cópia passa a pertencer a quem duplicou — senão um Gex Parceiro
+  // duplicando o funil padrão (que não é "dele") ficaria sem ver a própria
+  // cópia, já que getVisibleCommercialFunnels() filtra por createdBy.
   const dup={...src,id:'funnel_'+uid(),name:src.name+' (cópia)',isDefault:false,isArchived:false,
+    createdBy:(typeof sessionUser!=='undefined'&&sessionUser?.id)||'',
+    createdByEmail:(typeof sessionUser!=='undefined'&&sessionUser?.email)||'',
     stages:newStages,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
   funnels.push(dup);
   saveCommercialFunnels(funnels);
@@ -11821,7 +11852,7 @@ function renderFunnelSelector(){
   if(!bar) return;
 
   ensureDefaultCommercialFunnel();
-  const funnels=getCommercialFunnels().filter(f=>!f.isArchived);
+  const funnels=getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>!f.isArchived));
   const active=getActiveFunnel();
   const canEdit=can('comercial','edit');
   const canCreate=can('comercial','create');
@@ -11845,23 +11876,27 @@ function renderFunnelSelector(){
   </div>
   ${active&&active.isDefault?'<span class="funnel-default-badge">Padrão</span>':''}`;
 
-  const ownerFilterHtml=`<div class="funnel-select-wrap">
+  // Filtro de "responsável" só faz sentido pra quem tem visão gerencial —
+  // pra um papel restrito (ex.: Gex Parceiro), a única opção que existiria
+  // ali seria ele mesmo, então o filtro fica estranho e sem utilidade.
+  const showOwnerFilter=(typeof isSalesManagerView!=='function')||isSalesManagerView();
+  const ownerFilterHtml=showOwnerFilter?`<div class="funnel-select-wrap">
     <select class="funnel-select" id="pipe-responsavel-filter" onchange="onCommercialOwnerFilterChange('pipe-responsavel-filter','pipeline')" style="min-width:220px">
       <option value="">Todos os responsáveis</option>
     </select>
     <span class="funnel-select-arrow">▼</span>
-  </div>`;
+  </div>`:'';
 
   const btnsHtml=`<div class="funnel-bar-btns">
     ${canCreate?`<button class="fbtn fbtn-primary" onclick="openFunnelModal('new')">+ Novo Funil</button>`:''}
     ${canEdit&&active?`<button class="fbtn" onclick="openFunnelModal('edit','${active.id}')">✏️ Editar Funil</button>`:''}
     ${canCreate&&active?`<button class="fbtn" onclick="duplicateCommercialFunnel('${active.id}')">⧉ Duplicar</button>`:''}
     ${canEdit&&active&&!active.isDefault?`<button class="fbtn fbtn-danger" onclick="confirmArchiveFunnel('${active.id}')">📦 Arquivar</button>`:''}
-    ${canEdit?`<button class="fbtn" onclick="openArchivedFunnelsModal()">🗂️ Arquivados ${getCommercialFunnels().filter(f=>f&&f.isArchived).length?`(${getCommercialFunnels().filter(f=>f&&f.isArchived).length})`:''}</button>`:''}
+    ${canEdit?`<button class="fbtn" onclick="openArchivedFunnelsModal()">🗂️ Arquivados ${getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length?`(${getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length})`:''}</button>`:''}
   </div>`;
 
   bar.innerHTML=selectHtml+ownerFilterHtml+btnsHtml;
-  populateCommercialOwnerSelect('pipe-responsavel-filter', getVisibleCommercialLeads(DB.get('leads')||[]), 'Todos os responsáveis');
+  if(showOwnerFilter)populateCommercialOwnerSelect('pipe-responsavel-filter', getVisibleCommercialLeads(DB.get('leads')||[]), 'Todos os responsáveis');
 }
 
 function onFunnelSelectChange(id){
@@ -11898,8 +11933,7 @@ function renderArchivedFunnelsModal(){
   const body=document.getElementById('archived-funnels-body');
   if(!body) return;
 
-  const archived=getCommercialFunnels()
-    .filter(f=>f&&f.isArchived)
+  const archived=getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived))
     .sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
 
   const canEditFunnel=can('comercial','edit');
@@ -12065,10 +12099,10 @@ function renderFunnelModalBody(){
           <label class="form-label">Descrição</label>
           <input class="form-input" id="fm-desc" value="${fmDraft.description}" placeholder="Descrição opcional" oninput="fmDraft.description=this.value">
         </div>
-        <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;user-select:none">
+        ${(typeof isSalesManagerView!=='function'||isSalesManagerView())?`<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;user-select:none">
           <input type="checkbox" id="fm-default" ${fmDraft.isDefault?'checked':''} onchange="fmDraft.isDefault=this.checked">
           Marcar como funil padrão
-        </label>
+        </label>`:''}
       </div>
     </div>
     <div>
@@ -17976,7 +18010,10 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       return all.filter(t=>myRuleIds.has(String(t.ruleId)));
     }catch(e){return[]}
   };
-  function availFunnels(){try{ensureDefaultCommercialFunnel();return getCommercialFunnels().filter(f=>!f.isArchived)}catch(e){return[]}}
+  // Mesma regra do seletor de funil do Pipeline: quem não tem visão
+  // gerencial só configura automações usando o funil padrão ou os funis
+  // que ele mesmo criou.
+  function availFunnels(){try{ensureDefaultCommercialFunnel();const all=getCommercialFunnels().filter(f=>!f.isArchived);return typeof getVisibleCommercialFunnels==='function'?getVisibleCommercialFunnels(all):all}catch(e){return[]}}
   function defaults(){
     return {nome:'',templateKey:'',canal:'whatsapp',gatilho:'sem_atividade',dias:3,funilId:'',funilName:'',etapaId:'',etapaName:'',
       assunto:'Ainda por aí? Vamos continuar nossa conversa',
