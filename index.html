@@ -11647,6 +11647,7 @@ function ensureDefaultCommercialFunnel(){
 
   if(changed) saveCommercialFunnels(funnels);
   migrateOldOpportunitiesToDefaultFunnel();
+  funnels=ensurePersonalCommercialFunnel(funnels);
   return funnels;
 }
 
@@ -11689,6 +11690,43 @@ function getVisibleCommercialFunnels(funnels){
   }catch(e){return list}
   const myId=String((typeof sessionUser!=='undefined'&&sessionUser?.id)||'');
   return list.filter(f=>f.isDefault||String(f.createdBy||'')===myId);
+}
+
+// Um usuário sem visão gerencial (ex.: Gex Parceiro) não deve editar o
+// funil padrão da empresa — mudaria as etapas de todo mundo. Em vez disso,
+// na primeira vez que ele abre o Comercial, ganha uma cópia própria do
+// funil padrão (mesmas etapas), totalmente dele: pode editar, renomear e
+// reorganizar à vontade sem afetar ninguém. Serve de exemplo pronto pra já
+// sair criando oportunidades, e ele continua livre pra criar quantos
+// outros funis próprios quiser depois (veja createCommercialFunnel).
+function ensurePersonalCommercialFunnel(funnels){
+  const list=Array.isArray(funnels)?funnels:getCommercialFunnels();
+  try{
+    if(typeof isSalesManagerView==='function'&&isSalesManagerView())return list;
+    const myId=String((typeof sessionUser!=='undefined'&&sessionUser?.id)||'');
+    if(!myId)return list;
+    const hasOwn=list.some(f=>!f.isArchived&&String(f.createdBy||'')===myId);
+    if(hasOwn)return list;
+    const base=list.find(f=>f.isDefault&&!f.isArchived)||list.find(f=>!f.isArchived);
+    if(!base)return list;
+    const myName=String((typeof sessionUser!=='undefined'&&(sessionUser?.nome||sessionUser?.name))||'').trim().split(' ')[0]||'meu';
+    const starter={
+      id:'funnel_'+uid(),
+      name:`Funil de ${myName}`,
+      description:'Copiado do funil padrão como ponto de partida — é só seu, edite à vontade.',
+      isDefault:false,
+      isArchived:false,
+      createdBy:myId,
+      createdByEmail:(typeof sessionUser!=='undefined'&&sessionUser?.email)||'',
+      createdAt:new Date().toISOString(),
+      updatedAt:new Date().toISOString(),
+      stages:(base.stages||[]).map(s=>({...s,id:'stage_'+uid()}))
+    };
+    const next=[...list,starter];
+    saveCommercialFunnels(next);
+    setActiveFunnelId(starter.id);
+    return next;
+  }catch(e){return list}
 }
 
 function getActiveFunnel(){
@@ -11889,7 +11927,7 @@ function renderFunnelSelector(){
 
   const btnsHtml=`<div class="funnel-bar-btns">
     ${canCreate?`<button class="fbtn fbtn-primary" onclick="openFunnelModal('new')">+ Novo Funil</button>`:''}
-    ${canEdit&&active?`<button class="fbtn" onclick="openFunnelModal('edit','${active.id}')">✏️ Editar Funil</button>`:''}
+    ${canEdit&&active&&(showOwnerFilter||!active.isDefault)?`<button class="fbtn" onclick="openFunnelModal('edit','${active.id}')">✏️ Editar Funil</button>`:''}
     ${canCreate&&active?`<button class="fbtn" onclick="duplicateCommercialFunnel('${active.id}')">⧉ Duplicar</button>`:''}
     ${canEdit&&active&&!active.isDefault?`<button class="fbtn fbtn-danger" onclick="confirmArchiveFunnel('${active.id}')">📦 Arquivar</button>`:''}
     ${canEdit?`<button class="fbtn" onclick="openArchivedFunnelsModal()">🗂️ Arquivados ${getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length?`(${getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length})`:''}</button>`:''}
