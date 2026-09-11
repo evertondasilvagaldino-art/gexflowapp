@@ -4938,6 +4938,36 @@ const INTEGRATION_APPS=[
   {id:'stripe',name:'Stripe',cat:'Financeiro',icon:'💸',color:'#EDE9FE',desc:'Integração preparada para cobranças e assinaturas digitais.'}
 ];
 
+// Meta Ads é uma conexão OAuth por usuário (o backend já grava assim, em
+// meta_oauth_credentials.user_id) — mas os DOIS caches locais que guardam
+// o status/config na tela (getIntegration/saveIntegration abaixo, e
+// integration_connections via syncGxiConnectionState/connection/
+// saveConnection) eram compartilhados por qualquer conta logada no MESMO
+// navegador. Essa chave única resolve isso pros três lugares baterem
+// igual, pra ninguém herdar a conexão de outra conta.
+function metaAdsStorageKey(){
+  const myId=(typeof sessionUser!=='undefined'&&sessionUser?.id)||'sem_login';
+  return `meta_ads__${myId}`;
+}
+// Captação Nativa (Meta Leadgen/Formulário Instantâneo) também passou a ser
+// por usuário — cada um conecta a própria Página do Facebook (tabela
+// meta_leadgen_config no Supabase, uma linha por usuário). O cache local
+// segue o mesmo padrão de zapi_settings/email_smtp_settings: uma lista com
+// uma linha por usuário, identificada por este id.
+function getMyLeadgenId(){
+  const myId=(typeof sessionUser!=='undefined'&&sessionUser?.id)||'sem_login';
+  return `leadgen_main__${myId}`;
+}
+function getLeadgenSettingsRow(){
+  try{const myId=getMyLeadgenId();return (DB.get('leadgen_settings')||[]).find(x=>x.id===myId)||{id:myId}}catch(e){return{id:getMyLeadgenId()}}
+}
+function saveLeadgenSettingsRow(next){
+  try{
+    const myId=getMyLeadgenId();
+    const others=(DB.get('leadgen_settings')||[]).filter(x=>x.id!==myId);
+    DB.set('leadgen_settings',[...others,{...next,id:myId}]);
+  }catch(e){}
+}
 function getIntegrationsStore(){
   try{return JSON.parse(localStorage.getItem('gx2_integrations')||'{}')}catch{return{}}
 }
@@ -4946,13 +4976,15 @@ function setIntegrationsStore(v){
 }
 function getIntegration(id){
   const all=getIntegrationsStore();
-  return all[id]||{id,connected:false,configured:false,config:{},updatedAt:null};
+  const key=id==='meta_ads'?metaAdsStorageKey():id;
+  return all[key]||{id,connected:false,configured:false,config:{},updatedAt:null};
 }
 function saveIntegration(id,data){
   const all=getIntegrationsStore();
-  all[id]={...(all[id]||{id}),...data,id,updatedAt:new Date().toISOString()};
+  const key=id==='meta_ads'?metaAdsStorageKey():id;
+  all[key]={...(all[key]||{id}),...data,id,updatedAt:new Date().toISOString()};
   setIntegrationsStore(all);
-  return all[id];
+  return all[key];
 }
 function addIntegrationLog(title,detail='',type='ok'){
   const logs=JSON.parse(localStorage.getItem('gx2_integrations_log')||'[]');
@@ -5856,10 +5888,11 @@ function syncGxiConnectionState(provider,status,assets,lastError){
   // sincronia para o card de Meta Ads (e futuros) sair de "Pendente" assim
   // que o login OAuth terminar.
   try{
+    const key=provider==='meta_ads'?metaAdsStorageKey():provider;
     const all=(typeof DB!=='undefined'&&DB.get('integration_connections'))||[];
-    const i=all.findIndex(x=>x.provider===provider);
+    const i=all.findIndex(x=>x.provider===key);
     const next={
-      ...(i>=0?all[i]:{id:(typeof uid==='function'?uid():String(Date.now())),provider}),
+      ...(i>=0?all[i]:{id:(typeof uid==='function'?uid():String(Date.now())),provider:key}),
       status,
       assets:assets||(i>=0?all[i].assets:{})||{},
       lastError:lastError||'',
@@ -6004,9 +6037,9 @@ async function connectLeadgenOAuth(){
 }
 function applyLeadgenOAuthConnection(pageId,pageName){
   try{
-    const old=(DB.get('leadgen_settings')||[])[0]||{id:'leadgen_main'};
-    const next={...old,id:'leadgen_main',pageId:pageId||old.pageId||'',pageName:pageName||old.pageName||'',hasToken:true,oauthChoicePending:null,updatedAt:new Date().toISOString()};
-    DB.set('leadgen_settings',[next]);
+    const old=getLeadgenSettingsRow();
+    const next={...old,pageId:pageId||old.pageId||'',pageName:pageName||old.pageName||'',hasToken:true,oauthChoicePending:null,updatedAt:new Date().toISOString()};
+    saveLeadgenSettingsRow(next);
   }catch(e){}
   if(typeof renderIntegracoes==='function')renderIntegracoes();
   toast(`Página "${pageName||pageId}" conectada ✓ Escolha o funil, a etapa de destino e clique em Salvar configurações.`,'#10B981');
@@ -6015,9 +6048,9 @@ function applyLeadgenOAuthChoice(state,pagesB64){
   let pages=[];
   try{pages=JSON.parse(decodeURIComponent(escape(atob(pagesB64))));}catch(e){pages=[]}
   try{
-    const old=(DB.get('leadgen_settings')||[])[0]||{id:'leadgen_main'};
-    const next={...old,id:'leadgen_main',oauthChoicePending:{state,pages},updatedAt:new Date().toISOString()};
-    DB.set('leadgen_settings',[next]);
+    const old=getLeadgenSettingsRow();
+    const next={...old,oauthChoicePending:{state,pages},updatedAt:new Date().toISOString()};
+    saveLeadgenSettingsRow(next);
   }catch(e){}
   if(typeof renderIntegracoes==='function')renderIntegracoes();
   toast('Encontramos mais de uma Página. Escolha qual usar.','#F59E0B');
@@ -6070,9 +6103,20 @@ function handleLeadgenOAuthRedirectResult(){
 }
 handleLeadgenOAuthRedirectResult();
 
-function disconnectMetaAdsOAuth(){
+async function disconnectMetaAdsOAuth(){
   const current=getIntegration('meta_ads').config||{};
+  try{
+    const token=await getGexSupabaseToken();
+    const res=await fetch(getSupabaseFunctionUrl('meta-disconnect'),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'}});
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível desconectar o Meta Ads.');
+  }catch(err){
+    // Mesmo se a chamada ao servidor falhar, limpa o cache local abaixo —
+    // evita deixar a tela travada em "Conectado" — mas avisa o usuário.
+    toast(err.message||'Erro ao desconectar no servidor — status local foi limpo mesmo assim','#F59E0B');
+  }
   saveIntegration('meta_ads',{connected:false,configured:false,config:{notes:current.notes||''}});
+  syncGxiConnectionState('meta_ads','disconnected',{});
   addIntegrationLog('Meta Ads OAuth desconectado','Conexão nativa removida do Gex Flow','warn');
   closeModal();
   renderIntegracoes();
@@ -6084,9 +6128,9 @@ async function disconnectLeadgenOAuth(){
     const res=await fetch(getSupabaseFunctionUrl('leadgen-disconnect'),{method:'POST',headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'}});
     const resJson=await res.json().catch(()=>({}));
     if(!res.ok||resJson?.ok===false)throw new Error(resJson.message||'Não foi possível desconectar a Página.');
-    const old=(DB.get('leadgen_settings')||[])[0]||{id:'leadgen_main'};
-    const next={...old,id:'leadgen_main',pageId:'',pageName:'',hasToken:false,configured:false,updatedAt:new Date().toISOString()};
-    DB.set('leadgen_settings',[next]);
+    const old=getLeadgenSettingsRow();
+    const next={...old,pageId:'',pageName:'',hasToken:false,configured:false,updatedAt:new Date().toISOString()};
+    saveLeadgenSettingsRow(next);
     if(typeof renderIntegracoes==='function')renderIntegracoes();
     toast('Página desconectada da Captação Nativa','#7C3AED');
   }catch(err){
@@ -17111,7 +17155,9 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   const getEvents=()=>{try{return DB.get('tracking_events')||[]}catch(e){return[]}};
   const getConversionEvents=()=>{try{return (DB.get('conversion_events')||[]).slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0))}catch(e){return[]}};
   const getConversionSettings=()=>{try{return (DB.get('conversion_settings')||[])[0]||{id:'conversion_main',meta:{},google:{},mappings:[]}}catch(e){return{id:'conversion_main',meta:{},google:{},mappings:[]}}};
-  const getLeadgenSettings=()=>{try{return (DB.get('leadgen_settings')||[])[0]||{id:'leadgen_main'}}catch(e){return{id:'leadgen_main'}}};
+  // Por usuário agora — veja getLeadgenSettingsRow/saveLeadgenSettingsRow no
+  // script principal (mesmo padrão de e-mail/WhatsApp).
+  const getLeadgenSettings=()=>typeof getLeadgenSettingsRow==='function'?getLeadgenSettingsRow():{id:'leadgen_main'};
   // MULTIUSUÁRIO: cada usuário logado tem sua própria conexão de e-mail
   // (SMTP), igual já funciona a conexão de WhatsApp — guardada com o id
   // "email_smtp_main__<seu id>", pra o setor de Automações mandar e-mail
@@ -17127,11 +17173,18 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   // o de outro na mesma tela.
   const getMyZapiId=()=>`zapi_main__${(typeof sessionUser!=='undefined'&&sessionUser?.id)||'sem_login'}`;
   const getZapiSettings=()=>{try{const myId=getMyZapiId();return (DB.get('zapi_settings')||[]).find(x=>x.id===myId)||{id:myId}}catch(e){return{id:getMyZapiId()}}};
-  const connection=id=>getConnections().find(x=>x.provider===id)||{provider:id,status:'disconnected',assets:{}};
-  function saveConnection(provider,data){const all=getConnections(),i=all.findIndex(x=>x.provider===provider),next={...(i>=0?all[i]:{id:uid(),provider}),...data,updatedAt:new Date().toISOString()};if(i>=0)all[i]=next;else all.push(next);DB.set('integration_connections',all);return next}
+  // Meta Ads usa a mesma chave por usuário de metaAdsStorageKey() (definida
+  // no script principal) — assim connection()/saveConnection() batem com o
+  // que syncGxiConnectionState() grava depois de um login OAuth.
+  const _connKey=provider=>provider==='meta_ads'&&typeof metaAdsStorageKey==='function'?metaAdsStorageKey():provider;
+  const connection=id=>getConnections().find(x=>x.provider===_connKey(id))||{provider:id,status:'disconnected',assets:{}};
+  function saveConnection(provider,data){const key=_connKey(provider);const all=getConnections(),i=all.findIndex(x=>x.provider===key),next={...(i>=0?all[i]:{id:uid(),provider:key}),...data,updatedAt:new Date().toISOString()};if(i>=0)all[i]=next;else all.push(next);DB.set('integration_connections',all);return next}
   function event(type,detail,status='success',extra={}){DB.push('tracking_events',{id:uid(),type,detail,status,createdAt:new Date().toISOString(),...extra})}
   function stages(){try{if(typeof getActiveFunnelStages==='function')return getActiveFunnelStages().map(s=>({id:s.id,name:s.name}));return getStages().map((name,i)=>({id:String(i),name}))}catch(e){return['Prospecção','Qualificação','Proposta','Negociação','Fechamento'].map((name,i)=>({id:String(i),name}))}}
-  function connectedCount(){return PROVIDERS.filter(p=>connection(p.id).status==='connected').length}
+  // Conta só entre os provedores que o papel atual PODE ver — senão um Gex
+  // Parceiro via "1 conexão ativa" contando o Meta Ads da empresa, que nem
+  // aparece pra ele na tela (card oculto por connectionsHtml/VISIBLE_PROVIDERS).
+  function connectedCount(list){return (list||PROVIDERS).filter(p=>p.id==='whatsapp'?!!getZapiSettings().connected:connection(p.id).status==='connected').length}
   function header(){return `<div class="gxi-head"><div><div class="gxi-kicker">GEX Connect</div><div class="gxi-title">Integrações e rastreamento</div><div class="gxi-sub">Conecte seus canais, crie regras comerciais e acompanhe automaticamente o caminho do lead até a venda.</div></div><div class="gxi-head-actions">${view==='tracking'?`<button class="gxi-btn primary" onclick="gxiNewTracking()">+ Novo rastreamento</button>`:''}</div></div><div class="gxi-tabs">${[['connections','Conexões'],['tracking','Tracking Manual'],['monitor','Monitoramento']].map(([id,label])=>`<button class="gxi-tab ${view===id?'active':''}" onclick="gxiSetView('${id}')">${label}</button>`).join('')}</div>`}
   function connectionsHtml(){const rules=getTrackings();
     // Gex Parceiro é um papel enxuto pra parceiro externo — só pode
@@ -17139,8 +17192,13 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     // Ads etc. dessa tela geral de Integrações (que continua igual pra
     // todo mundo com acesso total, como Fundador e Adm Gerente).
     const _visRole=(typeof resolveRole==='function'&&typeof sessionUser!=='undefined')?resolveRole(sessionUser?.permissao||sessionUser?.cargo||''):'';
-    const VISIBLE_PROVIDERS=_visRole==='Gex Parceiro'?PROVIDERS.filter(p=>p.id==='whatsapp'):PROVIDERS;
-    const connectable=VISIBLE_PROVIDERS.filter(p=>!p.comingSoon);return `<div class="gxi-summary"><div class="gxi-stat"><span>Conexões ativas</span><b>${connectedCount()}</b><small>de ${connectable.length} disponíveis</small></div><div class="gxi-stat"><span>Regras de tracking</span><b>${rules.length}</b><small>${rules.filter(x=>x.active!==false).length} ativas</small></div><div class="gxi-stat"><span>Eventos processados</span><b>${getEvents().length}</b><small>últimos registros</small></div></div><div class="gxi-grid">${VISIBLE_PROVIDERS.map(p=>{if(p.comingSoon){return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft};opacity:.85"><div class="gxi-card-top"><div class="gxi-icon">${p.icon}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill soon">Em breve</span></div><p>${p.desc}</p><div class="gxi-card-note">Fica registrado aqui como o próximo canal — ainda sem previsão fechada.</div><div class="gxi-card-actions"><button class="gxi-btn small" disabled style="opacity:.55;cursor:not-allowed">Em breve</button></div></article>`}
+    // Meta Ads já é uma conexão de verdade por usuário (cada um autoriza a
+    // própria conta do Facebook) — liberada também pra Gex Parceiro. Google
+    // Ads e WhatsApp Oficial continuam fora: nenhuma das duas tem um backend
+    // funcionando hoje (não é uma questão de permissão, é que a conexão real
+    // ainda não existe pra ninguém, nem pra Fundador/Adm Gerente).
+    const VISIBLE_PROVIDERS=_visRole==='Gex Parceiro'?PROVIDERS.filter(p=>p.id==='whatsapp'||p.id==='meta_ads'):PROVIDERS;
+    const connectable=VISIBLE_PROVIDERS.filter(p=>!p.comingSoon);return `<div class="gxi-summary"><div class="gxi-stat"><span>Conexões ativas</span><b>${connectedCount(VISIBLE_PROVIDERS)}</b><small>de ${connectable.length} disponíveis</small></div><div class="gxi-stat"><span>Regras de tracking</span><b>${rules.length}</b><small>${rules.filter(x=>x.active!==false).length} ativas</small></div><div class="gxi-stat"><span>Eventos processados</span><b>${getEvents().length}</b><small>últimos registros</small></div></div><div class="gxi-grid">${VISIBLE_PROVIDERS.map(p=>{if(p.comingSoon){return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft};opacity:.85"><div class="gxi-card-top"><div class="gxi-icon">${p.icon}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill soon">Em breve</span></div><p>${p.desc}</p><div class="gxi-card-note">Fica registrado aqui como o próximo canal — ainda sem previsão fechada.</div><div class="gxi-card-actions"><button class="gxi-btn small" disabled style="opacity:.55;cursor:not-allowed">Em breve</button></div></article>`}
     if(p.id==='whatsapp'){
       const zs=getZapiSettings(),hasCreds=!!zs.connected;
       return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft}"><div class="gxi-card-top"><div class="gxi-icon">${p.icon}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill ${hasCreds?'pending':'off'}" id="gxi-whatsapp-top-pill">${hasCreds?'Credenciais salvas':'Não conectado'}</span></div><p>${p.desc}</p><div class="gxi-card-note">${hasCreds?`Instância <b>${E(zs.instanceId||'')}</b> — status real logo abaixo, no card de conexão Z-API.`:'Configure a instância e o token da Z-API no card abaixo.'}</div><div class="gxi-card-actions" id="gxi-whatsapp-top-actions">${hasCreds?`<button class="gxi-btn small danger" onclick="gxiDisconnectZapi()">Desconectar</button>`:''}<button class="gxi-btn primary small" onclick="document.getElementById('gxi-zapi-card-anchor')?.scrollIntoView({behavior:'smooth',block:'start'})">${hasCreds?'Ver conexão':p.button}</button></div></article>`;
@@ -17303,7 +17361,20 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       </div>
     </div>`;
   }
-  function monitorHtml(){return `<div class="gxi-toolbar"><div class="gxi-toolbar-copy"><h2>Monitoramento de conversões</h2><p>Envie eventos do CRM para otimizar as campanhas nas plataformas de anúncios, ou traga leads direto dos anúncios pro Pipeline.</p></div></div><div class="gxi-monitor-tabs"><button class="gxi-monitor-tab ${monitorView==='config'?'active':''}" onclick="gxiMonitorView('config')">Configurar Pixels e Eventos</button><button class="gxi-monitor-tab ${monitorView==='events'?'active':''}" onclick="gxiMonitorView('events')">Histórico de Conversões</button><button class="gxi-monitor-tab ${monitorView==='leadgen'?'active':''}" onclick="gxiMonitorView('leadgen')">Captação Nativa (Meta)</button></div>${monitorView==='config'?conversionConfigHtml():monitorView==='leadgen'?leadgenConfigHtml():conversionEventsHtml()}`}
+  function monitorHtml(){
+    // "Configurar Pixels e Eventos" e "Histórico de Conversões" mexem com
+    // configuração da empresa inteira (Pixel/token do CAPI, log de todos os
+    // envios) — isso não faz parte do que foi liberado pro Gex Parceiro.
+    // "Captação Nativa (Meta)" agora é uma conexão pessoal (cada um com a
+    // própria Página do Facebook), então essa sim é liberada.
+    const _visRole=(typeof resolveRole==='function'&&typeof sessionUser!=='undefined')?resolveRole(sessionUser?.permissao||sessionUser?.cargo||''):'';
+    const restrictedMonitor=_visRole==='Gex Parceiro';
+    if(restrictedMonitor&&monitorView!=='leadgen')monitorView='leadgen';
+    const tabsHtml=restrictedMonitor
+      ?`<button class="gxi-monitor-tab active">Captação Nativa (Meta)</button>`
+      :`<button class="gxi-monitor-tab ${monitorView==='config'?'active':''}" onclick="gxiMonitorView('config')">Configurar Pixels e Eventos</button><button class="gxi-monitor-tab ${monitorView==='events'?'active':''}" onclick="gxiMonitorView('events')">Histórico de Conversões</button><button class="gxi-monitor-tab ${monitorView==='leadgen'?'active':''}" onclick="gxiMonitorView('leadgen')">Captação Nativa (Meta)</button>`;
+    return `<div class="gxi-toolbar"><div class="gxi-toolbar-copy"><h2>Monitoramento de conversões</h2><p>Envie eventos do CRM para otimizar as campanhas nas plataformas de anúncios, ou traga leads direto dos anúncios pro Pipeline.</p></div></div><div class="gxi-monitor-tabs">${tabsHtml}</div>${restrictedMonitor?leadgenConfigHtml():monitorView==='config'?conversionConfigHtml():monitorView==='leadgen'?leadgenConfigHtml():conversionEventsHtml()}`;
+  }
   function render(){const page=document.getElementById('page-integracoes');if(!page)return;page.innerHTML=`<div class="gxi-shell">${header()}${view==='connections'?connectionsHtml():view==='tracking'?(editingId==='new'||editingId?formHtml():trackingListHtml()):monitorHtml()}</div>`;if(view==='connections'&&typeof gxiLoadZapiLiveStatus==='function')gxiLoadZapiLiveStatus()}
   window.renderIntegracoes=render;window.gxiSetView=v=>{view=v;editingId='';render()};window.gxiNewTracking=()=>{view='tracking';editingId='new';render()};window.gxiCancelTracking=()=>{editingId='';render()};window.gxiEditTracking=id=>{view='tracking';editingId=id;render()};
   window.gxiSaveTracking=()=>{const mode=document.getElementById('gxi-mode')?.value||'exact',st=document.getElementById('gxi-stage'),co=document.getElementById('gxi-connection'),message=document.getElementById('gxi-message')?.value?.trim()||'';if(!st?.value){toast('Selecione a etapa de destino','#EF4444');return}if(!message){toast('Informe a mensagem do rastreamento','#EF4444');return}const funnel=typeof getActiveFunnel==='function'?getActiveFunnel():null,obj={mode,funnelId:funnel?.id||'',funnelName:funnel?.name||'',stageId:st.value,stageName:st.selectedOptions[0]?.dataset.name||st.selectedOptions[0]?.textContent||'',connectionId:co?.value||'whatsapp_pending',connectionName:co?.selectedOptions[0]?.dataset.name||co?.selectedOptions[0]?.textContent||'WhatsApp',message,active:true,updatedAt:new Date().toISOString()};if(editingId&&editingId!=='new'){const old=getTrackings().find(x=>x.id===editingId);DB.update('manual_trackings',editingId,{...obj,active:old?.active!==false})}else DB.push('manual_trackings',{id:uid(),...obj,executions:0,createdAt:new Date().toISOString()});event('Rastreamento configurado',`Mensagem: ${message}`);editingId='';render();toast('Rastreamento salvo ✓','#10B981')};
@@ -17324,7 +17395,10 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       event('Conexão testada',provider);
       toast('Conexão validada ✓','#10B981');
     }
-  }catch(e){saveConnection(provider,{status:'error',lastError:e.message});event('Erro no teste',e.message,'error',{provider});toast('Falha ao validar conexão','#EF4444')}render()};window.gxiDisconnect=provider=>confirmDelete(()=>{saveConnection(provider,{status:'disconnected',assets:{}});event('Integração desconectada',provider);render()});
+  }catch(e){saveConnection(provider,{status:'error',lastError:e.message});event('Erro no teste',e.message,'error',{provider});toast('Falha ao validar conexão','#EF4444')}render()};window.gxiDisconnect=provider=>confirmDelete(()=>{
+    if(provider==='meta_ads'&&typeof disconnectMetaAdsOAuth==='function'){disconnectMetaAdsOAuth();return}
+    saveConnection(provider,{status:'disconnected',assets:{}});event('Integração desconectada',provider);render()
+  });
   window.gxiMonitorView=v=>{monitorView=v;render()};
   window.gxiToggleSecret=id=>{const el=document.getElementById(id);if(!el)return;el.type=el.type==='password'?'text':'password';const btn=el.parentElement?.querySelector('button');if(btn)btn.textContent=el.type==='password'?'Mostrar':'Ocultar'};
   window.gxiSaveConversionSettings=async()=>{
@@ -17365,8 +17439,8 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
         try{const ctx=error.context;if(ctx&&typeof ctx.json==='function'){const body=await ctx.clone().json().catch(()=>null);if(body?.message)detail=body.message}}catch(e2){}
       }
       if(error||data?.ok===false)throw new Error(data?.message||detail||'Não foi possível confirmar a Página');
-      const next={...settings,id:'leadgen_main',pageId:data.pageId||pageId,pageName:data.pageName||'',hasToken:true,oauthChoicePending:null,updatedAt:new Date().toISOString()};
-      DB.set('leadgen_settings',[next]);
+      const next={...settings,pageId:data.pageId||pageId,pageName:data.pageName||'',hasToken:true,oauthChoicePending:null,updatedAt:new Date().toISOString()};
+      saveLeadgenSettingsRow(next);
       render();
       toast(`Página "${data.pageName||pageId}" conectada ✓ Escolha o funil, a etapa de destino e clique em Salvar configurações.`,'#10B981');
     }catch(e){
@@ -17424,8 +17498,8 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       console.error('[GexFlow] leadgen-config-save falhou:',e);
       toast(`Configuração não ativada: ${e.message||'erro desconhecido'}`,'#F59E0B');
     }
-    const next={id:'leadgen_main',pageId,pageName,hasToken,hasAppSecret,verifyToken,funnelId,funnelName,stageId,stageName,formId,formName,forms,formsWarning,configured:!!pageId&&hasToken&&!!stageId,updatedAt:new Date().toISOString()};
-    DB.set('leadgen_settings',[next]);
+    const next={pageId,pageName,hasToken,hasAppSecret,verifyToken,funnelId,funnelName,stageId,stageName,formId,formName,forms,formsWarning,configured:!!pageId&&hasToken&&!!stageId,updatedAt:new Date().toISOString()};
+    saveLeadgenSettingsRow(next);
     render();
     if(serverSaved)toast('Captação nativa configurada ✓','#10B981');
   };
