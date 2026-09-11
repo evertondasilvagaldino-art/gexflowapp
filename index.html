@@ -2641,7 +2641,11 @@ const ROLE_PERMS = {
     // empresa. Ao logar, cai direto na primeira aba que ele tem acesso
     // (Tarefas do Dia), sem precisar de uma página de boas-vindas própria.
     comercial_tarefas:{view:true,create:true,edit:true},
-    comercial_pipeline:{view:true,create:true,edit:true},
+    // delete:true aqui é só pra permitir excluir DEFINITIVAMENTE um funil
+    // próprio já arquivado (deleteArchivedFunnel confere createdBy — nunca
+    // deixa excluir funil de outro usuário nem o funil padrão da empresa).
+    // Não libera excluir leads/tarefas do Pipeline, que continuam sob edit.
+    comercial_pipeline:{view:true,create:true,edit:true,delete:true},
     comercial_relatorio:{view:true},
     'whatsapp-chat':{view:true,create:true,edit:true},
     integracoes:{view:true},
@@ -11727,26 +11731,31 @@ function ensureDefaultCommercialFunnel(){
   return funnels;
 }
 
-// Consolida múltiplas cópias de funil pessoal do MESMO dono numa só —
-// sequela do bug em _normalizeFunnel (veja comentário ali) que fazia o
-// sistema "esquecer" quem era dono do funil e recriar um novo a cada
-// render, empilhando dezenas de "Funil de X" pro mesmo usuário. Escolhe
-// como definitiva: (1) a que está marcada como ativa pra esse dono nesse
-// navegador, se der pra saber; senão (2) a que tem etapas diferentes do
-// funil padrão (sinal de edição real); senão (3) a mais recentemente
-// atualizada. As demais do mesmo dono ficam arquivadas — nada é apagado,
-// dá pra recuperar em "Arquivados" se precisar.
+// Consolida cópias DUPLICADAS de verdade (mesmo dono E mesmo nome
+// idêntico, incluindo órfãs sem dono do mesmo nome) — sequela pontual do
+// bug em _normalizeFunnel (veja comentário ali) que fazia o sistema
+// "esquecer" quem era dono do funil e recriar um novo a cada render,
+// empilhando dezenas de "Funil de X" repetidos pro mesmo usuário.
+// IMPORTANTE: usuários abaixo de Fundador/Adm Gerente PODEM ter vários
+// funis próprios de propósito (ex.: "Funil de GEX" + "Funil - Rocket") —
+// isso nunca é arquivado automaticamente aqui, só quando dois (ou mais)
+// tiverem o MESMO dono e o MESMO nome, que é a assinatura exata do bug.
+// Escolhe como definitiva: (1) a que está marcada como ativa pra esse
+// dono nesse navegador, se der pra saber; senão (2) a que tem etapas
+// diferentes do funil padrão (sinal de edição real); senão (3) a mais
+// recentemente atualizada. As demais ficam arquivadas — nada é apagado,
+// dá pra recuperar em "Arquivados" se precisar (ou reativar manualmente
+// mesmo sem serem duplicatas de nome).
 function dedupePersonalCommercialFunnels(funnels){
   try{
     const groups={};
     funnels.forEach(f=>{
       if(f.isDefault||f.isArchived)return;
       const owner=String(f.createdBy||'');
-      // Órfãos (sem createdBy — sequela do bug antigo) não têm dono pra
-      // agrupar por id, então agrupa pelo NOME ("name:Funil de GEX") — assim
-      // várias cópias órfãs idênticas também são consolidadas numa só, em
-      // vez de ficarem de fora só porque perderam a marca de dono.
-      const key=owner||`name:${f.name||''}`;
+      // Agrupa por dono+nome (órfãs sem dono agrupam só pelo nome) — dois
+      // funis do mesmo usuário com nomes DIFERENTES nunca caem no mesmo
+      // grupo, então nunca são tratados como duplicata um do outro.
+      const key=`${owner}||${f.name||''}`;
       (groups[key]=groups[key]||[]).push(f);
     });
     const archiveIds=new Set();
@@ -11756,7 +11765,7 @@ function dedupePersonalCommercialFunnels(funnels){
     Object.keys(groups).forEach(key=>{
       const group=groups[key];
       if(group.length<=1)return;
-      const owner=key.startsWith('name:')?'':key;
+      const owner=key.split('||')[0]||'';
       let preferredId='';
       if(owner){try{preferredId=localStorage.getItem(`gx2_active_funnel__${owner}`)||''}catch(e){}}
       let keeper=preferredId?group.find(f=>f.id===preferredId):null;
@@ -12234,6 +12243,16 @@ function deleteArchivedFunnel(funnelId,opts={}){
   if(!target){toast('Funil não encontrado','#EF4444');return;}
   if(target.isDefault){toast('Não é possível excluir o funil padrão','#F59E0B');return;}
   if(!target.isArchived){toast('Arquive o funil antes de excluir definitivamente','#F59E0B');return;}
+  // Segurança extra: quem não tem visão gerencial só pode excluir
+  // definitivamente um funil que ele mesmo criou — mesmo que, por algum
+  // motivo, a tela de Arquivados chegasse a listar o de outra pessoa.
+  if((typeof isSalesManagerView!=='function'||!isSalesManagerView())){
+    const myId=String((typeof sessionUser!=='undefined'&&sessionUser?.id)||'');
+    if(String(target.createdBy||'')!==myId){
+      toast('Você só pode excluir funis que você mesmo criou','#EF4444');
+      return;
+    }
+  }
 
   const defaultFunnel=funnels.find(f=>f.isDefault&&!f.isArchived) || funnels.find(f=>!f.isArchived&&f.id!==funnelId);
   if(!defaultFunnel){
