@@ -11545,11 +11545,22 @@ function saveCommercialFunnels(funnels){
   DB.set('commercial_funnels',Array.isArray(funnels)?funnels:[]);
 }
 
+// A chave é por usuário (não uma só global do navegador) — senão, quando
+// mais de uma conta loga no mesmo navegador/computador (comum em teste,
+// mas pode acontecer em produção também), o funil "ativo" de um usuário
+// vazava pro outro: um Gex Parceiro podia abrir o Comercial e ver o Funil
+// Comercial Principal selecionado só porque foi o último funil que o
+// Fundador tinha deixado ativo NAQUELE navegador — mesmo já tendo o
+// próprio funil criado (ensurePersonalCommercialFunnel só roda uma vez).
+function _activeFunnelStorageKey(){
+  const myId=(typeof sessionUser!=='undefined'&&sessionUser?.id)||'anon';
+  return `gx2_active_funnel__${myId}`;
+}
 function getActiveFunnelId(){
-  return localStorage.getItem('gx2_active_funnel')||'';
+  return localStorage.getItem(_activeFunnelStorageKey())||'';
 }
 function setActiveFunnelId(id){
-  if(id)localStorage.setItem('gx2_active_funnel',id);
+  if(id)localStorage.setItem(_activeFunnelStorageKey(),id);
 }
 
 function _buildDefaultFunnelStages(){
@@ -11737,7 +11748,14 @@ function getActiveFunnel(){
   }
   if(!funnels.length) return null;
   const id=getActiveFunnelId();
-  const active=funnels.find(f=>f.id===id)||funnels.find(f=>f.isDefault)||funnels[0];
+  // Sem preferência salva (ex.: primeiro acesso com a chave por usuário),
+  // quem não tem visão gerencial cai no PRÓPRIO funil antes do padrão da
+  // empresa — assim o funil de exemplo criado em ensurePersonalCommercialFunnel()
+  // já aparece selecionado, em vez do Funil Comercial Principal.
+  const isManager=(typeof isSalesManagerView==='function')&&isSalesManagerView();
+  const myId=String((typeof sessionUser!=='undefined'&&sessionUser?.id)||'');
+  const ownFunnel=!isManager?funnels.find(f=>String(f.createdBy||'')===myId):null;
+  const active=funnels.find(f=>f.id===id)||ownFunnel||funnels.find(f=>f.isDefault)||funnels[0];
   if(active&&active.id!==id) setActiveFunnelId(active.id);
   return active;
 }
