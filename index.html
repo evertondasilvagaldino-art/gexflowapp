@@ -11745,14 +11745,34 @@ function funelsSafeDedup(funnels){
   });
 }
 
+// Acha o cadastro do usuário (aba Usuários) dono de um funil, pra saber se
+// ele está Ativo ou Inativo. createdBy guarda o id da sessão (igual ao id
+// ou ao supabaseId do cadastro, dependendo de como o login foi feito).
+function isUserActiveById(userId){
+  try{
+    const id=String(userId||'');
+    if(!id)return true;
+    const users=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[]);
+    const u=users.find(x=>String(x.id)===id||String(x.supabaseId||'')===id);
+    // Não achou o cadastro (pode ter sido removido de vez) — não esconde
+    // por segurança, trata como ativo; "Inativo" só quando o status diz isso.
+    if(!u)return true;
+    return String(u.status||'Ativo')!=='Inativo';
+  }catch(e){return true}
+}
+
 // Papéis sem visão gerencial (ex.: Gex Parceiro) só podem usar o funil
 // padrão da empresa e os funis que eles mesmos criaram — não veem nem
 // conseguem ativar os funis de outros usuários. Fundador/Adm Gerente
-// continuam vendo todos, sem mudança nenhuma.
+// continuam vendo todos os funis de usuários ATIVOS — funis de quem foi
+// marcado como Inativo somem das listas do dia a dia (o funil em si não é
+// apagado, só deixa de poluir o seletor; reativando o usuário ele volta).
 function getVisibleCommercialFunnels(funnels){
   const list=Array.isArray(funnels)?funnels:getCommercialFunnels();
   try{
-    if(typeof isSalesManagerView==='function'&&isSalesManagerView())return list;
+    if(typeof isSalesManagerView==='function'&&isSalesManagerView()){
+      return list.filter(f=>!f.createdBy||isUserActiveById(f.createdBy));
+    }
   }catch(e){return list}
   // O funil padrão da empresa fica de fora pra quem não tem visão
   // gerencial — ele só existe como MODELO (ensurePersonalCommercialFunnel
