@@ -3440,6 +3440,16 @@ function startProfilesRealtime(){
           upsertUsuarioCache(normalized);
 
           if(sessionUser&&(normalized.id===sessionUser.id||normalizeLoginEmail(normalized.email)===normalizeLoginEmail(sessionUser.email))){
+            // Se o PRÓPRIO usuário logado teve o status mudado pra Inativo
+            // (ex.: assinatura Stripe cancelada/pagamento falhou enquanto ele
+            // estava com o sistema aberto), derruba a sessão na hora — sem
+            // isso, quem já estava logado continuava com acesso até fechar e
+            // abrir o sistema de novo.
+            if(!isProfileActive(normalized)){
+              toast('Seu acesso foi desativado.','#EF4444');
+              doLogout();
+              return;
+            }
             sessionUser={...sessionUser,...normalized};
             updateSessionStorageUser();
             applySession();
@@ -5196,76 +5206,15 @@ function testOutgoingWebhook(){
 
 function renderConfiguracoesPagamentos(){
   const page=document.getElementById('page-configuracoes');
-  const b=getBillingSettings();
-  const totalUsers=(DB.get('usuarios')||[]).filter(u=>String(u.status||'Ativo').toLowerCase()!=='inativo').length;
-  const activeBilling = b.billingMode && b.billingMode!=='interno';
   page.innerHTML=`
     <div class="cfg-hero">
       <div>
-        <div class="cfg-title">Pagamentos e Acessos</div>
-        <div class="cfg-sub">Central preparada para vender acessos futuramente, sem cobrança fictícia no sistema.</div>
+        <div class="cfg-title">Pagamentos e Assinatura</div>
+        <div class="cfg-sub">Assinaturas Stripe dos usuários criados no GexFlow — ativação e cancelamento automáticos.</div>
       </div>
-      <div class="cfg-badge">💳 Billing preparado</div>
+      <div class="cfg-badge">💳 Stripe conectado</div>
     </div>
     ${configTabbar('config-pagamentos')}
-    <div class="cfg-panel">
-      <div class="cfg-kv">
-        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Cobrança ativa</div><div class="cfg-kv-val">${activeBilling?'Configurada':'Ainda não ativa'}</div></div>
-        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Modelo futuro</div><div class="cfg-kv-val">${escHtml(b.accessModel==='plano'?'Plano mensal':'Por usuário')}</div></div>
-        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Usuários ativos</div><div class="cfg-kv-val">${totalUsers||'—'}</div></div>
-        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Gateway</div><div class="cfg-kv-val">${b.stripeStatus==='conectado'?'Stripe conectado':'Stripe não conectado'}</div></div>
-      </div>
-
-      <div class="cfg-note" style="margin-top:14px">
-        A tela de perfil não exibe mais “plano trial”, limite de clientes ou barra de uso fictícia.
-        Quando a venda de acessos começar, conecte o Stripe via Edge Function ou backend seguro.
-        Nenhuma chave secreta deve ficar no HTML.
-      </div>
-
-      <div class="cfg-form-grid" style="margin-top:18px">
-        <div>
-          <label class="form-label">Modo de cobrança</label>
-          <select class="form-input" id="cfg-billing-mode">
-            <option value="interno" ${(!b.billingMode||b.billingMode==='interno')?'selected':''}>Interno / sem cobrança ativa</option>
-            <option value="pre_venda" ${b.billingMode==='pre_venda'?'selected':''}>Pré-venda de acessos</option>
-            <option value="producao" ${b.billingMode==='producao'?'selected':''}>Produção com cobrança</option>
-          </select>
-        </div>
-        <div>
-          <label class="form-label">Modelo de venda</label>
-          <select class="form-input" id="cfg-access-model">
-            <option value="por_usuario" ${(!b.accessModel||b.accessModel==='por_usuario')?'selected':''}>Por usuário/acesso</option>
-            <option value="plano" ${b.accessModel==='plano'?'selected':''}>Plano mensal fechado</option>
-          </select>
-        </div>
-        <div>
-          <label class="form-label">Valor por acesso (R$)</label>
-          <input class="form-input" id="cfg-price-seat" value="${escAttr(b.pricePerSeat||'')}" placeholder="Ex.: 97,00">
-        </div>
-        <div>
-          <label class="form-label">Dias grátis padrão</label>
-          <input class="form-input" id="cfg-free-days" value="${escAttr(b.freeDays||'')}" placeholder="Ex.: 7, 14 ou 30">
-        </div>
-        <div>
-          <label class="form-label">Status Stripe</label>
-          <select class="form-input" id="cfg-stripe-status">
-            <option value="nao_conectado" ${(!b.stripeStatus||b.stripeStatus==='nao_conectado')?'selected':''}>Não conectado</option>
-            <option value="teste" ${b.stripeStatus==='teste'?'selected':''}>Ambiente de teste</option>
-            <option value="conectado" ${b.stripeStatus==='conectado'?'selected':''}>Conectado</option>
-          </select>
-        </div>
-        <div>
-          <label class="form-label">URL do portal do cliente</label>
-          <input class="form-input" id="cfg-portal-url" value="${escAttr(b.portalUrl||'')}" placeholder="Será gerada pelo backend/Stripe">
-        </div>
-      </div>
-
-      <div class="cfg-actions" style="margin-top:14px">
-        <button class="cfg-btn primary" onclick="saveConfigBillingForm()">Salvar configurações</button>
-        <button class="cfg-btn" onclick="openConfigTab('config-integracoes')">Configurar integração Stripe</button>
-        <button class="cfg-btn" onclick="toast('O portal real precisa ser aberto por uma Edge Function segura.','#7C3AED')">Testar portal</button>
-      </div>
-    </div>
 
     <div class="cfg-panel" style="margin-top:18px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
