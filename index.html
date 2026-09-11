@@ -4691,7 +4691,7 @@ function dropLead(e,stageId,stageName){
   fireWebhook('lead.movido',{id:dragId,novoEstagio:stageName,stageId,funnelId:activeFunnel?.id||''});
   if(stage?.isWon && !wasAlreadyWon){
     playChime('ganho');
-    notifyEmailEvent('negocio.ganho',updatedLead||{...previousLead,...updates});
+    notifyDealWon(updatedLead||{...previousLead,...updates});
   }
   renderComercial();
   toast(`Lead → ${stageName} ✓`,'#10B981');
@@ -4813,6 +4813,53 @@ async function notifyEmailEvent(event,data){
     console.warn('[GexFlow] Falha ao enviar notificação por e-mail:',err);
     return {ok:false,error:err.message||'Falha de conexão'};
   }
+}
+
+// Igual a notifyEmailEvent, mas manda 1 e-mail avulso (to/subject/text) pela
+// caixa PESSOAL de e-mail (SMTP) de quem está logado, via send-automation-email
+// — a mesma function que o motor de Automações já usa. ownerId não é
+// enviado de propósito: a function usa o usuário do token (quem chamou).
+async function notifySelfEmail(to,subject,text){
+  try{
+    const token=await getGexSupabaseToken();
+    const res=await fetch(getSupabaseFunctionUrl('send-automation-email'),{
+      method:'POST',
+      headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({to,subject,text})
+    });
+    return await res.json().catch(()=>({}));
+  }catch(err){
+    console.warn('[GexFlow] Falha ao enviar notificação pra própria caixa de e-mail:',err);
+    return {ok:false,error:err.message||'Falha de conexão'};
+  }
+}
+
+// Notificação de "negócio ganho": Fundador/Adm Gerente continuam recebendo
+// o aviso pro time interno inteiro (comportamento de sempre, via GMAIL da
+// empresa — send-notification-email). Quem NÃO tem visão gerencial (ex.:
+// Gex Parceiro) NÃO dispara mais esse e-mail pro time interno da GEX — em
+// vez disso, manda só pra CAIXA DE E-MAIL QUE ELE MESMO configurou em
+// Integrações > Conexão de e-mail (SMTP), e só se ele já tiver configurado
+// uma. Sem configuração, não manda e-mail nenhum (nunca cai de volta pro
+// e-mail interno da empresa).
+function notifyDealWon(lead){
+  try{
+    if(typeof isSalesManagerView!=='function'||isSalesManagerView()){
+      notifyEmailEvent('negocio.ganho',lead);
+      return;
+    }
+    const myId=String((typeof sessionUser!=='undefined'&&sessionUser?.id)||'');
+    if(!myId)return;
+    const smtpId=`email_smtp_main__${myId}`;
+    const smtp=(DB.get('email_smtp_settings')||[]).find(x=>x.id===smtpId);
+    const myEmail=String(smtp?.fromEmail||smtp?.username||sessionUser?.email||'').trim();
+    if(!smtp?.connected||!myEmail)return; // ainda não configurou a caixa dele — não manda nada.
+    const nome=lead?.nome||lead?.empresa||'Negócio';
+    const valorNum=Number(lead?.valor||0);
+    const valorFmt=valorNum?valorNum.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'';
+    const texto=`Boa notícia! O negócio "${nome}" foi marcado como Ganho${valorFmt?` (valor: ${valorFmt})`:''} no seu Pipeline.`;
+    notifySelfEmail(myEmail,`🎉 Negócio ganho: ${nome}`,texto);
+  }catch(e){}
 }
 
 // ═══ SONS DE NOTIFICAÇÃO ═══
@@ -8587,7 +8634,11 @@ function filterOpportunitiesByPeriod(ops,period){
 
 function getReportFunnels(){
   ensureDefaultCommercialFunnel();
-  return getCommercialFunnels()
+  // Igual ao Pipeline: quem não tem visão gerencial (Fundador/Adm Gerente)
+  // só pode ver e filtrar os PRÓPRIOS funis no relatório — nunca a lista
+  // inteira da empresa (ver getVisibleCommercialFunnels).
+  const visible=getVisibleCommercialFunnels(getCommercialFunnels());
+  return visible
     .filter(f=>f&&!f.isArchived)
     .sort((a,b)=>(b.isDefault?1:0)-(a.isDefault?1:0)||String(a.name||'').localeCompare(String(b.name||''),'pt-BR'));
 }
@@ -8826,7 +8877,14 @@ function renderRelatorioComercial(){
   ops=filterOpportunitiesByPeriod(ops,period);
 
   // Popular e aplicar filtro de responsável/vendedor com suporte a ID, nome e leads antigos.
-  const respFilter=populateCommercialOwnerSelect('rel-responsavel', ownerOptionsSource, 'Todos os responsáveis');
+  // Igual ao Pipeline: pra quem não tem visão gerencial (Fundador/Adm Gerente)
+  // esse filtro nunca teria mais de uma opção (ele mesmo, já que ops já vem
+  // filtrado pelos próprios leads em getCommercialOpportunities), então o
+  // seletor fica escondido em vez de mostrado sem utilidade.
+  const showOwnerFilterRel=(typeof isSalesManagerView!=='function')||isSalesManagerView();
+  const respSelEl=document.getElementById('rel-responsavel');
+  if(respSelEl) respSelEl.style.display=showOwnerFilterRel?'':'none';
+  const respFilter=showOwnerFilterRel?populateCommercialOwnerSelect('rel-responsavel', ownerOptionsSource, 'Todos os responsáveis'):'';
   if(respFilter) ops=filterOpportunitiesByOwner(ops,respFilter);
 
   const wonOps=ops.filter(isWonOpportunity);
@@ -19560,6 +19618,145 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       if(body)body.innerHTML=`<p style="margin-top:14px;color:#DC2626">Falha ao carregar o QR Code.</p>`;
     }
   }
+})();
+</script>
+
+<!-- GexFlow • Botão flutuante de WhatsApp (Suporte Gex Company 🟢) — só para
+     usuários Parceiro/abaixo de Fundador e Adm Gerente, e só depois de logado -->
+<script id="gex-partner-support-fab">
+(function(){
+  if(window.__GEX_PARTNER_SUPPORT_FAB__) return;
+  window.__GEX_PARTNER_SUPPORT_FAB__ = true;
+
+  var GXW = {"id":"mtxiepy1ecz","nome":"Suporte Gex Company 🟢","numero":"5521992735988","saudacao":"Olá! Preencha os dados para atendimento via WhatsApp:","mensagem":"Olá, meu nome é {{nome}}. Vim pelo sistema GEX Flow e gostaria de suporte!","textoBotao":"Falar com o suporte","pedirEmail":false,"cor":"#25d366","posicao":"right","funnelId":"funnel_default","funnelName":"Funil Comercial Principal","stageId":"stage_mtfxa77tcx7","stageName":"Conectar urgente","supabaseUrl":"https://kghgmraezxcssipccodn.supabase.co","supabaseKey":"sb_publishable_1nq7msqmkcg73__QjSuoTA_-MNW8Ro5","workspaceId":"gex_company","table":"gex_records"};
+
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+  var mounted = false;
+  var fab = null, popup = null;
+
+  function mountWidget(){
+    if(mounted) return;
+    mounted = true;
+
+    var css = document.createElement('style');
+    css.id = 'gxw-style-'+GXW.id;
+    var side = GXW.posicao === 'left' ? 'left' : 'right';
+    css.appendChild(document.createTextNode(
+      '.gxw-fab{position:fixed;'+side+':20px;bottom:20px;width:58px;height:58px;border-radius:50%;background:'+GXW.cor+';display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(0,0,0,.28);cursor:pointer;z-index:999999;transition:transform .15s}'+
+      '.gxw-fab:hover{transform:scale(1.08)}'+
+      '.gxw-popup{position:fixed;'+side+':20px;bottom:90px;width:296px;max-width:calc(100vw - 32px);background:#fff;border-radius:14px;box-shadow:0 14px 40px rgba(0,0,0,.3);overflow:hidden;font-family:Arial,Helvetica,sans-serif;z-index:999999}'+
+      '.gxw-popup.gxw-hidden{display:none}'+
+      '.gxw-popup-header{background:'+GXW.cor+';color:#fff;padding:14px 16px;display:flex;align-items:center;gap:8px;font-weight:700;font-size:14.5px}'+
+      '.gxw-popup-header .gxw-close{margin-left:auto;cursor:pointer;font-size:17px;line-height:1;opacity:.9}'+
+      '.gxw-popup-body{padding:16px;background:#F0F2F5}'+
+      '.gxw-greeting{background:#fff;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#111;margin-bottom:14px;line-height:1.45}'+
+      '.gxw-field{margin-bottom:11px}'+
+      '.gxw-field label{display:block;font-size:11.5px;font-weight:700;color:#1F2937;margin-bottom:4px}'+
+      '.gxw-field input{width:100%;box-sizing:border-box;border:1px solid #D0D5DD;border-radius:7px;padding:9px 10px;font-size:13px;outline:none;font-family:inherit}'+
+      '.gxw-submit{width:100%;background:'+GXW.cor+';color:#fff;border:0;border-radius:8px;padding:11px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit}'+
+      '.gxw-submit:hover{filter:brightness(.95)}'+
+      '.gxw-footer{text-align:center;font-size:10px;color:#98A2B3;padding:9px 0 2px}'+
+      '.gxw-footer b{color:#667085}'
+    ));
+    document.head.appendChild(css);
+
+    var iconSvg = '<svg viewBox="0 0 32 32" width="28" height="28" fill="#fff"><path d="M16.001 3C9.11 3 3.5 8.6 3.5 15.49c0 2.5.68 4.85 1.98 6.93L3 29l6.77-2.4a12.9 12.9 0 0 0 6.23 1.6h.01c6.9 0 12.5-5.6 12.5-12.49C28.51 8.6 22.9 3 16 3Zm0 22.85h-.01a10.6 10.6 0 0 1-5.42-1.49l-.39-.23-4.02 1.43 1.34-3.93-.25-.4a10.34 10.34 0 0 1-1.6-5.54c0-5.72 4.66-10.38 10.4-10.38 2.78 0 5.39 1.08 7.35 3.05a10.32 10.32 0 0 1 3.04 7.34c0 5.72-4.66 10.38-10.44 10.38Zm5.7-7.77c-.31-.16-1.84-.9-2.12-1.01-.29-.1-.5-.16-.7.16-.21.31-.8 1-.99 1.22-.18.21-.36.23-.67.08-.31-.16-1.32-.49-2.51-1.56-.93-.83-1.55-1.86-1.74-2.17-.18-.31-.02-.48.14-.63.14-.14.31-.36.47-.55.16-.18.21-.31.31-.52.1-.21.05-.39-.03-.55-.08-.16-.7-1.69-.96-2.32-.25-.6-.51-.52-.7-.53-.18-.01-.39-.01-.6-.01-.21 0-.55.08-.84.39-.29.31-1.1 1.08-1.1 2.63s1.13 3.05 1.29 3.26c.16.21 2.22 3.39 5.38 4.75.75.32 1.34.52 1.8.66.76.24 1.44.21 1.99.13.61-.09 1.84-.75 2.1-1.48.26-.73.26-1.35.18-1.48-.08-.13-.29-.21-.6-.36Z"/></svg>';
+
+    popup = document.createElement('div');
+    popup.className = 'gxw-popup gxw-hidden';
+    popup.id = 'gxw-popup-'+GXW.id;
+    var emailField = GXW.pedirEmail ? ('<div class="gxw-field"><label>E-mail</label><input type="email" id="gxw-email-'+GXW.id+'"></div>') : '';
+    popup.innerHTML =
+      '<div class="gxw-popup-header">'+iconSvg+'<span>'+esc(GXW.nome)+'</span><span class="gxw-close">&times;</span></div>'+
+      '<div class="gxw-popup-body">'+
+        '<div class="gxw-greeting">'+esc(GXW.saudacao)+'</div>'+
+        '<div class="gxw-field"><label>Nome</label><input type="text" id="gxw-nome-'+GXW.id+'"></div>'+
+        emailField+
+        '<div class="gxw-field"><label>WhatsApp</label><input type="tel" id="gxw-tel-'+GXW.id+'"></div>'+
+        '<button type="button" class="gxw-submit" id="gxw-submit-'+GXW.id+'">Ir para o WhatsApp</button>'+
+        '<div class="gxw-footer">Powered by <b>GexFlow</b></div>'+
+      '</div>';
+    document.body.appendChild(popup);
+
+    fab = document.createElement('div');
+    fab.className = 'gxw-fab';
+    fab.id = 'gxw-fab-'+GXW.id;
+    fab.title = GXW.textoBotao;
+    fab.innerHTML = iconSvg;
+    document.body.appendChild(fab);
+
+    function togglePopup(){ popup.classList.toggle('gxw-hidden'); }
+    fab.addEventListener('click', togglePopup);
+    popup.querySelector('.gxw-close').addEventListener('click', togglePopup);
+
+    document.getElementById('gxw-submit-'+GXW.id).addEventListener('click', function(){
+      var nomeEl = document.getElementById('gxw-nome-'+GXW.id);
+      var telEl = document.getElementById('gxw-tel-'+GXW.id);
+      var emailEl = document.getElementById('gxw-email-'+GXW.id);
+      var nomeV = (nomeEl.value||'').trim();
+      var telV = (telEl.value||'').trim();
+      var emailV = emailEl ? (emailEl.value||'').trim() : '';
+      if(!nomeV){ nomeEl.style.borderColor = '#EF4444'; nomeEl.focus(); return; }
+      if(!telV){ telEl.style.borderColor = '#EF4444'; telEl.focus(); return; }
+      var msg = GXW.mensagem.split('{{nome}}').join(nomeV);
+      var waUrl = 'https://wa.me/' + GXW.numero + '?text=' + encodeURIComponent(msg);
+      window.open(waUrl, '_blank');
+      try{
+        var qs = new URLSearchParams(window.location.search);
+        var leadId = 'gxw' + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+        var lead = {
+          id: leadId, nome: nomeV, email: emailV, telefone: telV,
+          origem: 'WhatsApp: ' + GXW.nome, widgetId: GXW.id, widgetName: GXW.nome,
+          estagio: GXW.stageName || 'Novo Lead', stageId: GXW.stageId || '', funnelId: GXW.funnelId || '',
+          data: new Date().toLocaleDateString('pt-BR'), createdAt: new Date().toISOString(),
+          utm_source: qs.get('utm_source')||'', utm_medium: qs.get('utm_medium')||'',
+          utm_campaign: qs.get('utm_campaign')||'', utm_content: qs.get('utm_content')||'',
+          _clientId: 'gxw-widget-' + GXW.id
+        };
+        var payload = { workspace_id: GXW.workspaceId, collection: 'leads', record_id: leadId, data: lead, updated_by: null, deleted_at: null };
+        fetch(GXW.supabaseUrl + '/rest/v1/' + GXW.table, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': GXW.supabaseKey, 'Authorization': 'Bearer ' + GXW.supabaseKey, 'Prefer': 'return=minimal' },
+          body: JSON.stringify([payload])
+        }).then(function(r){
+          if(!r.ok){ r.text().then(function(t){ console.error('[GexFlow WhatsApp] Falha ao salvar lead (HTTP '+r.status+'): ', t); }); }
+        }).catch(function(err){ console.error('[GexFlow WhatsApp] Erro de rede ao salvar lead:', err); });
+      }catch(e){}
+      popup.classList.add('gxw-hidden');
+      nomeEl.value=''; telEl.value=''; if(emailEl) emailEl.value='';
+    });
+  }
+
+  function unmountWidget(){
+    if(!mounted) return;
+    mounted = false;
+    var styleEl = document.getElementById('gxw-style-'+GXW.id);
+    if(styleEl && styleEl.parentNode) styleEl.parentNode.removeChild(styleEl);
+    if(popup && popup.parentNode) popup.parentNode.removeChild(popup);
+    if(fab && fab.parentNode) fab.parentNode.removeChild(fab);
+    popup = null; fab = null;
+  }
+
+  // Só aparece pra quem está logado e NÃO tem visão gerencial (Fundador/Adm
+  // Gerente) — ou seja, Gex Parceiro e demais papéis abaixo deles. Reavalia
+  // periodicamente porque o GexFlow é uma SPA (login/logout não recarregam a
+  // página), então a condição pode mudar sem um reload do navegador.
+  function isPartnerLoggedIn(){
+    try{
+      if(typeof sessionUser==='undefined' || !sessionUser || !sessionUser.id) return false;
+      if(typeof isSalesManagerView === 'function') return !isSalesManagerView();
+      return false;
+    }catch(e){ return false; }
+  }
+
+  function sync(){
+    if(isPartnerLoggedIn()) mountWidget();
+    else unmountWidget();
+  }
+
+  sync();
+  setInterval(sync, 1500);
 })();
 </script>
 
