@@ -11711,10 +11711,59 @@ function ensureDefaultCommercialFunnel(){
     if(def){setActiveFunnelId(def.id);changed=true;}
   }
 
+  // LIMPEZA: enquanto o bug do createdBy sumindo existiu (corrigido em
+  // _normalizeFunnel), cada render chegou a recriar um funil pessoal do
+  // zero pra quem não tinha visão gerencial — isso deixou várias cópias
+  // "Funil de <nome>" acumuladas pro mesmo usuário. Esse passo consolida
+  // tudo isso numa única cópia por dono (mantém a mais provável de ter as
+  // edições reais; arquiva as outras, sem apagar nada) — depois da primeira
+  // vez que cada grupo é reduzido a 1, isso não mexe mais em nada.
+  const deduped=dedupePersonalCommercialFunnels(funnels);
+  if(deduped!==funnels){ funnels=deduped; saveCommercialFunnels(funnels); changed=false; }
+
   if(changed) saveCommercialFunnels(funnels);
   migrateOldOpportunitiesToDefaultFunnel();
   funnels=ensurePersonalCommercialFunnel(funnels);
   return funnels;
+}
+
+// Consolida múltiplas cópias de funil pessoal do MESMO dono numa só —
+// sequela do bug em _normalizeFunnel (veja comentário ali) que fazia o
+// sistema "esquecer" quem era dono do funil e recriar um novo a cada
+// render, empilhando dezenas de "Funil de X" pro mesmo usuário. Escolhe
+// como definitiva: (1) a que está marcada como ativa pra esse dono nesse
+// navegador, se der pra saber; senão (2) a que tem etapas diferentes do
+// funil padrão (sinal de edição real); senão (3) a mais recentemente
+// atualizada. As demais do mesmo dono ficam arquivadas — nada é apagado,
+// dá pra recuperar em "Arquivados" se precisar.
+function dedupePersonalCommercialFunnels(funnels){
+  try{
+    const groups={};
+    funnels.forEach(f=>{
+      const owner=String(f.createdBy||'');
+      if(!owner||f.isDefault||f.isArchived)return;
+      (groups[owner]=groups[owner]||[]).push(f);
+    });
+    const archiveIds=new Set();
+    let changed=false;
+    const defaultFunnel=funnels.find(f=>f.isDefault&&!f.isArchived);
+    const baseStageNames=(defaultFunnel?.stages||[]).map(s=>s.name).join('|');
+    Object.keys(groups).forEach(owner=>{
+      const group=groups[owner];
+      if(group.length<=1)return;
+      let preferredId='';
+      try{preferredId=localStorage.getItem(`gx2_active_funnel__${owner}`)||''}catch(e){}
+      let keeper=group.find(f=>f.id===preferredId);
+      if(!keeper){
+        const edited=group.filter(f=>(f.stages||[]).map(s=>s.name).join('|')!==baseStageNames);
+        keeper=(edited.length?edited:group).slice().sort((a,b)=>new Date(b.updatedAt||0)-new Date(a.updatedAt||0))[0];
+      }
+      group.forEach(f=>{if(f.id!==keeper.id)archiveIds.add(f.id)});
+      changed=true;
+    });
+    if(!changed)return funnels;
+    return funnels.map(f=>archiveIds.has(f.id)?{...f,isArchived:true,updatedAt:new Date().toISOString()}:f);
+  }catch(e){return funnels}
 }
 
 // Remove IDs duplicados que podem quebrar select/drag
