@@ -6398,13 +6398,39 @@ async function saveModal(type,id=''){
     async usuario(){
       const senha=v('f-senha');
       const roleSelected=normalizeProfileRole(v('f-permissao')||'Colaborador');
+      const target=id?DB.find('usuarios',id):null;
+      // Se o campo Status está travado por cobrança (usuário tem assinatura
+      // Stripe vinculada), NÃO confia no valor que está preso na tela do
+      // formulário — ele pode estar desatualizado (ex.: modal ficou aberto
+      // durante o pagamento, ou foi salvo rápido demais depois do webhook
+      // rodar). Em vez disso, consulta a assinatura de novo, em tempo real,
+      // e usa o status real dela. Isso fecha de vez o bug em que um
+      // "Salvar" no meio do caminho apagava a ativação que o pagamento já
+      // tinha feito (aconteceu com o João e com a Sabrina).
+      let statusParaSalvar=v('f-status')||'Ativo';
+      const statusSelEl=document.getElementById('f-status');
+      if(id&&statusSelEl?.dataset.lockedByBilling==='1'){
+        try{
+          const token=await getGexSupabaseToken();
+          const statusRes=await fetch(`${getSupabaseFunctionUrl('billing-status-get')}?userId=${encodeURIComponent(id)}`,{headers:{Authorization:`Bearer ${token}`}}).then(r=>r.json());
+          const subStatus=statusRes?.subscription?.status;
+          if(subStatus){
+            statusParaSalvar=(subStatus==='active'||subStatus==='trialing')?'Ativo':'Inativo';
+          }
+        }catch(e){
+          console.warn('[GexFlow] Não foi possível reconferir a assinatura antes de salvar, mantendo status atual do usuário:',e);
+          // Se a consulta falhar, não arrisca sobrescrever — mantém o que já
+          // estava salvo no perfil em vez do valor (possivelmente velho) da tela.
+          statusParaSalvar=target?.status||statusParaSalvar;
+        }
+      }
       const obj={
         nome:v('f-nome'),
         email:normalizeLoginEmail(v('f-email')),
         cargo:v('f-cargo'),
         telefone:v('f-telefone')||'',
         permissao:roleSelected,
-        status:v('f-status')||'Ativo',
+        status:statusParaSalvar,
         authProvider:'supabase'
       };
       obj.permOverrides=isFounderLikeRole(roleSelected)?{}:collectUserPermOverrides();
@@ -6419,7 +6445,6 @@ async function saveModal(type,id=''){
       if(existingByEmail){toast('Já existe um usuário com este email','#EF4444');return}
 
       const curRole=resolveRole(sessionUser?.permissao||'Colaborador');
-      const target=id?DB.find('usuarios',id):null;
       const targetIsFounder=target&&isFounderLikeRole(target.permissao||target.role||target.cargo);
       if(id&&targetIsFounder&&curRole!=='Fundador'){
         toast('Apenas Fundador pode editar este usuário','#EF4444');
