@@ -3050,8 +3050,15 @@ function usuarioRecordScore(user={}){
 function mergeUsuarioRecords(a={},b={}){
   const scoreA=usuarioRecordScore(a);
   const scoreB=usuarioRecordScore(b);
-  const primary=scoreB>scoreA?b:a;
-  const secondary=scoreB>scoreA?a:b;
+  // Em empate de "score" (ex.: os dois já são registros Supabase válidos),
+  // prefere sempre "b" — quem chama esta função sempre passa o registro mais
+  // recente/recém-sincronizado como "b" (o cache local antigo entra como "a").
+  // Sem isso, um status desatualizado salvo no cache do navegador (ex.:
+  // "Inativo") podia "vencer" e nunca ser substituído pelo status atual
+  // vindo do banco (ex.: "Ativo" depois de um pagamento), mesmo depois de
+  // um F5 — foi exatamente isso que aconteceu com o usuário do João.
+  const primary=scoreB>=scoreA?b:a;
+  const secondary=scoreB>=scoreA?a:b;
   const merged={...secondary,...primary};
 
   // Preserva dados úteis caso o registro preferido não tenha algum campo.
@@ -3228,7 +3235,23 @@ async function syncUsuariosFromSupabase(opts={}){
   try{
     const session=await GexSupabase.getSession();
     if(!session?.access_token)return [];
-    const profiles=await GexSupabase.listProfiles();
+    // A tabela profiles tem RLS que só deixa cada usuário ler o PRÓPRIO
+    // registro — uma consulta comum (GexSupabase.listProfiles, usada antes
+    // aqui) nunca trazia os outros usuários atualizados, mesmo depois de um
+    // pagamento/webhook mudar o status deles no banco. A Edge Function
+    // users-list usa a service_role (sem RLS) e devolve a lista completa e
+    // atualizada — só funciona pra Fundador/Adm Gerente, então quem não tem
+    // permissão simplesmente cai no fallback abaixo (só o próprio perfil).
+    let profiles=[];
+    try{
+      const res=await fetch(getSupabaseFunctionUrl('users-list'),{headers:{Authorization:`Bearer ${session.access_token}`}});
+      const payload=await res.json().catch(()=>({}));
+      if(payload?.ok&&Array.isArray(payload.users))profiles=payload.users;
+      else if(!opts.silent&&payload?.message)console.warn('[GexFlow] users-list:',payload.message);
+    }catch(e){
+      console.warn('[GexFlow] Falha ao chamar users-list, usando fallback:',e);
+    }
+    if(!profiles.length)profiles=await GexSupabase.listProfiles();
     const normalized=(profiles||[]).map(p=>normalizeSupabaseProfile(p,null));
     if(normalized.length){
       mergeUsuariosCache(normalized);
