@@ -2176,6 +2176,9 @@ textarea.form-input{resize:vertical;min-height:75px}
       <button class="tab-btn" onclick="switchUserTab('matriz',this)">Matriz de permissões</button>
     </div>
     <div id="usr-tab-lista">
+      <div style="display:flex;justify-content:flex-end;align-items:center;gap:6px;margin-bottom:10px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);cursor:pointer;user-select:none"><input type="checkbox" id="usr-show-inativos" onchange="toggleShowInativos(this.checked)"> Mostrar inativos <span id="usr-inativos-count" style="color:var(--light)"></span></label>
+      </div>
       <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Email</th><th>Cargo</th><th>Papel</th><th>Status</th><th>Ações</th></tr></thead><tbody id="usr-tbody"></tbody></table></div></div>
     </div>
     <div id="usr-tab-matriz" style="display:none">
@@ -6716,7 +6719,7 @@ function formUsuario(d){
     ${isNew?`<div class="form-group"><label class="form-label">Destino</label><input class="form-input" value="Supabase Auth + public.profiles" disabled></div>`:origemHtml}
   </div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-status"><option ${(d?.status||(isNew?'Inativo':'Ativo'))==='Ativo'?'selected':''}>Ativo</option><option ${(d?.status||(isNew?'Inativo':'Ativo'))==='Inativo'?'selected':''}>Inativo</option></select>${isNew?'<div style="font-size:11px;color:var(--muted);margin-top:5px">Novo usuário já entra Inativo — você ativa manualmente (grátis) ou gera o link de pagamento pra ele ativar sozinho ao pagar.</div>':''}</div>
+    <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-status"><option ${(d?.status||(isNew?'Inativo':'Ativo'))==='Ativo'?'selected':''}>Ativo</option><option ${(d?.status||(isNew?'Inativo':'Ativo'))==='Inativo'?'selected':''}>Inativo</option></select>${isNew?'<div style="font-size:11px;color:var(--muted);margin-top:5px">Novo usuário já entra Inativo — você ativa manualmente (grátis) ou gera o link de pagamento pra ele ativar sozinho ao pagar.</div>':''}<div id="f-status-billing-note" style="display:none;font-size:11px;color:#B45309;margin-top:5px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:6px 8px">⚠️ Este usuário tem assinatura Stripe vinculada — o campo foi bloqueado pra evitar que uma alteração manual aqui apague, sem querer, o que o pagamento já definiu. <a href="#" onclick="unlockManualStatus();return false" style="color:#B45309;text-decoration:underline;font-weight:700">Editar mesmo assim</a></div></div>
     <div class="form-group"><label class="form-label">Senha ${d?'(nova)':''}</label><input class="form-input" id="f-senha" type="password" placeholder="••••••••" autocomplete="new-password">${newPwdHint}</div>
   </div>
   ${isNew?origemHtml:''}
@@ -6753,18 +6756,37 @@ async function loadBillingSectionForUser(userId){
     const plans=plansRes?.plans||[];
     sel.innerHTML=plans.length?plans.map(p=>`<option value="${p.id}">${escHtml(p.name)} — ${escHtml(p.price_display||'')}</option>`).join(''):'<option value="">Nenhum plano cadastrado</option>';
     const sub=statusRes?.subscription;
+    const statusSel=document.getElementById('f-status');
+    const statusNote=document.getElementById('f-status-billing-note');
     if(sub?.status){
       const[label,color]=BILLING_STATUS_LABELS[sub.status]||[sub.status,'#64748B'];
       badge.innerHTML=`<span style="background:${color}20;color:${color};padding:2px 8px;border-radius:10px;font-weight:700">${label}</span>${sub.plan_id?` · ${escHtml((plans.find(p=>p.id===sub.plan_id)||{}).name||sub.plan_id)}`:''}`;
       if(sub.plan_id)sel.value=sub.plan_id;
+      // Existe uma assinatura Stripe vinculada — trava a edição manual do
+      // Status pra evitar exatamente o bug que já aconteceu: reabrir o
+      // usuário com a tela desatualizada e, ao clicar em Salvar, apagar
+      // sem querer a ativação/desativação que o pagamento já tinha feito.
+      if(statusSel){statusSel.disabled=true;statusSel.dataset.lockedByBilling='1'}
+      if(statusNote)statusNote.style.display='';
     }else{
       badge.innerHTML=`<span style="color:var(--muted)">Nenhuma cobrança gerada ainda</span>`;
+      if(statusSel&&statusSel.dataset.lockedByBilling){statusSel.disabled=false;delete statusSel.dataset.lockedByBilling}
+      if(statusNote)statusNote.style.display='none';
     }
   }catch(e){
     if(badge)badge.innerHTML=`<span style="color:var(--muted)">Não foi possível consultar</span>`;
     console.warn('[GexFlow] loadBillingSectionForUser:',e);
   }
 }
+window.unlockManualStatus=function(){
+  const statusSel=document.getElementById('f-status');
+  const statusNote=document.getElementById('f-status-billing-note');
+  if(!statusSel)return;
+  if(!confirm('Editar o Status manualmente enquanto há uma assinatura Stripe vinculada pode ser sobrescrito de novo no próximo evento de pagamento/cancelamento. Quer mesmo destravar?'))return;
+  statusSel.disabled=false;
+  delete statusSel.dataset.lockedByBilling;
+  if(statusNote)statusNote.style.display='none';
+};
 window.gerarLinkCobranca=async function(userId){
   const planId=document.getElementById('f-billing-plan')?.value||'';
   if(!planId){toast('Selecione um plano','#F59E0B');return}
@@ -9028,10 +9050,22 @@ function switchUserTab(tab,el){
   if(tab==='matriz')renderPermMatrix();
 }
 
+// Usuários desativados ficam escondidos da lista por padrão (a conta
+// continua existindo — login bloqueado, histórico preservado — só não
+// polui a lista do dia a dia). Persiste a escolha no navegador.
+function getShowInativos(){try{return localStorage.getItem('gx2_show_inativos')==='1'}catch(e){return false}}
+function toggleShowInativos(checked){try{localStorage.setItem('gx2_show_inativos',checked?'1':'0')}catch(e){}renderUsuarios({skipSync:true})}
 function renderUsuarios(opts={}){
   if(!can('usuarios','view')){return}
   if(!opts.skipSync)syncUsuariosFromSupabase({silent:true,rerender:true});
-  const users=getUsuariosForDisplay();
+  const allUsers=getUsuariosForDisplay();
+  const showInativos=getShowInativos();
+  const inativosCount=allUsers.filter(u=>String(u.status||'Ativo')==='Inativo').length;
+  const chk=document.getElementById('usr-show-inativos');
+  if(chk)chk.checked=showInativos;
+  const cnt=document.getElementById('usr-inativos-count');
+  if(cnt)cnt.textContent=inativosCount?`(${inativosCount} escondido${inativosCount>1?'s':''})`:'';
+  const users=showInativos?allUsers:allUsers.filter(u=>String(u.status||'Ativo')!=='Inativo');
   const currentRole=resolveRole(sessionUser?.permissao||'Colaborador');
   const isFundador=currentRole==='Fundador';
   document.getElementById('usr-tbody').innerHTML=users.length?users.map(u=>{
@@ -9058,7 +9092,7 @@ function renderUsuarios(opts={}){
         ${!canEdit&&!canDelete?`<span style="font-size:11px;color:var(--light)">—</span>`:''}
       </div></td>
     </tr>`;
-  }).join(''):`<tr><td colspan="6"><div class="empty"><div class="empty-txt">Sem usuários</div></div></td></tr>`;
+  }).join(''):`<tr><td colspan="6"><div class="empty"><div class="empty-txt">${!showInativos&&inativosCount?`Nenhum usuário ativo — ${inativosCount} está${inativosCount>1?'ão':''} escondido${inativosCount>1?'s':''} (marque "Mostrar inativos" acima)`:'Sem usuários'}</div></div></td></tr>`;
 }
 
 const MOD_LABELS={
