@@ -17153,8 +17153,26 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   const getConnections=()=>{try{return DB.get('integration_connections')||[]}catch(e){return[]}};
   const getTrackings=()=>{try{return DB.get('manual_trackings')||[]}catch(e){return[]}};
   const getEvents=()=>{try{return DB.get('tracking_events')||[]}catch(e){return[]}};
-  const getConversionEvents=()=>{try{return (DB.get('conversion_events')||[]).slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0))}catch(e){return[]}};
-  const getConversionSettings=()=>{try{return (DB.get('conversion_settings')||[])[0]||{id:'conversion_main',meta:{},google:{},mappings:[]}}catch(e){return{id:'conversion_main',meta:{},google:{},mappings:[]}}};
+  // MULTIUSUÁRIO: histórico de conversões mostra só os eventos disparados
+  // pelo próprio usuário quando ele não tem visão gerencial (Fundador/Adm
+  // Gerente continuam vendo tudo, igual sempre) — mesmo critério já usado
+  // pra funis/automações (isSalesManagerView(), não é por nome de papel).
+  const getConversionEvents=()=>{try{
+    const all=(DB.get('conversion_events')||[]).slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+    if(typeof isSalesManagerView==='function'&&isSalesManagerView())return all;
+    const myId=(typeof sessionUser!=='undefined'&&sessionUser?.id)||'';
+    return all.filter(x=>String(x.ownerId||'')===String(myId));
+  }catch(e){return[]}};
+  // MULTIUSUÁRIO: Pixel/Token da Meta (e os disparos por etapa) agora são
+  // por usuário — cada um configura o próprio Pixel/Token e os disparos do
+  // PRÓPRIO funil (stages() já usa getActiveFunnelStages(), que é o funil
+  // pessoal de quem está logado) — igual ao padrão já usado em
+  // WhatsApp/E-mail/Captação Nativa. O backend (tabela meta_capi_credentials
+  // e as functions conversion-config-save/send-crm-conversion) já era por
+  // usuário desde que foi criado; só faltava o cache local do navegador.
+  const getMyConversionId=()=>`conversion_main__${(typeof sessionUser!=='undefined'&&sessionUser?.id)||'sem_login'}`;
+  const getConversionSettings=()=>{try{const myId=getMyConversionId();return (DB.get('conversion_settings')||[]).find(x=>x.id===myId)||{id:myId,meta:{},google:{},mappings:[]}}catch(e){return{id:getMyConversionId(),meta:{},google:{},mappings:[]}}};
+  function saveConversionSettingsRow(next){try{const myId=getMyConversionId();const others=(DB.get('conversion_settings')||[]).filter(x=>x.id!==myId);DB.set('conversion_settings',[...others,{...next,id:myId}]);}catch(e){}}
   // Por usuário agora — veja getLeadgenSettingsRow/saveLeadgenSettingsRow no
   // script principal (mesmo padrão de e-mail/WhatsApp).
   const getLeadgenSettings=()=>typeof getLeadgenSettingsRow==='function'?getLeadgenSettingsRow():{id:'leadgen_main'};
@@ -17362,18 +17380,16 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     </div>`;
   }
   function monitorHtml(){
-    // "Configurar Pixels e Eventos" e "Histórico de Conversões" mexem com
-    // configuração da empresa inteira (Pixel/token do CAPI, log de todos os
-    // envios) — isso não faz parte do que foi liberado pro Gex Parceiro.
-    // "Captação Nativa (Meta)" agora é uma conexão pessoal (cada um com a
-    // própria Página do Facebook), então essa sim é liberada.
-    const _visRole=(typeof resolveRole==='function'&&typeof sessionUser!=='undefined')?resolveRole(sessionUser?.permissao||sessionUser?.cargo||''):'';
-    const restrictedMonitor=_visRole==='Gex Parceiro';
-    if(restrictedMonitor&&monitorView!=='leadgen')monitorView='leadgen';
-    const tabsHtml=restrictedMonitor
-      ?`<button class="gxi-monitor-tab active">Captação Nativa (Meta)</button>`
-      :`<button class="gxi-monitor-tab ${monitorView==='config'?'active':''}" onclick="gxiMonitorView('config')">Configurar Pixels e Eventos</button><button class="gxi-monitor-tab ${monitorView==='events'?'active':''}" onclick="gxiMonitorView('events')">Histórico de Conversões</button><button class="gxi-monitor-tab ${monitorView==='leadgen'?'active':''}" onclick="gxiMonitorView('leadgen')">Captação Nativa (Meta)</button>`;
-    return `<div class="gxi-toolbar"><div class="gxi-toolbar-copy"><h2>Monitoramento de conversões</h2><p>Envie eventos do CRM para otimizar as campanhas nas plataformas de anúncios, ou traga leads direto dos anúncios pro Pipeline.</p></div></div><div class="gxi-monitor-tabs">${tabsHtml}</div>${restrictedMonitor?leadgenConfigHtml():monitorView==='config'?conversionConfigHtml():monitorView==='leadgen'?leadgenConfigHtml():conversionEventsHtml()}`;
+    // "Configurar Pixels e Eventos", "Histórico de Conversões" e "Captação
+    // Nativa (Meta)" já são todas configurações POR USUÁRIO (cada um com o
+    // próprio Pixel/Token da Meta, disparados a partir do próprio funil, e
+    // com o próprio histórico de eventos) — por isso ficam liberadas pra
+    // qualquer papel, igual ao restante das integrações individuais
+    // (WhatsApp/E-mail/Captação Nativa). Backend (meta_capi_credentials,
+    // conversion-config-save, send-crm-conversion) já isolava por usuário
+    // desde sempre; só faltava o cache local do navegador, corrigido acima.
+    const tabsHtml=`<button class="gxi-monitor-tab ${monitorView==='config'?'active':''}" onclick="gxiMonitorView('config')">Configurar Pixels e Eventos</button><button class="gxi-monitor-tab ${monitorView==='events'?'active':''}" onclick="gxiMonitorView('events')">Histórico de Conversões</button><button class="gxi-monitor-tab ${monitorView==='leadgen'?'active':''}" onclick="gxiMonitorView('leadgen')">Captação Nativa (Meta)</button>`;
+    return `<div class="gxi-toolbar"><div class="gxi-toolbar-copy"><h2>Monitoramento de conversões</h2><p>Envie eventos do CRM para otimizar as campanhas nas plataformas de anúncios, ou traga leads direto dos anúncios pro Pipeline.</p></div></div><div class="gxi-monitor-tabs">${tabsHtml}</div>${monitorView==='config'?conversionConfigHtml():monitorView==='leadgen'?leadgenConfigHtml():conversionEventsHtml()}`;
   }
   function render(){const page=document.getElementById('page-integracoes');if(!page)return;page.innerHTML=`<div class="gxi-shell">${header()}${view==='connections'?connectionsHtml():view==='tracking'?(editingId==='new'||editingId?formHtml():trackingListHtml()):monitorHtml()}</div>`;if(view==='connections'&&typeof gxiLoadZapiLiveStatus==='function')gxiLoadZapiLiveStatus()}
   window.renderIntegracoes=render;window.gxiSetView=v=>{view=v;editingId='';render()};window.gxiNewTracking=()=>{view='tracking';editingId='new';render()};window.gxiCancelTracking=()=>{editingId='';render()};window.gxiEditTracking=id=>{view='tracking';editingId=id;render()};
@@ -17421,8 +17437,8 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       console.error('[GexFlow] conversion-config-save falhou:',e);
       toast(`Token não ativado: ${e.message||'erro desconhecido'}`,'#F59E0B')
     }}
-    const next={id:'conversion_main',meta:{pixelId,hasToken,testEventCode,configured:!!pixelId&&hasToken},google:{conversionId,conversionLabel,configured:!!conversionId&&!!conversionLabel},mappings,updatedAt:new Date().toISOString()};
-    DB.set('conversion_settings',[next]);event('Conversões configuradas',`${mappings.filter(x=>x.enabled).length} etapas ativas`,serverSaved?'success':'warning');render();if(serverSaved)toast('Configurações de conversão salvas ✓','#10B981');
+    const next={meta:{pixelId,hasToken,testEventCode,configured:!!pixelId&&hasToken},google:{conversionId,conversionLabel,configured:!!conversionId&&!!conversionLabel},mappings,updatedAt:new Date().toISOString()};
+    saveConversionSettingsRow(next);event('Conversões configuradas',`${mappings.filter(x=>x.enabled).length} etapas ativas`,serverSaved?'success':'warning');render();if(serverSaved)toast('Configurações de conversão salvas ✓','#10B981');
   };
   window.gxiConfirmLeadgenOAuthPage=async()=>{
     const sel=document.getElementById('gxi-lg-oauth-choice');
@@ -17505,7 +17521,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   };
   function conversionValue(mapping,lead){if(mapping.valueSource==='none')return 0;if(mapping.valueSource==='fixed')return Number(mapping.fixedValue||0);return Number(lead?.valor||lead?.value||0)}
   async function sendConversionPlatform(platform,eventName,mapping,lead,payload){
-    const rec={id:uid(),eventId:`gex_${Date.now()}_${Math.random().toString(36).slice(2,9)}`,platform,eventName,stageId:mapping.stageId,stageName:mapping.stageName,leadId:lead?.id||'',leadName:lead?.nome||lead?.name||'',gclid:lead?.gclid||'',value:conversionValue(mapping,lead),currency:'BRL',status:'pending',source:payload.source||'crm',createdAt:new Date().toISOString()};DB.push('conversion_events',rec);
+    const rec={id:uid(),eventId:`gex_${Date.now()}_${Math.random().toString(36).slice(2,9)}`,platform,eventName,stageId:mapping.stageId,stageName:mapping.stageName,leadId:lead?.id||'',leadName:lead?.nome||lead?.name||'',gclid:lead?.gclid||'',value:conversionValue(mapping,lead),currency:'BRL',status:'pending',source:payload.source||'crm',ownerId:(typeof sessionUser!=='undefined'&&sessionUser?.id)||'',createdAt:new Date().toISOString()};DB.push('conversion_events',rec);
     try{if(!supabaseClient)throw new Error('Função de conversão não publicada');const testEventCode=getConversionSettings().meta?.testEventCode||'';const {data,error}=await supabaseClient.functions.invoke('send-crm-conversion',{body:{...rec,testEventCode,lead:{email:lead?.email||'',phone:lead?.telefone||lead?.phone||'',name:lead?.nome||lead?.name||'',gclid:lead?.gclid||'',fbclid:lead?.fbclid||'',externalId:lead?.id||''}}});if(error||data?.ok===false)throw new Error(data?.message||error?.message||'Envio rejeitado');DB.update('conversion_events',rec.id,{status:'sent',sentAt:new Date().toISOString(),responseId:data?.id||''});return true}catch(e){DB.update('conversion_events',rec.id,{status:'error',error:e.message||String(e),failedAt:new Date().toISOString()});return false}
   }
   window.gxiSaveSmtpConfig=async()=>{
