@@ -11740,20 +11740,26 @@ function dedupePersonalCommercialFunnels(funnels){
   try{
     const groups={};
     funnels.forEach(f=>{
+      if(f.isDefault||f.isArchived)return;
       const owner=String(f.createdBy||'');
-      if(!owner||f.isDefault||f.isArchived)return;
-      (groups[owner]=groups[owner]||[]).push(f);
+      // Órfãos (sem createdBy — sequela do bug antigo) não têm dono pra
+      // agrupar por id, então agrupa pelo NOME ("name:Funil de GEX") — assim
+      // várias cópias órfãs idênticas também são consolidadas numa só, em
+      // vez de ficarem de fora só porque perderam a marca de dono.
+      const key=owner||`name:${f.name||''}`;
+      (groups[key]=groups[key]||[]).push(f);
     });
     const archiveIds=new Set();
     let changed=false;
     const defaultFunnel=funnels.find(f=>f.isDefault&&!f.isArchived);
     const baseStageNames=(defaultFunnel?.stages||[]).map(s=>s.name).join('|');
-    Object.keys(groups).forEach(owner=>{
-      const group=groups[owner];
+    Object.keys(groups).forEach(key=>{
+      const group=groups[key];
       if(group.length<=1)return;
+      const owner=key.startsWith('name:')?'':key;
       let preferredId='';
-      try{preferredId=localStorage.getItem(`gx2_active_funnel__${owner}`)||''}catch(e){}
-      let keeper=group.find(f=>f.id===preferredId);
+      if(owner){try{preferredId=localStorage.getItem(`gx2_active_funnel__${owner}`)||''}catch(e){}}
+      let keeper=preferredId?group.find(f=>f.id===preferredId):null;
       if(!keeper){
         const edited=group.filter(f=>(f.stages||[]).map(s=>s.name).join('|')!==baseStageNames);
         keeper=(edited.length?edited:group).slice().sort((a,b)=>new Date(b.updatedAt||0)-new Date(a.updatedAt||0))[0];
