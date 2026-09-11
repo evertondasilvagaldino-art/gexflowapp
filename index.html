@@ -5265,7 +5265,66 @@ function renderConfiguracoesPagamentos(){
         <button class="cfg-btn" onclick="openConfigTab('config-integracoes')">Configurar integração Stripe</button>
         <button class="cfg-btn" onclick="toast('O portal real precisa ser aberto por uma Edge Function segura.','#7C3AED')">Testar portal</button>
       </div>
+    </div>
+
+    <div class="cfg-panel" style="margin-top:18px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <div style="font-weight:700;font-size:15px">Assinaturas dos clientes</div>
+          <div style="font-size:12px;color:var(--muted)">Todo mundo que já recebeu um link de pagamento — ativo, aguardando, atrasado ou cancelado.</div>
+        </div>
+        <button class="cfg-btn" onclick="loadAssinaturasClientes()">🔄 Atualizar</button>
+      </div>
+      <div id="assinaturas-clientes-wrap" style="margin-top:14px">
+        <div class="empty" style="padding:20px">Carregando…</div>
+      </div>
     </div>`;
+  loadAssinaturasClientes();
+}
+
+async function loadAssinaturasClientes(){
+  const wrap=document.getElementById('assinaturas-clientes-wrap');
+  if(!wrap)return;
+  wrap.innerHTML='<div class="empty" style="padding:20px">Carregando…</div>';
+  try{
+    const token=await getGexSupabaseToken();
+    const [subsRes,plansRes]=await Promise.all([
+      fetch(getSupabaseFunctionUrl('billing-subscriptions-list'),{headers:{Authorization:`Bearer ${token}`}}).then(r=>r.json()).catch(()=>({})),
+      fetch(getSupabaseFunctionUrl('billing-plans-list'),{headers:{Authorization:`Bearer ${token}`}}).then(r=>r.json()).catch(()=>({}))
+    ]);
+    if(!document.getElementById('assinaturas-clientes-wrap'))return; // saiu da tela
+    if(!subsRes?.ok){
+      wrap.innerHTML=`<div class="empty" style="padding:20px">${escHtml(subsRes?.message||'Não foi possível carregar as assinaturas.')}</div>`;
+      return;
+    }
+    const subs=subsRes.subscriptions||[];
+    const plans=plansRes?.plans||[];
+    const users=getUsuariosForDisplay()||[];
+    if(!subs.length){
+      wrap.innerHTML='<div class="empty" style="padding:20px">Nenhuma assinatura gerada ainda — os links de pagamento aparecem aqui assim que forem criados.</div>';
+      return;
+    }
+    wrap.innerHTML=`<div style="overflow-x:auto"><table class="table"><thead><tr>
+      <th>Cliente</th><th>Plano</th><th>Status</th><th>Renovação/Fim</th><th>Atualizado em</th>
+    </tr></thead><tbody>${subs.map(s=>{
+      const user=users.find(u=>String(u.id)===String(s.id))||users.find(u=>normalizeLoginEmail(u.email)===normalizeLoginEmail(s.user_email||''));
+      const nome=user?.nome||'—';
+      const plan=plans.find(p=>p.id===s.plan_id);
+      const[label,color]=BILLING_STATUS_LABELS[s.status]||[s.status||'—','#64748B'];
+      const periodo=s.current_period_end?new Date(s.current_period_end).toLocaleDateString('pt-BR'):'—';
+      const atualizado=s.updated_at?new Date(s.updated_at).toLocaleString('pt-BR'):'—';
+      return `<tr>
+        <td><div style="font-weight:600;font-size:13px">${escHtml(nome)}</div><div style="font-size:11px;color:var(--muted)">${escHtml(s.user_email||'—')}</div></td>
+        <td>${escHtml(plan?.name||s.plan_id||'—')}</td>
+        <td><span style="background:${color}20;color:${color};padding:2px 8px;border-radius:10px;font-weight:700;font-size:11px">${escHtml(label)}</span></td>
+        <td style="color:var(--muted);font-size:12px">${periodo}</td>
+        <td style="color:var(--muted);font-size:12px">${atualizado}</td>
+      </tr>`;
+    }).join('')}</tbody></table></div>`;
+  }catch(e){
+    console.warn('[GexFlow] loadAssinaturasClientes:',e);
+    wrap.innerHTML='<div class="empty" style="padding:20px">Não foi possível carregar as assinaturas.</div>';
+  }
 }
 
 function renderConfiguracoesEmpresa(){
