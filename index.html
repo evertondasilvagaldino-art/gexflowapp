@@ -18736,17 +18736,48 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       return {ok:false,error:err.message||'Falha de conexão'};
     }
   }
+  // Descobre se o CRIADOR da automação (não quem está com o sistema aberto
+  // agora) tem visão gerencial — precisa olhar o cadastro dele, já que o
+  // motor roda em segundo plano na tela de quem quer que esteja logado.
+  function isManagerRoleById(userId){
+    try{
+      const id=String(userId||'');
+      if(!id)return true; // sem dono conhecido (automação antiga) — não restringe, mesmo comportamento de sempre.
+      const users=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[]);
+      const u=users.find(x=>String(x.id)===id||String(x.supabaseId||'')===id);
+      if(!u)return true;
+      const role=(typeof resolveRole==='function')?resolveRole(u.permissao||u.cargo||''):'';
+      return ['Fundador','Adm Gerente'].includes(role);
+    }catch(e){return true}
+  }
+  // MULTIUSUÁRIO: uma automação criada por um usuário sem visão gerencial
+  // (ex.: Gex Parceiro) só pode agir nos leads QUE JÁ SÃO DELE — mesmo com
+  // "Todos os funis" selecionado. Sem isso, "Todos os funis" significava
+  // literalmente todos os leads da empresa inteira, de qualquer responsável,
+  // vazando dados de outros usuários pra automação de um parceiro.
+  // Fundador/Adm Gerente continuam sem nenhuma restrição, como sempre.
+  function leadsForRuleOwner(rule,allLeads){
+    try{
+      const ownerId=String(rule?.createdBy||'');
+      if(!ownerId||isManagerRoleById(ownerId))return allLeads;
+      const users=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[]);
+      const owner=users.find(x=>String(x.id)===ownerId||String(x.supabaseId||'')===ownerId);
+      if(!owner)return allLeads;
+      return allLeads.filter(l=>isLeadOwnedByUser(l,owner));
+    }catch(e){return allLeads}
+  }
   window.gexRunAutomationEngine=async function(){
     let rs=[];
     try{rs=(DB.get('automacoes')||[]).filter(r=>r.ativo!==false)}catch(e){return}
     if(!rs.length){window.__gexAutoLastRun=Date.now();return}
-    const leads=(DB.get('leads')||[]).filter(l=>!l.deleted_at);
+    const allLeads=(DB.get('leads')||[]).filter(l=>!l.deleted_at);
     const logs=DB.get('automacao_log')||[];
     const logMap={};logs.forEach(l=>logMap[l.id]=l);
     let created=0,aplicadas=0;
     const emailsParaEnviar=[]; // {taskId,to,toName,subject,text}
     const whatsappParaEnviar=[]; // {taskId,phone,message}
     rs.forEach(rule=>{
+      const leads=leadsForRuleOwner(rule,allLeads);
       // ── Chegou numa etapa → anexa observação (100% automático, sem clique) ──
       if(rule.gatilho==='entrou_etapa'){
         leads.forEach(lead=>{
