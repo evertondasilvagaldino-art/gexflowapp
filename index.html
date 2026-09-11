@@ -11658,6 +11658,17 @@ function _normalizeFunnel(f,idx=0){
     description:f.description||f.desc||'',
     isDefault:!!f.isDefault,
     isArchived:!!f.isArchived,
+    // IMPORTANTE: preservar quem é "dono" do funil (createdBy/createdByEmail).
+    // Sem isso, toda vez que ensureDefaultCommercialFunnel() roda (o que
+    // acontece a cada render do Pipeline, inclusive logo depois de salvar
+    // uma edição), o funil pessoal de um usuário restrito (ex.: Gex Parceiro)
+    // perdia a marca de dono — getVisibleCommercialFunnels()/getActiveFunnel()
+    // deixavam de reconhecê-lo como "funil próprio" e o sistema recriava um
+    // funil novo do zero (cópia fresca do padrão), descartando qualquer
+    // edição feita (como renomear uma etapa) e trocando o funil ativo pra
+    // essa cópia nova sem querer.
+    createdBy:f.createdBy||'',
+    createdByEmail:f.createdByEmail||'',
     createdAt:f.createdAt||new Date().toISOString(),
     updatedAt:f.updatedAt||new Date().toISOString(),
     stages
@@ -11769,9 +11780,43 @@ function ensurePersonalCommercialFunnel(funnels){
     const base=list.find(f=>f.isDefault&&!f.isArchived)||list.find(f=>!f.isArchived);
     if(!base)return list;
     const myName=String((typeof sessionUser!=='undefined'&&(sessionUser?.nome||sessionUser?.name))||'').trim().split(' ')[0]||'meu';
+    const expectedName=`Funil de ${myName}`;
+    // RECUPERAÇÃO: antes de criar um funil novo do zero, procura por um
+    // "órfão" (sem createdBy) com o nome esperado — sequela do bug em
+    // _normalizeFunnel() que apagava createdBy a cada render e fazia o
+    // sistema "esquecer" o dono do funil pessoal, recriando um novo toda
+    // vez e descartando qualquer edição (ex.: nome de etapa renomeado).
+    // Corrigido em _normalizeFunnel, mas contas já afetadas podem ter
+    // ficado com o funil órfão (e às vezes mais de uma cópia duplicada).
+    let orphanCandidates=list.filter(f=>!f.isArchived&&!f.isDefault&&!String(f.createdBy||'')&&f.name===expectedName);
+    // Se não achou pelo nome padrão (o funil pode ter sido renomeado, ou
+    // criado manualmente com outro nome em vez do auto-gerado), e existe
+    // exatamente 1 órfão sem dono no sistema inteiro, assume que é dele —
+    // sem ambiguidade nesse caso. Com 2+ órfãos de nomes diferentes não dá
+    // pra saber de quem é cada um só por aqui, então não arrisca adotar.
+    if(!orphanCandidates.length){
+      const anyOrphans=list.filter(f=>!f.isArchived&&!f.isDefault&&!String(f.createdBy||''));
+      if(anyOrphans.length===1) orphanCandidates=anyOrphans;
+    }
+    if(orphanCandidates.length){
+      // Prefere o órfão que já tem etapas diferentes do funil padrão atual
+      // (sinal de que foi editado de verdade) — evita "adotar" uma cópia
+      // fresca e perder a que tem a edição real do usuário.
+      const baseStageNames=(base.stages||[]).map(s=>s.name).join('|');
+      const edited=orphanCandidates.find(f=>(f.stages||[]).map(s=>s.name).join('|')!==baseStageNames);
+      const adopt=edited||orphanCandidates[0];
+      const next=list.map(f=>f.id===adopt.id?{...f,createdBy:myId,createdByEmail:(typeof sessionUser!=='undefined'&&sessionUser?.email)||'',updatedAt:new Date().toISOString()}
+        // Duplicatas órfãs restantes (cópias frescas criadas sem querer pelo
+        // mesmo bug) ficam arquivadas — não perde nada, só some da lista
+        // ativa; dá pra recuperar em "Arquivados" se precisar.
+        :(orphanCandidates.some(o=>o.id===f.id)?{...f,isArchived:true,updatedAt:new Date().toISOString()}:f));
+      saveCommercialFunnels(next);
+      setActiveFunnelId(adopt.id);
+      return next;
+    }
     const starter={
       id:'funnel_'+uid(),
-      name:`Funil de ${myName}`,
+      name:expectedName,
       description:'Copiado do funil padrão como ponto de partida — é só seu, edite à vontade.',
       isDefault:false,
       isArchived:false,
