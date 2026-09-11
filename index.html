@@ -6239,7 +6239,7 @@ function openModal(type,idOrData=null,contexto=null){
   document.getElementById('modal-box').className=(type==='usuario'?'modal modal-permissions':'modal');
   document.getElementById('modal-ov').classList.add('open');
   // Inicializa editor de acessos por setor/subsetor no modal de usuário
-  if(type==='usuario')setTimeout(()=>{initUserAccessEditor(data||{});updateRolePreview();},0);
+  if(type==='usuario')setTimeout(()=>{initUserAccessEditor(data||{});updateRolePreview();if(data?.id)loadBillingSectionForUser(data.id);},0);
 }
 function closeModal(){document.getElementById('modal-ov').classList.remove('open')}
 const v=id=>document.getElementById(id)?.value?.trim()||'';
@@ -6720,10 +6720,74 @@ function formUsuario(d){
     <div class="form-group"><label class="form-label">Senha ${d?'(nova)':''}</label><input class="form-input" id="f-senha" type="password" placeholder="••••••••" autocomplete="new-password">${newPwdHint}</div>
   </div>
   ${isNew?origemHtml:''}
+  ${!isNew?`<div class="user-origin-info" style="margin-top:14px">
+    <div class="uo-ico">💳</div>
+    <div style="flex:1">
+      <div class="uo-title">Cobrança — manter este usuário ativo</div>
+      <div class="uo-sub" style="margin-bottom:10px">Gere um link de pagamento (assinatura recorrente) e mande pro cliente. Quando ele pagar, o acesso continua ativo automaticamente; se ele parar de pagar ou cancelar, o sistema desativa sozinho (mesmo efeito de "Status: Inativo").</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-size:11px;color:var(--muted)">Assinatura:</span><span id="billing-status-badge" style="font-size:11px">Consultando...</span></div>
+      <div class="form-row" style="margin:0">
+        <div class="form-group" style="margin:0"><select class="form-input" id="f-billing-plan"><option value="">Carregando planos...</option></select></div>
+        <div class="form-group" style="margin:0"><button type="button" class="btn btn-ghost" style="width:100%" onclick="gerarLinkCobranca('${d.id}')">Gerar link de pagamento</button></div>
+      </div>
+    </div>
+  </div>`:''}
   <div id="user-access-editor"></div>
   <div id="role-preview-wrap" style="display:none"></div>`;
 }
 
+
+// ═══ Cobrança (Stripe) — gerar link de pagamento pra manter o usuário ativo ═══
+const BILLING_STATUS_LABELS={active:['Ativo','#10B981'],pending:['Aguardando pagamento','#F59E0B'],past_due:['Pagamento atrasado','#EF4444'],canceled:['Cancelada','#EF4444']};
+async function loadBillingSectionForUser(userId){
+  const sel=document.getElementById('f-billing-plan');
+  const badge=document.getElementById('billing-status-badge');
+  if(!sel||!badge)return;
+  try{
+    const token=await getGexSupabaseToken();
+    const [plansRes,statusRes]=await Promise.all([
+      fetch(getSupabaseFunctionUrl('billing-plans-list'),{headers:{Authorization:`Bearer ${token}`}}).then(r=>r.json()).catch(()=>({})),
+      fetch(`${getSupabaseFunctionUrl('billing-status-get')}?userId=${encodeURIComponent(userId)}`,{headers:{Authorization:`Bearer ${token}`}}).then(r=>r.json()).catch(()=>({}))
+    ]);
+    if(!document.getElementById('f-billing-plan'))return; // modal já foi fechado
+    const plans=plansRes?.plans||[];
+    sel.innerHTML=plans.length?plans.map(p=>`<option value="${p.id}">${escHtml(p.name)} — ${escHtml(p.price_display||'')}</option>`).join(''):'<option value="">Nenhum plano cadastrado</option>';
+    const sub=statusRes?.subscription;
+    if(sub?.status){
+      const[label,color]=BILLING_STATUS_LABELS[sub.status]||[sub.status,'#64748B'];
+      badge.innerHTML=`<span style="background:${color}20;color:${color};padding:2px 8px;border-radius:10px;font-weight:700">${label}</span>${sub.plan_id?` · ${escHtml((plans.find(p=>p.id===sub.plan_id)||{}).name||sub.plan_id)}`:''}`;
+      if(sub.plan_id)sel.value=sub.plan_id;
+    }else{
+      badge.innerHTML=`<span style="color:var(--muted)">Nenhuma cobrança gerada ainda</span>`;
+    }
+  }catch(e){
+    if(badge)badge.innerHTML=`<span style="color:var(--muted)">Não foi possível consultar</span>`;
+    console.warn('[GexFlow] loadBillingSectionForUser:',e);
+  }
+}
+window.gerarLinkCobranca=async function(userId){
+  const planId=document.getElementById('f-billing-plan')?.value||'';
+  if(!planId){toast('Selecione um plano','#F59E0B');return}
+  const btn=document.querySelector(`button[onclick="gerarLinkCobranca('${userId}')"]`);
+  if(btn){btn.disabled=true;btn.textContent='Gerando...'}
+  try{
+    const token=await getGexSupabaseToken();
+    const returnUrl=location.origin+location.pathname;
+    const res=await fetch(getSupabaseFunctionUrl('billing-link-create'),{
+      method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({userId,planId,successUrl:returnUrl+'?billing=sucesso',cancelUrl:returnUrl+'?billing=cancelado'})
+    });
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível gerar o link.');
+    if(navigator.clipboard)navigator.clipboard.writeText(j.url).catch(()=>{});
+    window.prompt('Link de pagamento gerado — copie e envie pro cliente (já foi copiado pra sua área de transferência):',j.url);
+    toast('Link de pagamento gerado ✓','#10B981');
+  }catch(e){
+    toast(e.message||'Erro ao gerar link de pagamento','#EF4444');
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='Gerar link de pagamento'}
+  }
+};
 
 function getRolePerm(role,module,action){
   const r=resolveRole(role||'Colaborador');
