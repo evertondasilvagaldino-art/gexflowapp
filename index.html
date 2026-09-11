@@ -1833,6 +1833,15 @@ textarea.form-input{resize:vertical;min-height:75px}
       Automações
     </div>
 
+    <!-- INTEGRAÇÕES (ex.: conectar o próprio WhatsApp via Z-API) — item
+         próprio na barra lateral pra quem tem a permissão 'integracoes'
+         mas não tem acesso ao setor Configurações (ex.: Gex Parceiro).
+         Quem já chega lá por Configurações continua chegando por lá também. -->
+    <div class="nav-item" data-page="integracoes" onclick="navigate('integracoes')">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clip-rule="evenodd"/></svg>
+      Integrações
+    </div>
+
     <!-- WHATSAPP (caixa de conversas) -->
     <div class="nav-item" data-page="whatsapp-chat" onclick="navigate('whatsapp-chat')">
       <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a8 8 0 00-6.93 11.98L2 18l4.15-1.05A8 8 0 1010 2zm0 1.6a6.4 6.4 0 11-3.36 11.85l-.24-.15-2.46.63.65-2.4-.16-.25A6.4 6.4 0 0110 3.6zm-2.98 3.4c-.16 0-.42.06-.64.31-.22.25-.85.83-.85 2.03 0 1.2.87 2.36.99 2.52.12.16 1.71 2.6 4.15 3.55 2.03.8 2.45.64 2.89.6.44-.04 1.42-.58 1.62-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.92-1.18-.71-.63-1.19-1.41-1.33-1.65-.14-.24-.01-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.32-.76-1.8-.2-.47-.4-.4-.54-.41-.14-.01-.3-.01-.46-.01z"/></svg>
@@ -2587,6 +2596,7 @@ const ROLE_PERMS = {
     esquemas:{view:true,create:true,edit:true,delete:true,manage:true},
     creators:{view:true,create:true,edit:true,delete:true,manage:true},
     integracoes:{view:true,manage:true},
+    automacoes:{view:true,create:true,edit:true,delete:true,manage:true},
     gerar_leads:{view:true,create:true,edit:true,delete:true,manage:true},
     gerar_leads_whatsapp:{view:true,create:true,edit:true,delete:true,manage:true},
     gerar_leads_formularios:{view:true,create:true,edit:true,delete:true,manage:true},
@@ -2627,12 +2637,20 @@ const ROLE_PERMS = {
   // Z-API, na tela de Integrações, que já é filtrada só pra mostrar o
   // card de WhatsApp pra este papel — veja connectionsHtml()).
   'Gex Parceiro': {
-    inicio:{view:true},
+    // Sem "inicio" de propósito — esse papel não vê o painel central da
+    // empresa. Ao logar, cai direto na primeira aba que ele tem acesso
+    // (Tarefas do Dia), sem precisar de uma página de boas-vindas própria.
     comercial_tarefas:{view:true,create:true,edit:true},
     comercial_pipeline:{view:true,create:true,edit:true},
     comercial_relatorio:{view:true},
     'whatsapp-chat':{view:true,create:true,edit:true},
     integracoes:{view:true},
+    // Só vê/edita/exclui as automações que ele mesmo criar (rules()/tasks()
+    // dentro do script de Automações filtram por createdBy quando o papel
+    // não tem visão gerencial — veja automacoesManagerView()). Sem "manage",
+    // que não é usado por nenhuma tela hoje mas fica reservado pra controles
+    // de nível empresa no futuro.
+    automacoes:{view:true,create:true,edit:true,delete:true},
     perfil:{view:true,edit:true},
   },
   'Admin': null,
@@ -4126,6 +4144,9 @@ function applyNavPermissions(){
 
   const singleItems=[
     {selector:'[data-page="inicio"]', mod:'inicio'},
+    {selector:'[data-page="automacoes"]', mod:'automacoes'},
+    {selector:'[data-page="whatsapp-chat"]', mod:'whatsapp-chat'},
+    {selector:'[data-page="integracoes"]', mod:'integracoes'},
     {selector:'[data-page="rh"]', mod:'rh'},
     {selector:'[data-page="perfil"]', mod:'perfil'}
   ];
@@ -4437,7 +4458,12 @@ function navigate(page){
   document.querySelector(`[data-page="${page}"]`)?.classList.add('active');
   currentSubPage='';
   const navPermPage = page==='integracoes' ? 'config_integracoes' : page;
-  if(!can(navPermPage,'view')){
+  // Integrações pode ser liberada por dois caminhos: quem tem acesso ao setor
+  // Configurações (config_integracoes, ex.: Fundador/Adm Gerente) OU quem tem
+  // só a permissão pontual 'integracoes' (ex.: Gex Parceiro, pra conectar o
+  // próprio WhatsApp) — sem precisar do pacote inteiro de Configurações.
+  const hasPageAccess = page==='integracoes' ? (can('config_integracoes','view')||can('integracoes','view')) : can(navPermPage,'view');
+  if(!hasPageAccess){
     if(pageEl){
       const pageNames={configuracoes:'Configurações',integracoes:'Integrações',rh:'Recursos Humanos',usuarios:'Gestão de Usuários',perfil:'Perfil',inicio:'Início',automacoes:'Automações','whatsapp-chat':'WhatsApp'};
       showAccessDenied(pageEl,pageNames[page]||page);
@@ -7738,17 +7764,23 @@ function getCommercialOwnerOptions(ops){
   ops=Array.isArray(ops)?ops:[];
   const map=new Map();
 
-  // usuários comerciais cadastrados
-  getCommercialTeamUsers().forEach(u=>{
-    const value=_ownerFilterValueFromUser(u);
-    if(value&&!map.has(value)){
-      map.set(value,{
-        value,
-        label:`${u.nome||u.email||'Usuário'}${u.cargo||u.permissao?' · '+resolveRole(u.permissao||u.cargo):''}`,
-        nome:u.nome||u.email||'Usuário'
-      });
-    }
-  });
+  // Lista o resto da equipe comercial só pra quem tem visão gerencial
+  // (Fundador/Adm Gerente) — quem só enxerga os próprios leads (ver
+  // isSalesManagerView/getVisibleCommercialLeads) não precisa nem deve
+  // ver o nome de outras pessoas nesse filtro, já que nunca vai
+  // encontrar nada além do que é dele mesmo.
+  if(isSalesManagerView()){
+    getCommercialTeamUsers().forEach(u=>{
+      const value=_ownerFilterValueFromUser(u);
+      if(value&&!map.has(value)){
+        map.set(value,{
+          value,
+          label:`${u.nome||u.email||'Usuário'}${u.cargo||u.permissao?' · '+resolveRole(u.permissao||u.cargo):''}`,
+          nome:u.nome||u.email||'Usuário'
+        });
+      }
+    });
+  }
 
   // responsável logado, mesmo se for Fundador e não estiver na lista de vendedores
   if(sessionUser){
@@ -16986,7 +17018,14 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   const getConversionEvents=()=>{try{return (DB.get('conversion_events')||[]).slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0))}catch(e){return[]}};
   const getConversionSettings=()=>{try{return (DB.get('conversion_settings')||[])[0]||{id:'conversion_main',meta:{},google:{},mappings:[]}}catch(e){return{id:'conversion_main',meta:{},google:{},mappings:[]}}};
   const getLeadgenSettings=()=>{try{return (DB.get('leadgen_settings')||[])[0]||{id:'leadgen_main'}}catch(e){return{id:'leadgen_main'}}};
-  const getEmailSmtpSettings=()=>{try{return (DB.get('email_smtp_settings')||[])[0]||{id:'email_smtp_main'}}catch(e){return{id:'email_smtp_main'}}};
+  // MULTIUSUÁRIO: cada usuário logado tem sua própria conexão de e-mail
+  // (SMTP), igual já funciona a conexão de WhatsApp — guardada com o id
+  // "email_smtp_main__<seu id>", pra o setor de Automações mandar e-mail
+  // pela caixa de quem criou a automação, não por uma caixa única da
+  // empresa inteira. Necessário pra papéis como "Gex Parceiro" conseguirem
+  // usar Automações com a própria caixa conectada.
+  const getMyEmailSmtpId=()=>`email_smtp_main__${(typeof sessionUser!=='undefined'&&sessionUser?.id)||'sem_login'}`;
+  const getEmailSmtpSettings=()=>{try{const myId=getMyEmailSmtpId();return (DB.get('email_smtp_settings')||[]).find(x=>x.id===myId)||{id:myId}}catch(e){return{id:getMyEmailSmtpId()}}};
   // MULTIUSUÁRIO: cada usuário logado tem sua própria conexão de WhatsApp
   // (seu próprio número). Antes existia só UM registro local "zapi_main"
   // compartilhado — agora cada usuário tem o seu próprio, guardado com o
@@ -17017,7 +17056,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     const s=getEmailSmtpSettings(),on=!!s.connected;
     return `<div class="gxi-conv-grid" style="grid-template-columns:1fr;margin-top:13px">
       <div class="gxi-conv-card">
-        <div class="gxi-conv-head"><div class="gxi-conv-logo" style="background:#DBEAFE;color:#2563EB">✉</div><div><h3>Conexão de e-mail (SMTP)</h3><p>Conecte a caixa de e-mail da sua empresa para o envio automático das automações de e-mail</p></div><span class="gxi-config-status ${on?'on':''}" style="margin-left:auto">${on?'Conectado':'Pendente'}</span></div>
+        <div class="gxi-conv-head"><div class="gxi-conv-logo" style="background:#DBEAFE;color:#2563EB">✉</div><div><h3>Conexão de e-mail (SMTP) — minha caixa</h3><p>Sua conexão pessoal: cada usuário conecta a própria caixa de e-mail, e as automações de e-mail dele são enviadas por ela.</p></div><span class="gxi-config-status ${on?'on':''}" style="margin-left:auto">${on?'Conectado':'Pendente'}</span></div>
         ${on?`<div class="gxi-card-note" style="margin-bottom:12px">Enviando por <b>${E(s.host||'')}</b> como <b>${E(s.fromEmail||s.username||'')}</b></div>`:''}
         <div class="gxi-form-grid" style="margin-bottom:11px">
           <label class="gxi-field"><span class="gxi-label">Servidor SMTP</span><input class="gxi-input" id="gxi-smtp-host" value="${A(s.host||'')}" placeholder="smtp.seudominio.com"></label>
@@ -17321,8 +17360,9 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       });
       const j=await res.json().catch(()=>({}));
       if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível salvar a conexão.');
-      const next={id:'email_smtp_main',connected:true,hasPassword:true,host,port,username,fromName,fromEmail,secure,updatedAt:new Date().toISOString()};
-      DB.set('email_smtp_settings',[next]);
+      const next={id:getMyEmailSmtpId(),connected:true,hasPassword:true,host,port,username,fromName,fromEmail,secure,updatedAt:new Date().toISOString()};
+      const others=(DB.get('email_smtp_settings')||[]).filter(x=>x.id!==next.id);
+      DB.set('email_smtp_settings',[...others,next]);
       toast('Conexão de e-mail salva ✓','#10B981');
       render();
     }catch(e){
@@ -17339,7 +17379,8 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
         const res=await fetch(getSupabaseFunctionUrl('smtp-config-clear'),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'}});
         const j=await res.json().catch(()=>({}));
         if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível desconectar o e-mail.');
-        DB.set('email_smtp_settings',[{id:'email_smtp_main'}]);
+        const others=(DB.get('email_smtp_settings')||[]).filter(x=>x.id!==getMyEmailSmtpId());
+        DB.set('email_smtp_settings',others);
         toast('✓ Conexão de e-mail desconectada. As automações de e-mail ficam pausadas até você reconectar.','#10B981');
         render();
       }catch(e){
@@ -17912,8 +17953,29 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
 (function(){
   let autoView='banco',autoEditId='',autoTaskFilter='pendente';
   const esc=escHtml;
-  const rules=()=>{try{return DB.get('automacoes')||[]}catch(e){return[]}};
-  const tasks=()=>{try{return DB.get('automacao_tasks')||[]}catch(e){return[]}};
+  // Papéis com visão gerencial (Fundador/Adm Gerente) veem todas as
+  // automações da empresa; os demais (ex.: Gex Parceiro) só veem — e só
+  // podem editar/ativar/excluir — as automações que eles mesmos criaram,
+  // igual já acontece com funis e tarefas próprias.
+  function automacoesManagerView(){
+    try{return typeof isSalesManagerView==='function'?isSalesManagerView():true}catch(e){return true}
+  }
+  const rules=()=>{
+    try{
+      const all=DB.get('automacoes')||[];
+      if(automacoesManagerView())return all;
+      const myId=String(sessionUser?.id||'');
+      return all.filter(r=>String(r.createdBy||'')===myId);
+    }catch(e){return[]}
+  };
+  const tasks=()=>{
+    try{
+      const all=DB.get('automacao_tasks')||[];
+      if(automacoesManagerView())return all;
+      const myRuleIds=new Set(rules().map(r=>String(r.id)));
+      return all.filter(t=>myRuleIds.has(String(t.ruleId)));
+    }catch(e){return[]}
+  };
   function availFunnels(){try{ensureDefaultCommercialFunnel();return getCommercialFunnels().filter(f=>!f.isArchived)}catch(e){return[]}}
   function defaults(){
     return {nome:'',templateKey:'',canal:'whatsapp',gatilho:'sem_atividade',dias:3,funilId:'',funilName:'',etapaId:'',etapaName:'',
@@ -18213,7 +18275,10 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   window.autoEdit=id=>{autoEditId=id;autoCadenciaSteps=null;autoView='editor';window.renderAutomacoes()};
   window.autoCancel=()=>{autoView='banco';autoEditId='';window.renderAutomacoes()};
   window.autoToggle=id=>{const r=rules().find(x=>x.id===id);if(!r)return;DB.update('automacoes',id,{ativo:r.ativo===false});window.renderAutomacoes();toast(r.ativo===false?'Automação ativada ✓':'Automação desativada','#6B7280')};
-  window.autoDelete=id=>{confirmDelete(()=>{DB.remove('automacoes',id);window.renderAutomacoes();toast('Automação excluída','#EF4444')})};
+  window.autoDelete=id=>{
+    if(!rules().find(x=>x.id===id))return; // não pertence a este usuário (papel sem visão gerencial)
+    confirmDelete(()=>{DB.remove('automacoes',id);window.renderAutomacoes();toast('Automação excluída','#EF4444')})
+  };
   window.autoSave=()=>{
     const nome=document.getElementById('auto-nome')?.value.trim();
     if(!nome){toast('Informe o nome da automação','#EF4444');return}
