@@ -7570,7 +7570,11 @@ function renderInicio(){
   const cls=DB.get('clientes'),pros=DB.get('projetos'),mbs=DB.get('membros'),leads=DB.get('leads');
   const txsAll=DB.get('transacoes');
   const txs=txsAll.filter(txInPeriod);   // transações do período
-  const leadsPeriod=leads.filter(leadInPeriod);
+  // Números da Início (Negócios Ganhos, Pipeline Comercial etc.) são da
+  // operação comercial INTERNA — negócios do funil separado de um Gex
+  // Parceiro (ou do Operador de Funil dele) não entram aqui, exceto quando
+  // é o próprio parceiro/operador vendo a própria tela.
+  const leadsPeriod=excludePartnerFunnelLeads(leads.filter(leadInPeriod));
 
   const receita=txs.filter(t=>t.tipo==='Receita').reduce((a,t)=>a+t.valor,0);
   const despesa=txs.filter(t=>t.tipo==='Despesa').reduce((a,t)=>a+t.valor,0);
@@ -7915,6 +7919,41 @@ function isLeadOwnedByUser(lead,user){
   if(lid&&uname&&normalizeSalesName(lid)===uname)return true;
 
   return false;
+}
+
+// Um lead pertence ao funil "separado" de um Gex Parceiro (ou do sub-usuário
+// Operador de Funil que ele cria em Minha Equipe) quando o responsável pelo
+// lead é um desses papéis. Esse negócio roda à parte da operação comercial
+// interna da empresa — por isso não pode entrar nos números "gerais" da tela
+// de Início (Negócios Ganhos, Pipeline Comercial etc.), que representam a
+// operação comercial interna. Exceção: o próprio parceiro/operador vendo a
+// PRÓPRIA tela de Início continua enxergando os próprios negócios.
+function isPartnerFunnelLead(lead){
+  if(!lead)return false;
+  const users=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[]);
+  const oid=getLeadOwnerId(lead);
+  const email=getLeadOwnerEmail(lead);
+  const nome=getLeadOwnerName(lead);
+  if(!oid&&!email&&!nome)return false;
+  const owner=(users||[]).find(u=>
+    (oid&&(String(u.id||'')===String(oid)||String(u.supabaseId||'')===String(oid))) ||
+    (email&&normalizeLoginEmail(u.email||'')===email) ||
+    (nome&&normalizeSalesName(u.nome||u.name||'')===normalizeSalesName(nome))
+  );
+  if(!owner)return false;
+  const role=resolveRole(owner.permissao||owner.cargo||'');
+  return role==='Gex Parceiro'||role==='Operador de Funil';
+}
+
+// Remove leads de funil de parceiro dos números "gerais" de Início — a
+// menos que quem esteja vendo a tela seja o próprio parceiro/operador dono
+// daquele lead (aí ele precisa continuar vendo o próprio negócio).
+function excludePartnerFunnelLeads(leads){
+  leads=Array.isArray(leads)?leads:[];
+  return leads.filter(l=>{
+    if(!isPartnerFunnelLead(l))return true;
+    return !!(sessionUser&&isLeadOwnedByUser(l,sessionUser));
+  });
 }
 
 function getVisibleCommercialLeads(leads){
