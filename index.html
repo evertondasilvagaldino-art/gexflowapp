@@ -12110,12 +12110,20 @@ function funelsSafeDedup(funnels){
 // Acha o cadastro do usuário (aba Usuários) dono de um funil, pra saber se
 // ele está Ativo ou Inativo. createdBy guarda o id da sessão (igual ao id
 // ou ao supabaseId do cadastro, dependendo de como o login foi feito).
-function isUserActiveById(userId){
+function isUserActiveById(userId,userEmail){
   try{
     const id=String(userId||'');
-    if(!id)return true;
+    const email=normalizeLoginEmail(userEmail||'');
+    if(!id&&!email)return true;
     const users=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[]);
-    const u=users.find(x=>String(x.id)===id||String(x.supabaseId||'')===id);
+    // Casa por id/supabaseId E, como reforço (o mesmo dono às vezes tem
+    // formatos de id diferentes gravados em lugares diferentes), por e-mail
+    // — evita que um usuário Inativo continue "invisível" pro filtro só
+    // porque o id gravado no funil não bate mais com o cadastro atual dele.
+    const u=users.find(x=>
+      (id&&(String(x.id)===id||String(x.supabaseId||'')===id)) ||
+      (email&&normalizeLoginEmail(x.email||'')===email)
+    );
     // Não achou o cadastro (pode ter sido removido de vez) — não esconde
     // por segurança, trata como ativo; "Inativo" só quando o status diz isso.
     if(!u)return true;
@@ -12133,7 +12141,15 @@ function getVisibleCommercialFunnels(funnels){
   const list=Array.isArray(funnels)?funnels:getCommercialFunnels();
   try{
     if(typeof isSalesManagerView==='function'&&isSalesManagerView()){
-      return list.filter(f=>!f.createdBy||isUserActiveById(f.createdBy));
+      // Fundador/Adm Gerente vê o funil padrão da empresa (esse não tem
+      // "dono" pessoal, é o modelo compartilhado) mais os funis pessoais de
+      // usuários ATIVOS. Um funil pessoal SEM createdBy (órfão — sequela do
+      // bug antigo em _normalizeFunnel que apagava esse campo) antes
+      // aparecia sempre, mesmo sem dar pra confirmar se o dono ainda está
+      // ativo; isso empilhava cópias soltas no seletor. Agora, sem dono
+      // identificável, ele não aparece mais no dia a dia (nada é apagado —
+      // continua recuperável em Arquivados/pelo banco).
+      return list.filter(f=>f.isDefault||(f.createdBy&&isUserActiveById(f.createdBy,f.createdByEmail)));
     }
   }catch(e){return list}
   // "Operador de Funil" não é dono de nenhum funil — só pode ver o ÚNICO
