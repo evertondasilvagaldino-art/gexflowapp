@@ -7999,6 +7999,27 @@ function excludePartnerFunnelLeads(leads){
   });
 }
 
+// Diz se um FUNIL (não um lead) pertence a um Gex Parceiro/Operador de
+// Funil — usado no Relatório Comercial pra saber se, ao escolher UM funil
+// específico no filtro, ainda é preciso tirar negócios do parceiro do
+// resultado. Importante: leads antigos/sem funnelId às vezes caem por
+// engano dentro do funil PADRÃO da empresa mesmo sendo do parceiro (ver
+// filterOpportunitiesByReportFunnel, que junta "sem funnelId" ao padrão) —
+// então a exclusão de leads do parceiro não pode valer só pra "Todos os
+// funis": tem que valer sempre que o funil escolhido NÃO for o próprio
+// funil do parceiro (só nesse caso a pessoa está de propósito consultando
+// o funil dele).
+function isPartnerOwnedFunnel(funnel){
+  if(!funnel)return false;
+  const users=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[]);
+  const owner=(users||[]).find(u=>
+    String(u.id||'')===String(funnel.createdBy||'')||String(u.supabaseId||'')===String(funnel.createdBy||'')
+  );
+  if(!owner)return false;
+  const role=resolveRole(owner.permissao||owner.cargo||'');
+  return role==='Gex Parceiro'||role==='Operador de Funil';
+}
+
 function getVisibleCommercialLeads(leads){
   leads=Array.isArray(leads)?leads:[];
   if(isSalesManagerView())return leads;
@@ -9177,12 +9198,15 @@ function renderRelatorioComercial(){
   const period=document.getElementById('rel-periodo')?.value||'todos';
   const funnelFilter=renderRelatorioFunnelOptions();
   let ops=getCommercialOpportunities();
-  // "Todos os funis" é o número GERAL da operação comercial interna — não
-  // pode somar o funil separado de um Gex Parceiro/Operador de Funil junto
-  // (mesma regra já aplicada na Início). Quando a pessoa escolhe o funil do
-  // parceiro explicitamente no filtro, aí sim os negócios dele aparecem
-  // normalmente — é uma consulta específica àquele funil.
-  if(funnelFilter==='todos') ops=excludePartnerFunnelLeads(ops);
+  // Números da operação comercial INTERNA não podem incluir negócios do
+  // funil separado de um Gex Parceiro/Operador de Funil — nem em "Todos os
+  // funis", nem quando o filtro está em outro funil da empresa (ex.: "Funil
+  // Comercial Principal"), porque um lead do parceiro sem funnelId gravado
+  // cai, por engano, dentro do funil padrão (ver filterOpportunitiesByReportFunnel).
+  // Só quando a pessoa escolhe de propósito o PRÓPRIO funil do parceiro no
+  // filtro é que os negócios dele aparecem normalmente.
+  const selectedReportFunnel=funnelFilter!=='todos'?getReportFunnels().find(f=>f.id===funnelFilter):null;
+  if(funnelFilter==='todos'||!isPartnerOwnedFunnel(selectedReportFunnel)) ops=excludePartnerFunnelLeads(ops);
   ops=filterOpportunitiesByReportFunnel(ops,funnelFilter);
 
   // O select de responsável é populado com todos os responsáveis do funil selecionado,
