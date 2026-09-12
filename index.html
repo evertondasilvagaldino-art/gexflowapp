@@ -14169,6 +14169,44 @@ if(supabaseClient){
   });
 }
 
+// Reforço de segurança: revalida periodicamente se o usuário logado NESTA
+// aba continua Ativo. O Realtime (startProfilesRealtime) já derruba a sessão
+// na hora quando funciona, mas ele depende de uma conexão de socket que pode
+// cair sem avisar (aba em segundo plano por muito tempo, rede instável,
+// etc.) — e enquanto isso, a aba continua com sessionUser em memória e
+// acesso total, mesmo que o usuário tenha sido desativado nesse meio tempo.
+// Este poll é o plano B: a cada 2 minutos, confirma direto no Supabase (uma
+// consulta bem leve, só a própria linha — já liberada por RLS) se o status
+// ainda é Ativo, e desloga na hora se não for.
+let gexStatusPollTimer=null;
+async function gexRevalidateOwnStatus(){
+  try{
+    if(!supabaseClient||!sessionUser?.id)return;
+    const {data,error}=await supabaseClient
+      .from('profiles')
+      .select('status')
+      .eq('id',sessionUser.id)
+      .maybeSingle();
+    if(error)return; // falha de rede/timeout: não desloga por dúvida, só tenta de novo no próximo ciclo
+    if(data&&!isProfileActive(data)){
+      console.warn('[GexFlow] Revalidação periódica: usuário foi desativado, encerrando sessão.');
+      toast('Seu acesso foi desativado.','#EF4444');
+      doLogout();
+    }
+  }catch(e){/* silencioso — só reforço, não deve travar a UI */}
+}
+function startGexStatusPoll(){
+  if(gexStatusPollTimer)return;
+  gexStatusPollTimer=setInterval(()=>{ if(sessionUser)gexRevalidateOwnStatus(); },120000);
+}
+startGexStatusPoll();
+// Também revalida assim que a aba volta a ficar visível (usuário trocou de
+// aba/minimizou e voltou) — cobre o caso de ter sido desativado durante
+// esse período sem esperar o próximo tick do intervalo.
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'&&sessionUser)gexRevalidateOwnStatus();
+});
+
 // Teste de conexão Supabase (background)
 GexSupabase.testConnection().then(ok=>{
   if(ok) console.log('[GexFlow] ✅ Supabase Auth ativo. Login real habilitado.');
