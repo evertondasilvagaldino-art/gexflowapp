@@ -14086,26 +14086,49 @@ async function checkSession(){
           console.log('[GexFlow] ✅ Sessão Supabase restaurada:',sessionUser.nome,'Fonte profile:',profile._profileSource||'profiles');
           return true;
         }
-        if(profile&&!isProfileActive(profile)) try{await supabaseClient.auth.signOut();}catch(e){}
+        if(profile&&!isProfileActive(profile)){
+          // BUG CORRIGIDO: antes, depois de detectar que o perfil está
+          // Inativo, o código fazia signOut() mas NÃO parava aqui — caía
+          // direto no "Fallback demo localStorage" logo abaixo, que confia
+          // cegamente no cache local (DB.get('usuarios')) sem consultar o
+          // servidor de novo. Esse cache só é atualizado quando o perfil
+          // vem ATIVO (ver setSupabaseSessionUser/upsertUsuarioCache) —
+          // então, no MESMO navegador onde o usuário já tinha logado antes
+          // de ser desativado, o registro salvo localmente ainda dizia
+          // "Ativo", e esse fallback deixava ele entrar mesmo assim.
+          // Agora: sincroniza o cache local com o status real (Inativo) —
+          // pra nenhum outro fallback confiar num "Ativo" desatualizado — e
+          // interrompe checkSession aqui, sem cair no fallback local.
+          try{upsertUsuarioCache(profile);}catch(e){}
+          try{await supabaseClient.auth.signOut();}catch(e){}
+          try{localStorage.removeItem('gx2_session');}catch(e){}
+          return false;
+        }
         if(perr) console.warn('[GexFlow] Não foi possível restaurar profile Supabase:',perr);
       }
     }catch(err){
       console.warn('[GexFlow] checkSession Supabase indisponível (timeout/CSP):',err.message);
     }
   }
-  // ── 2. Fallback demo localStorage ─────────────────────────────────────
-  const raw=localStorage.getItem('gx2_session');
-  if(raw){
-    try{
-      const s=JSON.parse(raw);
-      const user=DB.find('usuarios',s.id);
-      if(user&&user.status==='Ativo'){
-        sessionUser={...s,...user};
-        document.getElementById('login-screen').style.display='none';
-        applySession();
-        return true;
-      }
-    }catch(e){}
+  // ── 2. Fallback local (SOMENTE quando não há Supabase configurado, ex.:
+  // ambiente de preview/demo). Com Supabase disponível, nunca confiamos só
+  // no cache do navegador pra decidir se alguém pode entrar — isso é
+  // exatamente o que permitia um usuário desativado continuar acessando no
+  // mesmo navegador onde já tinha logado antes (ver bloco acima). ─────────
+  if(!supabaseClient){
+    const raw=localStorage.getItem('gx2_session');
+    if(raw){
+      try{
+        const s=JSON.parse(raw);
+        const user=DB.find('usuarios',s.id);
+        if(user&&user.status==='Ativo'){
+          sessionUser={...s,...user};
+          document.getElementById('login-screen').style.display='none';
+          applySession();
+          return true;
+        }
+      }catch(e){}
+    }
   }
   return false;
 }
