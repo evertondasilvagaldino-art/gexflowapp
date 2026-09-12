@@ -4118,14 +4118,16 @@ function getRolePermissionValue(role,module,action){
   return false;
 }
 
-// Central permission gate
-function can(module, action){
-  if(!sessionUser)return false;
+// Mesma lógica de can(), mas pra QUALQUER usuário (não só sessionUser) — usada
+// quando é preciso checar a permissão de outra pessoa, como o dono de um
+// funil, sem precisar estar logado como ela.
+function userCanAccess(user,module,action){
+  if(!user)return false;
 
-  const role=resolveRole(sessionUser.permissao||sessionUser.cargo||'Colaborador');
+  const role=resolveRole(user.permissao||user.cargo||'Colaborador');
   if(role==='Fundador')return true;
 
-  const overrides=_permOverridesForUser(sessionUser);
+  const overrides=_permOverridesForUser(user);
 
   // Permissão direta da aba/módulo.
   const directOverride=hasPermissionOverride(overrides,module,action);
@@ -4152,6 +4154,12 @@ function can(module, action){
   }
 
   return getRolePermissionValue(role,module,action);
+}
+
+// Central permission gate
+function can(module, action){
+  if(!sessionUser)return false;
+  return userCanAccess(sessionUser,module,action);
 }
 // Build nav — mostra somente setores/abas liberados para o usuário.
 function applyNavPermissions(){
@@ -12137,19 +12145,48 @@ function isUserActiveById(userId,userEmail){
 // continuam vendo todos os funis de usuários ATIVOS — funis de quem foi
 // marcado como Inativo somem das listas do dia a dia (o funil em si não é
 // apagado, só deixa de poluir o seletor; reativando o usuário ele volta).
+// Acha o cadastro (aba Usuários) do dono de um funil, por id/supabaseId ou,
+// como reforço, por e-mail — mesmo esquema de isUserActiveById.
+function _findUserRecordForFunnelOwner(ownerId,ownerEmail){
+  try{
+    const id=String(ownerId||'');
+    const email=normalizeLoginEmail(ownerEmail||'');
+    if(!id&&!email)return null;
+    const users=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[]);
+    return users.find(x=>
+      (id&&(String(x.id)===id||String(x.supabaseId||'')===id)) ||
+      (email&&normalizeLoginEmail(x.email||'')===email)
+    )||null;
+  }catch(e){return null}
+}
+
+// Um funil pessoal só deve continuar aparecendo pro Fundador/Adm Gerente se
+// o dono ainda tiver ACESSO AO SETOR COMERCIAL hoje — se alguém teve esse
+// acesso removido (ex.: mudou de função, virou só RH/CS), o funil pessoal
+// que ele acumulou antes não deve continuar poluindo a lista, mesmo que a
+// conta em si continue Ativa. Cadastro não encontrado = não dá pra confirmar
+// a permissão -> não esconde por segurança (mesma lógica de isUserActiveById).
+function funnelOwnerHasCommercialAccess(ownerId,ownerEmail){
+  const u=_findUserRecordForFunnelOwner(ownerId,ownerEmail);
+  if(!u)return true;
+  return typeof userCanAccess==='function' ? userCanAccess(u,'comercial','view') : true;
+}
+
 function getVisibleCommercialFunnels(funnels){
   const list=Array.isArray(funnels)?funnels:getCommercialFunnels();
   try{
     if(typeof isSalesManagerView==='function'&&isSalesManagerView()){
       // Fundador/Adm Gerente vê o funil padrão da empresa (esse não tem
       // "dono" pessoal, é o modelo compartilhado) mais os funis pessoais de
-      // usuários ATIVOS. Um funil pessoal SEM createdBy (órfão — sequela do
-      // bug antigo em _normalizeFunnel que apagava esse campo) antes
-      // aparecia sempre, mesmo sem dar pra confirmar se o dono ainda está
-      // ativo; isso empilhava cópias soltas no seletor. Agora, sem dono
-      // identificável, ele não aparece mais no dia a dia (nada é apagado —
-      // continua recuperável em Arquivados/pelo banco).
-      return list.filter(f=>f.isDefault||(f.createdBy&&isUserActiveById(f.createdBy,f.createdByEmail)));
+      // usuários ATIVOS e que ainda têm acesso ao setor Comercial hoje. Um
+      // funil pessoal SEM createdBy (órfão — sequela do bug antigo em
+      // _normalizeFunnel que apagava esse campo) antes aparecia sempre,
+      // mesmo sem dar pra confirmar se o dono ainda está ativo; isso
+      // empilhava cópias soltas no seletor. Agora, sem dono identificável,
+      // ou com o dono sem acesso ao Comercial, ele não aparece mais no dia
+      // a dia (nada é apagado — continua recuperável em Arquivados/pelo
+      // banco).
+      return list.filter(f=>f.isDefault||(f.createdBy&&isUserActiveById(f.createdBy,f.createdByEmail)&&funnelOwnerHasCommercialAccess(f.createdBy,f.createdByEmail)));
     }
   }catch(e){return list}
   // "Operador de Funil" não é dono de nenhum funil — só pode ver o ÚNICO
