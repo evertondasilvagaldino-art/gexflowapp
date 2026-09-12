@@ -12181,6 +12181,15 @@ function ensurePersonalCommercialFunnel(funnels){
     // "Operador de Funil" nunca ganha (nem adota) um funil próprio — ele
     // só trabalha o funil ao qual o parceiro que o criou já designou.
     if(resolveRole(sessionUser?.permissao||sessionUser?.cargo)==='Operador de Funil')return list;
+    // Só cria/adota um funil pessoal pra quem realmente tem acesso ao setor
+    // Comercial (Tarefas do Dia, Pipeline, Relatório ou Equipe Comercial) —
+    // usuário novo ou antigo sem nenhuma dessas permissões (ex.: CS/
+    // Atendimento, Colaborador sem Comercial liberado) nunca deve ganhar um
+    // "Funil de <nome>" à toa, mesmo que alguma tela chame essa função em
+    // segundo plano. can('comercial','view') já cobre os dois modelos de
+    // permissão usados no sistema (o setor "comercial" clássico e as abas
+    // "comercial_*" do papel Gex Parceiro), incluindo overrides por usuário.
+    if(typeof can==='function' && !can('comercial','view'))return list;
     const myId=String((typeof sessionUser!=='undefined'&&sessionUser?.id)||'');
     if(!myId)return list;
     const hasOwn=list.some(f=>!f.isArchived&&String(f.createdBy||'')===myId);
