@@ -9108,6 +9108,12 @@ function renderRelatorioComercial(){
   const period=document.getElementById('rel-periodo')?.value||'todos';
   const funnelFilter=renderRelatorioFunnelOptions();
   let ops=getCommercialOpportunities();
+  // "Todos os funis" é o número GERAL da operação comercial interna — não
+  // pode somar o funil separado de um Gex Parceiro/Operador de Funil junto
+  // (mesma regra já aplicada na Início). Quando a pessoa escolhe o funil do
+  // parceiro explicitamente no filtro, aí sim os negócios dele aparecem
+  // normalmente — é uma consulta específica àquele funil.
+  if(funnelFilter==='todos') ops=excludePartnerFunnelLeads(ops);
   ops=filterOpportunitiesByReportFunnel(ops,funnelFilter);
 
   // O select de responsável é populado com todos os responsáveis do funil selecionado,
