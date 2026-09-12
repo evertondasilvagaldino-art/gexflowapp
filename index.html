@@ -7869,7 +7869,26 @@ function sameSalesUser(a,b){
 function getVisibleSalesUsers(){
   const team=getCommercialTeamUsers();
   if(isSalesManagerView())return team;
-  return team.filter(u=>sameSalesUser(u,sessionUser));
+  const mine=team.filter(u=>sameSalesUser(u,sessionUser));
+  // Um Gex Parceiro precisa poder enxergar/atribuir leads aos PRÓPRIOS
+  // sub-usuários (Operador de Funil, criados por ele em "Minha Equipe") —
+  // eles trabalham dentro do funil do próprio parceiro. getCommercialTeamUsers()
+  // exclui de propósito o papel Operador de Funil (ele não é "vendedor" pra
+  // efeito de ranking/Performance Comercial da empresa), então sem isso aqui
+  // o parceiro só via a si mesmo como responsável possível, nunca sua equipe.
+  if(sessionUser&&resolveRole(sessionUser.permissao||sessionUser.cargo||'')==='Gex Parceiro'){
+    const myId=String(sessionUser.id||sessionUser.supabaseId||'');
+    const source=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[]);
+    (source||[]).forEach(u=>{
+      if(String(u.status||'Ativo').toLowerCase()==='inativo')return;
+      if(resolveRole(u.permissao||u.cargo||'')!=='Operador de Funil')return;
+      const parentId=String(u.parentPartnerId||u.parent_partner_id||'');
+      if(!parentId||parentId!==myId)return;
+      if(mine.some(x=>sameSalesUser(x,u)))return;
+      mine.push(u);
+    });
+  }
+  return mine;
 }
 
 function getLeadOwnerId(lead){
@@ -7960,15 +7979,29 @@ function getVisibleCommercialLeads(leads){
   leads=Array.isArray(leads)?leads:[];
   if(isSalesManagerView())return leads;
   if(!sessionUser)return [];
+  const _role=resolveRole(sessionUser.permissao||sessionUser.cargo);
   // "Operador de Funil" (sub-usuário criado por um Gex Parceiro em "Minha
   // Equipe") não é dono de lead nenhum — ele enxerga pelo FUNIL a que foi
   // designado, não por quem criou o lead. Sem isso, cairia no filtro de
   // dono normal (isLeadOwnedByUser) e não veria nada, já que os leads são
   // do parceiro, não dele.
-  if(resolveRole(sessionUser.permissao||sessionUser.cargo)==='Operador de Funil'){
+  if(_role==='Operador de Funil'){
     const fid=String(sessionUser.assignedFunnelId||'');
     if(!fid)return [];
     return leads.filter(l=>String(l.funnelId||'')===fid);
+  }
+  // Gex Parceiro precisa enxergar TODO o próprio funil, inclusive leads que
+  // já estão atribuídos a um sub-usuário dele (Operador de Funil) — não só
+  // os leads cujo responsável é ele mesmo. Sem isso, um lead assumido por um
+  // sub-usuário sumia do Pipeline do parceiro que criou o funil.
+  if(_role==='Gex Parceiro'){
+    const myId=String(sessionUser.id||sessionUser.supabaseId||'');
+    const myFunnelIds=new Set(
+      (typeof getCommercialFunnels==='function'?getCommercialFunnels():[])
+        .filter(f=>f&&String(f.createdBy||'')===myId)
+        .map(f=>f.id)
+    );
+    return leads.filter(l=>isLeadOwnedByUser(l,sessionUser)||(l.funnelId&&myFunnelIds.has(l.funnelId)));
   }
   return leads.filter(l=>isLeadOwnedByUser(l,sessionUser));
 }
