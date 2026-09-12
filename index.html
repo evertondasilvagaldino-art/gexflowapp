@@ -8152,7 +8152,14 @@ function openCommercialOwnerReport(filterValue){
 }
 
 function renderLeadOwnerSelect(d={}){
-  let users=getCommercialTeamUsers();
+  // Só quem tem visão gerencial pode escolher entre toda a equipe comercial
+  // (getCommercialTeamUsers() é company-wide, sem filtro). Quem não tem
+  // (ex.: Gex Parceiro) precisa ver só a si mesmo — o <select> abaixo fica
+  // "disabled" pra ele mesmo assim, mas as <option> continuam presentes no
+  // HTML e são visíveis por Inspecionar Elemento; sem esse filtro, um
+  // parceiro conseguiria ver nomes de responsáveis/leads de outros
+  // parceiros ali dentro.
+  let users=isSalesManagerView()?getCommercialTeamUsers():getVisibleSalesUsers();
   const manager=isSalesManagerView();
   const fallbackId=(isUuidLike(sessionUser?.supabaseId)&&sessionUser.supabaseId)||(isUuidLike(sessionUser?.id)&&sessionUser.id)||sessionUser?.supabaseId||sessionUser?.id||'';
 
@@ -13682,7 +13689,11 @@ function completeCommercialTaskModal(){
 function openQuickTaskModal(forceDealId){
   const dealId=forceDealId||currentDealId||'';
   const l=dealId?DB.find('leads',dealId)||{}:{};
-  const leads=DB.get('leads')||[];
+  // Filtra pelas oportunidades que a pessoa pode ver — sem isso, o seletor
+  // "Oportunidade vinculada" abaixo listava TODOS os leads da empresa,
+  // inclusive de outros Gex Parceiro, mesmo pra quem só deveria enxergar
+  // os próprios (getVisibleCommercialLeads já cobre isso).
+  const leads=(typeof getVisibleCommercialLeads==='function')?getVisibleCommercialLeads(DB.get('leads')||[]):(DB.get('leads')||[]);
   const members=(DB.get('membros')||[]).map(m=>m.nome).filter(Boolean);
   const respOptions=isFounderTaskAdmin()
     ? [sessionUser?.nome||'Everton Galdino',...members.filter(m=>m!==(sessionUser?.nome||'Everton Galdino'))]
@@ -17907,7 +17918,11 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   function leadgenConfigHtml(){
     const s=getLeadgenSettings();
     const webhookUrl=`${SUPABASE_URL}/functions/v1/meta-leadgen-webhook`;
-    const allFunnels=(typeof getCommercialFunnels==='function'?getCommercialFunnels():[]).filter(f=>!f.isArchived);
+    // Sem getVisibleCommercialFunnels aqui, o seletor "Funil de destino"
+    // abaixo listava TODOS os funis da empresa — inclusive de outros Gex
+    // Parceiro, que também tem acesso a essa tela de Integrações.
+    const allFunnelsRaw=(typeof getCommercialFunnels==='function'?getCommercialFunnels():[]).filter(f=>!f.isArchived);
+    const allFunnels=(typeof getVisibleCommercialFunnels==='function')?getVisibleCommercialFunnels(allFunnelsRaw):allFunnelsRaw;
     const activeFunnel=typeof getActiveFunnel==='function'?getActiveFunnel():null;
     const selectedFunnelId=s.funnelId&&allFunnels.some(f=>String(f.id)===String(s.funnelId))?s.funnelId:(activeFunnel?.id||(allFunnels[0]&&allFunnels[0].id)||'');
     const ss=stagesForFunnel(selectedFunnelId);
