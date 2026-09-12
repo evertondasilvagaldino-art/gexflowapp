@@ -2011,14 +2011,9 @@ textarea.form-input{resize:vertical;min-height:75px}
         <div class="grid-2" style="margin-top:14px;gap:10px" id="pipe-stats-mini"></div>
       </div>
     </div>
-    <div class="grid-2">
-      <div class="card"><div class="sec-hdr"><div class="sec-ico" style="font-size:13px">
-        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" style="color:var(--p2)"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"/></svg>
-      </div><div><div class="sec-title">Tarefas pendentes</div><div class="sec-sub" id="tasks-count">0 pendentes</div></div></div><div id="tasks-list"></div></div>
-      <div class="card"><div class="sec-hdr"><div class="sec-ico" style="font-size:13px">
-        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" style="color:var(--p2)"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/></svg>
-      </div><div><div class="sec-title">Equipe ativa</div><div class="sec-sub" id="squad-count">0 membros</div></div></div><div id="squad-list"></div></div>
-    </div>
+    <div class="card"><div class="sec-hdr"><div class="sec-ico" style="font-size:13px">
+      <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" style="color:var(--p2)"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/></svg>
+    </div><div><div class="sec-title">Equipe ativa</div><div class="sec-sub" id="squad-count">0 membros</div></div></div><div id="squad-list"></div></div>
   </div>
 
   <!-- CLIENTES -->
@@ -7581,8 +7576,6 @@ function renderInicio(){
   const despesa=txs.filter(t=>t.tipo==='Despesa').reduce((a,t)=>a+t.valor,0);
   const lucro=receita-despesa;
   const avgH=cls.length?Math.round(cls.reduce((a,c)=>a+(c.health||0),0)/cls.length):0;
-  const atrasados=pros.filter(p=>p.prazo&&p.status!=='Postado'&&new Date(p.prazo)<new Date());
-  const tarefasPend=pros.filter(p=>p.status!=='Postado');
   const churnRisk=cls.filter(c=>c.status==='Ativo'&&(c.health||0)<50);
   const pipelineTotal=leadsPeriod.reduce((a,l)=>a+(parseFloat(l.valor)||0),0);
   // Valor exibido no card da aba Início: somente negócios efetivamente ganhos
@@ -7707,13 +7700,6 @@ function renderInicio(){
     if(pipeSection)pipeSection.style.display='none';
     if(!can('financas','view')&&chartsGrid)chartsGrid.style.display='none';
   }
-
-  // Tasks list
-  const open=tarefasPend.slice(0,5);
-  document.getElementById('tasks-count').textContent=open.length+' pendentes';
-  document.getElementById('tasks-list').innerHTML=open.length
-    ?`<div style="padding:0 16px 12px">${open.map(p=>`<div style="padding:9px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;cursor:pointer" onclick="navigateSub('entregas','projetos')"><div style="flex:1"><div style="font-size:12px;font-weight:600">${p.nome}</div><div style="font-size:11px;color:var(--muted)">${p.cliente||'—'} · ${p.prazo||'Sem prazo'}</div></div>${badge(p.status)}</div>`).join('')}</div>`
-    :`<div class="empty"><div style="font-size:24px;margin-bottom:6px">✓</div><div class="empty-txt">Tudo em dia!</div></div>`;
 
   // Team list
   const ativs=mbs.filter(m=>m.status==='Ativo');
@@ -8163,8 +8149,17 @@ function getVisibleSalesUsersForMetrics(leads){
       // Gex Parceiro (e o sub-usuário "Operador de Funil" que ele cria em
       // Minha Equipe) roda o próprio funil à parte — não é vendedor interno
       // da empresa, então não deve entrar no ranking "Performance por
-      // Vendedor" nem na Início, mesmo aparecendo como dono de leads.
-      const ownerUser=allUsers.find(u=>String(u.id)===String(id)||String(u.supabaseId||'')===String(id));
+      // Vendedor" nem na Início, mesmo aparecendo como dono de leads. Casa
+      // por id/supabaseId, e-mail OU nome normalizado — o lead às vezes só
+      // tem o nome gravado (responsavelId em branco), então casar só por id
+      // deixava passar batido exatamente esse caso.
+      const ownerEmail=getLeadOwnerEmail(l);
+      const ownerNameNorm=normalizeSalesName(nome);
+      const ownerUser=allUsers.find(u=>
+        (id&&(String(u.id)===String(id)||String(u.supabaseId||'')===String(id))) ||
+        (ownerEmail&&normalizeLoginEmail(u.email||'')===ownerEmail) ||
+        (ownerNameNorm&&normalizeSalesName(u.nome||u.name||'')===ownerNameNorm)
+      );
       if(ownerUser){
         const ownerRole=resolveRole(ownerUser.permissao||ownerUser.cargo||'');
         if(ownerRole==='Gex Parceiro'||ownerRole==='Operador de Funil')return;
