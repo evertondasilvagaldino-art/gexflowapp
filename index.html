@@ -9646,6 +9646,25 @@ function removeUserAvatar(){
 
 function renderPerfil(){
   if(!sessionUser)return;
+  // Evita apagar o que a pessoa está digitando: renderPerfil() é chamado com
+  // frequência em segundo plano (sync de qualquer coleção na nuvem, realtime
+  // do próprio perfil, etc.) e faz um innerHTML completo de #perfil-content.
+  // Se isso acontecer enquanto o foco está num campo de texto dentro da
+  // página de Perfil (ex.: os campos de "Minha Equipe", ou os campos do
+  // próprio perfil), o valor digitado até ali é perdido/duplicado. Como a
+  // atualização é só para refletir dados novos, é seguro simplesmente pular
+  // esse re-render enquanto a pessoa está com foco ativo num input/textarea
+  // dentro da página — assim que ela sair do campo (blur/tab/clique fora),
+  // o próximo re-render (ou a ação que ela mesma disparar) já traz os dados
+  // atualizados normalmente.
+  try{
+    const activeEl=document.activeElement;
+    const perfilContentEl=document.getElementById('perfil-content');
+    if(activeEl && perfilContentEl && perfilContentEl.contains(activeEl) &&
+       (activeEl.tagName==='INPUT' || activeEl.tagName==='TEXTAREA' || activeEl.isContentEditable)){
+      return;
+    }
+  }catch(e){}
   sessionUser=mergeLocalUserProfile(sessionUser)||sessionUser;
   pendingUserAvatarData=null;
   const role=resolveRole(sessionUser.permissao||sessionUser.cargo||'Colaborador');
