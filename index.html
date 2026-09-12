@@ -7794,6 +7794,18 @@ function getCommercialTeamUsers(){
 
   // Responsáveis já usados nos leads precisam continuar aparecendo mesmo que o usuário tenha sido atualizado
   // de Local/Cache para Supabase Auth, evitando sumir filtros antigos.
+  //
+  // IMPORTANTE: antes de inventar um usuário "genérico" (cargo Colaborador)
+  // pra um responsável de lead que não está na lista já filtrada, primeiro
+  // verifica se esse responsável já é um perfil REAL e conhecido (em
+  // `source`, antes do filtro de isCommercialSellerUser). Se for — por
+  // exemplo um Gex Parceiro ou Operador de Funil, que foi excluído de
+  // propósito por não ser vendedor comercial — NUNCA deve ser readicionado
+  // aqui como se fosse um "Colaborador" qualquer. Sem essa checagem, um
+  // Gex Parceiro dono de lead reaparecia sempre no ranking/Performance
+  // Comercial com o cargo errado, mesmo depois de qualquer filtro por
+  // papel em outra função — porque a entrada sintética nunca tinha o
+  // cargo real dele.
   (DB.get('leads')||[]).forEach(l=>{
     const oid=getLeadOwnerId(l);
     const email=getLeadOwnerEmail(l);
@@ -7804,7 +7816,17 @@ function getCommercialTeamUsers(){
       (email&&normalizeLoginEmail(u.email||'')===email) ||
       (nome&&normalizeSalesName(u.nome||u.name||'')===normalizeSalesName(nome))
     );
-    if(!exists){
+    if(exists)return;
+    const realProfile=(source||[]).find(u=>
+      (oid&&(String(u.id||'')===String(oid)||String(u.supabaseId||'')===String(oid))) ||
+      (email&&normalizeLoginEmail(u.email||'')===email) ||
+      (nome&&normalizeSalesName(u.nome||u.name||'')===normalizeSalesName(nome))
+    );
+    // Perfil real encontrado mas não é vendedor comercial (Gex Parceiro,
+    // Operador de Funil, Fundador, inativo etc.) — foi excluído de
+    // propósito, não reinventa como "Colaborador".
+    if(realProfile&&!isCommercialSellerUser(realProfile))return;
+    if(!realProfile){
       users.push({
         id:oid||email||('owner_'+normalizeSalesName(nome).replace(/\s+/g,'_')),
         supabaseId:isUuidLike(oid)?oid:'',
