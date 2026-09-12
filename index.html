@@ -7885,6 +7885,15 @@ function getVisibleSalesUsers(){
   const team=getCommercialTeamUsers();
   if(isSalesManagerView())return team;
   const mine=team.filter(u=>sameSalesUser(u,sessionUser));
+  // getCommercialTeamUsers() exclui de propósito papéis como Gex Parceiro
+  // (não é "vendedor" pra efeito de ranking da empresa) — então pra esses
+  // papéis `mine` sai vazio aqui, mesmo a pessoa logada sendo ela mesma um
+  // responsável válido dentro do próprio funil. Garante que o próprio
+  // sessionUser sempre apareça na lista dele mesmo, senão nem ele mesmo
+  // sobra como opção de responsável.
+  if(sessionUser&&!mine.some(u=>sameSalesUser(u,sessionUser))){
+    mine.unshift({...sessionUser});
+  }
   // Um Gex Parceiro precisa poder enxergar/atribuir leads aos PRÓPRIOS
   // sub-usuários (Operador de Funil, criados por ele em "Minha Equipe") —
   // eles trabalham dentro do funil do próprio parceiro. getCommercialTeamUsers()
@@ -9974,9 +9983,28 @@ async function carregarMinhaEquipe(){
       box.innerHTML='<div class="empty-txt" style="font-size:12px">Você ainda não criou ninguém na sua equipe.</div>';
       return;
     }
-    const funis=getVisibleCommercialFunnels(getCommercialFunnels());
+    // Busca o nome do funil DIRETO no Supabase em vez de confiar só no cache
+    // local (getCommercialFunnels()/DB.get) — "Minha Equipe" fica dentro de
+    // Perfil, que pode renderizar antes da sincronização do Comercial
+    // terminar; nesse caso o cache local ainda está vazio e o nome do funil
+    // aparecia sempre como "—", mesmo o sub-usuário estando corretamente
+    // vinculado a um funil real.
+    const funnelIds=[...new Set(data.map(u=>u.assigned_funnel_id).filter(Boolean))];
+    const funnelNameById={};
+    if(funnelIds.length){
+      try{
+        const {data:funRows}=await supabaseClient
+          .from('gex_records')
+          .select('record_id, data')
+          .eq('workspace_id', GEX_WORKSPACE_ID)
+          .eq('collection','commercial_funnels')
+          .in('record_id', funnelIds);
+        (funRows||[]).forEach(r=>{funnelNameById[r.record_id]=(r.data&&r.data.name)||'';});
+      }catch(e){/* segue com o fallback do cache local abaixo */}
+    }
+    const funisLocais=getVisibleCommercialFunnels(getCommercialFunnels());
     box.innerHTML=data.map(u=>{
-      const funilNome=funis.find(f=>f.id===u.assigned_funnel_id)?.name||'—';
+      const funilNome=funnelNameById[u.assigned_funnel_id]||funisLocais.find(f=>f.id===u.assigned_funnel_id)?.name||(u.assigned_funnel_id?'Funil próprio':'—');
       const ativo=String(u.status||'Ativo')!=='Inativo';
       return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
         <div>
