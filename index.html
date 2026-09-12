@@ -3334,6 +3334,36 @@ async function syncUsuariosFromSupabase(opts={}){
   }
 }
 
+// A tabela profiles tem RLS que só deixa cada usuário ler o PRÓPRIO
+// registro (ver comentário acima, em syncUsuariosFromSupabase) — por isso,
+// pra um Gex Parceiro (que não tem acesso à Edge Function users-list,
+// service-role-only), o cache local "usuarios" nunca trazia os
+// sub-usuários (Operador de Funil) que ele mesmo criou em "Minha Equipe":
+// eles simplesmente não vinham na sincronização geral. A tela "Minha
+// Equipe" já contorna isso com uma consulta direta filtrando
+// parent_partner_id = próprio id (permitida por uma policy específica de
+// RLS) — usamos a MESMA consulta aqui pra alimentar o cache geral, pra que
+// getCommercialTeamUsers()/getVisibleSalesUsers() também enxerguem esses
+// sub-usuários (ex.: no seletor de Responsável do Pipeline/Relatório).
+async function refreshMyPartnerSubUsers(){
+  try{
+    if(!supabaseClient||!sessionUser?.id)return [];
+    const role=(typeof resolveRole==='function')?resolveRole(sessionUser.permissao||sessionUser.cargo||''):sessionUser.permissao;
+    if(role!=='Gex Parceiro')return [];
+    const {data,error}=await supabaseClient
+      .from('profiles')
+      .select('id,nome,email,cargo,permissao,status,parent_partner_id,assigned_funnel_id,created_at')
+      .eq('parent_partner_id',sessionUser.id);
+    if(error||!Array.isArray(data)||!data.length)return [];
+    const normalized=data.map(p=>normalizeSupabaseProfile(p,null));
+    mergeUsuariosCache(normalized);
+    return normalized;
+  }catch(e){
+    console.warn('[GexFlow] refreshMyPartnerSubUsers:',e);
+    return [];
+  }
+}
+
 function buildUserPayloadForSupabase(obj,senha){
   return {
     name:obj.nome,
@@ -10066,6 +10096,7 @@ async function criarSubUsuarioParceiro(){
     document.getElementById('me-email').value='';
     document.getElementById('me-senha').value='';
     carregarMinhaEquipe();
+    refreshMyPartnerSubUsers();
   }catch(err){
     toast(err.message||'Erro ao criar acesso','#EF4444');
   }finally{
@@ -10087,6 +10118,7 @@ async function alternarStatusSubUsuario(subUserId,estaAtivo){
     if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível atualizar.');
     toast(novoStatus==='Ativo'?'Reativado ✓':'Desativado ✓','#10B981');
     carregarMinhaEquipe();
+    refreshMyPartnerSubUsers();
   }catch(err){
     toast(err.message||'Erro ao atualizar status','#EF4444');
   }
@@ -14435,6 +14467,15 @@ function _onLoginSuccess(btn){
   applySession();
   startProfilesRealtime();
   refreshUsersFromSupabaseFast();
+  // Só relevante pra Gex Parceiro (a própria função já checa o papel) —
+  // sem isso, os sub-usuários dele (Operador de Funil) nunca apareciam no
+  // seletor de Responsável do Pipeline/Relatório, porque o RLS de profiles
+  // não deixa a sincronização geral trazer registros de outra pessoa.
+  refreshMyPartnerSubUsers().then(rows=>{
+    if(rows&&rows.length&&typeof currentPage!=='undefined'&&currentPage==='comercial'&&typeof renderComercial==='function'){
+      renderComercial();
+    }
+  });
   renderInicio();
   resetSidebarToHomeState();
   document.querySelector('[data-page="inicio"]')?.classList.add('active');
@@ -14836,6 +14877,11 @@ async function checkSession(){
           applySession();
           startProfilesRealtime();
           refreshUsersFromSupabaseFast();
+          refreshMyPartnerSubUsers?.().then(rows=>{
+            if(rows&&rows.length&&typeof currentPage!=='undefined'&&currentPage==='comercial'&&typeof renderComercial==='function'){
+              renderComercial();
+            }
+          });
           initGexCloudDataSync?.();
           console.log('[GexFlow] ✅ Sessão Supabase restaurada:',sessionUser.nome,'Fonte profile:',profile._profileSource||'profiles');
           return true;
