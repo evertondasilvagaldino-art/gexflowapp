@@ -7760,6 +7760,21 @@ function isSalesManagerView(){
   return ['Fundador','Adm Gerente'].includes(role);
 }
 
+// Além de Fundador/Adm Gerente (isSalesManagerView), um Gex Parceiro que já
+// tem sub-usuários (Operador de Funil criados em "Minha Equipe") também
+// precisa de uma visão "de equipe" dentro do PRÓPRIO funil: escolher a quem
+// atribuir um lead, filtrar o Pipeline/Relatório por responsável etc. Sem
+// isso, mesmo depois de esses sub-usuários existirem, o parceiro só via a si
+// mesmo em tudo — o seletor de responsável ficava travado nele e os filtros
+// de "Responsável" nem apareciam.
+function hasTeamOwnerView(){
+  if(typeof isSalesManagerView==='function'&&isSalesManagerView())return true;
+  const role=resolveRole(sessionUser?.permissao||sessionUser?.cargo||'');
+  if(role!=='Gex Parceiro')return false;
+  const team=(typeof getVisibleSalesUsers==='function')?getVisibleSalesUsers():[];
+  return team.length>1;
+}
+
 function normalizeSalesName(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
 
 function roleHasCommercialAccess(role){
@@ -8326,21 +8341,25 @@ function renderLeadOwnerSelect(d={}){
   // parceiros ali dentro.
   let users=isSalesManagerView()?getCommercialTeamUsers():getVisibleSalesUsers();
   const manager=isSalesManagerView();
+  // Um Gex Parceiro com sub-usuários (Operador de Funil) também pode
+  // escolher entre eles e ele mesmo — não é "visão gerencial" da empresa
+  // inteira, mas dentro do próprio funil ele é quem distribui os leads.
+  const canAssignTeam=hasTeamOwnerView();
   const fallbackId=(isUuidLike(sessionUser?.supabaseId)&&sessionUser.supabaseId)||(isUuidLike(sessionUser?.id)&&sessionUser.id)||sessionUser?.supabaseId||sessionUser?.id||'';
 
   const savedPipeFilter=getSavedOwnerFilter('pipe-responsavel-filter');
-  const filterUser=manager?getUserFromOwnerFilterValue(savedPipeFilter):null;
+  const filterUser=canAssignTeam?getUserFromOwnerFilterValue(savedPipeFilter):null;
 
   let selected=String(
     d?.responsavelId||d?.ownerId||d?.vendedorId||d?.assignedToId||
     filterUser?.supabaseId||filterUser?.id||
-    (!manager?fallbackId:'')||
+    (!canAssignTeam?fallbackId:'')||
     ''
   );
-  const selectedEmail=normalizeLoginEmail(d?.responsavelEmail||d?.ownerEmail||d?.vendedorEmail||filterUser?.email||(!manager?sessionUser?.email:'')||'');
-  const selectedName=normalizeSalesName(d?.responsavelNome||d?.ownerName||d?.vendedorNome||filterUser?.nome||(!manager?sessionUser?.nome:'')||'');
+  const selectedEmail=normalizeLoginEmail(d?.responsavelEmail||d?.ownerEmail||d?.vendedorEmail||filterUser?.email||(!canAssignTeam?sessionUser?.email:'')||'');
+  const selectedName=normalizeSalesName(d?.responsavelNome||d?.ownerName||d?.vendedorNome||filterUser?.nome||(!canAssignTeam?sessionUser?.nome:'')||'');
 
-  if(manager&&!selected&&!selectedEmail&&users.length){
+  if(canAssignTeam&&!selected&&!selectedEmail&&users.length){
     // Em criação sem filtro, deixa selecionado o primeiro responsável comercial real.
     selected=String(users[0].supabaseId||users[0].id||'');
   }
@@ -8370,24 +8389,32 @@ function renderLeadOwnerSelect(d={}){
     return `<option value="${escAttr(uidv)}" data-email="${escAttr(uemail)}" ${isSel?'selected':''}>${escHtml(u.nome||u.email||'Usuário')} · ${escHtml(resolveRole(u.permissao||u.cargo||'Colaborador'))}</option>`;
   }).join('');
 
-  const disabled=!manager?'disabled title="Vendedores só podem atribuir leads a si mesmos"':'';
+  const disabled=canAssignTeam?'':'disabled title="Vendedores só podem atribuir leads a si mesmos"';
+  const helperTxt=manager
+    ?'Fundador/Gerente pode atribuir leads para qualquer responsável comercial.'
+    :(canAssignTeam?'Você pode atribuir este lead a você ou a um sub-usuário da sua equipe.':'Este lead ficará vinculado ao seu usuário.');
+  const perfTxt=manager?'Entra no ranking da equipe':(canAssignTeam?'Entra na performance da sua equipe':'Entra na sua performance individual');
   return `<div class="form-row">
     <div class="form-group">
       <label class="form-label">Responsável / Vendedor</label>
       <select class="form-input" id="f-responsavel" ${disabled}>
         ${opts||`<option value="${escAttr(fallbackId)}" data-email="${escAttr(sessionUser?.email||'')}">${escHtml(sessionUser?.nome||'Usuário atual')}</option>`}
       </select>
-      <div style="font-size:11px;color:var(--muted);margin-top:5px">${manager?'Fundador/Gerente pode atribuir leads para qualquer responsável comercial.':'Este lead ficará vinculado ao seu usuário.'}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">${helperTxt}</div>
     </div>
     <div class="form-group">
       <label class="form-label">Visão da performance</label>
-      <input class="form-input" value="${manager?'Entra no ranking da equipe':'Entra na sua performance individual'}" disabled>
+      <input class="form-input" value="${perfTxt}" disabled>
     </div>
   </div>`;
 }
 
 function resolveLeadOwnerFromForm(oldLead=null){
-  const users=getCommercialTeamUsers();
+  // Mesma fonte usada em renderLeadOwnerSelect: pra um Gex Parceiro com
+  // sub-usuários, precisa incluir eles aqui também — senão o valor
+  // escolhido no <select> (id de um sub-usuário) nunca é encontrado e o
+  // lead acaba sempre voltando pro próprio parceiro.
+  const users=isSalesManagerView()?getCommercialTeamUsers():getVisibleSalesUsers();
   const fallback={
     id:(isUuidLike(sessionUser?.supabaseId)&&sessionUser.supabaseId)||(isUuidLike(sessionUser?.id)&&sessionUser.id)||sessionUser?.supabaseId||sessionUser?.id||'',
     nome:sessionUser?.nome||sessionUser?.email||'Usuário',
@@ -8398,7 +8425,7 @@ function resolveLeadOwnerFromForm(oldLead=null){
   let ownerId=sel?.value||'';
   let ownerEmail=sel?.selectedOptions?.[0]?.dataset?.email||'';
 
-  if(!ownerId&&!ownerEmail&&!isSalesManagerView()){
+  if(!ownerId&&!ownerEmail&&!hasTeamOwnerView()){
     ownerId=fallback.id;
     ownerEmail=fallback.email;
   }
@@ -9157,11 +9184,11 @@ function renderRelatorioComercial(){
   ops=filterOpportunitiesByPeriod(ops,period);
 
   // Popular e aplicar filtro de responsável/vendedor com suporte a ID, nome e leads antigos.
-  // Igual ao Pipeline: pra quem não tem visão gerencial (Fundador/Adm Gerente)
-  // esse filtro nunca teria mais de uma opção (ele mesmo, já que ops já vem
-  // filtrado pelos próprios leads em getCommercialOpportunities), então o
-  // seletor fica escondido em vez de mostrado sem utilidade.
-  const showOwnerFilterRel=(typeof isSalesManagerView!=='function')||isSalesManagerView();
+  // Igual ao Pipeline: pra quem não tem visão de equipe (Fundador/Adm Gerente,
+  // ou um Gex Parceiro com sub-usuários) esse filtro nunca teria mais de uma
+  // opção (ele mesmo), então o seletor fica escondido em vez de mostrado sem
+  // utilidade.
+  const showOwnerFilterRel=(typeof hasTeamOwnerView!=='function')||hasTeamOwnerView();
   const respSelEl=document.getElementById('rel-responsavel');
   if(respSelEl) respSelEl.style.display=showOwnerFilterRel?'':'none';
   const respFilter=showOwnerFilterRel?populateCommercialOwnerSelect('rel-responsavel', ownerOptionsSource, 'Todos os responsáveis'):'';
@@ -12642,10 +12669,13 @@ function renderFunnelSelector(){
   </div>
   ${active&&active.isDefault?'<span class="funnel-default-badge">Padrão</span>':''}`;
 
-  // Filtro de "responsável" só faz sentido pra quem tem visão gerencial —
-  // pra um papel restrito (ex.: Gex Parceiro), a única opção que existiria
-  // ali seria ele mesmo, então o filtro fica estranho e sem utilidade.
-  const showOwnerFilter=(typeof isSalesManagerView!=='function')||isSalesManagerView();
+  // Filtro de "responsável" só faz sentido pra quem tem visão de equipe —
+  // Fundador/Adm Gerente (empresa inteira) OU um Gex Parceiro que já tem
+  // sub-usuários (Operador de Funil) — nesse caso ele também escolhe entre
+  // eles e ele mesmo. Pra um papel sem ninguém abaixo, a única opção que
+  // existiria ali seria ele mesmo, então o filtro fica sem utilidade.
+  const showOwnerFilter=(typeof hasTeamOwnerView!=='function')||hasTeamOwnerView();
+  const canManageAnyFunnel=(typeof isSalesManagerView!=='function')||isSalesManagerView();
   const ownerFilterHtml=showOwnerFilter?`<div class="funnel-select-wrap">
     <select class="funnel-select" id="pipe-responsavel-filter" onchange="onCommercialOwnerFilterChange('pipe-responsavel-filter','pipeline')" style="min-width:220px">
       <option value="">Todos os responsáveis</option>
@@ -12655,7 +12685,7 @@ function renderFunnelSelector(){
 
   const btnsHtml=`<div class="funnel-bar-btns">
     ${canCreate?`<button class="fbtn fbtn-primary" onclick="openFunnelModal('new')">+ Novo Funil</button>`:''}
-    ${canEdit&&active&&(showOwnerFilter||!active.isDefault)?`<button class="fbtn" onclick="openFunnelModal('edit','${active.id}')">✏️ Editar Funil</button>`:''}
+    ${canEdit&&active&&(canManageAnyFunnel||!active.isDefault)?`<button class="fbtn" onclick="openFunnelModal('edit','${active.id}')">✏️ Editar Funil</button>`:''}
     ${canCreate&&active?`<button class="fbtn" onclick="duplicateCommercialFunnel('${active.id}')">⧉ Duplicar</button>`:''}
     ${canEdit&&active&&!active.isDefault?`<button class="fbtn fbtn-danger" onclick="confirmArchiveFunnel('${active.id}')">📦 Arquivar</button>`:''}
     ${canEdit?`<button class="fbtn" onclick="openArchivedFunnelsModal()">🗂️ Arquivados ${getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length?`(${getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length})`:''}</button>`:''}
