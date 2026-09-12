@@ -890,6 +890,11 @@ textarea.form-input{resize:vertical;min-height:75px}
 .login-err.show{display:block}
 .login-footer{text-align:center;font-size:11px;color:var(--light);margin-top:20px}
 .login-hint{background:var(--bg);border-radius:8px;padding:10px 14px;font-size:11.5px;color:var(--muted);margin-top:16px;line-height:1.6}
+.login-link{color:var(--p2);font-size:12.5px;font-weight:700;text-decoration:none}
+.login-link:hover{text-decoration:underline}
+.login-greeting{text-align:center;font-size:20px;font-weight:800;color:var(--txt);margin-bottom:8px;letter-spacing:-0.4px}
+.login-success{display:flex;align-items:flex-start;gap:10px;background:#ECFDF5;color:#065F46;font-size:12.5px;line-height:1.6;padding:14px 16px;border-radius:10px;margin-bottom:6px;border-left:3px solid #10B981}
+.login-success-icon{flex:0 0 auto;width:20px;height:20px;border-radius:50%;background:#10B981;color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
 .login-hint b{color:var(--txt)}
 
 /* SQUADS */
@@ -1708,7 +1713,7 @@ textarea.form-input{resize:vertical;min-height:75px}
 
 <!-- LOGIN SCREEN -->
 <div class="login-screen" id="login-screen">
-  <div class="login-box">
+  <div class="login-box" id="login-box-form">
     <div class="login-logo-row">
       <div class="login-logo-icon">
         <svg width="22" height="22" viewBox="0 0 20 20" fill="white"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
@@ -1718,13 +1723,52 @@ textarea.form-input{resize:vertical;min-height:75px}
     <div class="login-tagline">Plataforma de gestão para agências digitais</div>
     <div class="login-err" id="login-err">Email ou senha incorretos. Tente novamente.</div>
     <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="login-email" type="email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')doLogin()"></div>
-    <div class="form-group" style="margin-bottom:20px"><label class="form-label">Senha</label><input class="form-input" id="login-pass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="form-group" style="margin-bottom:8px"><label class="form-label">Senha</label><input class="form-input" id="login-pass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div style="text-align:right;margin-bottom:20px"><a href="#" class="login-link" onclick="showLoginForgotView();return false">Esqueci minha senha</a></div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;font-size:14px" onclick="doLogin()" id="login-btn">Entrar no sistema</button>
     <div class="login-hint" id="login-demo-hint" style="display:none">
       <b>Preview local</b> — o ambiente de prévia não consegue alcançar o Supabase (CSP). Use a senha demo:<br>
       <b>Senha:</b> gex@2025 &nbsp;·&nbsp; Para acesso real, abra o arquivo no servidor/deploy.
     </div>
     <div class="login-footer" style="margin-top:24px">Gex Flow © 2025 · Todos os direitos reservados</div>
+  </div>
+
+  <!-- "Esqueci minha senha" — passo 1: pede o e-mail -->
+  <div class="login-box" id="login-box-forgot" style="display:none">
+    <div class="login-logo-row">
+      <div class="login-logo-icon">
+        <svg width="22" height="22" viewBox="0 0 20 20" fill="white"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+      </div>
+      <div class="login-brand">Gex<span>Flow</span></div>
+    </div>
+    <div class="login-greeting" id="forgot-step-title">Esqueceu sua senha? 🔑</div>
+    <div class="login-tagline" id="forgot-step-sub" style="margin-bottom:22px;text-align:left">Sem problema — digite o e-mail da sua conta e enviamos um link para você criar uma senha nova.</div>
+    <div class="login-err" id="forgot-err"></div>
+    <div class="login-success" id="forgot-success" style="display:none">
+      <div class="login-success-icon">✓</div>
+      <div><b>E-mail enviado</b><br>Se esse endereço estiver cadastrado, você vai receber um link para redefinir a senha em instantes. Confira também a caixa de spam.</div>
+    </div>
+    <div id="forgot-form-fields">
+      <div class="form-group" style="margin-bottom:20px"><label class="form-label">E-mail</label><input class="form-input" id="forgot-email" type="email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')sendPasswordResetLink()"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;font-size:14px" onclick="sendPasswordResetLink()" id="forgot-btn">Enviar link de recuperação</button>
+    </div>
+    <div style="text-align:center;margin-top:18px"><a href="#" class="login-link" onclick="showLoginView();return false">← Voltar para o login</a></div>
+  </div>
+
+  <!-- Link de recuperação clicado — passo 2: define a nova senha -->
+  <div class="login-box" id="login-box-reset" style="display:none">
+    <div class="login-logo-row">
+      <div class="login-logo-icon">
+        <svg width="22" height="22" viewBox="0 0 20 20" fill="white"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+      </div>
+      <div class="login-brand">Gex<span>Flow</span></div>
+    </div>
+    <div class="login-greeting">Crie sua nova senha 🔒</div>
+    <div class="login-tagline" style="margin-bottom:22px;text-align:left">Escolha uma senha nova com pelo menos 6 caracteres para voltar a acessar sua conta.</div>
+    <div class="login-err" id="reset-err"></div>
+    <div class="form-group"><label class="form-label">Nova senha</label><input class="form-input" id="reset-pass1" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')document.getElementById('reset-pass2').focus()"></div>
+    <div class="form-group" style="margin-bottom:20px"><label class="form-label">Confirmar nova senha</label><input class="form-input" id="reset-pass2" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')confirmPasswordReset()"></div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;font-size:14px" onclick="confirmPasswordReset()" id="reset-btn">Salvar nova senha</button>
   </div>
 </div>
 
@@ -2690,6 +2734,16 @@ const IS_PREVIEW_ENV = (function() {
 const supabaseClient = (!IS_PREVIEW_ENV && typeof supabase !== 'undefined')
   ? supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
   : null;
+
+// "Esqueci minha senha": ao clicar no link do e-mail, o Supabase manda a
+// pessoa de volta pra cá com #access_token=...&type=recovery na URL. O
+// próprio supabase-js detecta isso sozinho (detectSessionInUrl, ligado por
+// padrão) e cria uma sessão temporária — só que sem essa checagem aqui, o
+// checkSession() normal enxergaria essa sessão temporária como um login
+// comum e jogaria a pessoa direto pro sistema, sem nunca pedir a senha
+// nova. Detectando esse caso logo cedo, o boot pula o auto-login e força a
+// tela de "criar nova senha" em vez disso.
+const GEX_PASSWORD_RECOVERY_MODE = /type=recovery/.test(window.location.hash||'');
 
 // GexSupabase — camada organizada para todas as operações Supabase
 const GexSupabase = {
@@ -14248,6 +14302,131 @@ function tryLocalUserLogin(email,pass,btn){
   return startLocalUserSession(localUser,btn);
 }
 
+// ─── "Esqueci minha senha" ────────────────────────────────────────────────
+function _showLoginBox(id){
+  ['login-box-form','login-box-forgot','login-box-reset'].forEach(bid=>{
+    const el=document.getElementById(bid);
+    if(el)el.style.display=(bid===id)?'block':'none';
+  });
+}
+
+function showLoginView(){
+  _showLoginBox('login-box-form');
+}
+
+function showLoginForgotView(){
+  _showLoginBox('login-box-forgot');
+  // Reaproveita o e-mail já digitado no login, se tiver.
+  const loginEmail=(document.getElementById('login-email')?.value||'').trim();
+  const forgotEmail=document.getElementById('forgot-email');
+  if(forgotEmail){
+    if(loginEmail)forgotEmail.value=loginEmail;
+    setTimeout(()=>forgotEmail.focus(),0);
+  }
+  document.getElementById('forgot-err')?.classList.remove('show');
+  const successEl=document.getElementById('forgot-success');
+  if(successEl)successEl.style.display='none';
+  const fieldsEl=document.getElementById('forgot-form-fields');
+  if(fieldsEl)fieldsEl.style.display='block';
+}
+
+// Mostra a tela de "criar nova senha" — chamada quando a pessoa chega aqui
+// pelo link de recuperação (ver GEX_PASSWORD_RECOVERY_MODE).
+function showLoginResetView(){
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('login-screen').classList.remove('hidden');
+  _showLoginBox('login-box-reset');
+}
+
+async function sendPasswordResetLink(){
+  const email=(document.getElementById('forgot-email').value||'').trim().toLowerCase();
+  const errEl=document.getElementById('forgot-err');
+  const btn=document.getElementById('forgot-btn');
+  errEl.classList.remove('show');
+  if(!email){errEl.textContent='Digite seu e-mail.';errEl.classList.add('show');return}
+
+  if(!supabaseClient){
+    errEl.textContent='Recuperação de senha só funciona no sistema publicado (com Supabase configurado), não neste ambiente de prévia.';
+    errEl.classList.add('show');
+    return;
+  }
+
+  if(btn){btn.textContent='Enviando...';btn.disabled=true}
+  try{
+    // redirectTo aponta pra própria página — sem query/hash antigos — pra
+    // garantir que o Supabase devolva a pessoa exatamente pra cá com o
+    // token de recuperação, sem depender de nenhuma outra rota publicada.
+    const redirectTo=window.location.origin+window.location.pathname;
+    // Em vez do e-mail padrão do Supabase Auth (caixa de teste dele mesmo,
+    // com limite bem baixo de envios), usa a Edge Function
+    // request-password-reset — ela gera o link de recuperação e manda pela
+    // MESMA conexão de e-mail (SMTP) que o Fundador já configurou em
+    // Integrações, igual às outras notificações do sistema. Chamada sem
+    // login (a pessoa ainda não conseguiu entrar), então só a apikey
+    // pública do projeto vai no cabeçalho.
+    const resp=await fetch(getSupabaseFunctionUrl('request-password-reset'),{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':`Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+        'apikey':SUPABASE_PUBLISHABLE_KEY
+      },
+      body:JSON.stringify({email,redirectTo})
+    });
+    const payload=await resp.json().catch(()=>({}));
+    if(!resp.ok && !payload.ok){
+      console.warn('[GexFlow] request-password-reset falhou:',payload);
+      errEl.textContent=payload.message||'Erro de conexão. Verifique sua internet e tente novamente.';
+      errEl.classList.add('show');
+      if(btn){btn.textContent='Enviar link de recuperação';btn.disabled=false}
+      return;
+    }
+  }catch(err){
+    console.warn('[GexFlow] Erro ao pedir recuperação de senha:',err);
+  }
+  // Mensagem de sucesso sempre igual, exista ou não o e-mail no sistema —
+  // evita que alguém use esse campo pra descobrir quais e-mails têm conta.
+  document.getElementById('forgot-form-fields').style.display='none';
+  document.getElementById('forgot-success').style.display='flex';
+  if(btn){btn.textContent='Enviar link de recuperação';btn.disabled=false}
+}
+
+async function confirmPasswordReset(){
+  const pass1=(document.getElementById('reset-pass1').value||'').trim();
+  const pass2=(document.getElementById('reset-pass2').value||'').trim();
+  const errEl=document.getElementById('reset-err');
+  const btn=document.getElementById('reset-btn');
+  errEl.classList.remove('show');
+
+  if(!pass1||pass1.length<6){errEl.textContent='A senha precisa ter pelo menos 6 caracteres.';errEl.classList.add('show');return}
+  if(pass1!==pass2){errEl.textContent='As senhas não são iguais.';errEl.classList.add('show');return}
+  if(!supabaseClient){errEl.textContent='Não foi possível confirmar sua sessão de recuperação.';errEl.classList.add('show');return}
+
+  if(btn){btn.textContent='Salvando...';btn.disabled=true}
+  try{
+    const {error}=await supabaseClient.auth.updateUser({password:pass1});
+    if(error){
+      errEl.textContent=error.message||'Não foi possível salvar a nova senha. Peça um novo link e tente de novo.';
+      errEl.classList.add('show');
+      if(btn){btn.textContent='Salvar nova senha';btn.disabled=false}
+      return;
+    }
+    // A sessão de recuperação já loga a pessoa automaticamente — mas por
+    // segurança (esse acesso veio de um clique num link de e-mail, não de
+    // uma senha digitada) desloga e pede pra entrar de novo já com a senha
+    // nova, num fluxo limpo e conhecido.
+    try{await supabaseClient.auth.signOut();}catch(e){}
+    try{history.replaceState(null,'',window.location.pathname+window.location.search);}catch(e){}
+    showLoginView();
+    toast('Senha redefinida ✓ Faça login com a nova senha.','#10B981');
+  }catch(err){
+    console.error('[GexFlow] Erro ao salvar nova senha:',err);
+    errEl.textContent='Erro de conexão. Tente novamente.';
+    errEl.classList.add('show');
+    if(btn){btn.textContent='Salvar nova senha';btn.disabled=false}
+  }
+}
+
 // ─── login principal ──────────────────────────────────────────────────────
 async function doLogin(){
   const email=(document.getElementById('login-email').value||'').trim().toLowerCase();
@@ -14445,6 +14624,12 @@ async function refreshWebhookIndicator(){
 
 // ─── checkSession (async — Supabase primeiro, fallback localStorage) ─────
 async function checkSession(){
+  // Veio de um link de "esqueci minha senha" — NÃO trata como login normal.
+  // supabase-js já criou uma sessão temporária só a partir do link do
+  // e-mail (sem a pessoa nunca ter digitado a senha nova); sem essa trava,
+  // o bloco abaixo acharia essa sessão válida e entraria direto no
+  // sistema. showLoginResetView() já cuida de exibir a tela certa.
+  if(GEX_PASSWORD_RECOVERY_MODE)return false;
   // ── 1. Supabase sessão ativa (timeout 4s para ambientes com CSP) ─────────
   if(supabaseClient){
     try{
@@ -14524,18 +14709,31 @@ if(IS_PREVIEW_ENV){
   }
 }
 
-// checkSession é async — aguarda e renderiza após resolução
-checkSession().then(loggedIn=>{
-  if(loggedIn){
-    renderInicio();
-    resetSidebarToHomeState();
-    document.querySelector('[data-page="inicio"]')?.classList.add('active');
-  }
-});
+// Veio do link de "esqueci minha senha" — mostra direto a tela de criar
+// senha nova, sem passar pelo checkSession()/auto-login normal.
+if(GEX_PASSWORD_RECOVERY_MODE){
+  showLoginResetView();
+} else {
+  // checkSession é async — aguarda e renderiza após resolução
+  checkSession().then(loggedIn=>{
+    if(loggedIn){
+      renderInicio();
+      resetSidebarToHomeState();
+      document.querySelector('[data-page="inicio"]')?.classList.add('active');
+    }
+  });
+}
 
 // Escuta mudanças de auth do Supabase (token refresh, logout externo, etc.)
 if(supabaseClient){
   supabaseClient.auth.onAuthStateChange(async (event,session)=>{
+    if(event==='PASSWORD_RECOVERY'){
+      // Reforço: se por algum motivo a detecção via hash (GEX_PASSWORD_
+      // RECOVERY_MODE) não pegou a tempo, esse evento do próprio supabase-js
+      // ainda garante que a pessoa cai na tela de nova senha, não no app.
+      showLoginResetView();
+      return;
+    }
     if(event==='SIGNED_OUT'&&sessionUser){
       // Outro aba/dispositivo deslogou — limpa sessão local
       console.log('[GexFlow] onAuthStateChange: SIGNED_OUT detectado');
