@@ -3445,8 +3445,7 @@ function startProfilesRealtime(){
             // isso, quem já estava logado continuava com acesso até fechar e
             // abrir o sistema de novo.
             if(!isProfileActive(normalized)){
-              toast('Seu acesso foi desativado.','#EF4444');
-              doLogout();
+              forceLogoutDeactivated();
               return;
             }
             sessionUser={...sessionUser,...normalized};
@@ -13981,6 +13980,7 @@ async function doLogin(){
     if(!isProfileActive(profile)){
       loginErr('Usuário inativo. Contate o administrador.');
       try{await supabaseClient.auth.signOut();}catch(e){}
+      gexShowAccessRevokedOverlay(profile?.nome||profile?.name||'');
       return;
     }
 
@@ -14012,6 +14012,67 @@ async function doLogout(){
   document.getElementById('login-email').value='';
   document.getElementById('login-pass').value='';
   document.getElementById('login-err').classList.remove('show');
+}
+
+// ─── bloqueio forçado por desativação ────────────────────────────────────
+// Antes, quando o sistema detectava (Realtime ou revalidação periódica) que
+// o usuário logado tinha sido desativado, só mostrava um toast rápido e
+// jogava de volta pro login — fácil de não perceber, e sem nenhuma ação
+// clara pra resolver. Agora mostra um aviso fixo, que não fecha sozinho,
+// explicando o que aconteceu e com um botão direto pro WhatsApp do suporte
+// pra pedir a renovação — a pessoa não fica só olhando a tela de login sem
+// entender por quê.
+function gexEnsureAccessRevokedOverlay(){
+  let ov=document.getElementById('gex-access-revoked-overlay');
+  if(ov)return ov;
+  const css=document.createElement('style');
+  css.id='gex-access-revoked-style';
+  css.appendChild(document.createTextNode(
+    '#gex-access-revoked-overlay{position:fixed;inset:0;background:rgba(17,24,39,.72);display:none;align-items:center;justify-content:center;z-index:2147483000;font-family:Arial,Helvetica,sans-serif;padding:16px}'+
+    '#gex-access-revoked-overlay.show{display:flex}'+
+    '.gex-arv-card{background:#fff;border-radius:16px;max-width:380px;width:100%;padding:28px 26px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35)}'+
+    '.gex-arv-icon{width:52px;height:52px;border-radius:50%;background:#FEE2E2;color:#DC2626;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 16px}'+
+    '.gex-arv-title{font-size:17px;font-weight:800;color:#111827;margin-bottom:8px}'+
+    '.gex-arv-msg{font-size:13.5px;color:#4B5563;line-height:1.5;margin-bottom:20px}'+
+    '.gex-arv-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;background:#25d366;color:#fff;border:0;border-radius:9px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none}'+
+    '.gex-arv-btn:hover{filter:brightness(.95)}'
+  ));
+  document.head.appendChild(css);
+  ov=document.createElement('div');
+  ov.id='gex-access-revoked-overlay';
+  ov.innerHTML=
+    '<div class="gex-arv-card">'+
+      '<div class="gex-arv-icon">⚠️</div>'+
+      '<div class="gex-arv-title">Seu acesso foi desativado</div>'+
+      '<div class="gex-arv-msg">Renove o quanto antes para voltar a usar o GexFlow sem interrupção.</div>'+
+      '<a class="gex-arv-btn" id="gex-arv-renovar-btn" target="_blank" rel="noopener">💬 Renovar agora</a>'+
+      '<div style="margin-top:14px"><a href="#" id="gex-arv-close-link" style="font-size:12px;color:#9CA3AF;text-decoration:underline">Entrar com outra conta</a></div>'+
+    '</div>';
+  document.body.appendChild(ov);
+  document.getElementById('gex-arv-close-link')?.addEventListener('click',e=>{
+    e.preventDefault();
+    gexHideAccessRevokedOverlay();
+  });
+  return ov;
+}
+function gexShowAccessRevokedOverlay(nomeOverride){
+  const ov=gexEnsureAccessRevokedOverlay();
+  const btn=document.getElementById('gex-arv-renovar-btn');
+  if(btn){
+    const nome=nomeOverride||(sessionUser&&(sessionUser.nome||sessionUser.name))||'';
+    const msg='Olá, meu acesso ao GexFlow foi desativado'+(nome?(' ('+nome+')'):'')+' e gostaria de renovar.';
+    btn.href='https://wa.me/5521992735988?text='+encodeURIComponent(msg);
+  }
+  ov.classList.add('show');
+}
+function gexHideAccessRevokedOverlay(){
+  document.getElementById('gex-access-revoked-overlay')?.classList.remove('show');
+}
+// Chamado sempre que o sistema detecta (login, Realtime ou revalidação
+// periódica) que o usuário logado foi desativado no meio do uso.
+async function forceLogoutDeactivated(){
+  await doLogout();
+  gexShowAccessRevokedOverlay();
 }
 
 function applySession(){
@@ -14190,8 +14251,7 @@ async function gexRevalidateOwnStatus(){
     if(error)return; // falha de rede/timeout: não desloga por dúvida, só tenta de novo no próximo ciclo
     if(data&&!isProfileActive(data)){
       console.warn('[GexFlow] Revalidação periódica: usuário foi desativado, encerrando sessão.');
-      toast('Seu acesso foi desativado.','#EF4444');
-      doLogout();
+      forceLogoutDeactivated();
     }
   }catch(e){/* silencioso — só reforço, não deve travar a UI */}
 }
