@@ -10002,14 +10002,23 @@ function renderPerfil(){
       <button class="btn btn-primary" id="me-criar-btn" onclick="criarSubUsuarioParceiro()">+ Criar acesso</button>
       <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
         <div style="font-size:12.5px;font-weight:600;margin-bottom:8px;color:var(--muted)">Pessoas da minha equipe</div>
-        <div id="minha-equipe-lista"><div class="empty-txt" style="font-size:12px">Carregando...</div></div>
+        <div id="minha-equipe-lista">${_minhaEquipeListCache?_minhaEquipeListCache.html:'<div class="empty-txt" style="font-size:12px">Carregando...</div>'}</div>
       </div>
     </div>`:''}`;
   if(role==='Gex Parceiro'){
     popularSelectFunisMinhaEquipe();
-    carregarMinhaEquipe();
+    // renderPerfil() faz innerHTML completo da página e pode ser chamado com
+    // frequência em segundo plano (Realtime de profiles, sync geral etc.) —
+    // sem esse cache, TODA vez que isso acontece a lista de "Minha Equipe"
+    // era jogada fora e voltava pro estado "Carregando...", mesmo já tendo
+    // sido carregada segundos antes. Só busca de novo se nunca carregou
+    // ainda ou se o último carregamento já não é mais recente.
+    if(!_minhaEquipeListCache||(Date.now()-_minhaEquipeListCache.at)>15000){
+      carregarMinhaEquipe();
+    }
   }
 }
+let _minhaEquipeListCache=null;
 
 // ═══ "Minha Equipe" — Gex Parceiro cria sub-usuários travados a UM funil ═══
 function popularSelectFunisMinhaEquipe(){
@@ -10035,6 +10044,7 @@ async function carregarMinhaEquipe(){
     if(error)throw error;
     if(!data||!data.length){
       box.innerHTML='<div class="empty-txt" style="font-size:12px">Você ainda não criou ninguém na sua equipe.</div>';
+      _minhaEquipeListCache={html:box.innerHTML,at:Date.now()};
       return;
     }
     // Busca o nome do funil DIRETO no Supabase em vez de confiar só no cache
@@ -10068,7 +10078,12 @@ async function carregarMinhaEquipe(){
         <button class="btn btn-ghost btn-sm" onclick="alternarStatusSubUsuario('${u.id}',${ativo})">${ativo?'Desativar':'Reativar'}</button>
       </div>`;
     }).join('');
+    _minhaEquipeListCache={html:box.innerHTML,at:Date.now()};
   }catch(e){
+    // Erro passageiro (rede etc.): se já tinha uma lista boa em cache, deixa
+    // ela na tela em vez de trocar por mensagem de erro — evita que um soluço
+    // de rede pareça "sumiu minha equipe".
+    if(_minhaEquipeListCache){box.innerHTML=_minhaEquipeListCache.html;return;}
     box.innerHTML='<div class="empty-txt" style="font-size:12px">Não foi possível carregar sua equipe agora.</div>';
   }
 }
