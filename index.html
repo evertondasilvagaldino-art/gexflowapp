@@ -7638,8 +7638,6 @@ function renderInicio(){
     {label:'Lucro Líquido',value:fmtBRL(lucro),accent:'#7C3AED',delta:lucro>0?'+operação positiva':'Atenção',dir:lucro>0?'up':'down',mod:'financas'},
     {label:'Clientes Ativos',value:cls.filter(c=>c.status==='Ativo').length,accent:'#3B82F6',delta:`${churnRisk.length} em risco de churn`,dir:churnRisk.length?'down':'neutral',mod:'clientes'},
     {label:'Negócios Ganhos',value:fmtBRL(negociosGanhosTotal),accent:'#10B981',delta:`${negociosGanhosHome.length} negócio${negociosGanhosHome.length!==1?'s':''} ganho${negociosGanhosHome.length!==1?'s':''}`,dir:negociosGanhosHome.length?'up':'neutral',mod:'comercial'},
-    {label:'Projetos Ativos',value:pros.filter(p=>!['Aprovado','Postado'].includes(p.status)).length,accent:'#6366F1',delta:`${atrasados.length} atrasados`,dir:atrasados.length?'down':'up',mod:'entregas'},
-    {label:'Tarefas Pendentes',value:tarefasPend.length,accent:'#EC4899',delta:'em aberto',dir:'neutral',mod:'tarefas'},
     {label:'Health Score Médio',value:avgH,accent:healthColor(avgH),delta:avgH>=70?'Equipe saudável':'Atenção necessária',dir:avgH>=70?'up':'down',mod:'clientes'},
     {label:'Membros Ativos',value:mbs.filter(m=>m.status==='Ativo').length,accent:'#14B8A6',delta:`de ${mbs.length} total`,dir:'neutral',mod:'rh'},
   ];
@@ -7783,8 +7781,14 @@ function roleHasCommercialAccess(role){
 function isCommercialSellerUser(u){
   if(!u||String(u.status||'Ativo').toLowerCase()==='inativo')return false;
   const role=resolveRole(u.permissao||u.role||u.cargo||'Colaborador');
-  const hay=normalizeSalesName(`${role} ${u.cargo||''}`);
   if(role==='Fundador')return false;
+  // Gex Parceiro (e o sub-usuário "Operador de Funil") roda o próprio funil
+  // à parte da equipe interna — nunca deve entrar como "vendedor" na
+  // Performance Comercial/ranking, mesmo que o campo cargo dele contenha
+  // palavras como "comercial" (ex.: "Parceiro Comercial"), que sem essa
+  // checagem cairiam no match de texto abaixo.
+  if(role==='Gex Parceiro'||role==='Operador de Funil')return false;
+  const hay=normalizeSalesName(`${role} ${u.cargo||''}`);
   return hay.includes('vendedor') || hay.includes('comercial') || roleHasCommercialAccess(role);
 }
 
@@ -8149,12 +8153,22 @@ function getVisibleSalesUsersForMetrics(leads){
   // Para visão de Fundador/Gerência, adiciona responsáveis encontrados nos leads,
   // inclusive Fundador ou nomes importados, para o ranking não ficar zerado.
   if(isSalesManagerView()){
+    const allUsers=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[]);
     (Array.isArray(leads)?leads:[]).forEach(l=>{
       const id=getLeadOwnerId(l);
       const nome=getLeadOwnerName(l);
       if(!id&&!nome)return;
       const key=String(id||nome).toLowerCase();
       if(seen.has(key))return;
+      // Gex Parceiro (e o sub-usuário "Operador de Funil" que ele cria em
+      // Minha Equipe) roda o próprio funil à parte — não é vendedor interno
+      // da empresa, então não deve entrar no ranking "Performance por
+      // Vendedor" nem na Início, mesmo aparecendo como dono de leads.
+      const ownerUser=allUsers.find(u=>String(u.id)===String(id)||String(u.supabaseId||'')===String(id));
+      if(ownerUser){
+        const ownerRole=resolveRole(ownerUser.permissao||ownerUser.cargo||'');
+        if(ownerRole==='Gex Parceiro'||ownerRole==='Operador de Funil')return;
+      }
       seen.add(key);
       users.push({
         id:id||('owner_'+_ownerFilterNorm(nome).replace(/\s+/g,'_')),
