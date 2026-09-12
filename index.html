@@ -14230,19 +14230,29 @@ if(supabaseClient){
   });
 }
 
-// Reforço de segurança: revalida periodicamente se o usuário logado NESTA
-// aba continua Ativo. O Realtime (startProfilesRealtime) já derruba a sessão
-// na hora quando funciona, mas ele depende de uma conexão de socket que pode
-// cair sem avisar (aba em segundo plano por muito tempo, rede instável,
-// etc.) — e enquanto isso, a aba continua com sessionUser em memória e
-// acesso total, mesmo que o usuário tenha sido desativado nesse meio tempo.
-// Este poll é o plano B: a cada 2 minutos, confirma direto no Supabase (uma
+// Reforço de segurança: revalida se o usuário logado NESTA aba continua
+// Ativo. O Realtime (startProfilesRealtime) é o caminho pra isso ser
+// instantâneo, mas só funciona se a tabela profiles estiver inscrita na
+// publicação "supabase_realtime" do Postgres (é um passo manual no
+// Supabase — ver sql_habilitar_realtime_profiles.sql). Enquanto isso não
+// estiver garantido, este é o plano B: confirma direto no Supabase (uma
 // consulta bem leve, só a própria linha — já liberada por RLS) se o status
 // ainda é Ativo, e desloga na hora se não for.
+//
+// Rodava a cada 2 minutos, mas isso deixava uma janela grande demais entre
+// a desativação e o bloqueio de fato. Agora roda a cada 5 segundos — e,
+// pra não depender só do timer, também revalida a cada clique/tecla dentro
+// do sistema (com um intervalo mínimo entre checagens pra não martelar o
+// banco), então qualquer ação do usuário já força a conferência.
 let gexStatusPollTimer=null;
-async function gexRevalidateOwnStatus(){
+let gexLastStatusCheckAt=0;
+const GEX_STATUS_CHECK_MIN_GAP_MS=3000; // não checa de novo antes de 3s do último check
+async function gexRevalidateOwnStatus(force){
   try{
     if(!supabaseClient||!sessionUser?.id)return;
+    const now=Date.now();
+    if(!force&&(now-gexLastStatusCheckAt)<GEX_STATUS_CHECK_MIN_GAP_MS)return;
+    gexLastStatusCheckAt=now;
     const {data,error}=await supabaseClient
       .from('profiles')
       .select('status')
@@ -14250,22 +14260,25 @@ async function gexRevalidateOwnStatus(){
       .maybeSingle();
     if(error)return; // falha de rede/timeout: não desloga por dúvida, só tenta de novo no próximo ciclo
     if(data&&!isProfileActive(data)){
-      console.warn('[GexFlow] Revalidação periódica: usuário foi desativado, encerrando sessão.');
+      console.warn('[GexFlow] Revalidação: usuário foi desativado, encerrando sessão.');
       forceLogoutDeactivated();
     }
   }catch(e){/* silencioso — só reforço, não deve travar a UI */}
 }
 function startGexStatusPoll(){
   if(gexStatusPollTimer)return;
-  gexStatusPollTimer=setInterval(()=>{ if(sessionUser)gexRevalidateOwnStatus(); },120000);
+  gexStatusPollTimer=setInterval(()=>{ if(sessionUser)gexRevalidateOwnStatus(true); },5000);
 }
 startGexStatusPoll();
-// Também revalida assim que a aba volta a ficar visível (usuário trocou de
-// aba/minimizou e voltou) — cobre o caso de ter sido desativado durante
-// esse período sem esperar o próximo tick do intervalo.
+// Revalida assim que a aba volta a ficar visível (usuário trocou de aba/
+// minimizou e voltou) e a cada interação real dentro do sistema (clique ou
+// tecla) — assim, mesmo que o timer de 5s ainda não tenha rodado, a
+// primeira coisa que a pessoa tentar clicar já dispara a checagem.
 document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState==='visible'&&sessionUser)gexRevalidateOwnStatus();
+  if(document.visibilityState==='visible'&&sessionUser)gexRevalidateOwnStatus(true);
 });
+document.addEventListener('click',()=>{ if(sessionUser)gexRevalidateOwnStatus(); },{capture:true,passive:true});
+document.addEventListener('keydown',()=>{ if(sessionUser)gexRevalidateOwnStatus(); },{capture:true,passive:true});
 
 // Teste de conexão Supabase (background)
 GexSupabase.testConnection().then(ok=>{
