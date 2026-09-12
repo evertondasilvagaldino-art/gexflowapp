@@ -2657,6 +2657,18 @@ const ROLE_PERMS = {
     automacoes:{view:true,create:true,edit:true,delete:true},
     perfil:{view:true,edit:true},
   },
+  // Papel mais enxuto que existe: sub-usuário criado por um Gex Parceiro
+  // (tela "Minha Equipe", dentro do Perfil). Enxerga e trabalha SÓ o
+  // Pipeline do único funil ao qual foi designado (sessionUser.assignedFunnelId)
+  // — nem os outros funis do próprio parceiro que o criou, nem Tarefas,
+  // Relatório, Automações, Integrações ou qualquer outra aba. A restrição
+  // ao funil específico não é feita aqui (ROLE_PERMS só controla QUAIS
+  // telas aparecem) — é feita em getVisibleCommercialFunnels/
+  // getVisibleCommercialLeads, que tratam este papel à parte.
+  'Operador de Funil': {
+    comercial_pipeline:{view:true,create:true,edit:true},
+    perfil:{view:true,edit:true},
+  },
   'Admin': null,
   'Gestor': null,
 };
@@ -2828,7 +2840,12 @@ function normalizeSupabaseProfile(profile={},authUser=null){
     supabaseId:profile.id||authUser?.id||'',
     authProvider:'supabase',
     createdAt:profile.created_at||profile.createdAt||'',
-    updatedAt:profile.updated_at||profile.updatedAt||''
+    updatedAt:profile.updated_at||profile.updatedAt||'',
+    // Usados pelo papel "Operador de Funil" (sub-usuário criado por um Gex
+    // Parceiro em "Minha Equipe"): quem criou esse sub-usuário e a qual
+    // funil ele fica travado (só enxerga/edita esse funil, nenhum outro).
+    parentPartnerId:profile.parent_partner_id||profile.parentPartnerId||'',
+    assignedFunnelId:profile.assigned_funnel_id||profile.assignedFunnelId||''
   };
 }
 
@@ -3918,7 +3935,7 @@ function startGexRecordsRealtime(){
         if(row.collection==='leads' && payload.eventType==='INSERT' && !row.deleted_at){
           playChime('lead');
           const leadData={...(row.data||{}),id:String(row.record_id)};
-          notifyEmailEvent('lead.criado',leadData).catch(()=>{});
+          notifyLeadCreated(leadData);
         }
         scheduleRerenderActivePageAfterCloudSync(140);
       })
@@ -4818,13 +4835,19 @@ async function notifyEmailEvent(event,data){
 // caixa PESSOAL de e-mail (SMTP) de quem está logado, via send-automation-email
 // — a mesma function que o motor de Automações já usa. ownerId não é
 // enviado de propósito: a function usa o usuário do token (quem chamou).
-async function notifySelfEmail(to,subject,text){
+async function notifySelfEmail(to,subject,text,ownerId){
   try{
     const token=await getGexSupabaseToken();
+    const body={to,subject,text};
+    // ownerId opcional: usado quando quem está chamando (a aba que recebeu o
+    // evento em tempo real) não é necessariamente o DONO do lead/negócio —
+    // a Edge Function aceita mandar pela caixa SMTP de outro usuário desde
+    // que quem chama esteja logado (ver send-automation-email.ts).
+    if(ownerId)body.ownerId=ownerId;
     const res=await fetch(getSupabaseFunctionUrl('send-automation-email'),{
       method:'POST',
       headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
-      body:JSON.stringify({to,subject,text})
+      body:JSON.stringify(body)
     });
     return await res.json().catch(()=>({}));
   }catch(err){
@@ -4849,15 +4872,85 @@ function notifyDealWon(lead){
     }
     const myId=String((typeof sessionUser!=='undefined'&&sessionUser?.id)||'');
     if(!myId)return;
-    const smtpId=`email_smtp_main__${myId}`;
+    // "Operador de Funil" não tem caixa de e-mail própria configurada (não
+    // vê a aba Integrações) — o aviso é da CAIXA DO PARCEIRO que criou essa
+    // conta (sessionUser.parentPartnerId), não da conta do operador.
+    const notifyOwnerId=String(sessionUser?.parentPartnerId||myId);
+    const smtpId=`email_smtp_main__${notifyOwnerId}`;
     const smtp=(DB.get('email_smtp_settings')||[]).find(x=>x.id===smtpId);
-    const myEmail=String(smtp?.fromEmail||smtp?.username||sessionUser?.email||'').trim();
+    const myEmail=String(smtp?.fromEmail||smtp?.username||(notifyOwnerId===myId?sessionUser?.email:'')||'').trim();
     if(!smtp?.connected||!myEmail)return; // ainda não configurou a caixa dele — não manda nada.
     const nome=lead?.nome||lead?.empresa||'Negócio';
     const valorNum=Number(lead?.valor||0);
     const valorFmt=valorNum?valorNum.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'';
-    const texto=`Boa notícia! O negócio "${nome}" foi marcado como Ganho${valorFmt?` (valor: ${valorFmt})`:''} no seu Pipeline.`;
-    notifySelfEmail(myEmail,`🎉 Negócio ganho: ${nome}`,texto);
+    const texto=`Boa notícia! O negócio "${nome}" foi marcado como Ganho${valorFmt?` (valor: ${valorFmt})`:''} no Pipeline.`;
+    notifySelfEmail(myEmail,`🎉 Negócio ganho: ${nome}`,texto,notifyOwnerId);
+  }catch(e){}
+}
+
+// Descobre quem é o DONO de um lead pra decidir a quem avisar quando ele é
+// criado. Isso é diferente do "negócio ganho": ali a ação sempre é feita
+// pela pessoa logada agindo no próprio Pipeline, então dava pra confiar na
+// sessão atual (isSalesManagerView()). Já um lead novo pode chegar de
+// QUALQUER lugar — Captação Nativa, o botão de WhatsApp público, um
+// formulário externo — e o navegador que recebe o evento em tempo real
+// (ver o listener de Realtime em gex_records) pode ser o de qualquer
+// pessoa da equipe com o sistema aberto no momento, não necessariamente o
+// dono do lead. Por isso aqui a decisão é sempre baseada em QUEM é o dono
+// do lead (pelos campos de responsável, ou — se vieram vazios, como nos
+// leads criados por um widget público — pelo funil em que ele caiu),
+// nunca em quem está logado na aba que recebeu o evento.
+function resolveLeadOwnerForNotification(lead){
+  try{
+    let ownerId=getLeadOwnerId(lead);
+    let ownerEmail=getLeadOwnerEmail(lead);
+    if(!ownerId&&!ownerEmail&&lead?.funnelId){
+      const funnel=(typeof getCommercialFunnels==='function'?getCommercialFunnels():[]).find(f=>f.id===lead.funnelId);
+      if(funnel){
+        ownerId=String(funnel.createdBy||'');
+        ownerEmail=normalizeLoginEmail(funnel.createdByEmail||'');
+      }
+    }
+    // Sem dono identificável = funil compartilhado/da empresa (o funil
+    // padrão não tem createdBy) — mantém o aviso interno de sempre.
+    if(!ownerId&&!ownerEmail)return {ownerId:'',isManager:true};
+
+    const users=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[])||[];
+    const u=users.find(x=>
+      (ownerId&&(String(x.id)===ownerId||String(x.supabaseId)===ownerId))||
+      (ownerEmail&&normalizeLoginEmail(x.email||'')===ownerEmail)
+    );
+    const role=resolveRole(u?.permissao||u?.cargo||'Colaborador');
+    const isManager=['Fundador','Adm Gerente'].includes(role);
+    return {ownerId:ownerId||u?.id||'',isManager};
+  }catch(e){
+    return {ownerId:'',isManager:true}; // na dúvida, mantém o comportamento de sempre (aviso interno)
+  }
+}
+
+// Notificação de "lead novo": mesmo princípio do negócio ganho. Fundador/
+// Adm Gerente e leads sem dono identificável (funil compartilhado)
+// continuam avisando o time interno da GEX (comportamento de sempre, via
+// send-notification-email). Um lead que pertence a um Gex Parceiro (ou
+// outro papel abaixo de Fundador/Adm Gerente) não dispara mais esse
+// e-mail interno — em vez disso, avisa só a CAIXA DE E-MAIL que o próprio
+// dono configurou em Integrações > Conexão de e-mail (SMTP), e só se ele
+// já tiver configurado uma. Sem configuração, não manda e-mail nenhum.
+function notifyLeadCreated(lead){
+  try{
+    const {ownerId,isManager}=resolveLeadOwnerForNotification(lead);
+    if(isManager||!ownerId){
+      notifyEmailEvent('lead.criado',lead);
+      return;
+    }
+    const smtpId=`email_smtp_main__${ownerId}`;
+    const smtp=(DB.get('email_smtp_settings')||[]).find(x=>x.id===smtpId);
+    const ownerEmailBox=String(smtp?.fromEmail||smtp?.username||'').trim();
+    if(!smtp?.connected||!ownerEmailBox)return; // dono ainda não configurou a caixa dele — não manda nada.
+    const nome=lead?.nome||lead?.empresa||'Lead';
+    const origemTxt=lead?.origem?` (origem: ${lead.origem})`:'';
+    const texto=`Novo lead recebido: "${nome}"${origemTxt}. Confira no seu Pipeline.`;
+    notifySelfEmail(ownerEmailBox,`🔔 Novo lead: ${nome}`,texto,ownerId);
   }catch(e){}
 }
 
@@ -6485,7 +6578,7 @@ async function saveModal(type,id=''){
         desc:v('f-desc')
       };
       if(!obj.nome){toast('Nome obrigatório','#EF4444');return}
-      if(id)DB.update('leads',id,obj);else{const l={id:uid(),...obj};DB.push('leads',l);fireWebhook('lead.criado',l);playChime('lead');notifyEmailEvent('lead.criado',l)}
+      if(id)DB.update('leads',id,obj);else{const l={id:uid(),...obj};DB.push('leads',l);fireWebhook('lead.criado',l);playChime('lead');notifyLeadCreated(l)}
       closeModal();renderComercial();if(currentDealId===id)renderDealDetail();toast(id?'Lead atualizado ✓':'Lead criado ✓','#10B981');
     },
     transacao(){
@@ -7754,6 +7847,16 @@ function getVisibleCommercialLeads(leads){
   leads=Array.isArray(leads)?leads:[];
   if(isSalesManagerView())return leads;
   if(!sessionUser)return [];
+  // "Operador de Funil" (sub-usuário criado por um Gex Parceiro em "Minha
+  // Equipe") não é dono de lead nenhum — ele enxerga pelo FUNIL a que foi
+  // designado, não por quem criou o lead. Sem isso, cairia no filtro de
+  // dono normal (isLeadOwnedByUser) e não veria nada, já que os leads são
+  // do parceiro, não dele.
+  if(resolveRole(sessionUser.permissao||sessionUser.cargo)==='Operador de Funil'){
+    const fid=String(sessionUser.assignedFunnelId||'');
+    if(!fid)return [];
+    return leads.filter(l=>String(l.funnelId||'')===fid);
+  }
   return leads.filter(l=>isLeadOwnedByUser(l,sessionUser));
 }
 
@@ -9598,7 +9701,119 @@ function renderPerfil(){
           <button class="btn btn-danger" onclick="doLogout()" style="width:100%;justify-content:center">Sair da conta</button>
         </div>
       </div>
-    </div>`;
+    </div>
+    ${role==='Gex Parceiro'?`
+    <div class="card card-pad" id="minha-equipe-card" style="margin-top:14px;max-width:980px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px">👥 Minha Equipe</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Crie contas pra pessoas do seu time acessarem só o Pipeline de um funil seu — elas não veem mais nada além disso (nem seus outros funis, se você tiver mais de um).</div>
+      <div class="profile-edit-grid" style="margin-bottom:10px">
+        <div class="form-group"><label class="form-label">Nome</label><input class="form-input" id="me-nome" placeholder="Nome da pessoa"></div>
+        <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="me-email" type="email" placeholder="email@exemplo.com"></div>
+        <div class="form-group"><label class="form-label">Senha</label><input class="form-input" id="me-senha" type="password" placeholder="Senha de acesso"></div>
+        <div class="form-group"><label class="form-label">Funil que ela vai enxergar</label><select class="form-input" id="me-funil"></select></div>
+      </div>
+      <button class="btn btn-primary" id="me-criar-btn" onclick="criarSubUsuarioParceiro()">+ Criar acesso</button>
+      <div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">
+        <div style="font-size:12.5px;font-weight:600;margin-bottom:8px;color:var(--muted)">Pessoas da minha equipe</div>
+        <div id="minha-equipe-lista"><div class="empty-txt" style="font-size:12px">Carregando...</div></div>
+      </div>
+    </div>`:''}`;
+  if(role==='Gex Parceiro'){
+    popularSelectFunisMinhaEquipe();
+    carregarMinhaEquipe();
+  }
+}
+
+// ═══ "Minha Equipe" — Gex Parceiro cria sub-usuários travados a UM funil ═══
+function popularSelectFunisMinhaEquipe(){
+  const sel=document.getElementById('me-funil');
+  if(!sel)return;
+  ensureDefaultCommercialFunnel();
+  const meusFunis=getVisibleCommercialFunnels(getCommercialFunnels()).filter(f=>!f.isArchived);
+  sel.innerHTML=meusFunis.length
+    ? meusFunis.map(f=>`<option value="${escAttr(f.id)}">${escHtml(f.name||'Funil sem nome')}</option>`).join('')
+    : '<option value="">Nenhum funil seu ainda — crie um no Pipeline primeiro</option>';
+}
+
+async function carregarMinhaEquipe(){
+  const box=document.getElementById('minha-equipe-lista');
+  if(!box)return;
+  try{
+    if(!supabaseClient||!sessionUser?.id)throw new Error('offline');
+    const {data,error}=await supabaseClient
+      .from('profiles')
+      .select('id,nome,email,status,assigned_funnel_id,created_at')
+      .eq('parent_partner_id',sessionUser.id)
+      .order('created_at',{ascending:false});
+    if(error)throw error;
+    if(!data||!data.length){
+      box.innerHTML='<div class="empty-txt" style="font-size:12px">Você ainda não criou ninguém na sua equipe.</div>';
+      return;
+    }
+    const funis=getVisibleCommercialFunnels(getCommercialFunnels());
+    box.innerHTML=data.map(u=>{
+      const funilNome=funis.find(f=>f.id===u.assigned_funnel_id)?.name||'—';
+      const ativo=String(u.status||'Ativo')!=='Inativo';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:13px;font-weight:600">${escHtml(u.nome||u.email)}</div>
+          <div style="font-size:11.5px;color:var(--muted)">${escHtml(u.email||'')} · Funil: ${escHtml(funilNome)} · <span style="color:${ativo?'#059669':'#DC2626'}">${ativo?'Ativo':'Inativo'}</span></div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="alternarStatusSubUsuario('${u.id}',${ativo})">${ativo?'Desativar':'Reativar'}</button>
+      </div>`;
+    }).join('');
+  }catch(e){
+    box.innerHTML='<div class="empty-txt" style="font-size:12px">Não foi possível carregar sua equipe agora.</div>';
+  }
+}
+
+async function criarSubUsuarioParceiro(){
+  const nome=document.getElementById('me-nome')?.value?.trim();
+  const email=document.getElementById('me-email')?.value?.trim();
+  const senha=document.getElementById('me-senha')?.value?.trim();
+  const funnelId=document.getElementById('me-funil')?.value?.trim();
+  if(!nome||!email||!senha||!funnelId){toast('Preencha nome, email, senha e escolha o funil','#EF4444');return}
+  if(senha.length<6){toast('A senha precisa ter pelo menos 6 caracteres','#EF4444');return}
+  const btn=document.getElementById('me-criar-btn');
+  if(btn){btn.disabled=true;btn.textContent='Criando...'}
+  try{
+    const token=await getGexSupabaseToken();
+    const res=await fetch(getSupabaseFunctionUrl('create-partner-subuser'),{
+      method:'POST',
+      headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({nome,email,senha,funnelId})
+    });
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível criar o acesso.');
+    toast('Acesso criado ✓','#10B981');
+    document.getElementById('me-nome').value='';
+    document.getElementById('me-email').value='';
+    document.getElementById('me-senha').value='';
+    carregarMinhaEquipe();
+  }catch(err){
+    toast(err.message||'Erro ao criar acesso','#EF4444');
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='+ Criar acesso'}
+  }
+}
+
+async function alternarStatusSubUsuario(subUserId,estaAtivo){
+  const novoStatus=estaAtivo?'Inativo':'Ativo';
+  if(estaAtivo&&!confirm('Desativar o acesso dessa pessoa? Ela para de conseguir entrar no sistema na hora.'))return;
+  try{
+    const token=await getGexSupabaseToken();
+    const res=await fetch(getSupabaseFunctionUrl('partner-subuser-set-status'),{
+      method:'POST',
+      headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({subUserId,status:novoStatus})
+    });
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível atualizar.');
+    toast(novoStatus==='Ativo'?'Reativado ✓':'Desativado ✓','#10B981');
+    carregarMinhaEquipe();
+  }catch(err){
+    toast(err.message||'Erro ao atualizar status','#EF4444');
+  }
 }
 
 async function savePerfilProprio(){
@@ -11895,6 +12110,13 @@ function getVisibleCommercialFunnels(funnels){
       return list.filter(f=>!f.createdBy||isUserActiveById(f.createdBy));
     }
   }catch(e){return list}
+  // "Operador de Funil" não é dono de nenhum funil — só pode ver o ÚNICO
+  // funil ao qual foi designado quando o parceiro criou a conta dele
+  // (sessionUser.assignedFunnelId), nunca os outros funis do mesmo parceiro.
+  if(resolveRole(sessionUser?.permissao||sessionUser?.cargo)==='Operador de Funil'){
+    const fid=String(sessionUser?.assignedFunnelId||'');
+    return fid?list.filter(f=>String(f.id)===fid):[];
+  }
   // O funil padrão da empresa fica de fora pra quem não tem visão
   // gerencial — ele só existe como MODELO (ensurePersonalCommercialFunnel
   // copia a estrutura dele pra criar o funil próprio), nunca aparece no
@@ -11914,6 +12136,9 @@ function ensurePersonalCommercialFunnel(funnels){
   const list=Array.isArray(funnels)?funnels:getCommercialFunnels();
   try{
     if(typeof isSalesManagerView==='function'&&isSalesManagerView())return list;
+    // "Operador de Funil" nunca ganha (nem adota) um funil próprio — ele
+    // só trabalha o funil ao qual o parceiro que o criou já designou.
+    if(resolveRole(sessionUser?.permissao||sessionUser?.cargo)==='Operador de Funil')return list;
     const myId=String((typeof sessionUser!=='undefined'&&sessionUser?.id)||'');
     if(!myId)return list;
     const hasOwn=list.some(f=>!f.isArchived&&String(f.createdBy||'')===myId);
