@@ -2011,9 +2011,14 @@ textarea.form-input{resize:vertical;min-height:75px}
         <div class="grid-2" style="margin-top:14px;gap:10px" id="pipe-stats-mini"></div>
       </div>
     </div>
-    <div class="card"><div class="sec-hdr"><div class="sec-ico" style="font-size:13px">
-      <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" style="color:var(--p2)"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/></svg>
-    </div><div><div class="sec-title">Equipe ativa</div><div class="sec-sub" id="squad-count">0 membros</div></div></div><div id="squad-list"></div></div>
+    <div class="grid-2" style="margin-bottom:14px">
+      <div class="card"><div class="sec-hdr"><div class="sec-ico" style="font-size:13px">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" style="color:var(--p2)"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/></svg>
+      </div><div><div class="sec-title">Equipe ativa</div><div class="sec-sub" id="squad-count">0 membros</div></div></div><div id="squad-list"></div></div>
+      <div class="card"><div class="sec-hdr"><div class="sec-ico" style="font-size:13px">
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor" style="color:var(--p2)"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/></svg>
+      </div><div><div class="sec-title">Parceiros ativos</div><div class="sec-sub" id="partners-count">0 parceiros</div></div></div><div id="partners-list"></div></div>
+    </div>
   </div>
 
   <!-- CLIENTES -->
@@ -7735,12 +7740,34 @@ function renderInicio(){
     if(!can('financas','view')&&chartsGrid)chartsGrid.style.display='none';
   }
 
-  // Team list
-  const ativs=mbs.filter(m=>m.status==='Ativo');
-  document.getElementById('squad-count').textContent=ativs.length+' membros';
-  document.getElementById('squad-list').innerHTML=ativs.length
-    ?`<div style="padding:6px 16px 12px">${ativs.map(m=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)"><div style="width:30px;height:30px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">${initials(m.nome)}</div><div><div style="font-size:12px;font-weight:600">${m.nome}</div><div style="font-size:11px;color:var(--muted)">${m.cargo}</div></div></div>`).join('')}</div>`
+  // Team list — usuários reais do sistema (contas de login), não mais a
+  // lista manual de RH > Membros (que ficava desatualizada e só mostrava
+  // quem tinha sido cadastrado à mão ali). "Equipe ativa" = papéis internos
+  // (Fundador, Adm Gerente, Colaborador, Vendedor...) ativos; Gex Parceiro
+  // e o sub-usuário dele (Operador de Funil) entram no card à parte, de
+  // "Parceiros ativos", já que rodam fora da equipe interna.
+  const allUsersHome=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[]);
+  const isAtivoUser=u=>String(u.status||'Ativo').toLowerCase()==='ativo';
+  const equipeAtiva=(allUsersHome||[]).filter(u=>{
+    if(!isAtivoUser(u))return false;
+    const role=resolveRole(u.permissao||u.cargo||'');
+    return role!=='Gex Parceiro'&&role!=='Operador de Funil';
+  });
+  const parceirosAtivos=(allUsersHome||[]).filter(u=>{
+    if(!isAtivoUser(u))return false;
+    return resolveRole(u.permissao||u.cargo||'')==='Gex Parceiro';
+  });
+  const renderPeopleList=list=>list.length
+    ?`<div style="padding:6px 16px 12px">${list.map(m=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)"><div style="width:30px;height:30px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">${initials(m.nome)}</div><div><div style="font-size:12px;font-weight:600">${escHtml(m.nome||'')}</div><div style="font-size:11px;color:var(--muted)">${escHtml(m.cargo||resolveRole(m.permissao||''))}</div></div></div>`).join('')}</div>`
     :`<div class="empty"><div class="empty-txt">Sem membros</div></div>`;
+  document.getElementById('squad-count').textContent=equipeAtiva.length+' membros';
+  document.getElementById('squad-list').innerHTML=renderPeopleList(equipeAtiva);
+  const partnersCountEl=document.getElementById('partners-count');
+  const partnersListEl=document.getElementById('partners-list');
+  if(partnersCountEl)partnersCountEl.textContent=parceirosAtivos.length+' parceiros';
+  if(partnersListEl)partnersListEl.innerHTML=parceirosAtivos.length
+    ?renderPeopleList(parceirosAtivos)
+    :`<div class="empty"><div class="empty-txt">Sem parceiros ativos</div></div>`;
 
   renderSalesTeamHome();
 }
@@ -7824,7 +7851,12 @@ function isCommercialSellerUser(u){
   // checagem cairiam no match de texto abaixo.
   if(role==='Gex Parceiro'||role==='Operador de Funil')return false;
   const hay=normalizeSalesName(`${role} ${u.cargo||''}`);
-  return hay.includes('vendedor') || hay.includes('comercial') || roleHasCommercialAccess(role);
+  // userCanAccess (não roleHasCommercialAccess) porque o acesso ao setor
+  // Comercial pode ter sido concedido/removido individualmente pra esse
+  // usuário (permOverrides), não só pelo papel padrão — assim, ao conceder
+  // acesso a um Colaborador específico ele entra no ranking, e ao remover
+  // ele sai, sem precisar mudar o papel dele.
+  return hay.includes('vendedor') || hay.includes('comercial') || userCanAccess(u,'comercial','view');
 }
 
 function getCommercialTeamUsers(){
