@@ -3747,7 +3747,11 @@ function gexCanCloudSync(){
 function gexQueueCloud(task){
   if(!gexCanCloudSync())return Promise.resolve(false);
   gexCloudQueue = gexCloudQueue
-    .then(()=>task())
+    // Mesma lógica de nova tentativa automática usada na carga inicial
+    // (gexWithRetry, definida mais abaixo) — uma instabilidade rápida de
+    // rede não pode fazer uma edição (mover lead, salvar tarefa etc.) ficar
+    // só no aparelho de quem editou sem chegar pros outros usuários.
+    .then(()=>gexWithRetry(task,{attempts:3,baseDelayMs:1500}))
     .catch(err=>{
       console.error('[GexCloudDB] Falha ao sincronizar no Supabase:',err);
       try{toast('Não confirmou no Supabase. Verifique conexão/RLS.','#F59E0B')}catch(e){}
