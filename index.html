@@ -177,6 +177,26 @@ tr:hover td{background:#FAFAFD}
 .search-inline{background:#fff;border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:13px;color:var(--txt);font-family:'Inter',sans-serif;outline:none;width:210px}
 .search-inline::placeholder{color:var(--light)}
 
+/* CALENDÁRIO */
+.cal-grid{border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.cal-grid-hdr{display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg);border-bottom:1px solid var(--border)}
+.cal-grid-hdr div{padding:10px 12px;font-size:11px;font-weight:700;color:var(--muted)}
+.cal-grid-body{display:grid;grid-template-columns:repeat(7,1fr)}
+.cal-cell{min-height:96px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:8px;cursor:pointer;transition:background .12s}
+.cal-cell:hover{background:var(--bg)}
+.cal-cell:nth-child(7n){border-right:none}
+.cal-cell.muted{color:var(--light);cursor:default;background:var(--bg)}
+.cal-cell.muted:hover{background:var(--bg)}
+.cal-daynum{font-size:12px;font-weight:700;margin-bottom:6px;color:var(--txt)}
+.cal-cell.muted .cal-daynum{color:var(--light)}
+.cal-cell.today .cal-daynum{background:var(--p2);color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center}
+.cal-items{display:flex;flex-direction:column;gap:3px}
+.cal-item{font-size:10px;padding:2px 6px;border-radius:5px;background:var(--p-light);color:var(--p2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.cal-item.done{opacity:.5;text-decoration:line-through}
+.cal-item.gcal{background:#E8F0FE;color:#1967D2}
+.cal-more{font-size:10px;color:var(--muted);font-weight:700;margin-top:1px}
+@media(max-width:900px){.cal-grid-hdr div{padding:6px 4px;font-size:9px}.cal-cell{min-height:60px;padding:4px}.cal-item{font-size:9px;padding:1px 4px}}
+
 /* KANBAN */
 .kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;align-items:start}
 .kol{border-radius:10px;padding:10px;border:2px solid transparent;transition:border-color .2s,background .2s;min-height:120px}
@@ -1929,6 +1949,12 @@ textarea.form-input{resize:vertical;min-height:75px}
       <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/></svg>
       Recursos Humanos
     </div>
+
+    <!-- CALENDÁRIO -->
+    <div class="nav-item" data-page="calendario" onclick="navigate('calendario')">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 011 1v1h6V3a1 1 0 112 0v1h1a2 2 0 012 2v11a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2h1V3a1 1 0 011-1zm10 7H4v8h12V9z" clip-rule="evenodd"/></svg>
+      Calendário
+    </div>
     <div class="nav-item" data-page="perfil" onclick="navigate('perfil')">
       <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
       Meu Perfil
@@ -2181,6 +2207,9 @@ textarea.form-input{resize:vertical;min-height:75px}
 
   <!-- INTEGRAÇÕES (mantida por compatibilidade; acesso principal via Configurações) -->
   <div class="page" id="page-integracoes"></div>
+
+  <!-- CALENDÁRIO -->
+  <div class="page" id="page-calendario"></div>
 
   <!-- RH -->
   <div class="page" id="page-rh">
@@ -2577,6 +2606,7 @@ const PERMISSION_SECTIONS = [
   {id:'automacoes', label:'Automações', color:'#10B981', tabs:[{id:'automacoes', label:'Automações', parent:'automacoes'}]},
   {id:'whatsapp-chat', label:'WhatsApp', color:'#128C7E', tabs:[{id:'whatsapp-chat', label:'WhatsApp', parent:'whatsapp-chat'}]},
   {id:'rh', label:'Recursos Humanos', color:'#64748B', tabs:[{id:'rh', label:'Recursos Humanos', parent:'rh'}]},
+  {id:'calendario', label:'Calendário', color:'#0EA5E9', tabs:[{id:'calendario', label:'Calendário', parent:'calendario'}]},
   {id:'perfil', label:'Meu Perfil', color:'#8B5CF6', tabs:[{id:'perfil', label:'Meu perfil', parent:'perfil'}]}
 ];
 
@@ -2620,6 +2650,7 @@ const ROLE_PERMS = {
     config_seguranca:{view:true,create:true,edit:true,delete:true,manage:true},
     config_preferencias:{view:true,create:true,edit:true,delete:true,manage:true},
     rh:{view:true,create:true,edit:true,delete:true,manage:true},
+    calendario:{view:true,create:true,edit:true,delete:true,manage:true},
     usuarios:{view:true,create:true,edit:true,delete:true,manage:true},
     perfil:{view:true,edit:true},
   },
@@ -2653,6 +2684,7 @@ const ROLE_PERMS = {
     config_seguranca:{view:true,edit:true,manage:true},
     config_preferencias:{view:true,edit:true,manage:true},
     rh:{view:true,create:true,edit:true,delete:true,manage:true},
+    calendario:{view:true,create:true,edit:true,delete:true,manage:true},
     usuarios:{view:true,create:true,edit:true,manage:true},
     perfil:{view:true,edit:true},
   },
@@ -2663,6 +2695,7 @@ const ROLE_PERMS = {
     contratos:{view:true},
     onboarding:{view:true,edit:true},
     tarefas:{view:true,create:true,edit:true},
+    calendario:{view:true,create:true,edit:true},
     aprovacao:{view:true},
     perfil:{view:true,edit:true},
   },
@@ -2671,6 +2704,7 @@ const ROLE_PERMS = {
     tarefas:{view:true,create:true,edit:true},
     entregas:{view:true,edit:true},
     agenda:{view:true},
+    calendario:{view:true,create:true,edit:true},
     aprovacao:{view:true,create:true},
     perfil:{view:true,edit:true},
   },
@@ -4267,6 +4301,7 @@ function applyNavPermissions(){
     {selector:'[data-page="whatsapp-chat"]', mod:'whatsapp-chat'},
     {selector:'[data-page="integracoes"]', mod:'integracoes'},
     {selector:'[data-page="rh"]', mod:'rh'},
+    {selector:'[data-page="calendario"]', mod:'calendario'},
     {selector:'[data-page="perfil"]', mod:'perfil'}
   ];
 
@@ -4583,12 +4618,12 @@ function navigate(page){
   const hasPageAccess = page==='integracoes' ? (can('config_integracoes','view')||can('integracoes','view')) : can(navPermPage,'view');
   if(!hasPageAccess){
     if(pageEl){
-      const pageNames={configuracoes:'Configurações',integracoes:'Integrações',rh:'Recursos Humanos',usuarios:'Gestão de Usuários',perfil:'Perfil',inicio:'Início',automacoes:'Automações','whatsapp-chat':'WhatsApp'};
+      const pageNames={configuracoes:'Configurações',integracoes:'Integrações',rh:'Recursos Humanos',calendario:'Calendário',usuarios:'Gestão de Usuários',perfil:'Perfil',inicio:'Início',automacoes:'Automações','whatsapp-chat':'WhatsApp'};
       showAccessDenied(pageEl,pageNames[page]||page);
     }
     return;
   }
-  ({inicio:renderInicio,configuracoes:renderConfiguracoes,integracoes:renderIntegracoes,rh:renderRH,usuarios:renderUsuarios,perfil:renderPerfil,automacoes:renderAutomacoes,'whatsapp-chat':renderWhatsappChat})[page]?.();
+  ({inicio:renderInicio,configuracoes:renderConfiguracoes,integracoes:renderIntegracoes,rh:renderRH,calendario:renderCalendario,usuarios:renderUsuarios,perfil:renderPerfil,automacoes:renderAutomacoes,'whatsapp-chat':renderWhatsappChat})[page]?.();
 }
 
 // ═══ TOAST ═══
@@ -13820,6 +13855,7 @@ function updateCommercialTask(taskId,data){
   saveCommercialTasks(tasks);
   renderCommercialReminders();
   renderDealMain();
+  if(document.getElementById('page-calendario')?.classList.contains('active')&&typeof renderCalendario==='function')renderCalendario();
 }
 
 function completeCommercialTask(taskId){
@@ -13846,6 +13882,7 @@ function deleteCommercialTask(taskId){
   saveCommercialTasks(tasks);
   renderCommercialReminders();
   renderDealMain();
+  if(document.getElementById('page-calendario')?.classList.contains('active')&&typeof renderCalendario==='function')renderCalendario();
   toast('Lembrete removido','#EF4444');
 }
 
@@ -14106,7 +14143,7 @@ function completeCommercialTaskModal(){
 
 /* ── Modal rápido para criar tarefa vinculada à oportunidade ── */
 /* ── Modal de nova tarefa (geral ou vinculada a deal) ── */
-function openQuickTaskModal(forceDealId){
+function openQuickTaskModal(forceDealId,presetDate){
   const dealId=forceDealId||currentDealId||'';
   const l=dealId?DB.find('leads',dealId)||{}:{};
   // Filtra pelas oportunidades que a pessoa pode ver — sem isso, o seletor
@@ -14139,7 +14176,7 @@ function openQuickTaskModal(forceDealId){
       <input class="form-input" id="qt-title" placeholder="Ex: Follow-up com cliente"></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Data *</label>
-        <input class="form-input" id="qt-date" type="date" value="${today}"></div>
+        <input class="form-input" id="qt-date" type="date" value="${presetDate||today}"></div>
       <div class="form-group"><label class="form-label">Horário</label>
         <input class="form-input" id="qt-time" type="time"></div>
     </div>
@@ -14194,6 +14231,7 @@ function saveQuickTask(fixedDealId){
   closeModal();
   renderTarefasDia();
   if(currentDealId){renderDealMain();renderDealSidebar();}
+  if(document.getElementById('page-calendario')?.classList.contains('active')&&typeof renderCalendario==='function')renderCalendario();
   toast('Tarefa criada ✓','#10B981');
 }
 
@@ -20753,6 +20791,264 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   sync();
   setInterval(sync, 1500);
 })();
+</script>
+
+<script id="gex-calendario-script">
+// ═══ CALENDÁRIO ═══
+// Tela nova: grade mensal com as tarefas/lembretes já existentes no CRM
+// (mesma base de dados da "Tarefas do Dia" — com_tasks) e, quando o usuário
+// conectar, os eventos da própria Google Agenda dele (via OAuth oficial do
+// Google, tokens guardados só no servidor). Segue o mesmo padrão de
+// segurança por usuário já usado em Tarefas do Dia (getVisibleCommercialTasks).
+
+let _calCursor=new Date(_calYearSafe(),_calMonthSafe(),1);
+function _calYearSafe(){try{return new Date().getFullYear()}catch(e){return 2026}}
+function _calMonthSafe(){try{return new Date().getMonth()}catch(e){return 0}}
+let _calTab='pendentes'; // 'pendentes' | 'todas' | 'finalizadas'
+let _calAtendente='';
+let _calTipo='';
+let _calGoogleStatus=null; // null = ainda não verificado; {connected,googleEmail}
+let _calGoogleEvents={}; // cache por 'YYYY-MM'
+
+function calMonthLabel(d){
+  const meses=['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+  return `${meses[d.getMonth()]} DE ${d.getFullYear()}`;
+}
+function calChangeMonth(delta){
+  _calCursor=new Date(_calCursor.getFullYear(),_calCursor.getMonth()+delta,1);
+  renderCalendario();
+}
+function calSetTab(tab){_calTab=tab;renderCalendario();}
+function calSetAtendente(v){_calAtendente=v;renderCalendario();}
+function calSetTipo(v){_calTipo=v;renderCalendario();}
+
+function calTasksSource(){
+  let list=(typeof getVisibleCommercialTasks==='function')?getVisibleCommercialTasks():[];
+  if(_calTab==='pendentes')list=list.filter(t=>!t.completed);
+  else if(_calTab==='finalizadas')list=list.filter(t=>t.completed);
+  if(_calAtendente)list=list.filter(t=>_normTaskIdentity(t.assignedTo)===_normTaskIdentity(_calAtendente));
+  if(_calTipo)list=list.filter(t=>t.type===_calTipo);
+  return list;
+}
+function calAtendenteOptions(){
+  const names=new Set();
+  (typeof getVisibleCommercialTasks==='function'?getVisibleCommercialTasks():[]).forEach(t=>{if(t.assignedTo)names.add(t.assignedTo)});
+  if(sessionUser?.nome)names.add(sessionUser.nome);
+  return Array.from(names).sort((a,b)=>a.localeCompare(b));
+}
+function calIsActivePage(){
+  return !!document.getElementById('page-calendario')?.classList.contains('active');
+}
+
+function calGoogleHeaderHtml(){
+  if(_calGoogleStatus===null){
+    return `<button class="btn btn-ghost" disabled style="opacity:.65">📅 Verificando...</button>`;
+  }
+  if(_calGoogleStatus.connected){
+    return `<span class="badge badge-green" style="padding:7px 12px" title="${escAttr(_calGoogleStatus.googleEmail||'')}">✓ Google Agenda conectada</span>
+      <button class="btn btn-ghost" onclick="disconnectGoogleCalendar()">Desconectar</button>`;
+  }
+  return `<span class="badge badge-gray" style="padding:7px 12px">📅 Não conectado</span>
+    <button class="btn btn-ghost" id="cal-gcal-connect-btn" onclick="connectGoogleCalendarOAuth()">🔗 Conectar Google Agenda</button>`;
+}
+
+function renderCalendario(){
+  const page=document.getElementById('page-calendario');
+  if(!page)return;
+  if(!can('calendario','view')){showAccessDenied(page,'Calendário');return;}
+
+  if(_calGoogleStatus===null){
+    _calGoogleStatus={connected:false};
+    loadGoogleCalendarStatus();
+  }
+
+  const cursor=_calCursor;
+  const year=cursor.getFullYear(), month=cursor.getMonth();
+  const monthKey=`${year}-${String(month+1).padStart(2,'0')}`;
+  if(_calGoogleStatus.connected && _calGoogleEvents[monthKey]===undefined){
+    _calGoogleEvents[monthKey]='loading';
+    loadGoogleCalendarEvents(year,month,monthKey);
+  }
+
+  const tasks=calTasksSource();
+  const tasksByDate={};
+  tasks.forEach(t=>{if(t.dueDate){(tasksByDate[t.dueDate]=tasksByDate[t.dueDate]||[]).push(t)}});
+  const gevents=Array.isArray(_calGoogleEvents[monthKey])?_calGoogleEvents[monthKey]:[];
+  const geventsByDate={};
+  gevents.forEach(ev=>{if(ev.date){(geventsByDate[ev.date]=geventsByDate[ev.date]||[]).push(ev)}});
+
+  const first=new Date(year,month,1);
+  const startWeekday=first.getDay();
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  const prevDays=new Date(year,month,0).getDate();
+  const cells=[];
+  for(let i=0;i<startWeekday;i++)cells.push({day:prevDays-startWeekday+1+i,cur:false,dateStr:''});
+  for(let d=1;d<=daysInMonth;d++)cells.push({day:d,cur:true,dateStr:`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`});
+  let nextDay=1;
+  while(cells.length%7!==0)cells.push({day:nextDay++,cur:false,dateStr:''});
+
+  const todayStr=(typeof _today==='function')?_today():new Date().toISOString().slice(0,10);
+  const diasSemana=['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
+
+  const gridHtml=`<div class="cal-grid-hdr">${diasSemana.map(d=>`<div>${d}</div>`).join('')}</div>
+    <div class="cal-grid-body">
+      ${cells.map(c=>{
+        if(!c.cur)return `<div class="cal-cell muted"><div class="cal-daynum">${c.day}</div></div>`;
+        const dayTasks=tasksByDate[c.dateStr]||[];
+        const dayEvents=geventsByDate[c.dateStr]||[];
+        const isToday=c.dateStr===todayStr;
+        const items=[
+          ...dayTasks.slice(0,3).map(t=>`<div class="cal-item ${t.completed?'done':''}" onclick="event.stopPropagation();openTaskEditModal('${t.id}')" title="${escAttr(t.title||'')}">${TASK_TYPE_ICO[t.type]||'📌'} ${escHtml(t.title||'')}</div>`),
+        ];
+        const remainingSlots=Math.max(0,3-items.length);
+        items.push(...dayEvents.slice(0,remainingSlots).map(ev=>`<div class="cal-item gcal" title="${escAttr(ev.title||'')}">📅 ${escHtml(ev.title||'')}</div>`));
+        const totalCount=dayTasks.length+dayEvents.length;
+        const extra=totalCount-items.length;
+        return `<div class="cal-cell${isToday?' today':''}" onclick="openQuickTaskModal(null,'${c.dateStr}')">
+          <div class="cal-daynum">${c.day}</div>
+          <div class="cal-items">${items.join('')}${extra>0?`<div class="cal-more">+${extra}</div>`:''}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+
+  page.innerHTML=`
+    <div class="page-header">
+      <div><div class="page-title">📅 Calendário</div><div class="page-sub">Visualize todas as suas atividades em um só lugar</div></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        ${calGoogleHeaderHtml()}
+        <button class="btn btn-primary" onclick="openQuickTaskModal()">+ Nova atividade</button>
+      </div>
+    </div>
+    <div class="card" style="padding:18px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+        <div class="filter-tabs">
+          <button class="ftab ${_calTab==='pendentes'?'active':''}" onclick="calSetTab('pendentes')">Pendentes</button>
+          <button class="ftab ${_calTab==='todas'?'active':''}" onclick="calSetTab('todas')">Todas atividades</button>
+          <button class="ftab ${_calTab==='finalizadas'?'active':''}" onclick="calSetTab('finalizadas')">Finalizadas</button>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <select class="form-input" style="width:auto" onchange="calSetAtendente(this.value)">
+            <option value="">Selecionar atendente</option>
+            ${calAtendenteOptions().map(n=>`<option value="${escAttr(n)}" ${_calAtendente===n?'selected':''}>${escHtml(n)}</option>`).join('')}
+          </select>
+          <select class="form-input" style="width:auto" onchange="calSetTipo(this.value)">
+            <option value="">Selecionar tipo</option>
+            ${TASK_TYPES.map(t=>`<option ${_calTipo===t?'selected':''}>${t}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <div style="font-weight:800;font-size:13px;letter-spacing:.04em;color:var(--txt)">${calMonthLabel(cursor)}</div>
+        <button class="btn btn-ghost btn-sm" onclick="calChangeMonth(-1)">‹</button>
+        <button class="btn btn-ghost btn-sm" onclick="calChangeMonth(1)">›</button>
+      </div>
+      <div class="cal-grid">${gridHtml}</div>
+    </div>`;
+}
+
+/* ── Google Agenda (OAuth) ── */
+async function connectGoogleCalendarOAuth(){
+  const btn=document.getElementById('cal-gcal-connect-btn');
+  try{
+    if(btn){btn.disabled=true;btn.textContent='Abrindo Google...';}
+    const token=await getGexSupabaseToken();
+    const returnTo=window.location.href.split('#')[0].split('?')[0];
+    const res=await fetch(getSupabaseFunctionUrl('google-calendar-oauth-start')+`?return_to=${encodeURIComponent(returnTo)}`,{
+      method:'GET',
+      headers:{'Authorization':`Bearer ${token}`}
+    });
+    const json=await res.json().catch(()=>({}));
+    if(!res.ok||!json.url)throw new Error(json.error||'Não foi possível iniciar a conexão com o Google.');
+    const popup=window.open(json.url,'gex_gcal_oauth','width=520,height=700,menubar=no,toolbar=no,location=yes,resizable=yes,scrollbars=yes');
+    if(!popup)throw new Error('O navegador bloqueou o popup. Libere popups para conectar com o Google.');
+    toast('Finalize o login na janela do Google','#4285F4');
+  }catch(err){
+    toast(err.message||'Erro ao conectar Google Agenda','#EF4444');
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='🔗 Conectar Google Agenda';}
+  }
+}
+function disconnectGoogleCalendar(){
+  confirmDelete(async()=>{
+    try{
+      const token=await getGexSupabaseToken();
+      await fetch(getSupabaseFunctionUrl('google-calendar-disconnect'),{method:'POST',headers:{'Authorization':`Bearer ${token}`}});
+    }catch(e){}
+    _calGoogleStatus={connected:false,googleEmail:''};
+    _calGoogleEvents={};
+    if(calIsActivePage())renderCalendario();
+    toast('Google Agenda desconectada','#7C3AED');
+  });
+}
+async function loadGoogleCalendarStatus(){
+  try{
+    const token=await getGexSupabaseToken();
+    const res=await fetch(getSupabaseFunctionUrl('google-calendar-status'),{headers:{'Authorization':`Bearer ${token}`}});
+    const json=await res.json().catch(()=>({}));
+    _calGoogleStatus={connected:!!json.connected,googleEmail:json.googleEmail||''};
+  }catch(e){
+    _calGoogleStatus={connected:false,googleEmail:''};
+  }
+  if(calIsActivePage())renderCalendario();
+}
+async function loadGoogleCalendarEvents(year,month,monthKey){
+  try{
+    const token=await getGexSupabaseToken();
+    const timeMin=new Date(year,month,1).toISOString();
+    const timeMax=new Date(year,month+1,1).toISOString();
+    const res=await fetch(getSupabaseFunctionUrl('google-calendar-events-list')+`?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}`,{
+      headers:{'Authorization':`Bearer ${token}`}
+    });
+    const json=await res.json().catch(()=>({}));
+    _calGoogleEvents[monthKey]=Array.isArray(json.events)?json.events:[];
+  }catch(e){
+    _calGoogleEvents[monthKey]=[];
+  }
+  if(calIsActivePage())renderCalendario();
+}
+function applyGcalOAuthConnection(payload){
+  _calGoogleStatus={connected:true,googleEmail:payload.googleEmail||''};
+  _calGoogleEvents={};
+  if(calIsActivePage())renderCalendario();
+  toast('Google Agenda conectada ✓','#10B981');
+}
+function handleGcalOAuthMessage(event){
+  const expectedOrigin=SUPABASE_URL.replace(/\/+$/,'');
+  const selfOrigin=window.location.origin;
+  if(event.origin!==expectedOrigin&&event.origin!==selfOrigin)return;
+  const data=event.data||{};
+  if(data.type==='gex_gcal_oauth_success')applyGcalOAuthConnection(data);
+  if(data.type==='gex_gcal_oauth_error')toast(data.error||'Erro ao conectar Google Agenda','#EF4444');
+}
+window.addEventListener('message',handleGcalOAuthMessage);
+function handleGcalOAuthRedirectResult(){
+  try{
+    const params=new URLSearchParams(window.location.search);
+    const result=params.get('gex_gcal_oauth');
+    if(!result)return;
+    if(result==='success'){
+      const payload={googleEmail:params.get('googleEmail')||''};
+      if(window.opener){
+        try{window.opener.postMessage({type:'gex_gcal_oauth_success',...payload},'*');}catch(e){}
+        setTimeout(()=>window.close(),400);
+      }else{
+        applyGcalOAuthConnection(payload);
+      }
+    }else if(result==='error'){
+      const error=params.get('error')||'Erro ao conectar Google Agenda';
+      if(window.opener){
+        try{window.opener.postMessage({type:'gex_gcal_oauth_error',error},'*');}catch(e){}
+        setTimeout(()=>window.close(),400);
+      }else{
+        toast(error,'#EF4444');
+      }
+    }
+    const url=new URL(window.location.href);
+    url.searchParams.delete('gex_gcal_oauth');url.searchParams.delete('googleEmail');url.searchParams.delete('error');
+    window.history.replaceState({},'',url.toString());
+  }catch(e){}
+}
+handleGcalOAuthRedirectResult();
 </script>
 
 </body>
