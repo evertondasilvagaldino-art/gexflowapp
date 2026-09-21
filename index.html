@@ -18732,7 +18732,54 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     else if(confirm('Desconectar o número do WhatsApp? Será preciso escanear um novo QR Code para reconectar.'))run();
   };
   function trackingListHtml(){const list=getTrackings();return `<div class="gxi-toolbar"><div class="gxi-toolbar-copy"><h2>Regras de rastreamento</h2><p>Mova leads no Pipeline quando uma mensagem corresponder ao critério configurado.</p></div><button class="gxi-btn primary" onclick="gxiNewTracking()">+ Novo rastreamento</button></div><div class="gxi-rules">${list.length?list.map(r=>`<div class="gxi-rule"><div><div class="gxi-rule-title">“${E(r.message)}”</div><div class="gxi-rule-sub">${E(MODES[r.mode]||r.mode)} • ${E(r.connectionName||'WhatsApp')}</div></div><div><span class="gxi-tag">${E(r.stageName||'Sem etapa')}</span></div><div><div class="gxi-rule-title">${r.executions||0} execuções</div><div class="gxi-rule-sub">${r.lastExecutedAt?new Date(r.lastExecutedAt).toLocaleString('pt-BR'):'Nunca executado'}</div></div><div><span class="gxi-pill ${r.active!==false?'on':'off'}">${r.active!==false?'Ativo':'Pausado'}</span></div><div class="gxi-rule-actions"><button class="gxi-btn small" onclick="gxiToggleTracking('${r.id}')">${r.active!==false?'Pausar':'Ativar'}</button><button class="gxi-btn small" onclick="gxiEditTracking('${r.id}')">Editar</button><button class="gxi-btn small danger" onclick="gxiDeleteTracking('${r.id}')">Excluir</button></div></div>`).join(''):`<div class="gxi-empty"><i>⌁</i><b>Nenhum rastreamento criado</b>Crie a primeira regra para automatizar a movimentação dos leads.</div>`}</div>`}
-  function formHtml(){const isEdit=!!editingId&&editingId!=='new',r=isEdit?getTrackings().find(x=>x.id===editingId)||{}:{};const ss=stages();const wpp=getConnections().filter(x=>x.provider==='whatsapp'&&x.status==='connected');return `<div class="gxi-toolbar"><div class="gxi-toolbar-copy"><h2>${isEdit?'Editar rastreamento':'Novo rastreamento'}</h2><p>Defina o que deve acontecer quando uma mensagem for recebida.</p></div></div><div class="gxi-form"><div class="gxi-form-grid"><label class="gxi-field"><span class="gxi-label">Modo</span><select class="gxi-select" id="gxi-mode">${Object.entries(MODES).map(([k,v])=>`<option value="${k}" ${r.mode===k?'selected':''}>${v}</option>`).join('')}</select></label><label class="gxi-field"><span class="gxi-label">Etapa de destino</span><select class="gxi-select" id="gxi-stage"><option value="">Selecione uma etapa</option>${ss.map(s=>`<option value="${A(s.id)}" data-name="${A(s.name)}" ${String(r.stageId)===String(s.id)?'selected':''}>${E(s.name)}</option>`).join('')}</select></label><label class="gxi-field"><span class="gxi-label">Conexão do WhatsApp</span><select class="gxi-select" id="gxi-connection">${wpp.length?wpp.map(c=>`<option value="${A(c.id)}" data-name="${A(c.assets?.name||c.assets?.phone||'WhatsApp conectado')}" ${r.connectionId===c.id?'selected':''}>${E(c.assets?.name||c.assets?.phone||'WhatsApp conectado')}</option>`).join(''):`<option value="whatsapp_pending" data-name="WhatsApp não conectado">WhatsApp não conectado</option>`}</select></label><label class="gxi-field full"><span class="gxi-label">Mensagem</span><input class="gxi-input" id="gxi-message" value="${A(r.message||'')}" placeholder="Ex.: Quero comprar"></label></div><div class="gxi-help-grid"><div class="gxi-help"><b>Como funciona?</b><p>Quando o WhatsApp receber uma mensagem que corresponda ao critério, o lead será movido automaticamente para a etapa selecionada.</p></div><div class="gxi-help"><b>Registrando o valor da venda</b><p>Para registrar o valor automaticamente, use o formato <code>valor R$ 500</code> na mensagem configurada.</p></div></div>${!wpp.length?`<div class="gxi-warning" style="margin-top:14px">A regra poderá ser salva, mas ficará aguardando uma conexão oficial do WhatsApp para ser executada.</div>`:''}<div class="gxi-form-footer"><button class="gxi-btn" onclick="gxiCancelTracking()">Cancelar</button><button class="gxi-btn primary" onclick="gxiSaveTracking()">${isEdit?'Salvar alterações':'Criar rastreamento'}</button></div></div>`}
+  // A conexão de WhatsApp de verdade (Z-API, "meu número") nunca passou por
+  // getConnections()/integration_connections — ela mora em zapi_settings,
+  // um registro por usuário (getZapiSettings/getMyZapiId), sincronizado pra
+  // toda a equipe. O seletor de "Conexão do WhatsApp" do Tracking Manual
+  // estava só olhando pra tabela genérica errada, por isso sempre aparecia
+  // "não conectado" mesmo com o WhatsApp ativo de verdade. Corrigido pra
+  // listar todo mundo da equipe com o número conectado (cada Z-API é por
+  // usuário), já com o nome de quem conectou.
+  function connectedWhatsappOptions(){
+    const usuarios=typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():(DB.get('usuarios')||[]);
+    const _role=r=>(typeof resolveRole==='function'?resolveRole(r||''):'');
+    const myRole=(typeof sessionUser!=='undefined')?_role(sessionUser?.permissao||sessionUser?.cargo):'';
+    const isPartnerSide=myRole==='Gex Parceiro'||myRole==='Operador de Funil';
+    // Um Gex Parceiro roda o próprio funil separado do time principal da
+    // empresa — então, pra fins de "qual WhatsApp aparece pra escolher", o
+    // "time" dele é só ele mesmo + os "Operador de Funil" que ele criou, não
+    // o time principal (e vice-versa: o time principal não deve ver o
+    // WhatsApp que um parceiro conectou na conta dele).
+    let myPartnerId='';
+    if(isPartnerSide){
+      if(myRole==='Gex Parceiro')myPartnerId=String(sessionUser?.id||'');
+      else{
+        const me=usuarios.find(u=>String(u.id)===String(sessionUser?.id||''));
+        myPartnerId=String(me?.parentPartnerId||me?.parent_partner_id||'');
+      }
+    }
+    const ownerInMyTeam=(ownerId)=>{
+      const owner=usuarios.find(u=>String(u.id)===ownerId);
+      const ownerRole=owner?_role(owner.permissao||owner.cargo):'';
+      const ownerIsPartnerSide=ownerRole==='Gex Parceiro'||ownerRole==='Operador de Funil';
+      if(isPartnerSide){
+        if(!ownerIsPartnerSide)return false;
+        const ownerPartnerId=ownerRole==='Gex Parceiro'?ownerId:String(owner?.parentPartnerId||owner?.parent_partner_id||'');
+        return !!ownerPartnerId&&!!myPartnerId&&ownerPartnerId===myPartnerId;
+      }
+      return !ownerIsPartnerSide;
+    };
+    return (DB.get('zapi_settings')||[])
+      .filter(z=>z&&z.connected)
+      .filter(z=>ownerInMyTeam(String(z.id||'').replace(/^zapi_main__/,'')))
+      .map(z=>{
+        const ownerId=String(z.id||'').replace(/^zapi_main__/,'');
+        const owner=usuarios.find(u=>String(u.id)===ownerId);
+        const name=owner?.nome?`WhatsApp de ${owner.nome}`:(z.instanceId?`Instância ${z.instanceId}`:'WhatsApp conectado');
+        return {id:z.id,name};
+      });
+  }
+  function formHtml(){const isEdit=!!editingId&&editingId!=='new',r=isEdit?getTrackings().find(x=>x.id===editingId)||{}:{};const ss=stages();const wpp=connectedWhatsappOptions();return `<div class="gxi-toolbar"><div class="gxi-toolbar-copy"><h2>${isEdit?'Editar rastreamento':'Novo rastreamento'}</h2><p>Defina o que deve acontecer quando uma mensagem for recebida.</p></div></div><div class="gxi-form"><div class="gxi-form-grid"><label class="gxi-field"><span class="gxi-label">Modo</span><select class="gxi-select" id="gxi-mode">${Object.entries(MODES).map(([k,v])=>`<option value="${k}" ${r.mode===k?'selected':''}>${v}</option>`).join('')}</select></label><label class="gxi-field"><span class="gxi-label">Etapa de destino</span><select class="gxi-select" id="gxi-stage"><option value="">Selecione uma etapa</option>${ss.map(s=>`<option value="${A(s.id)}" data-name="${A(s.name)}" ${String(r.stageId)===String(s.id)?'selected':''}>${E(s.name)}</option>`).join('')}</select></label><label class="gxi-field"><span class="gxi-label">Conexão do WhatsApp</span><select class="gxi-select" id="gxi-connection">${wpp.length?wpp.map(c=>`<option value="${A(c.id)}" data-name="${A(c.name||'WhatsApp conectado')}" ${r.connectionId===c.id?'selected':''}>${E(c.name||'WhatsApp conectado')}</option>`).join(''):`<option value="whatsapp_pending" data-name="WhatsApp não conectado">WhatsApp não conectado</option>`}</select></label><label class="gxi-field full"><span class="gxi-label">Mensagem</span><input class="gxi-input" id="gxi-message" value="${A(r.message||'')}" placeholder="Ex.: Quero comprar"></label></div><div class="gxi-help-grid"><div class="gxi-help"><b>Como funciona?</b><p>Quando o WhatsApp receber uma mensagem que corresponda ao critério, o lead será movido automaticamente para a etapa selecionada.</p></div><div class="gxi-help"><b>Registrando o valor da venda</b><p>Para registrar o valor automaticamente, use o formato <code>valor R$ 500</code> na mensagem configurada.</p></div></div>${!wpp.length?`<div class="gxi-warning" style="margin-top:14px">A regra poderá ser salva, mas ficará aguardando uma conexão oficial do WhatsApp para ser executada.</div>`:''}<div class="gxi-form-footer"><button class="gxi-btn" onclick="gxiCancelTracking()">Cancelar</button><button class="gxi-btn primary" onclick="gxiSaveTracking()">${isEdit?'Salvar alterações':'Criar rastreamento'}</button></div></div>`}
   function mappingRowsHtml(settings){
     const metaEvents=['','Lead','Contact','CompleteRegistration','Schedule','InitiateCheckout','Purchase'];
     return stages().map(s=>{const m=(settings.mappings||[]).find(x=>String(x.stageId)===String(s.id))||{stageId:s.id,stageName:s.name,enabled:false,metaEvent:'',googleAction:'',valueSource:'lead',fixedValue:''};return `<div class="gxi-map-row" data-stage-id="${A(s.id)}" data-stage-name="${A(s.name)}"><input class="gxi-map-enabled" type="checkbox" ${m.enabled?'checked':''}><div class="gxi-map-stage">${E(s.name)}</div><select class="gxi-select gxi-map-meta">${metaEvents.map(x=>`<option value="${A(x)}" ${m.metaEvent===x?'selected':''}>${x||'Não enviar à Meta'}</option>`).join('')}</select><input class="gxi-input gxi-map-google" value="${A(m.googleAction||'')}" placeholder="Ação Google Ads"><select class="gxi-select gxi-map-value"><option value="lead" ${m.valueSource==='lead'?'selected':''}>Valor do negócio</option><option value="fixed" ${m.valueSource==='fixed'?'selected':''}>Valor fixo</option><option value="none" ${m.valueSource==='none'?'selected':''}>Sem valor</option></select><input class="gxi-input gxi-map-fixed" type="number" min="0" step="0.01" value="${A(m.fixedValue||'')}" placeholder="R$ 0"></div>`}).join('');
