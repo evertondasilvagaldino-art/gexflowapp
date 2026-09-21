@@ -484,6 +484,28 @@ tr:hover td{background:#FAFAFD}
 select.form-input{cursor:pointer}
 textarea.form-input{resize:vertical;min-height:75px}
 
+/* MODAL ESTILO "EVENTO DA AGENDA" (tarefas/lembretes/eventos do Google) */
+.gcal-form{padding:2px 0 6px}
+.gcal-title-input{width:100%;border:none;border-bottom:2px solid transparent;font-size:20px;font-weight:600;letter-spacing:-.2px;padding:6px 2px 12px;background:transparent;color:var(--txt);font-family:'Inter',sans-serif;outline:none;margin-bottom:4px}
+.gcal-title-input:focus{border-bottom-color:var(--p)}
+.gcal-title-input::placeholder{color:var(--light);font-weight:500}
+.gcal-tabs{display:flex;gap:6px;margin:2px 0 16px;flex-wrap:wrap}
+.gcal-tab{font-size:12px;font-weight:600;padding:6px 14px;border-radius:20px;background:var(--bg);color:var(--muted);cursor:default;border:1px solid var(--border)}
+.gcal-tab.active{background:var(--p-light);color:var(--p);border-color:transparent}
+.gcal-row{display:flex;gap:14px;align-items:flex-start;padding:9px 2px}
+.gcal-ico{width:22px;flex-shrink:0;text-align:center;color:var(--muted);font-size:15px;margin-top:5px}
+.gcal-row-content{flex:1;min-width:0}
+.gcal-row-main{font-size:13.5px;color:var(--txt);display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.gcal-row-sub{font-size:11px;color:var(--light);margin-top:3px}
+.gcal-inline-input{border:none;background:transparent;font-size:13.5px;color:var(--txt);font-family:'Inter',sans-serif;padding:5px 7px;border-radius:7px;outline:none;cursor:pointer;transition:background .12s}
+.gcal-inline-input:hover{background:var(--bg)}
+.gcal-inline-input:focus{background:var(--p-light);cursor:text}
+textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:text;font-family:'Inter',sans-serif}
+.gcal-inline-input.readonly{cursor:default;color:var(--muted)}
+.gcal-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:7px}
+.gcal-static{font-size:13.5px;color:var(--txt);padding:5px 2px}
+.btn-pill{border-radius:22px!important;padding:9px 22px!important;font-weight:600!important}
+
 /* TABS */
 .tab-nav{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:16px}
 .tab-btn{padding:8px 14px;font-size:13px;font-weight:500;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;font-family:'Inter',sans-serif;transition:color .15s}
@@ -2466,14 +2488,14 @@ textarea.form-input{resize:vertical;min-height:75px}
 <div class="task-edit-ov" id="task-edit-ov" onclick="if(event.target===this)closeTaskEditModal()">
   <div class="task-edit-box" onclick="event.stopPropagation()">
     <div class="modal-header">
-      <div class="modal-title">✏️ Editar Lembrete</div>
+      <div class="modal-title"></div>
       <button class="modal-close" onclick="closeTaskEditModal()">✕</button>
     </div>
     <div class="modal-body" id="task-edit-body"></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeTaskEditModal()">Cancelar</button>
       <button class="btn btn-ghost" style="color:var(--green)" onclick="completeCommercialTaskModal()">✓ Concluir</button>
-      <button class="btn btn-primary" onclick="saveTaskEditModal()">Salvar</button>
+      <button class="btn btn-primary btn-pill" onclick="saveTaskEditModal()">Salvar</button>
     </div>
   </div>
 </div>
@@ -13761,6 +13783,8 @@ function renderDealBreadcrumb(){
 const TASK_TYPES=['Nota','E-mail','Ligação','WhatsApp','Proposta','Reunião','Visita','Follow-up','Retorno','Tarefa interna'];
 const TASK_PRIOS=['Baixa','Média','Alta','Urgente'];
 const TASK_TYPE_ICO={Nota:'📝','E-mail':'✉️','Ligação':'📞',WhatsApp:'💬',Proposta:'📋',Reunião:'🤝',Visita:'🚗','Follow-up':'🔁',Retorno:'↩️','Tarefa interna':'🔧'};
+const TASK_PRIO_COLOR={Baixa:'#94A3B8',Média:'#6D35D8',Alta:'#F59E0B',Urgente:'#EF4444'};
+function taskPrioColor(p){return TASK_PRIO_COLOR[p]||'#6D35D8';}
 const TASK_PRI_CLS={Baixa:'baixa',Média:'media',Alta:'alta',Urgente:'urgente'};
 
 
@@ -14090,31 +14114,51 @@ function openTaskEditModal(taskId){
   currentTaskEditId=taskId;
   const members=(DB.get('membros')||[]).map(m=>m.nome).filter(Boolean);
   document.getElementById('task-edit-body').innerHTML=`
-    <div class="form-group"><label class="form-label">Título *</label>
-      <input class="form-input" id="te-title" value="${t.title}"></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Data</label>
-        <input class="form-input" id="te-date" type="date" value="${t.dueDate||''}"></div>
-      <div class="form-group"><label class="form-label">Horário</label>
-        <input class="form-input" id="te-time" type="time" value="${t.dueTime||''}"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Tipo</label>
-        <select class="form-input" id="te-type">${TASK_TYPES.map(tp=>`<option ${t.type===tp?'selected':''}>${tp}</option>`).join('')}</select></div>
-      <div class="form-group"><label class="form-label">Prioridade</label>
-        <select class="form-input" id="te-prio">${TASK_PRIOS.map(p=>`<option ${t.priority===p?'selected':''}>${p}</option>`).join('')}</select></div>
-    </div>
-    <div class="form-group"><label class="form-label">Responsável</label>
-      ${isFounderTaskAdmin()
-        ? `<select class="form-input" id="te-resp">
-            <option value="${t.assignedTo||''}">${t.assignedTo||'Everton Galdino'}</option>
-            ${members.filter(m=>m!==(t.assignedTo||'')).map(m=>`<option>${m}</option>`).join('')}
-          </select>`
-        : `<input class="form-input" id="te-resp" value="${sessionUser?.nome||t.assignedTo||'Usuário'}" readonly>`}
-    </div>
-    <div class="form-group"><label class="form-label">Descrição</label>
-      <textarea class="form-input" id="te-desc" rows="2">${t.description||''}</textarea></div>
-    ${can('comercial','delete')?`<button class="btn btn-ghost" style="color:var(--red);margin-top:4px;font-size:12px" onclick="deleteCommercialTask('${taskId}');closeTaskEditModal()">🗑 Excluir tarefa</button>`:''}`;
+    <div class="gcal-form">
+      <input class="gcal-title-input" id="te-title" value="${escAttr(t.title||'')}" placeholder="Adicionar título">
+      <div class="gcal-tabs"><div class="gcal-tab active">🔔 Tarefa</div></div>
+      <div class="gcal-row">
+        <div class="gcal-ico">🕐</div>
+        <div class="gcal-row-content">
+          <div class="gcal-row-main">
+            <input class="gcal-inline-input" id="te-date" type="date" value="${t.dueDate||''}">
+            <input class="gcal-inline-input" id="te-time" type="time" value="${t.dueTime||''}">
+          </div>
+          <div class="gcal-row-sub">Data e horário da tarefa</div>
+        </div>
+      </div>
+      <div class="gcal-row">
+        <div class="gcal-ico">👤</div>
+        <div class="gcal-row-content">
+          <div class="gcal-row-main">
+            ${isFounderTaskAdmin()
+              ? `<select class="gcal-inline-input" id="te-resp">
+                  <option value="${t.assignedTo||''}">${t.assignedTo||'Everton Galdino'}</option>
+                  ${members.filter(m=>m!==(t.assignedTo||'')).map(m=>`<option>${m}</option>`).join('')}
+                </select>`
+              : `<input class="gcal-inline-input readonly" id="te-resp" value="${sessionUser?.nome||t.assignedTo||'Usuário'}" readonly>`}
+          </div>
+          <div class="gcal-row-sub">Responsável</div>
+        </div>
+      </div>
+      <div class="gcal-row">
+        <div class="gcal-ico">📝</div>
+        <div class="gcal-row-content">
+          <textarea class="gcal-inline-input" id="te-desc" rows="2" placeholder="Adicionar descrição">${t.description||''}</textarea>
+        </div>
+      </div>
+      <div class="gcal-row">
+        <div class="gcal-dot" id="te-color-dot" style="background:${taskPrioColor(t.priority||'Média')}"></div>
+        <div class="gcal-row-content">
+          <div class="gcal-row-main">
+            <select class="gcal-inline-input" id="te-type">${TASK_TYPES.map(tp=>`<option ${t.type===tp?'selected':''}>${tp}</option>`).join('')}</select>
+            <select class="gcal-inline-input" id="te-prio" onchange="const d=document.getElementById('te-color-dot');if(d)d.style.background=taskPrioColor(this.value)">${TASK_PRIOS.map(p=>`<option ${t.priority===p?'selected':''}>${p}</option>`).join('')}</select>
+          </div>
+          <div class="gcal-row-sub">Tipo e prioridade</div>
+        </div>
+      </div>
+      ${can('comercial','delete')?`<div style="padding:6px 2px 0"><button class="btn btn-ghost" style="color:var(--red);font-size:12px" onclick="deleteCommercialTask('${taskId}');closeTaskEditModal()">🗑 Excluir tarefa</button></div>`:''}
+    </div>`;
   document.getElementById('task-edit-ov').classList.add('open');
 }
 
@@ -14163,44 +14207,72 @@ function openQuickTaskModal(forceDealId,presetDate){
   const today=new Date().toISOString().slice(0,10);
 
   // Seletor de oportunidade (aparece quando não há deal fixo)
-  const oppSelector=dealId
-    ?`<div style="font-size:12px;color:var(--muted);margin-bottom:12px;padding:8px 10px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
-        📎 Vinculada a: <strong>${l.nome||'Oportunidade'}</strong>${l.empresa?' · '+l.empresa:''}
+  const oppRow=dealId
+    ?`<div class="gcal-row">
+        <div class="gcal-ico">📎</div>
+        <div class="gcal-row-content">
+          <div class="gcal-static"><strong>${l.nome||'Oportunidade'}</strong>${l.empresa?' · '+l.empresa:''}</div>
+          <div class="gcal-row-sub">Vinculada a esta oportunidade</div>
+        </div>
       </div>`
-    :`<div class="form-group"><label class="form-label">Oportunidade vinculada</label>
-        <select class="form-input" id="qt-opp">
-          <option value="">— Nenhuma (tarefa geral) —</option>
-          ${leads.map(ld=>`<option value="${ld.id}">${ld.nome}${ld.empresa?' – '+ld.empresa:''}</option>`).join('')}
-        </select>
+    :`<div class="gcal-row">
+        <div class="gcal-ico">📎</div>
+        <div class="gcal-row-content">
+          <select class="gcal-inline-input" id="qt-opp" style="width:100%">
+            <option value="">— Nenhuma (tarefa geral) —</option>
+            ${leads.map(ld=>`<option value="${ld.id}">${ld.nome}${ld.empresa?' – '+ld.empresa:''}</option>`).join('')}
+          </select>
+          <div class="gcal-row-sub">Oportunidade vinculada</div>
+        </div>
       </div>`;
 
-  document.getElementById('modal-title').textContent='🔔 Nova Tarefa / Lembrete';
+  document.getElementById('modal-title').textContent='';
   document.getElementById('modal-body').innerHTML=`
-    ${oppSelector}
-    <div class="form-group"><label class="form-label">Título *</label>
-      <input class="form-input" id="qt-title" placeholder="Ex: Follow-up com cliente"></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Data *</label>
-        <input class="form-input" id="qt-date" type="date" value="${presetDate||today}"></div>
-      <div class="form-group"><label class="form-label">Horário</label>
-        <input class="form-input" id="qt-time" type="time"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Tipo</label>
-        <select class="form-input" id="qt-type">${TASK_TYPES.map(tp=>`<option>${tp}</option>`).join('')}</select></div>
-      <div class="form-group"><label class="form-label">Prioridade</label>
-        <select class="form-input" id="qt-prio">${TASK_PRIOS.map(p=>`<option>${p}</option>`).join('')}</select></div>
-    </div>
-    <div class="form-group"><label class="form-label">Responsável</label>
-      ${isFounderTaskAdmin()
-        ? `<select class="form-input" id="qt-resp">${respOptions.map(r=>`<option>${r}</option>`).join('')}</select>`
-        : `<input class="form-input" id="qt-resp" value="${sessionUser?.nome||'Usuário'}" readonly>`}
-    </div>
-    <div class="form-group"><label class="form-label">Descrição</label>
-      <textarea class="form-input" id="qt-desc" rows="2" placeholder="Detalhes adicionais..."></textarea></div>`;
+    <div class="gcal-form">
+      <input class="gcal-title-input" id="qt-title" placeholder="Adicionar título">
+      <div class="gcal-tabs"><div class="gcal-tab active">🔔 Tarefa</div></div>
+      <div class="gcal-row">
+        <div class="gcal-ico">🕐</div>
+        <div class="gcal-row-content">
+          <div class="gcal-row-main">
+            <input class="gcal-inline-input" id="qt-date" type="date" value="${presetDate||today}">
+            <input class="gcal-inline-input" id="qt-time" type="time">
+          </div>
+          <div class="gcal-row-sub">Data e horário da tarefa</div>
+        </div>
+      </div>
+      <div class="gcal-row">
+        <div class="gcal-ico">👤</div>
+        <div class="gcal-row-content">
+          <div class="gcal-row-main">
+            ${isFounderTaskAdmin()
+              ? `<select class="gcal-inline-input" id="qt-resp">${respOptions.map(r=>`<option>${r}</option>`).join('')}</select>`
+              : `<input class="gcal-inline-input readonly" id="qt-resp" value="${sessionUser?.nome||'Usuário'}" readonly>`}
+          </div>
+          <div class="gcal-row-sub">Responsável</div>
+        </div>
+      </div>
+      ${oppRow}
+      <div class="gcal-row">
+        <div class="gcal-ico">📝</div>
+        <div class="gcal-row-content">
+          <textarea class="gcal-inline-input" id="qt-desc" rows="2" placeholder="Adicionar descrição"></textarea>
+        </div>
+      </div>
+      <div class="gcal-row">
+        <div class="gcal-dot" id="qt-color-dot" style="background:${taskPrioColor('Média')}"></div>
+        <div class="gcal-row-content">
+          <div class="gcal-row-main">
+            <select class="gcal-inline-input" id="qt-type">${TASK_TYPES.map(tp=>`<option>${tp}</option>`).join('')}</select>
+            <select class="gcal-inline-input" id="qt-prio" onchange="const d=document.getElementById('qt-color-dot');if(d)d.style.background=taskPrioColor(this.value)">${TASK_PRIOS.map(p=>`<option>${p}</option>`).join('')}</select>
+          </div>
+          <div class="gcal-row-sub">Tipo e prioridade</div>
+        </div>
+      </div>
+    </div>`;
   document.getElementById('modal-footer').innerHTML=`
     <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
-    <button class="btn btn-primary" onclick="saveQuickTask('${dealId}')">Criar Tarefa</button>`;
+    <button class="btn btn-primary btn-pill" onclick="saveQuickTask('${dealId}')">Salvar</button>`;
   document.getElementById('modal-box').className='modal';
   document.getElementById('modal-ov').classList.add('open');
 }
@@ -21106,21 +21178,33 @@ function openGcalEventModal(eventId,monthKey){
   const list=Array.isArray(_calGoogleEvents[monthKey])?_calGoogleEvents[monthKey]:[];
   const ev=list.find(e=>e.id===eventId);
   if(!ev){toast('Evento não encontrado','#EF4444');return;}
-  document.getElementById('modal-title').textContent='📅 Evento do Google Agenda';
+  document.getElementById('modal-title').textContent='';
   document.getElementById('modal-body').innerHTML=`
-    <div class="form-group"><label class="form-label">Título *</label>
-      <input class="form-input" id="ge-title" value="${escAttr(ev.title||'')}"></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Data *</label>
-        <input class="form-input" id="ge-date" type="date" value="${ev.date||''}"></div>
-      <div class="form-group"><label class="form-label">Horário</label>
-        <input class="form-input" id="ge-time" type="time" value="${ev.time||''}"></div>
-    </div>
-    <div style="font-size:11px;color:var(--muted);margin-top:4px">Esse evento existe na sua Google Agenda — qualquer alteração aqui atualiza direto lá.</div>`;
+    <div class="gcal-form">
+      <input class="gcal-title-input" id="ge-title" value="${escAttr(ev.title||'')}" placeholder="Adicionar título">
+      <div class="gcal-tabs"><div class="gcal-tab active">📅 Evento</div></div>
+      <div class="gcal-row">
+        <div class="gcal-ico">🕐</div>
+        <div class="gcal-row-content">
+          <div class="gcal-row-main">
+            <input class="gcal-inline-input" id="ge-date" type="date" value="${ev.date||''}">
+            <input class="gcal-inline-input" id="ge-time" type="time" value="${ev.time||''}">
+          </div>
+          <div class="gcal-row-sub">Fuso horário • Não se repete</div>
+        </div>
+      </div>
+      <div class="gcal-row">
+        <div class="gcal-dot" style="background:#4285F4"></div>
+        <div class="gcal-row-content">
+          <div class="gcal-static">Google Agenda</div>
+          <div class="gcal-row-sub">Esse evento existe na sua Google Agenda — qualquer alteração aqui atualiza direto lá.</div>
+        </div>
+      </div>
+    </div>`;
   document.getElementById('modal-footer').innerHTML=`
     <button class="btn btn-ghost" style="color:var(--red)" onclick="deleteGcalEventModal('${eventId}','${monthKey}')">🗑 Excluir do Google</button>
     <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
-    <button class="btn btn-primary" onclick="saveGcalEventModal('${eventId}','${monthKey}')">Salvar</button>`;
+    <button class="btn btn-primary btn-pill" onclick="saveGcalEventModal('${eventId}','${monthKey}')">Salvar</button>`;
   document.getElementById('modal-box').className='modal';
   document.getElementById('modal-ov').classList.add('open');
 }
