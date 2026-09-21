@@ -950,6 +950,7 @@ textarea.form-input{resize:vertical;min-height:75px}
 .sales-person{display:flex;align-items:center;gap:9px;min-width:0}
 .sales-av{width:32px;height:32px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
 .sales-av img{width:100%;height:100%;object-fit:cover;border-radius:inherit}
+.home-people-av img{width:100%;height:100%;object-fit:cover;border-radius:inherit}
 .sales-name{font-size:13px;font-weight:800;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sales-role{font-size:10.5px;color:var(--muted);margin-top:1px}
 .sales-num{font-size:13px;font-weight:800;color:var(--txt)}
@@ -1915,7 +1916,6 @@ textarea.form-input{resize:vertical;min-height:75px}
       <span class="nav-chv closed" id="grp-chv-configuracoes">▾</span>
     </div>
     <div class="nav-sub-wrap closed" id="grp-wrap-configuracoes">
-      <div class="nav-sub" data-sub="config-integracoes" onclick="navigateSub('config-integracoes','configuracoes')"><span class="nav-sub-ico">·</span>Integrações</div>
       <div class="nav-sub" data-sub="config-webhook-api" onclick="navigateSub('config-webhook-api','configuracoes')"><span class="nav-sub-ico">·</span>Webhook & API</div>
       <div class="nav-sub" data-sub="config-pagamentos" onclick="navigateSub('config-pagamentos','configuracoes')"><span class="nav-sub-ico">·</span>Pagamentos</div>
       <div class="nav-sub" data-sub="config-empresa" onclick="navigateSub('config-empresa','configuracoes')"><span class="nav-sub-ico">·</span>Dados da Empresa</div>
@@ -2566,7 +2566,6 @@ const PERMISSION_SECTIONS = [
   ]},
   {id:'financas', label:'Finanças', color:'#EF4444', tabs:[{id:'financas', label:'Controle financeiro', parent:'financas'}]},
   {id:'configuracoes', label:'Configurações', color:'#7C3AED', tabs:[
-    {id:'config_integracoes', label:'Integrações', parent:'configuracoes'},
     {id:'config_webhook_api', label:'Webhook & API', parent:'configuracoes'},
     {id:'config_pagamentos', label:'Pagamentos e Assinatura', parent:'configuracoes'},
     {id:'config_empresa', label:'Dados da Empresa', parent:'configuracoes'},
@@ -4308,7 +4307,6 @@ function applyNavPermissions(){
     configuracoes:{
       hdr:'#grp-hdr-configuracoes', wrap:'#grp-wrap-configuracoes',
       items:[
-        {selector:'[data-sub="config-integracoes"]', mod:'config_integracoes'},
         {selector:'[data-sub="config-webhook-api"]', mod:'config_webhook_api'},
         {selector:'[data-sub="config-pagamentos"]', mod:'config_pagamentos'},
         {selector:'[data-sub="config-empresa"]', mod:'config_empresa'},
@@ -4352,7 +4350,7 @@ function applyNavPermissions(){
             };
             firstAllowed={type:'commercial', tab:tabMap[item.mod]||'pipeline'};
           }else if(groupId==='configuracoes'){
-            firstAllowed={type:'config', sub:item.selector.match(/data-sub=\"([^\"]+)/)?.[1] || 'config-integracoes'};
+            firstAllowed={type:'config', sub:item.selector.match(/data-sub=\"([^\"]+)/)?.[1] || 'config-webhook-api'};
           }else{
             const pageMap={clientes:'clientes',projetos:'projetos',financas:'financas'};
             firstAllowed={type:'sub', sub:item.mod, group:groupId, page:pageMap[groupId]||item.mod};
@@ -5255,7 +5253,6 @@ function canViewConfigTab(tabKey){
 
 function getAllowedConfigTabs(){
   const tabs=[
-    {key:'config-integracoes',mod:'config_integracoes',title:'Integrações',icon:'🔌',desc:'Conecte Meta Ads, Google Ads, Google Agenda, WhatsApp, SMS, Make, Stripe e outros parceiros autorizados.'},
     {key:'config-webhook-api',mod:'config_webhook_api',title:'Webhook & API',icon:'🔗',desc:'Gerencie URL de entrada, chave de segurança, payloads e webhooks de saída do CRM.'},
     {key:'config-pagamentos',mod:'config_pagamentos',title:'Pagamentos e Assinatura',icon:'💳',desc:'Controle plano atual, assinatura, cobrança, Stripe e histórico financeiro do sistema.'},
     {key:'config-empresa',mod:'config_empresa',title:'Dados da Empresa',icon:'🏢',desc:'Configure nome, CNPJ, contatos, site, logo e identidade visual da empresa.'},
@@ -5324,7 +5321,12 @@ function renderConfiguracoes(sub){
     return;
   }
   const active = sub && canViewConfigTab(sub) ? sub : allowed[0].key;
-  if(active==='config-integracoes') return renderConfiguracoesIntegracoes();
+  // "Integrações" saiu do sub-menu de Configurações — já existe a central de
+  // integrações de verdade na barra lateral (GEX Connect); esse card daqui
+  // era só um atalho decorativo redundante que confundia (duas abas
+  // "Integrações" no menu). Qualquer chamada antiga que ainda apontar pra cá
+  // é redirecionada direto pra central de verdade.
+  if(active==='config-integracoes'){navigate('integracoes');return;}
   if(active==='config-webhook-api') return renderConfiguracoesWebhookApi();
   if(active==='config-pagamentos') return renderConfiguracoesPagamentos();
   if(active==='config-empresa') return renderConfiguracoesEmpresa();
@@ -7758,7 +7760,7 @@ function renderInicio(){
     return resolveRole(u.permissao||u.cargo||'')==='Gex Parceiro';
   });
   const renderPeopleList=list=>list.length
-    ?`<div style="padding:6px 16px 12px">${list.map(m=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)"><div style="width:30px;height:30px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center">${initials(m.nome)}</div><div><div style="font-size:12px;font-weight:600">${escHtml(m.nome||'')}</div><div style="font-size:11px;color:var(--muted)">${escHtml(m.cargo||resolveRole(m.permissao||''))}</div></div></div>`).join('')}</div>`
+    ?`<div style="padding:6px 16px 12px">${list.map(m=>`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border)"><div class="home-people-av" style="width:30px;height:30px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0">${getAvatarInner(m)}</div><div><div style="font-size:12px;font-weight:600">${escHtml(m.nome||'')}</div><div style="font-size:11px;color:var(--muted)">${escHtml(m.cargo||resolveRole(m.permissao||''))}</div></div></div>`).join('')}</div>`
     :`<div class="empty"><div class="empty-txt">Sem membros</div></div>`;
   document.getElementById('squad-count').textContent=equipeAtiva.length+' membros';
   document.getElementById('squad-list').innerHTML=renderPeopleList(equipeAtiva);
@@ -18836,7 +18838,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   function editorHtml(){const old=glEditId?forms().find(x=>x.id===glEditId)||{}:{};const funnel=typeof getActiveFunnel==='function'?getActiveFunnel():null,stages=funnel?.stages||[];return `${head(glEditId?'Editar formulário':'Novo formulário','Personalize a experiência de captação e o destino dos novos leads.')}<div class="gl-editor"><div><div class="gl-panel"><h3>Informações principais</h3><p>Defina o nome interno, título e mensagem exibidos para o visitante.</p><div class="gl-grid"><label class="gl-field"><span>Nome interno</span><input class="gl-input" id="gl-name" value="${esc(old.name||'')}" placeholder="Ex.: Orçamento Tráfego Pago" oninput="gxlPreview()"></label><label class="gl-field"><span>Identificador do link</span><input class="gl-input" id="gl-slug" value="${esc(old.slug||'')}" placeholder="gerado-automaticamente"></label><label class="gl-field full"><span>Título do formulário</span><input class="gl-input" id="gl-title" value="${esc(old.title||'Fale com um especialista')}" oninput="gxlPreview()"></label><label class="gl-field full"><span>Descrição</span><textarea class="gl-textarea" id="gl-description" oninput="gxlPreview()">${esc(old.description||'Preencha seus dados e nossa equipe entrará em contato.')}</textarea></label></div></div><div class="gl-panel"><div class="gl-builder-head"><div><h3>Campos do formulário</h3><p style="margin:3px 0 0;font-size:10px;color:var(--muted)">Adicione e personalize as perguntas que qualificam o lead.</p></div><button class="gl-btn sm" onclick="gxlAddField()">＋ Campo</button></div><div class="gl-fields" id="gl-fields">${fieldsHtml()}</div></div><div class="gl-panel"><h3>Destino e automações</h3><p>Escolha onde o lead entra no CRM e como sua equipe será avisada.</p><div class="gl-grid"><label class="gl-field"><span>Funil</span><input class="gl-input" value="${esc(funnel?.name||'Funil comercial')}" disabled></label><label class="gl-field"><span>Etapa inicial</span><select class="gl-select" id="gl-stage">${stages.map(s=>`<option value="${esc(s.id)}" data-name="${esc(s.name)}" ${old.stageId===s.id?'selected':''}>${esc(s.name)}</option>`).join('')}</select></label><label class="gl-field"><span>E-mail para notificações</span><input class="gl-input" id="gl-email" type="email" value="${esc(old.notificationEmail||'')}" placeholder="comercial@empresa.com"></label><label class="gl-field"><span>Mensagem após o envio</span><input class="gl-input" id="gl-success" value="${esc(old.successMessage||'Recebemos seus dados. Em breve entraremos em contato!')}"></label></div><div class="gl-toggle-line"><span>Enviar notificação por e-mail</span><label class="gl-switch"><input id="gl-notify" type="checkbox" ${old.notify?'checked':''}><i></i></label></div><div class="gl-toggle-line"><span>Distribuir leads entre vendedores</span><label class="gl-switch"><input id="gl-distribute" type="checkbox" ${old.distribute?'checked':''}><i></i></label></div><div class="gl-toggle-line"><span>Publicar formulário imediatamente</span><label class="gl-switch"><input id="gl-active" type="checkbox" ${old.active!==false?'checked':''}><i></i></label></div></div><div class="gl-footer"><button class="gl-btn" onclick="gxlCancel()">Cancelar</button><button class="gl-btn primary" onclick="gxlSave()">${glEditId?'Salvar alterações':'Criar formulário'}</button></div></div><aside class="gl-preview-wrap"><div class="gl-preview-label">Pré-visualização ao vivo</div><div class="gl-preview"><div class="gl-preview-form" id="gl-preview"></div></div></aside></div>`}
   function fieldsHtml(){return glFields.map((f,i)=>`<div class="gl-field-row" data-index="${i}"><div class="gl-drag">⋮⋮</div><input class="gl-input gl-flabel" value="${esc(f.label)}" placeholder="Pergunta" oninput="gxlFieldChange(${i},false)"><select class="gl-select gl-ftype" onchange="gxlFieldChange(${i},true)">${Object.entries(fieldTypes).map(([k,v])=>`<option value="${k}" ${f.type===k?'selected':''}>${v}</option>`).join('')}</select><label class="gl-required"><input class="gl-frequired" type="checkbox" ${f.required?'checked':''} onchange="gxlFieldChange(${i},false)"> Obrig.</label><button class="gl-remove" onclick="gxlRemoveField(${i})">×</button>${f.type==='select'?`<input class="gl-input gl-foptions" style="grid-column:2/-1" value="${esc((f.options||[]).join(', '))}" placeholder="Opções separadas por vírgula" oninput="gxlFieldChange(${i},false)">`:''}</div>`).join('')}
   function previewHtml(){const title=document.getElementById('gl-title')?.value||'Fale com um especialista',desc=document.getElementById('gl-description')?.value||'';return `<h2>${esc(title)}</h2><p>${esc(desc)}</p>${glFields.map(f=>`<div class="gl-pf"><label>${esc(f.label)}${f.required?' *':''}</label>${f.type==='textarea'?'<textarea disabled></textarea>':f.type==='select'?`<select disabled><option>Selecione</option></select>`:`<input type="${f.type==='email'?'email':f.type==='number'?'number':f.type==='date'?'date':'text'}" disabled placeholder="${esc(f.placeholder||'')}">`}</div>`).join('')}<button class="gl-submit">Enviar informações</button>`}
-  function coming(type){const data={whatsapp:['Links de WhatsApp','Crie links rastreáveis para campanhas, registre a origem e envie os contatos diretamente ao CRM.','Abrir Integrações'],meta:['Campanhas da Meta','Sincronize formulários instantâneos, campanhas e parâmetros de atribuição da Meta Ads.','Conectar Meta Ads'],api:['API de captação','Receba leads de sites, landing pages e ferramentas externas por um endpoint seguro.','Ver Webhook & API']}[type];return `${head(data[0],data[1])}<div class="gl-coming"><div class="gl-card"><div class="gl-coming-icon">↗</div><h3>${data[0]}</h3><p>${data[1]}</p><button class="gl-btn primary" onclick="${type==='api'?"navigateSub('config-webhook-api','configuracoes')":"navigateSub('config-integracoes','configuracoes')"}">${data[2]}</button></div><div class="gl-card"><div class="gl-coming-icon">◎</div><h3>Atribuição automática</h3><p>UTMs, campanha, conjunto e anúncio podem acompanhar o lead até a venda.</p><span class="gl-status">Preparado</span></div><div class="gl-card"><div class="gl-coming-icon">⚡</div><h3>Entrada no Pipeline</h3><p>Todo contato captado será associado ao funil, etapa e responsável configurados.</p><span class="gl-status on">CRM conectado</span></div></div>`}
+  function coming(type){const data={whatsapp:['Links de WhatsApp','Crie links rastreáveis para campanhas, registre a origem e envie os contatos diretamente ao CRM.','Abrir Integrações'],meta:['Campanhas da Meta','Sincronize formulários instantâneos, campanhas e parâmetros de atribuição da Meta Ads.','Conectar Meta Ads'],api:['API de captação','Receba leads de sites, landing pages e ferramentas externas por um endpoint seguro.','Ver Webhook & API']}[type];return `${head(data[0],data[1])}<div class="gl-coming"><div class="gl-card"><div class="gl-coming-icon">↗</div><h3>${data[0]}</h3><p>${data[1]}</p><button class="gl-btn primary" onclick="${type==='api'?"navigateSub('config-webhook-api','configuracoes')":"navigate('integracoes')"}">${data[2]}</button></div><div class="gl-card"><div class="gl-coming-icon">◎</div><h3>Atribuição automática</h3><p>UTMs, campanha, conjunto e anúncio podem acompanhar o lead até a venda.</p><span class="gl-status">Preparado</span></div><div class="gl-card"><div class="gl-coming-icon">⚡</div><h3>Entrada no Pipeline</h3><p>Todo contato captado será associado ao funil, etapa e responsável configurados.</p><span class="gl-status on">CRM conectado</span></div></div>`}
   window.renderGerarLeads=function(){const page=document.getElementById('page-gerar-leads');if(!page)return;const sub=activeSub();page.innerHTML=`<div class="gl-shell">${sub==='gerar-leads-formularios'?(glView==='editor'?editorHtml():listHtml()):sub==='gerar-leads-whatsapp'?(gxwView==='editor'?gxwEditorHtml():gxwListHtml()):sub==='gerar-leads-meta'?metaAdsDashboardHtml():coming('api')}</div>`;if(glView==='editor')setTimeout(window.gxlPreview,0);if(sub==='gerar-leads-meta')metaDashBoot()};
 
   // ===== Dashboard "Campanhas da Meta" (dentro de Gerar Leads) =====
@@ -18898,7 +18900,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       return `${head('Campanhas da Meta','Buscando dados da conta conectada...')}<div class="gl-card" style="text-align:center;padding:44px;color:var(--muted)">Carregando...</div>`;
     }
     if(!metaDashAccounts.length){
-      return `${head('Campanhas da Meta','Conecte sua conta do Meta Ads em Integrações para ver campanhas, gasto e leads aqui.')}<div class="gl-coming"><div class="gl-card"><div class="gl-coming-icon">↗</div><h3>Nenhuma conta conectada</h3><p>${metaDashError?metaEsc(metaDashError):'Vá em Configurações › Integrações e conecte com o Facebook para liberar este painel.'}</p><button class="gl-btn primary" onclick="navigateSub('config-integracoes','configuracoes')">Abrir Integrações</button></div></div>`;
+      return `${head('Campanhas da Meta','Conecte sua conta do Meta Ads em Integrações para ver campanhas, gasto e leads aqui.')}<div class="gl-coming"><div class="gl-card"><div class="gl-coming-icon">↗</div><h3>Nenhuma conta conectada</h3><p>${metaDashError?metaEsc(metaDashError):'Vá em Integrações e conecte com o Facebook para liberar este painel.'}</p><button class="gl-btn primary" onclick="navigate('integracoes')">Abrir Integrações</button></div></div>`;
     }
     const opts=metaDashAccounts.map(a=>`<option value="${metaEsc(a.id)}" ${String(a.id)===String(metaDashAccountId)?'selected':''}>${metaEsc(a.name||a.id)}</option>`).join('');
     const dateOpts=METADASH_PERIODS.map(([v,l])=>`<option value="${v}" ${v===metaDashDatePreset?'selected':''}>${l}</option>`).join('');
