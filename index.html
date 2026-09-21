@@ -14495,7 +14495,7 @@ function renderDealSidebar(){
       <div class="sb-field"><span class="sb-field-lbl">Data início</span><span class="sb-field-val">${l.dataInicio||'—'}</span></div>
       <div class="sb-field"><span class="sb-field-lbl">Previsão fecha.</span><span class="sb-field-val">${l.dataFechamento||'—'}</span></div>
       <div class="sb-field"><span class="sb-field-lbl">Origem do lead</span><span class="sb-field-val">${escHtml(l.origem||'—')}</span></div>
-      ${l.desc?`<div class="sb-field" style="flex-direction:column;align-items:flex-start;gap:4px"><span class="sb-field-lbl">Descrição</span><span style="font-size:12px;color:var(--muted);line-height:1.5;white-space:pre-wrap">${escHtml(l.desc)}</span></div>`:''}
+      ${l.desc?`<div class="sb-field" style="flex-direction:column;align-items:flex-start;gap:4px"><span class="sb-field-lbl">Descrição</span><span style="font-size:12px;color:var(--muted);line-height:1.5;white-space:pre-wrap">${escHtml(humanizeLegacyLeadDesc(l.desc,l.origem||''))}</span></div>`:''}
     </div>
     <div class="sb-section">
       <div class="sb-sec-title">👤 Dados do contato</div>
