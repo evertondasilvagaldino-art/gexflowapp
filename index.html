@@ -14267,7 +14267,20 @@ function renderDealMain(){
     'Visita':'Observações da visita ao cliente...',
   };
 
-  const histHtml=ativs.length?ativs.map(a=>{
+  // A Descrição/Observações do lead (preenchida na criação — muitas vezes
+  // vinda de um formulário do Meta Ads, com as respostas da pessoa) ficava
+  // só dentro do modal de Editar Lead, fora da vista de quem trabalha o
+  // negócio pela aba Histórico. Mostra ela aqui em cima, como um bloco de
+  // contexto fixo — não é uma "atividade" registrada, por isso não soma no
+  // contador de atividades da aba, nem tem botão de remover (pra apagar,
+  // edita o lead).
+  const leadDescText=humanizeLegacyLeadDesc(l.desc||'',l.origem||'');
+  const descBlockHtml=leadDescText?`<div class="activity-item" style="background:var(--p-light,#F5F3FF);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+    <div style="font-size:11px;font-weight:700;color:var(--p2,#7C3AED);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">📝 Descrição / Observações do lead</div>
+    <div style="font-size:13px;white-space:pre-wrap;line-height:1.5">${escHtml(leadDescText)}</div>
+  </div>`:'';
+
+  const histHtml=descBlockHtml+(ativs.length?ativs.map(a=>{
     const at=dealActionTypes.find(x=>x.key===a.tipo)||dealActionTypes[0];
     return `<div class="activity-item">
       <div class="act-icon" style="background:${at.color}">${a.ico||at.ico}</div>
@@ -14281,7 +14294,7 @@ function renderDealMain(){
         <button style="background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;margin-top:5px" onclick="deleteDealActivity('${a.id}')">🗑 Remover</button>
       </div>
     </div>`;
-  }).join(''):`<div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">Nenhuma atividade ainda</div><div style="font-size:12px;color:var(--light);margin-top:4px">Use as abas acima para registrar ações</div></div>`;
+  }).join(''):(descBlockHtml?'':`<div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">Nenhuma atividade ainda</div><div style="font-size:12px;color:var(--light);margin-top:4px">Use as abas acima para registrar ações</div></div>`));
 
   const dealTasks=getTasksByOpportunity(currentDealId);
   const pendingDealTasks=dealTasks.filter(t=>!t.completed);
