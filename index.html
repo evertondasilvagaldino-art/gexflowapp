@@ -20964,7 +20964,11 @@ function calIsActivePage(){
 function _calFmtDate(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function expandTaskOccurrencesInMonth(t,year,month){
   if(!t.dueDate)return [];
-  if(!t.recurrence||t.recurrence==='none')return [t.dueDate];
+  if(!t.recurrence||t.recurrence==='none'){
+    const d=new Date(t.dueDate+'T00:00:00');
+    if(isNaN(d.getTime()))return [];
+    return (d.getFullYear()===year&&d.getMonth()===month)?[t.dueDate]:[];
+  }
   const anchor=new Date(t.dueDate+'T00:00:00');
   if(isNaN(anchor.getTime()))return [t.dueDate];
   const monthStart=new Date(year,month,1);
@@ -21151,11 +21155,43 @@ async function loadGoogleCalendarEvents(year,month,monthKey){
       headers:{'Authorization':`Bearer ${token}`}
     });
     const json=await res.json().catch(()=>({}));
-    _calGoogleEvents[monthKey]=Array.isArray(json.events)?json.events:[];
+    const events=Array.isArray(json.events)?json.events:[];
+    _calGoogleEvents[monthKey]=events;
+    // Só reconcilia exclusões quando a resposta confirma que a conexão com o
+    // Google está ativa e a lista veio de verdade — assim um token expirado,
+    // uma reconexão pendente ou um erro de rede nunca apagam tarefas locais
+    // por engano (uma lista vazia por falha de conexão não conta).
+    if(res.ok&&json.ok!==false&&json.connected===true)reconcileDeletedGoogleEvents(monthKey,events);
   }catch(e){
     _calGoogleEvents[monthKey]=[];
   }
   if(calIsActivePage())renderCalendario();
+}
+
+/* ── Se um evento que o GexFlow tinha criado/sincronizado com a Google Agenda
+   foi excluído direto lá (fora do GexFlow), remove a tarefa correspondente
+   aqui também — sem isso ela ficava "fantasma" no CRM. ── */
+function reconcileDeletedGoogleEvents(monthKey,events){
+  if(!(_calGoogleStatus&&_calGoogleStatus.connected))return;
+  const [yy,mm]=monthKey.split('-').map(Number);
+  const tasks=getCommercialTasks();
+  const removedIds=tasks.filter(t=>{
+    if(!t.googleEventId)return false;
+    // Só considera "excluído" se a tarefa (ou uma ocorrência dela, se for
+    // recorrente) realmente deveria aparecer neste mês — assim uma tarefa de
+    // outro mês, que nunca apareceria mesmo, não é removida por engano.
+    const occurs=expandTaskOccurrencesInMonth(t,yy,mm-1).length>0;
+    if(!occurs)return false;
+    return !events.some(ev=>ev.id===t.googleEventId||ev.recurringEventId===t.googleEventId);
+  }).map(t=>t.id);
+  if(!removedIds.length)return;
+  const removedTitles=tasks.filter(t=>removedIds.includes(t.id)).map(t=>t.title);
+  const remaining=getCommercialTasks().filter(t=>!removedIds.includes(t.id));
+  saveCommercialTasks(remaining);
+  renderCommercialReminders();
+  if(currentDealId){renderDealMain();renderDealSidebar();}
+  if(calIsActivePage())renderCalendario();
+  toast(removedTitles.length===1?`"${removedTitles[0]}" foi excluído na Google Agenda e removido do GexFlow`:`${removedTitles.length} eventos excluídos na Google Agenda foram removidos do GexFlow`,'#F59E0B');
 }
 function applyGcalOAuthConnection(payload){
   _calGoogleStatus={connected:true,googleEmail:payload.googleEmail||''};
