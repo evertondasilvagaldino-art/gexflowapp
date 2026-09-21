@@ -13785,6 +13785,35 @@ const TASK_PRIOS=['Baixa','Média','Alta','Urgente'];
 const TASK_TYPE_ICO={Nota:'📝','E-mail':'✉️','Ligação':'📞',WhatsApp:'💬',Proposta:'📋',Reunião:'🤝',Visita:'🚗','Follow-up':'🔁',Retorno:'↩️','Tarefa interna':'🔧'};
 const TASK_PRIO_COLOR={Baixa:'#94A3B8',Média:'#6D35D8',Alta:'#F59E0B',Urgente:'#EF4444'};
 function taskPrioColor(p){return TASK_PRIO_COLOR[p]||'#6D35D8';}
+const RECURRENCE_LABELS={none:'Não se repete',daily:'Diariamente',weekly:'Semanalmente',monthly:'Mensalmente',yearly:'Anualmente'};
+/* ── Linha "Repetir" (recorrência) reutilizada nos modais de evento ── */
+function taskRecurrenceRowHtml(idPrefix,current){
+  const cur=current||'none';
+  return `<div class="gcal-row">
+    <div class="gcal-ico">🔁</div>
+    <div class="gcal-row-content">
+      <select class="gcal-inline-input" id="${idPrefix}-recur">
+        ${Object.keys(RECURRENCE_LABELS).map(k=>`<option value="${k}" ${k===cur?'selected':''}>${RECURRENCE_LABELS[k]}</option>`).join('')}
+      </select>
+      <div class="gcal-row-sub">Repetição</div>
+    </div>
+  </div>`;
+}
+/* ── Linha "Videochamada" (Google Meet) reutilizada nos modais de evento ── */
+function taskMeetRowHtml(idPrefix,meetLink){
+  const body=meetLink
+    ?`<a href="${escAttr(meetLink)}" target="_blank" rel="noopener" class="gcal-static" style="color:var(--p);font-weight:600;text-decoration:none;display:inline-block">🎥 Participar com o Google Meet</a>
+       <div class="gcal-row-sub">Videochamada já adicionada a este evento</div>`
+    :`<label style="display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--txt);cursor:pointer;padding:5px 2px">
+        <input type="checkbox" id="${idPrefix}-meet" style="width:16px;height:16px;accent-color:var(--p)">
+        Adicionar videochamada do Google Meet
+      </label>
+      <div class="gcal-row-sub">O link é gerado ao salvar, se sua Google Agenda estiver conectada</div>`;
+  return `<div class="gcal-row">
+    <div class="gcal-ico">🎥</div>
+    <div class="gcal-row-content">${body}</div>
+  </div>`;
+}
 const TASK_PRI_CLS={Baixa:'baixa',Média:'media',Alta:'alta',Urgente:'urgente'};
 
 
@@ -13854,6 +13883,7 @@ function createCommercialTask(data){
     contactName:data.contactName||'',companyName:data.companyName||'',
     type:data.type||'Nota',priority:data.priority||'Média',
     dueDate:data.dueDate||'',dueTime:data.dueTime||'',
+    recurrence:data.recurrence||'none',wantsMeet:!!data.wantsMeet,meetLink:data.meetLink||'',googleEventId:data.googleEventId||'',
     assignedTo,
     assignedToId:data.assignedToId||data.responsavelId||((assignedTo===sessionUser?.nome)?sessionUser?.id:'')||'',
     assignedToEmail:data.assignedToEmail||((assignedTo===sessionUser?.nome)?sessionUser?.email:'')||'',
@@ -14116,7 +14146,7 @@ function openTaskEditModal(taskId){
   document.getElementById('task-edit-body').innerHTML=`
     <div class="gcal-form">
       <input class="gcal-title-input" id="te-title" value="${escAttr(t.title||'')}" placeholder="Adicionar título">
-      <div class="gcal-tabs"><div class="gcal-tab active">🔔 Tarefa</div></div>
+      <div class="gcal-tabs"><div class="gcal-tab active">📅 Evento</div></div>
       <div class="gcal-row">
         <div class="gcal-ico">🕐</div>
         <div class="gcal-row-content">
@@ -14124,9 +14154,11 @@ function openTaskEditModal(taskId){
             <input class="gcal-inline-input" id="te-date" type="date" value="${t.dueDate||''}">
             <input class="gcal-inline-input" id="te-time" type="time" value="${t.dueTime||''}">
           </div>
-          <div class="gcal-row-sub">Data e horário da tarefa</div>
+          <div class="gcal-row-sub">Data e horário do evento</div>
         </div>
       </div>
+      ${taskRecurrenceRowHtml('te',t.recurrence)}
+      ${taskMeetRowHtml('te',t.meetLink)}
       <div class="gcal-row">
         <div class="gcal-ico">👤</div>
         <div class="gcal-row-content">
@@ -14171,6 +14203,8 @@ function saveTaskEditModal(){
   if(!currentTaskEditId) return;
   const title=document.getElementById('te-title')?.value?.trim();
   if(!title){toast('Informe o título','#EF4444');return;}
+  const existing=getCommercialTasks().find(t=>t.id===currentTaskEditId);
+  const meetChk=document.getElementById('te-meet');
   updateCommercialTask(currentTaskEditId,{
     title,
     dueDate:document.getElementById('te-date')?.value||'',
@@ -14178,7 +14212,9 @@ function saveTaskEditModal(){
     type:document.getElementById('te-type')?.value||'Nota',
     priority:document.getElementById('te-prio')?.value||'Média',
     assignedTo:document.getElementById('te-resp')?.value||'',
-    description:document.getElementById('te-desc')?.value||''
+    description:document.getElementById('te-desc')?.value||'',
+    recurrence:document.getElementById('te-recur')?.value||'none',
+    wantsMeet:meetChk?meetChk.checked:!!existing?.meetLink
   });
   closeTaskEditModal();
   toast('Lembrete atualizado ✓','#10B981');
@@ -14230,7 +14266,7 @@ function openQuickTaskModal(forceDealId,presetDate){
   document.getElementById('modal-body').innerHTML=`
     <div class="gcal-form">
       <input class="gcal-title-input" id="qt-title" placeholder="Adicionar título">
-      <div class="gcal-tabs"><div class="gcal-tab active">🔔 Tarefa</div></div>
+      <div class="gcal-tabs"><div class="gcal-tab active">📅 Evento</div></div>
       <div class="gcal-row">
         <div class="gcal-ico">🕐</div>
         <div class="gcal-row-content">
@@ -14238,9 +14274,11 @@ function openQuickTaskModal(forceDealId,presetDate){
             <input class="gcal-inline-input" id="qt-date" type="date" value="${presetDate||today}">
             <input class="gcal-inline-input" id="qt-time" type="time">
           </div>
-          <div class="gcal-row-sub">Data e horário da tarefa</div>
+          <div class="gcal-row-sub">Data e horário do evento</div>
         </div>
       </div>
+      ${taskRecurrenceRowHtml('qt','none')}
+      ${taskMeetRowHtml('qt','')}
       <div class="gcal-row">
         <div class="gcal-ico">👤</div>
         <div class="gcal-row-content">
@@ -14299,6 +14337,8 @@ function saveQuickTask(fixedDealId){
     priority:document.getElementById('qt-prio')?.value||'Média',
     dueDate:date,
     dueTime:document.getElementById('qt-time')?.value||'',
+    recurrence:document.getElementById('qt-recur')?.value||'none',
+    wantsMeet:document.getElementById('qt-meet')?.checked||false,
     assignedTo:isFounderTaskAdmin()
       ? (document.getElementById('qt-resp')?.value||sessionUser?.nome||'Everton Galdino')
       : (sessionUser?.nome||'Usuário'),
@@ -14309,7 +14349,7 @@ function saveQuickTask(fixedDealId){
   renderTarefasDia();
   if(currentDealId){renderDealMain();renderDealSidebar();}
   if(document.getElementById('page-calendario')?.classList.contains('active')&&typeof renderCalendario==='function')renderCalendario();
-  toast('Tarefa criada ✓','#10B981');
+  toast('Evento criado ✓','#10B981');
 }
 
 /* ── Toggle campos de lembrete na área de atividade ── */
@@ -20917,6 +20957,36 @@ function calIsActivePage(){
   return !!document.getElementById('page-calendario')?.classList.contains('active');
 }
 
+/* ── Expande localmente, só para exibição na grade, as ocorrências de um
+   evento recorrente do GexFlow dentro do mês visível. Editar/excluir uma
+   ocorrência mexe na série toda (mesmo comportamento simplificado usado
+   para eventos recorrentes na maioria dos CRMs). ── */
+function _calFmtDate(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function expandTaskOccurrencesInMonth(t,year,month){
+  if(!t.dueDate)return [];
+  if(!t.recurrence||t.recurrence==='none')return [t.dueDate];
+  const anchor=new Date(t.dueDate+'T00:00:00');
+  if(isNaN(anchor.getTime()))return [t.dueDate];
+  const monthStart=new Date(year,month,1);
+  const monthEnd=new Date(year,month+1,0);
+  const dates=[];
+  const cursor=new Date(anchor);
+  const step=()=>{
+    if(t.recurrence==='daily')cursor.setDate(cursor.getDate()+1);
+    else if(t.recurrence==='weekly')cursor.setDate(cursor.getDate()+7);
+    else if(t.recurrence==='monthly')cursor.setMonth(cursor.getMonth()+1);
+    else if(t.recurrence==='yearly')cursor.setFullYear(cursor.getFullYear()+1);
+    else cursor.setFullYear(cursor.getFullYear()+100); // recorrência desconhecida: para o loop
+  };
+  let guard=0;
+  while(cursor<=monthEnd&&guard<400){
+    if(cursor>=monthStart&&cursor>=anchor)dates.push(_calFmtDate(cursor));
+    step();
+    guard++;
+  }
+  return dates;
+}
+
 function calGoogleHeaderHtml(){
   if(_calGoogleStatus===null){
     return `<button class="btn btn-ghost" disabled style="opacity:.65">📅 Verificando...</button>`;
@@ -20949,7 +21019,11 @@ function renderCalendario(){
 
   const tasks=calTasksSource();
   const tasksByDate={};
-  tasks.forEach(t=>{if(t.dueDate){(tasksByDate[t.dueDate]=tasksByDate[t.dueDate]||[]).push(t)}});
+  tasks.forEach(t=>{
+    if(!t.dueDate)return;
+    const occDates=expandTaskOccurrencesInMonth(t,year,month);
+    occDates.forEach(ds=>{(tasksByDate[ds]=tasksByDate[ds]||[]).push(t)});
+  });
   const gevents=Array.isArray(_calGoogleEvents[monthKey])?_calGoogleEvents[monthKey]:[];
   const geventsByDate={};
   gevents.forEach(ev=>{if(ev.date){(geventsByDate[ev.date]=geventsByDate[ev.date]||[]).push(ev)}});
@@ -20975,7 +21049,7 @@ function renderCalendario(){
         const dayEvents=geventsByDate[c.dateStr]||[];
         const isToday=c.dateStr===todayStr;
         const items=[
-          ...dayTasks.slice(0,3).map(t=>`<div class="cal-item ${t.completed?'done':''}" onclick="event.stopPropagation();openTaskEditModal('${t.id}')" title="${escAttr(t.title||'')}">${TASK_TYPE_ICO[t.type]||'📌'} ${escHtml(t.title||'')}</div>`),
+          ...dayTasks.slice(0,3).map(t=>`<div class="cal-item ${t.completed?'done':''}" onclick="event.stopPropagation();openTaskEditModal('${t.id}')" title="${escAttr(t.title||'')}">${TASK_TYPE_ICO[t.type]||'📌'} ${escHtml(t.title||'')}${t.recurrence&&t.recurrence!=='none'?' 🔁':''}${t.meetLink?' 🎥':''}</div>`),
         ];
         const remainingSlots=Math.max(0,3-items.length);
         items.push(...dayEvents.slice(0,remainingSlots).map(ev=>`<div class="cal-item gcal" onclick="event.stopPropagation();openGcalEventModal('${ev.id}','${monthKey}')" title="${escAttr(ev.title||'')}">📅 ${escHtml(ev.title||'')}</div>`));
@@ -21136,14 +21210,17 @@ async function pushTaskToGoogleCalendar(task){
     const res=await fetch(getSupabaseFunctionUrl('google-calendar-event-save'),{
       method:'POST',
       headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
-      body:JSON.stringify({eventId:task.googleEventId||'',title:task.title||'Tarefa',date:task.dueDate,time:task.dueTime||'',description:task.description||''})
+      body:JSON.stringify({eventId:task.googleEventId||'',title:task.title||'Tarefa',date:task.dueDate,time:task.dueTime||'',description:task.description||'',recurrence:task.recurrence||'none',wantsMeet:!!task.wantsMeet||!!task.meetLink})
     });
     const json=await res.json().catch(()=>({}));
-    if(json.ok&&json.eventId&&json.eventId!==task.googleEventId){
-      const tasks=getCommercialTasks().map(t=>t.id===task.id?{...t,googleEventId:json.eventId}:t);
-      saveCommercialTasks(tasks);
-    }
     if(json.ok){
+      const patch={};
+      if(json.eventId&&json.eventId!==task.googleEventId)patch.googleEventId=json.eventId;
+      if(json.meetLink&&json.meetLink!==task.meetLink)patch.meetLink=json.meetLink;
+      if(Object.keys(patch).length){
+        const tasks=getCommercialTasks().map(t=>t.id===task.id?{...t,...patch}:t);
+        saveCommercialTasks(tasks);
+      }
       const monthKey=String(task.dueDate).slice(0,7);
       delete _calGoogleEvents[monthKey];
       if(calIsActivePage())renderCalendario();
@@ -21190,9 +21267,11 @@ function openGcalEventModal(eventId,monthKey){
             <input class="gcal-inline-input" id="ge-date" type="date" value="${ev.date||''}">
             <input class="gcal-inline-input" id="ge-time" type="time" value="${ev.time||''}">
           </div>
-          <div class="gcal-row-sub">Fuso horário • Não se repete</div>
+          <div class="gcal-row-sub">Fuso horário</div>
         </div>
       </div>
+      ${taskRecurrenceRowHtml('ge','none')}
+      ${taskMeetRowHtml('ge','')}
       <div class="gcal-row">
         <div class="gcal-dot" style="background:#4285F4"></div>
         <div class="gcal-row-content">
@@ -21212,6 +21291,8 @@ async function saveGcalEventModal(eventId,monthKey){
   const title=(document.getElementById('ge-title')?.value||'').trim();
   const date=document.getElementById('ge-date')?.value||'';
   const time=document.getElementById('ge-time')?.value||'';
+  const recurrence=document.getElementById('ge-recur')?.value||'none';
+  const wantsMeet=document.getElementById('ge-meet')?.checked||false;
   if(!title){toast('Informe o título','#EF4444');return;}
   if(!date){toast('Informe a data','#F59E0B');return;}
   try{
@@ -21219,7 +21300,7 @@ async function saveGcalEventModal(eventId,monthKey){
     const res=await fetch(getSupabaseFunctionUrl('google-calendar-event-save'),{
       method:'POST',
       headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
-      body:JSON.stringify({eventId,title,date,time})
+      body:JSON.stringify({eventId,title,date,time,recurrence,wantsMeet})
     });
     const json=await res.json().catch(()=>({}));
     if(!res.ok||!json.ok)throw new Error(json.message||'Não foi possível atualizar o evento.');
