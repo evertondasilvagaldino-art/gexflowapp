@@ -195,7 +195,37 @@ tr:hover td{background:#FAFAFD}
 .cal-item.done{opacity:.5;text-decoration:line-through}
 .cal-item.gcal{background:#E8F0FE;color:#1967D2}
 .cal-more{font-size:10px;color:var(--muted);font-weight:700;margin-top:1px}
+.cal-item-time{opacity:.75;font-weight:700}
 @media(max-width:900px){.cal-grid-hdr div{padding:6px 4px;font-size:9px}.cal-cell{min-height:60px;padding:4px}.cal-item{font-size:9px;padding:1px 4px}}
+
+/* Alternador de visão Dia/Semana/Mês */
+.cal-view-toggle{display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:3px}
+.cal-view-toggle button{border:none;background:transparent;padding:6px 14px;font-size:12px;font-weight:600;color:var(--muted);border-radius:7px;cursor:pointer;font-family:'Inter',sans-serif;transition:background .12s,color .12s}
+.cal-view-toggle button.active{background:var(--card);color:var(--p2);box-shadow:0 1px 3px rgba(28,18,66,.10)}
+
+/* Visão Semana: 7 colunas mais altas, mesma estética da grade mensal */
+.cal-week-grid{display:grid;grid-template-columns:repeat(7,1fr);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.cal-week-col{min-height:360px;border-right:1px solid var(--border);padding:10px 8px;cursor:pointer;transition:background .12s}
+.cal-week-col:hover{background:var(--bg)}
+.cal-week-col:last-child{border-right:none}
+.cal-week-col.today{background:var(--p-light)}
+.cal-week-col-hdr{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-bottom:10px}
+.cal-week-col-hdr span:first-child{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.cal-week-col .cal-daynum{margin-bottom:0}
+@media(max-width:900px){.cal-week-col{min-height:220px;padding:6px 4px}}
+
+/* Visão Dia: lista tipo agenda, ordenada por horário */
+.cal-day-agenda{border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.cal-day-row{display:flex;gap:16px;align-items:flex-start;padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}
+.cal-day-row:last-child{border-bottom:none}
+.cal-day-row:hover{background:var(--bg)}
+.cal-day-row.done{opacity:.55}
+.cal-day-row.done .cal-day-row-title{text-decoration:line-through}
+.cal-day-row-time{width:72px;flex-shrink:0;font-size:12px;font-weight:700;color:var(--muted);padding-top:1px}
+.cal-day-row-body{flex:1;min-width:0}
+.cal-day-row-title{font-size:13.5px;font-weight:600;color:var(--txt)}
+.cal-day-row.gcal .cal-day-row-title{color:#1967D2}
+.cal-day-row-sub{font-size:12px;color:var(--muted);margin-top:3px}
 
 /* KANBAN */
 .kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;align-items:start}
@@ -20918,21 +20948,60 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
 // Google, tokens guardados só no servidor). Segue o mesmo padrão de
 // segurança por usuário já usado em Tarefas do Dia (getVisibleCommercialTasks).
 
-let _calCursor=new Date(_calYearSafe(),_calMonthSafe(),1);
+let _calCursor=new Date(_calYearSafe(),_calMonthSafe(),(()=>{try{return new Date().getDate()}catch(e){return 1}})());
 function _calYearSafe(){try{return new Date().getFullYear()}catch(e){return 2026}}
 function _calMonthSafe(){try{return new Date().getMonth()}catch(e){return 0}}
 let _calTab='pendentes'; // 'pendentes' | 'todas' | 'finalizadas'
 let _calAtendente='';
 let _calTipo='';
+let _calView='month'; // 'month' | 'week' | 'day'
 let _calGoogleStatus=null; // null = ainda não verificado; {connected,googleEmail}
 let _calGoogleEvents={}; // cache por 'YYYY-MM'
 
+const CAL_MESES=['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
+const CAL_DIAS_SEMANA=['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
 function calMonthLabel(d){
-  const meses=['JANEIRO','FEVEREIRO','MARÇO','ABRIL','MAIO','JUNHO','JULHO','AGOSTO','SETEMBRO','OUTUBRO','NOVEMBRO','DEZEMBRO'];
-  return `${meses[d.getMonth()]} DE ${d.getFullYear()}`;
+  return `${CAL_MESES[d.getMonth()]} DE ${d.getFullYear()}`;
+}
+/* ── Início (domingo) da semana que contém a data — mesma convenção da
+   grade mensal, que também começa no domingo. ── */
+function calWeekStart(d){
+  const s=new Date(d.getFullYear(),d.getMonth(),d.getDate()-d.getDay());
+  return s;
+}
+function calHeaderLabel(view,cursor){
+  if(view==='day'){
+    return `${CAL_DIAS_SEMANA[cursor.getDay()]}, ${cursor.getDate()} DE ${CAL_MESES[cursor.getMonth()]} DE ${cursor.getFullYear()}`;
+  }
+  if(view==='week'){
+    const ws=calWeekStart(cursor);
+    const we=new Date(ws.getFullYear(),ws.getMonth(),ws.getDate()+6);
+    if(ws.getMonth()===we.getMonth()){
+      return `${ws.getDate()} – ${we.getDate()} DE ${CAL_MESES[ws.getMonth()]} DE ${ws.getFullYear()}`;
+    }
+    if(ws.getFullYear()===we.getFullYear()){
+      return `${ws.getDate()} DE ${CAL_MESES[ws.getMonth()]} – ${we.getDate()} DE ${CAL_MESES[we.getMonth()]} DE ${ws.getFullYear()}`;
+    }
+    return `${ws.getDate()} DE ${CAL_MESES[ws.getMonth()]} DE ${ws.getFullYear()} – ${we.getDate()} DE ${CAL_MESES[we.getMonth()]} DE ${we.getFullYear()}`;
+  }
+  return calMonthLabel(cursor);
 }
 function calChangeMonth(delta){
-  _calCursor=new Date(_calCursor.getFullYear(),_calCursor.getMonth()+delta,1);
+  if(_calView==='day'){
+    _calCursor=new Date(_calCursor.getFullYear(),_calCursor.getMonth(),_calCursor.getDate()+delta);
+  }else if(_calView==='week'){
+    _calCursor=new Date(_calCursor.getFullYear(),_calCursor.getMonth(),_calCursor.getDate()+delta*7);
+  }else{
+    _calCursor=new Date(_calCursor.getFullYear(),_calCursor.getMonth()+delta,1);
+  }
+  renderCalendario();
+}
+function calSetView(v){
+  if(v!==_calView){_calView=v;renderCalendario();}
+}
+function calGoToToday(){
+  const t=new Date();
+  _calCursor=new Date(t.getFullYear(),t.getMonth(),t.getDate());
   renderCalendario();
 }
 function calSetTab(tab){_calTab=tab;renderCalendario();}
@@ -20962,17 +21031,16 @@ function calIsActivePage(){
    ocorrência mexe na série toda (mesmo comportamento simplificado usado
    para eventos recorrentes na maioria dos CRMs). ── */
 function _calFmtDate(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
-function expandTaskOccurrencesInMonth(t,year,month){
+/* ── Expande as ocorrências de uma tarefa (recorrente ou não) dentro de
+   um intervalo [rangeStart,rangeEnd] qualquer — usada pelas 3 visões
+   (mês/semana/dia) do Calendário, todas com o mesmo cálculo de base. ── */
+function expandTaskOccurrencesInRange(t,rangeStart,rangeEnd){
   if(!t.dueDate)return [];
-  if(!t.recurrence||t.recurrence==='none'){
-    const d=new Date(t.dueDate+'T00:00:00');
-    if(isNaN(d.getTime()))return [];
-    return (d.getFullYear()===year&&d.getMonth()===month)?[t.dueDate]:[];
-  }
   const anchor=new Date(t.dueDate+'T00:00:00');
-  if(isNaN(anchor.getTime()))return [t.dueDate];
-  const monthStart=new Date(year,month,1);
-  const monthEnd=new Date(year,month+1,0);
+  if(isNaN(anchor.getTime()))return [];
+  if(!t.recurrence||t.recurrence==='none'){
+    return (anchor>=rangeStart&&anchor<=rangeEnd)?[t.dueDate]:[];
+  }
   const dates=[];
   const cursor=new Date(anchor);
   const step=()=>{
@@ -20983,12 +21051,16 @@ function expandTaskOccurrencesInMonth(t,year,month){
     else cursor.setFullYear(cursor.getFullYear()+100); // recorrência desconhecida: para o loop
   };
   let guard=0;
-  while(cursor<=monthEnd&&guard<400){
-    if(cursor>=monthStart&&cursor>=anchor)dates.push(_calFmtDate(cursor));
+  while(cursor<=rangeEnd&&guard<400){
+    if(cursor>=rangeStart&&cursor>=anchor)dates.push(_calFmtDate(cursor));
     step();
     guard++;
   }
   return dates;
+}
+/* Compatibilidade: expansão dentro de um mês específico (ano/mês 0-based). */
+function expandTaskOccurrencesInMonth(t,year,month){
+  return expandTaskOccurrencesInRange(t,new Date(year,month,1),new Date(year,month+1,0));
 }
 
 function calGoogleHeaderHtml(){
@@ -21003,6 +21075,21 @@ function calGoogleHeaderHtml(){
     <button class="btn btn-ghost" id="cal-gcal-connect-btn" onclick="connectGoogleCalendarOAuth()">🔗 Conectar Google Agenda</button>`;
 }
 
+/* Retorna os monthKeys ('YYYY-MM') tocados por um intervalo [start,end] —
+   no máximo 2, já que semana/dia nunca cruzam mais que uma virada de mês. */
+function calMonthKeysInRange(start,end){
+  const keys=new Set();
+  keys.add(`${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}`);
+  keys.add(`${end.getFullYear()}-${String(end.getMonth()+1).padStart(2,'0')}`);
+  return Array.from(keys);
+}
+function calEnsureGoogleEventsLoaded(monthKey){
+  if(!_calGoogleStatus.connected)return;
+  if(_calGoogleEvents[monthKey]!==undefined)return;
+  _calGoogleEvents[monthKey]='loading';
+  const [y,m]=monthKey.split('-').map(Number);
+  loadGoogleCalendarEvents(y,m-1,monthKey);
+}
 function renderCalendario(){
   const page=document.getElementById('page-calendario');
   if(!page)return;
@@ -21014,57 +21101,117 @@ function renderCalendario(){
   }
 
   const cursor=_calCursor;
-  const year=cursor.getFullYear(), month=cursor.getMonth();
-  const monthKey=`${year}-${String(month+1).padStart(2,'0')}`;
-  if(_calGoogleStatus.connected && _calGoogleEvents[monthKey]===undefined){
-    _calGoogleEvents[monthKey]='loading';
-    loadGoogleCalendarEvents(year,month,monthKey);
+  const view=_calView;
+
+  // Intervalo exibido, de acordo com a visão atual.
+  let rangeStart,rangeEnd;
+  if(view==='day'){
+    rangeStart=new Date(cursor.getFullYear(),cursor.getMonth(),cursor.getDate());
+    rangeEnd=rangeStart;
+  }else if(view==='week'){
+    rangeStart=calWeekStart(cursor);
+    rangeEnd=new Date(rangeStart.getFullYear(),rangeStart.getMonth(),rangeStart.getDate()+6);
+  }else{
+    rangeStart=new Date(cursor.getFullYear(),cursor.getMonth(),1);
+    rangeEnd=new Date(cursor.getFullYear(),cursor.getMonth()+1,0);
   }
+
+  const touchedMonthKeys=calMonthKeysInRange(rangeStart,rangeEnd);
+  touchedMonthKeys.forEach(calEnsureGoogleEventsLoaded);
+  const primaryMonthKey=touchedMonthKeys[0];
 
   const tasks=calTasksSource();
   const tasksByDate={};
   tasks.forEach(t=>{
-    if(!t.dueDate)return;
-    const occDates=expandTaskOccurrencesInMonth(t,year,month);
+    const occDates=expandTaskOccurrencesInRange(t,rangeStart,rangeEnd);
     occDates.forEach(ds=>{(tasksByDate[ds]=tasksByDate[ds]||[]).push(t)});
   });
-  const gevents=Array.isArray(_calGoogleEvents[monthKey])?_calGoogleEvents[monthKey]:[];
   const geventsByDate={};
-  gevents.forEach(ev=>{if(ev.date){(geventsByDate[ev.date]=geventsByDate[ev.date]||[]).push(ev)}});
-
-  const first=new Date(year,month,1);
-  const startWeekday=first.getDay();
-  const daysInMonth=new Date(year,month+1,0).getDate();
-  const prevDays=new Date(year,month,0).getDate();
-  const cells=[];
-  for(let i=0;i<startWeekday;i++)cells.push({day:prevDays-startWeekday+1+i,cur:false,dateStr:''});
-  for(let d=1;d<=daysInMonth;d++)cells.push({day:d,cur:true,dateStr:`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`});
-  let nextDay=1;
-  while(cells.length%7!==0)cells.push({day:nextDay++,cur:false,dateStr:''});
+  const geventMonthOf={}; // eventId -> monthKey do cache de onde veio (pra abrir o modal certo)
+  touchedMonthKeys.forEach(mk=>{
+    const arr=Array.isArray(_calGoogleEvents[mk])?_calGoogleEvents[mk]:[];
+    arr.forEach(ev=>{
+      if(!ev.date)return;
+      (geventsByDate[ev.date]=geventsByDate[ev.date]||[]).push(ev);
+      geventMonthOf[ev.id]=mk;
+    });
+  });
 
   const todayStr=(typeof _today==='function')?_today():new Date().toISOString().slice(0,10);
-  const diasSemana=['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
 
-  const gridHtml=`<div class="cal-grid-hdr">${diasSemana.map(d=>`<div>${d}</div>`).join('')}</div>
-    <div class="cal-grid-body">
-      ${cells.map(c=>{
-        if(!c.cur)return `<div class="cal-cell muted"><div class="cal-daynum">${c.day}</div></div>`;
-        const dayTasks=tasksByDate[c.dateStr]||[];
-        const dayEvents=geventsByDate[c.dateStr]||[];
-        const isToday=c.dateStr===todayStr;
-        const items=[
-          ...dayTasks.slice(0,3).map(t=>`<div class="cal-item ${t.completed?'done':''}" onclick="event.stopPropagation();openTaskEditModal('${t.id}')" title="${escAttr(t.title||'')}">${TASK_TYPE_ICO[t.type]||'📌'} ${escHtml(t.title||'')}${t.recurrence&&t.recurrence!=='none'?' 🔁':''}${t.meetLink?' 🎥':''}</div>`),
-        ];
-        const remainingSlots=Math.max(0,3-items.length);
-        items.push(...dayEvents.slice(0,remainingSlots).map(ev=>`<div class="cal-item gcal" onclick="event.stopPropagation();openGcalEventModal('${ev.id}','${monthKey}')" title="${escAttr(ev.title||'')}">📅 ${escHtml(ev.title||'')}</div>`));
-        const totalCount=dayTasks.length+dayEvents.length;
-        const extra=totalCount-items.length;
-        return `<div class="cal-cell${isToday?' today':''}" onclick="openQuickTaskModal(null,'${c.dateStr}')">
-          <div class="cal-daynum">${c.day}</div>
+  function renderDayItems(dateStr,cap){
+    const dayTasks=tasksByDate[dateStr]||[];
+    const dayEvents=geventsByDate[dateStr]||[];
+    const items=[
+      ...dayTasks.slice(0,cap).map(t=>`<div class="cal-item ${t.completed?'done':''}" onclick="event.stopPropagation();openTaskEditModal('${t.id}')" title="${escAttr(t.title||'')}">${t.dueTime?`<span class="cal-item-time">${escHtml(t.dueTime)}</span> `:''}${TASK_TYPE_ICO[t.type]||'📌'} ${escHtml(t.title||'')}${t.recurrence&&t.recurrence!=='none'?' 🔁':''}${t.meetLink?' 🎥':''}</div>`),
+    ];
+    const remainingSlots=Math.max(0,cap-items.length);
+    items.push(...dayEvents.slice(0,remainingSlots).map(ev=>`<div class="cal-item gcal" onclick="event.stopPropagation();openGcalEventModal('${ev.id}','${geventMonthOf[ev.id]||primaryMonthKey}')" title="${escAttr(ev.title||'')}">${ev.time?`<span class="cal-item-time">${escHtml(ev.time)}</span> `:''}📅 ${escHtml(ev.title||'')}</div>`));
+    const totalCount=dayTasks.length+dayEvents.length;
+    const extra=totalCount-items.length;
+    return {items,extra,totalCount,dayTasks,dayEvents};
+  }
+
+  let bodyHtml;
+  if(view==='month'){
+    const year=cursor.getFullYear(),month=cursor.getMonth();
+    const first=new Date(year,month,1);
+    const startWeekday=first.getDay();
+    const daysInMonth=new Date(year,month+1,0).getDate();
+    const prevDays=new Date(year,month,0).getDate();
+    const cells=[];
+    for(let i=0;i<startWeekday;i++)cells.push({day:prevDays-startWeekday+1+i,cur:false,dateStr:''});
+    for(let d=1;d<=daysInMonth;d++)cells.push({day:d,cur:true,dateStr:`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`});
+    let nextDay=1;
+    while(cells.length%7!==0)cells.push({day:nextDay++,cur:false,dateStr:''});
+
+    bodyHtml=`<div class="cal-grid"><div class="cal-grid-hdr">${CAL_DIAS_SEMANA.map(d=>`<div>${d}</div>`).join('')}</div>
+      <div class="cal-grid-body">
+        ${cells.map(c=>{
+          if(!c.cur)return `<div class="cal-cell muted"><div class="cal-daynum">${c.day}</div></div>`;
+          const isToday=c.dateStr===todayStr;
+          const {items,extra}=renderDayItems(c.dateStr,3);
+          return `<div class="cal-cell${isToday?' today':''}" onclick="openQuickTaskModal(null,'${c.dateStr}')">
+            <div class="cal-daynum">${c.day}</div>
+            <div class="cal-items">${items.join('')}${extra>0?`<div class="cal-more">+${extra}</div>`:''}</div>
+          </div>`;
+        }).join('')}
+      </div></div>`;
+  }else if(view==='week'){
+    const days=[];
+    for(let i=0;i<7;i++)days.push(new Date(rangeStart.getFullYear(),rangeStart.getMonth(),rangeStart.getDate()+i));
+    bodyHtml=`<div class="cal-week-grid">
+      ${days.map(d=>{
+        const dateStr=_calFmtDate(d);
+        const isToday=dateStr===todayStr;
+        const {items,extra}=renderDayItems(dateStr,8);
+        return `<div class="cal-week-col${isToday?' today':''}" onclick="openQuickTaskModal(null,'${dateStr}')">
+          <div class="cal-week-col-hdr"><span>${CAL_DIAS_SEMANA[d.getDay()].slice(0,3)}</span><span class="cal-daynum">${d.getDate()}</span></div>
           <div class="cal-items">${items.join('')}${extra>0?`<div class="cal-more">+${extra}</div>`:''}</div>
         </div>`;
       }).join('')}
     </div>`;
+  }else{
+    // Agenda do dia: itens com horário primeiro (em ordem), depois os sem horário.
+    const dateStr=_calFmtDate(rangeStart);
+    const dayTasks=(tasksByDate[dateStr]||[]).slice().sort((a,b)=>(a.dueTime||'99:99').localeCompare(b.dueTime||'99:99'));
+    const dayEvents=(geventsByDate[dateStr]||[]).slice().sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99'));
+    const taskRows=dayTasks.map(t=>`<div class="cal-day-row ${t.completed?'done':''}" onclick="openTaskEditModal('${t.id}')">
+        <div class="cal-day-row-time">${t.dueTime||'Dia todo'}</div>
+        <div class="cal-day-row-body">
+          <div class="cal-day-row-title">${TASK_TYPE_ICO[t.type]||'📌'} ${escHtml(t.title||'')}${t.recurrence&&t.recurrence!=='none'?' 🔁':''}${t.meetLink?' 🎥':''}</div>
+          ${t.description?`<div class="cal-day-row-sub">${escHtml(t.description)}</div>`:''}
+        </div>
+      </div>`);
+    const eventRows=dayEvents.map(ev=>`<div class="cal-day-row gcal" onclick="openGcalEventModal('${ev.id}','${geventMonthOf[ev.id]||primaryMonthKey}')">
+        <div class="cal-day-row-time">${ev.time||'Dia todo'}</div>
+        <div class="cal-day-row-body"><div class="cal-day-row-title">📅 ${escHtml(ev.title||'')}</div></div>
+      </div>`);
+    const allRows=[...taskRows,...eventRows];
+    bodyHtml=`<div class="cal-day-agenda">
+      ${allRows.length?allRows.join(''):`<div style="padding:30px 8px;text-align:center;color:var(--light);font-size:13px">Nada agendado para este dia.</div>`}
+    </div>`;
+  }
 
   page.innerHTML=`
     <div class="page-header">
@@ -21092,12 +21239,20 @@ function renderCalendario(){
           </select>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
-        <div style="font-weight:800;font-size:13px;letter-spacing:.04em;color:var(--txt)">${calMonthLabel(cursor)}</div>
-        <button class="btn btn-ghost btn-sm" onclick="calChangeMonth(-1)">‹</button>
-        <button class="btn btn-ghost btn-sm" onclick="calChangeMonth(1)">›</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <button class="btn btn-ghost btn-sm" onclick="calGoToToday()">Hoje</button>
+          <button class="btn btn-ghost btn-sm" onclick="calChangeMonth(-1)">‹</button>
+          <button class="btn btn-ghost btn-sm" onclick="calChangeMonth(1)">›</button>
+          <div style="font-weight:800;font-size:13px;letter-spacing:.04em;color:var(--txt)">${calHeaderLabel(view,cursor)}</div>
+        </div>
+        <div class="cal-view-toggle">
+          <button class="${view==='day'?'active':''}" onclick="calSetView('day')">Dia</button>
+          <button class="${view==='week'?'active':''}" onclick="calSetView('week')">Semana</button>
+          <button class="${view==='month'?'active':''}" onclick="calSetView('month')">Mês</button>
+        </div>
       </div>
-      <div class="cal-grid">${gridHtml}</div>
+      ${bodyHtml}
     </div>`;
 }
 
