@@ -13840,6 +13840,7 @@ function createCommercialTask(data){
     createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
   DB.push('com_tasks',t);
   renderCommercialReminders();
+  if(typeof pushTaskToGoogleCalendar==='function')pushTaskToGoogleCalendar(t);
   return t;
 }
 
@@ -13856,6 +13857,8 @@ function updateCommercialTask(taskId,data){
   renderCommercialReminders();
   renderDealMain();
   if(document.getElementById('page-calendario')?.classList.contains('active')&&typeof renderCalendario==='function')renderCalendario();
+  const updatedTask=tasks.find(t=>t.id===taskId);
+  if(updatedTask&&typeof pushTaskToGoogleCalendar==='function')pushTaskToGoogleCalendar(updatedTask);
 }
 
 function completeCommercialTask(taskId){
@@ -13878,6 +13881,8 @@ function reopenCommercialTask(taskId){
 
 function deleteCommercialTask(taskId){
   if(!_taskAccessGuard(taskId,'excluir')) return;
+  const taskToDelete=getCommercialTasks().find(t=>t.id===taskId);
+  if(taskToDelete&&typeof removeTaskFromGoogleCalendar==='function')removeTaskFromGoogleCalendar(taskToDelete);
   const tasks=getCommercialTasks().filter(t=>t.id!==taskId);
   saveCommercialTasks(tasks);
   renderCommercialReminders();
@@ -20901,7 +20906,7 @@ function renderCalendario(){
           ...dayTasks.slice(0,3).map(t=>`<div class="cal-item ${t.completed?'done':''}" onclick="event.stopPropagation();openTaskEditModal('${t.id}')" title="${escAttr(t.title||'')}">${TASK_TYPE_ICO[t.type]||'📌'} ${escHtml(t.title||'')}</div>`),
         ];
         const remainingSlots=Math.max(0,3-items.length);
-        items.push(...dayEvents.slice(0,remainingSlots).map(ev=>`<div class="cal-item gcal" title="${escAttr(ev.title||'')}">📅 ${escHtml(ev.title||'')}</div>`));
+        items.push(...dayEvents.slice(0,remainingSlots).map(ev=>`<div class="cal-item gcal" onclick="event.stopPropagation();openGcalEventModal('${ev.id}','${monthKey}')" title="${escAttr(ev.title||'')}">📅 ${escHtml(ev.title||'')}</div>`));
         const totalCount=dayTasks.length+dayEvents.length;
         const extra=totalCount-items.length;
         return `<div class="cal-cell${isToday?' today':''}" onclick="openQuickTaskModal(null,'${c.dateStr}')">
@@ -21049,6 +21054,119 @@ function handleGcalOAuthRedirectResult(){
   }catch(e){}
 }
 handleGcalOAuthRedirectResult();
+
+/* ── Sincronização de mão dupla: tarefas do GexFlow → Google Agenda ── */
+async function pushTaskToGoogleCalendar(task){
+  try{
+    if(!(_calGoogleStatus&&_calGoogleStatus.connected))return;
+    if(!task||!task.dueDate)return; // sem data não faz sentido virar evento
+    const token=await getGexSupabaseToken();
+    const res=await fetch(getSupabaseFunctionUrl('google-calendar-event-save'),{
+      method:'POST',
+      headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({eventId:task.googleEventId||'',title:task.title||'Tarefa',date:task.dueDate,time:task.dueTime||'',description:task.description||''})
+    });
+    const json=await res.json().catch(()=>({}));
+    if(json.ok&&json.eventId&&json.eventId!==task.googleEventId){
+      const tasks=getCommercialTasks().map(t=>t.id===task.id?{...t,googleEventId:json.eventId}:t);
+      saveCommercialTasks(tasks);
+    }
+    if(json.ok){
+      const monthKey=String(task.dueDate).slice(0,7);
+      delete _calGoogleEvents[monthKey];
+      if(calIsActivePage())renderCalendario();
+    }
+  }catch(e){
+    // Silencioso de propósito: um problema pontual na Google Agenda não pode
+    // travar a criação/edição da tarefa dentro do CRM.
+    console.warn('[GexFlow] Não foi possível sincronizar a tarefa com a Google Agenda:',e);
+  }
+}
+async function removeTaskFromGoogleCalendar(task){
+  try{
+    if(!(_calGoogleStatus&&_calGoogleStatus.connected)||!task?.googleEventId)return;
+    const token=await getGexSupabaseToken();
+    await fetch(getSupabaseFunctionUrl('google-calendar-event-delete'),{
+      method:'POST',
+      headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({eventId:task.googleEventId})
+    });
+    if(task.dueDate){
+      const monthKey=String(task.dueDate).slice(0,7);
+      delete _calGoogleEvents[monthKey];
+      if(calIsActivePage())renderCalendario();
+    }
+  }catch(e){
+    console.warn('[GexFlow] Não foi possível remover o evento da Google Agenda:',e);
+  }
+}
+
+/* ── Editar/excluir, direto do GexFlow, um evento que já existia na Google Agenda ── */
+function openGcalEventModal(eventId,monthKey){
+  const list=Array.isArray(_calGoogleEvents[monthKey])?_calGoogleEvents[monthKey]:[];
+  const ev=list.find(e=>e.id===eventId);
+  if(!ev){toast('Evento não encontrado','#EF4444');return;}
+  document.getElementById('modal-title').textContent='📅 Evento do Google Agenda';
+  document.getElementById('modal-body').innerHTML=`
+    <div class="form-group"><label class="form-label">Título *</label>
+      <input class="form-input" id="ge-title" value="${escAttr(ev.title||'')}"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Data *</label>
+        <input class="form-input" id="ge-date" type="date" value="${ev.date||''}"></div>
+      <div class="form-group"><label class="form-label">Horário</label>
+        <input class="form-input" id="ge-time" type="time" value="${ev.time||''}"></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:4px">Esse evento existe na sua Google Agenda — qualquer alteração aqui atualiza direto lá.</div>`;
+  document.getElementById('modal-footer').innerHTML=`
+    <button class="btn btn-ghost" style="color:var(--red)" onclick="deleteGcalEventModal('${eventId}','${monthKey}')">🗑 Excluir do Google</button>
+    <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+    <button class="btn btn-primary" onclick="saveGcalEventModal('${eventId}','${monthKey}')">Salvar</button>`;
+  document.getElementById('modal-box').className='modal';
+  document.getElementById('modal-ov').classList.add('open');
+}
+async function saveGcalEventModal(eventId,monthKey){
+  const title=(document.getElementById('ge-title')?.value||'').trim();
+  const date=document.getElementById('ge-date')?.value||'';
+  const time=document.getElementById('ge-time')?.value||'';
+  if(!title){toast('Informe o título','#EF4444');return;}
+  if(!date){toast('Informe a data','#F59E0B');return;}
+  try{
+    const token=await getGexSupabaseToken();
+    const res=await fetch(getSupabaseFunctionUrl('google-calendar-event-save'),{
+      method:'POST',
+      headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({eventId,title,date,time})
+    });
+    const json=await res.json().catch(()=>({}));
+    if(!res.ok||!json.ok)throw new Error(json.message||'Não foi possível atualizar o evento.');
+    closeModal();
+    delete _calGoogleEvents[monthKey];
+    renderCalendario();
+    toast('Evento atualizado no Google Agenda ✓','#10B981');
+  }catch(err){
+    toast(err.message||'Erro ao atualizar evento','#EF4444');
+  }
+}
+function deleteGcalEventModal(eventId,monthKey){
+  confirmDelete(async()=>{
+    try{
+      const token=await getGexSupabaseToken();
+      const res=await fetch(getSupabaseFunctionUrl('google-calendar-event-delete'),{
+        method:'POST',
+        headers:{'Authorization':`Bearer ${token}`,'Content-Type':'application/json'},
+        body:JSON.stringify({eventId})
+      });
+      const json=await res.json().catch(()=>({}));
+      if(!res.ok||!json.ok)throw new Error(json.message||'Não foi possível excluir o evento.');
+      closeModal();
+      delete _calGoogleEvents[monthKey];
+      renderCalendario();
+      toast('Evento excluído do Google Agenda','#EF4444');
+    }catch(err){
+      toast(err.message||'Erro ao excluir evento','#EF4444');
+    }
+  });
+}
 </script>
 
 </body>
