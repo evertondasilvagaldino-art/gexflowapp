@@ -4210,6 +4210,14 @@ function userCanAccess(user,module,action){
   const role=resolveRole(user.permissao||user.cargo||'Colaborador');
   if(role==='Fundador')return true;
 
+  // Equipe Comercial é uma visão de gestão/ranking do time comercial — não
+  // é pra aparecer pro papel Colaborador, mesmo quando o setor Comercial
+  // inteiro foi liberado de uma vez pra ele (o toggle de acesso concede
+  // todas as abas do setor junto). Continua liberada normalmente pra quem
+  // tem visão gerencial (Adm Gerente segue o fluxo normal abaixo) e pro Gex
+  // Parceiro com equipe própria, que usa essa aba pra ver os sub-usuários.
+  if(module==='comercial_equipe'&&role==='Colaborador')return false;
+
   const overrides=_permOverridesForUser(user);
 
   // Permissão direta da aba/módulo.
