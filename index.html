@@ -3974,19 +3974,39 @@ function scheduleRerenderActivePageAfterCloudSync(delay=120){
 // sempre só as mais recentes.
 const GEX_LOG_COLLECTIONS = ['conversion_events','tracking_events','integration_events'];
 const GEX_LOG_COLLECTION_LIMIT = 1500;
-async function initGexCloudDataSync(){
+// Uma conexão mais lenta/instável (comum em quem usa o GexFlow pelo celular,
+// caso típico de Colaborador/Gex Parceiro em campo) podia fazer essa consulta
+// inicial — que traz até 10.000 registros — falhar ou estourar o tempo numa
+// tentativa isolada, aí sim exibindo "Banco em nuvem não carregou" mesmo
+// sendo só um problema pontual de rede. Agora tenta de novo automaticamente
+// (com um pequeno intervalo crescente) antes de desistir de verdade.
+async function gexWithRetry(fn,{attempts=3,baseDelayMs=1200}={}){
+  let lastErr;
+  for(let i=0;i<attempts;i++){
+    try{ return await fn(); }
+    catch(err){
+      lastErr=err;
+      if(i<attempts-1)await new Promise(r=>setTimeout(r,baseDelayMs*(i+1)));
+    }
+  }
+  throw lastErr;
+}
+async function initGexCloudDataSync(isRetry){
   if(!supabaseClient || !sessionUser?.id || gexCloudBooting)return false;
   gexCloudBooting=true;
   try{
     const logSet=new Set(GEX_LOG_COLLECTIONS);
-    const {data,error}=await supabaseClient
-      .from(GEX_CLOUD_TABLE)
-      .select('collection,record_id,data,updated_at,deleted_at')
-      .eq('workspace_id',GEX_WORKSPACE_ID)
-      .is('deleted_at',null)
-      .not('collection','in',`(${GEX_LOG_COLLECTIONS.map(c=>`"${c}"`).join(',')})`)
-      .limit(10000);
-    if(error)throw error;
+    const {data}=await gexWithRetry(async()=>{
+      const res=await supabaseClient
+        .from(GEX_CLOUD_TABLE)
+        .select('collection,record_id,data,updated_at,deleted_at')
+        .eq('workspace_id',GEX_WORKSPACE_ID)
+        .is('deleted_at',null)
+        .not('collection','in',`(${GEX_LOG_COLLECTIONS.map(c=>`"${c}"`).join(',')})`)
+        .limit(10000);
+      if(res.error)throw res.error;
+      return res;
+    });
 
     const byCollection={};
     (data||[]).forEach(row=>{
@@ -4055,7 +4075,18 @@ async function initGexCloudDataSync(){
   }catch(err){
     gexApplyingCloudPayload=false;
     console.error('[GexCloudDB] Erro ao iniciar banco em nuvem:',err);
-    try{toast('Banco em nuvem não carregou. Sistema usando cache local.','#F59E0B')}catch(e){}
+    // Já tentou 3 vezes seguidas (gexWithRetry) e ainda assim falhou — em vez
+    // de só avisar e deixar a pessoa "presa" no cache local até atualizar a
+    // página na mão, agenda mais UMA tentativa silenciosa em 12s. Se nessa
+    // hora a conexão já tiver normalizado (o caso mais comum — internet
+    // instável de quem está em campo/celular), sincroniza sozinho sem
+    // precisar de nada da pessoa. isRetry evita ficar tentando pra sempre.
+    if(!isRetry){
+      try{toast('Conexão instável — tentando sincronizar de novo...','#F59E0B')}catch(e){}
+      setTimeout(()=>{ if(sessionUser?.id)initGexCloudDataSync(true).then(ok=>{ if(ok)toast('Banco em nuvem sincronizado ✓','#10B981'); }); },12000);
+    }else{
+      try{toast('Banco em nuvem não carregou. Sistema usando cache local.','#F59E0B')}catch(e){}
+    }
     return false;
   }finally{
     gexCloudBooting=false;
