@@ -6972,7 +6972,7 @@ function formLead(d){
       <input class="form-input" id="f-origem-custom" placeholder="Ex.: Indicação de cliente" value="${d?.origem&&!LEAD_ORIGENS.includes(d.origem)?d.origem:''}">
     </div>
   </div>
-  <div class="form-group"><label class="form-label">Descrição / Observações</label><textarea class="form-input" id="f-desc" rows="2">${escHtml(d?.desc||'')}</textarea></div>
+  <div class="form-group"><label class="form-label">Descrição / Observações</label><textarea class="form-input" id="f-desc" rows="2">${escHtml(humanizeLegacyLeadDesc(d?.desc||'',d?.origem||''))}</textarea></div>
   <script>
     document.getElementById('f-produto').addEventListener('change',function(){
       const wrap=document.getElementById('f-produto-custom-wrap');
@@ -7970,6 +7970,30 @@ function getLeadOwnerName(lead){
     if(u)return u.nome||u.email||'';
   }
   return '';
+}
+
+// Leads que vieram do Formulário Instantâneo do Meta Ads chegavam com a
+// Descrição cheia de "chave_tecnica_com_underline: resposta" — a Meta manda
+// o nome de cada pergunta personalizada como uma chave técnica, não como o
+// texto da pergunta (ex.: "ja_investiu_em_trafego_pago?_🚀_: sim"). Isso já
+// foi corrigido na entrada (Edge Function meta-leadgen-webhook), mas leads
+// que já estavam salvos ANTES da correção continuavam feios no modal de
+// editar. Aqui é só um tratamento de EXIBIÇÃO (não altera o que está salvo
+// a menos que a pessoa edite e clique Salvar) — troca "_" por espaço só nas
+// linhas que realmente parecem essa chave técnica (2+ underlines antes dos
+// dois-pontos), deixando qualquer observação digitada à mão intacta.
+function humanizeLegacyLeadDesc(desc,origem){
+  const text=String(desc||'');
+  if(!text||origem!=='Meta Ads (Formulário Instantâneo)')return text;
+  return text.split('\n').filter(l=>l.trim()!=='').map(line=>{
+    const m=line.match(/^([^:]+):\s*(.*)$/);
+    if(!m)return line;
+    let label=m[1];
+    if((label.match(/_/g)||[]).length<2)return line;
+    label=label.replace(/_+/g,' ').replace(/\s+/g,' ').trim();
+    if(label)label=label.charAt(0).toUpperCase()+label.slice(1);
+    return `${label}: ${m[2]}`;
+  }).join('\n\n');
 }
 
 function isLeadOwnedByUser(lead,user){
