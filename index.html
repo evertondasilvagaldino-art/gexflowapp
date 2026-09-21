@@ -180,52 +180,59 @@ tr:hover td{background:#FAFAFD}
 /* CALENDÁRIO */
 .cal-grid{border:1px solid var(--border);border-radius:12px;overflow:hidden}
 .cal-grid-hdr{display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg);border-bottom:1px solid var(--border)}
-.cal-grid-hdr div{padding:10px 12px;font-size:11px;font-weight:700;color:var(--muted)}
+.cal-grid-hdr div{padding:12px 12px;font-size:13.5px;font-weight:700;color:var(--muted)}
 .cal-grid-body{display:grid;grid-template-columns:repeat(7,1fr)}
-.cal-cell{min-height:96px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:8px;cursor:pointer;transition:background .12s}
+.cal-cell{min-height:110px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:9px;cursor:pointer;transition:background .12s}
 .cal-cell:hover{background:var(--bg)}
 .cal-cell:nth-child(7n){border-right:none}
 .cal-cell.muted{color:var(--light);cursor:default;background:var(--bg)}
 .cal-cell.muted:hover{background:var(--bg)}
-.cal-daynum{font-size:12px;font-weight:700;margin-bottom:6px;color:var(--txt)}
+.cal-daynum{font-size:15px;font-weight:700;margin-bottom:7px;color:var(--txt)}
 .cal-cell.muted .cal-daynum{color:var(--light)}
-.cal-cell.today .cal-daynum{background:var(--p2);color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center}
-.cal-items{display:flex;flex-direction:column;gap:3px}
-.cal-item{font-size:10px;padding:2px 6px;border-radius:5px;background:var(--p-light);color:var(--p2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.cal-cell.today .cal-daynum{background:var(--p2);color:#fff;border-radius:50%;width:27px;height:27px;display:flex;align-items:center;justify-content:center}
+.cal-items{display:flex;flex-direction:column;gap:4px}
+.cal-item{font-size:12px;padding:3px 7px;border-radius:5px;background:var(--p-light);color:var(--p2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
 .cal-item.done{opacity:.5;text-decoration:line-through}
 .cal-item.gcal{background:#E8F0FE;color:#1967D2}
-.cal-more{font-size:10px;color:var(--muted);font-weight:700;margin-top:1px}
+.cal-more{font-size:11.5px;color:var(--muted);font-weight:700;margin-top:1px}
 .cal-item-time{opacity:.75;font-weight:700}
-@media(max-width:900px){.cal-grid-hdr div{padding:6px 4px;font-size:9px}.cal-cell{min-height:60px;padding:4px}.cal-item{font-size:9px;padding:1px 4px}}
+@media(max-width:900px){.cal-grid-hdr div{padding:7px 4px;font-size:10.5px}.cal-cell{min-height:64px;padding:5px}.cal-item{font-size:10.5px;padding:2px 5px}}
+
+/* Textos maiores especificamente na tela Calendário (pedido do usuário —
+   comparado a um concorrente que usa fontes bem maiores nessa tela) */
+#page-calendario .ftab{font-size:13.5px;padding:7px 15px}
+#page-calendario .page-title{font-size:24px}
+#page-calendario .page-sub{font-size:14px}
+#page-calendario select.form-input{font-size:13.5px;padding:9px 13px}
 
 /* Alternador de visão Dia/Semana/Mês */
 .cal-view-toggle{display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:3px}
-.cal-view-toggle button{border:none;background:transparent;padding:6px 14px;font-size:12px;font-weight:600;color:var(--muted);border-radius:7px;cursor:pointer;font-family:'Inter',sans-serif;transition:background .12s,color .12s}
+.cal-view-toggle button{border:none;background:transparent;padding:7px 16px;font-size:13.5px;font-weight:600;color:var(--muted);border-radius:7px;cursor:pointer;font-family:'Inter',sans-serif;transition:background .12s,color .12s}
 .cal-view-toggle button.active{background:var(--card);color:var(--p2);box-shadow:0 1px 3px rgba(28,18,66,.10)}
 
 /* Visão Semana: 7 colunas mais altas, mesma estética da grade mensal */
 .cal-week-grid{display:grid;grid-template-columns:repeat(7,1fr);border:1px solid var(--border);border-radius:12px;overflow:hidden}
-.cal-week-col{min-height:360px;border-right:1px solid var(--border);padding:10px 8px;cursor:pointer;transition:background .12s}
+.cal-week-col{min-height:380px;border-right:1px solid var(--border);padding:11px 9px;cursor:pointer;transition:background .12s}
 .cal-week-col:hover{background:var(--bg)}
 .cal-week-col:last-child{border-right:none}
 .cal-week-col.today{background:var(--p-light)}
-.cal-week-col-hdr{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-bottom:10px}
-.cal-week-col-hdr span:first-child{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.cal-week-col-hdr{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-bottom:11px}
+.cal-week-col-hdr span:first-child{font-size:12.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 .cal-week-col .cal-daynum{margin-bottom:0}
 @media(max-width:900px){.cal-week-col{min-height:220px;padding:6px 4px}}
 
 /* Visão Dia: lista tipo agenda, ordenada por horário */
 .cal-day-agenda{border:1px solid var(--border);border-radius:12px;overflow:hidden}
-.cal-day-row{display:flex;gap:16px;align-items:flex-start;padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}
+.cal-day-row{display:flex;gap:16px;align-items:flex-start;padding:16px 18px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s}
 .cal-day-row:last-child{border-bottom:none}
 .cal-day-row:hover{background:var(--bg)}
 .cal-day-row.done{opacity:.55}
 .cal-day-row.done .cal-day-row-title{text-decoration:line-through}
-.cal-day-row-time{width:72px;flex-shrink:0;font-size:12px;font-weight:700;color:var(--muted);padding-top:1px}
+.cal-day-row-time{width:78px;flex-shrink:0;font-size:14px;font-weight:700;color:var(--muted);padding-top:1px}
 .cal-day-row-body{flex:1;min-width:0}
-.cal-day-row-title{font-size:13.5px;font-weight:600;color:var(--txt)}
+.cal-day-row-title{font-size:15.5px;font-weight:600;color:var(--txt)}
 .cal-day-row.gcal .cal-day-row-title{color:#1967D2}
-.cal-day-row-sub{font-size:12px;color:var(--muted);margin-top:3px}
+.cal-day-row-sub{font-size:13px;color:var(--muted);margin-top:3px}
 
 /* KANBAN */
 .kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;align-items:start}
@@ -1906,6 +1913,12 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
       </div>
     </div>
 
+    <!-- CALENDÁRIO -->
+    <div class="nav-item" data-page="calendario" onclick="navigate('calendario')">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 011 1v1h6V3a1 1 0 112 0v1h1a2 2 0 012 2v11a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2h1V3a1 1 0 011-1zm10 7H4v8h12V9z" clip-rule="evenodd"/></svg>
+      Calendário
+    </div>
+
     <!-- Comercial group (collapsed) -->
     <div class="nav-grp-hdr" id="grp-hdr-comercial" onclick="toggleGrp('comercial')">
       <div class="nav-grp-left">
@@ -1929,6 +1942,12 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
       </div>
     </div>
 
+    <!-- WHATSAPP (caixa de conversas) -->
+    <div class="nav-item" data-page="whatsapp-chat" onclick="navigate('whatsapp-chat')">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a8 8 0 00-6.93 11.98L2 18l4.15-1.05A8 8 0 1010 2zm0 1.6a6.4 6.4 0 11-3.36 11.85l-.24-.15-2.46.63.65-2.4-.16-.25A6.4 6.4 0 0110 3.6zm-2.98 3.4c-.16 0-.42.06-.64.31-.22.25-.85.83-.85 2.03 0 1.2.87 2.36.99 2.52.12.16 1.71 2.6 4.15 3.55 2.03.8 2.45.64 2.89.6.44-.04 1.42-.58 1.62-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.92-1.18-.71-.63-1.19-1.41-1.33-1.65-.14-.24-.01-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.32-.76-1.8-.2-.47-.4-.4-.54-.41-.14-.01-.3-.01-.46-.01z"/></svg>
+      WhatsApp
+    </div>
+
     <!-- GERAR LEADS -->
     <div class="nav-grp-hdr" id="grp-hdr-gerar-leads" onclick="toggleGrp('gerar-leads')">
       <div class="nav-grp-left">
@@ -1950,21 +1969,6 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
       Automações
     </div>
 
-    <!-- INTEGRAÇÕES (ex.: conectar o próprio WhatsApp via Z-API) — item
-         próprio na barra lateral pra quem tem a permissão 'integracoes'
-         mas não tem acesso ao setor Configurações (ex.: Gex Parceiro).
-         Quem já chega lá por Configurações continua chegando por lá também. -->
-    <div class="nav-item" data-page="integracoes" onclick="navigate('integracoes')">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clip-rule="evenodd"/></svg>
-      Integrações
-    </div>
-
-    <!-- WHATSAPP (caixa de conversas) -->
-    <div class="nav-item" data-page="whatsapp-chat" onclick="navigate('whatsapp-chat')">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a8 8 0 00-6.93 11.98L2 18l4.15-1.05A8 8 0 1010 2zm0 1.6a6.4 6.4 0 11-3.36 11.85l-.24-.15-2.46.63.65-2.4-.16-.25A6.4 6.4 0 0110 3.6zm-2.98 3.4c-.16 0-.42.06-.64.31-.22.25-.85.83-.85 2.03 0 1.2.87 2.36.99 2.52.12.16 1.71 2.6 4.15 3.55 2.03.8 2.45.64 2.89.6.44-.04 1.42-.58 1.62-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.92-1.18-.71-.63-1.19-1.41-1.33-1.65-.14-.24-.01-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.32-.76-1.8-.2-.47-.4-.4-.54-.41-.14-.01-.3-.01-.46-.01z"/></svg>
-      WhatsApp
-    </div>
-
     <!-- Finanças group (collapsed) -->
     <div class="nav-grp-hdr" id="grp-hdr-financas" onclick="toggleGrp('financas')">
       <div class="nav-grp-left">
@@ -1977,6 +1981,21 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
       <div class="nav-sub" data-sub="financas" onclick="navigateSub('financas','financas')">
         <span class="nav-sub-ico">·</span>Controle financeiro
       </div>
+    </div>
+
+    <!-- RH -->
+    <div class="nav-item" data-page="rh" onclick="navigate('rh')">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/></svg>
+      Recursos Humanos
+    </div>
+
+    <!-- INTEGRAÇÕES (ex.: conectar o próprio WhatsApp via Z-API) — item
+         próprio na barra lateral pra quem tem a permissão 'integracoes'
+         mas não tem acesso ao setor Configurações (ex.: Gex Parceiro).
+         Quem já chega lá por Configurações continua chegando por lá também. -->
+    <div class="nav-item" data-page="integracoes" onclick="navigate('integracoes')">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clip-rule="evenodd"/></svg>
+      Integrações
     </div>
 
     <!-- CONFIGURAÇÕES -->
@@ -1996,17 +2015,6 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
       <div class="nav-sub" data-sub="config-preferencias" onclick="navigateSub('config-preferencias','configuracoes')"><span class="nav-sub-ico">·</span>Preferências</div>
     </div>
 
-    <!-- RH -->
-    <div class="nav-item" data-page="rh" onclick="navigate('rh')">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/></svg>
-      Recursos Humanos
-    </div>
-
-    <!-- CALENDÁRIO -->
-    <div class="nav-item" data-page="calendario" onclick="navigate('calendario')">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 011 1v1h6V3a1 1 0 112 0v1h1a2 2 0 012 2v11a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2h1V3a1 1 0 011-1zm10 7H4v8h12V9z" clip-rule="evenodd"/></svg>
-      Calendário
-    </div>
     <div class="nav-item" data-page="perfil" onclick="navigate('perfil')">
       <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
       Meu Perfil
@@ -21244,7 +21252,7 @@ function renderCalendario(){
           <button class="btn btn-ghost btn-sm" onclick="calGoToToday()">Hoje</button>
           <button class="btn btn-ghost btn-sm" onclick="calChangeMonth(-1)">‹</button>
           <button class="btn btn-ghost btn-sm" onclick="calChangeMonth(1)">›</button>
-          <div style="font-weight:800;font-size:13px;letter-spacing:.04em;color:var(--txt)">${calHeaderLabel(view,cursor)}</div>
+          <div style="font-weight:800;font-size:16px;letter-spacing:.03em;color:var(--txt)">${calHeaderLabel(view,cursor)}</div>
         </div>
         <div class="cal-view-toggle">
           <button class="${view==='day'?'active':''}" onclick="calSetView('day')">Dia</button>
