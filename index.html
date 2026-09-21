@@ -9785,6 +9785,45 @@ async function desativarUsuarioSeguro(id){
   }
 }
 
+// Exclusão DE VERDADE do usuário — diferente de desativarUsuarioSeguro
+// (que só muda o status pra "Inativo" e mantém a conta existindo pra
+// sempre, caso precise reativar depois). Esta função chama a Edge Function
+// "users-delete" (service_role) que apaga o login no Supabase Auth E o
+// registro em public.profiles. É IRREVERSÍVEL: o e-mail fica livre pra
+// cadastrar de novo, mas o histórico de "quem fez o quê" ligado a esse
+// usuário (leads, tarefas etc. com esse id como responsável) não é
+// reatribuído automaticamente — só some o dono.
+async function excluirUsuarioPermanente(id){
+  const target=DB.find('usuarios',id);
+  if(!target){toast('Usuário não encontrado','#EF4444');return}
+  const nomeConfirma=target.nome||target.email||'este usuário';
+  const ok=confirm(`Excluir "${nomeConfirma}" definitivamente?\n\nIsso apaga o login dele no Supabase (nunca mais vai conseguir entrar com esse e-mail) e remove o cadastro do GexFlow. NÃO tem como desfazer.\n\nSe quiser só bloquear o acesso podendo reverter depois, cancele e use "Desativar".`);
+  if(!ok)return;
+  if(!supabaseClient){toast('Sem conexão com o Supabase para excluir a conta.','#EF4444');return}
+  try{
+    const {data:sessionData}=await supabaseClient.auth.getSession();
+    const token=sessionData?.session?.access_token;
+    if(!token){toast('Sessão expirada — faça login de novo.','#EF4444');return}
+    const res=await fetch(getSupabaseFunctionUrl('users-delete'),{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
+      body:JSON.stringify({userId:target.supabaseId||target.id})
+    }).catch(err=>{throw new Error(err?.message||'Não consegui falar com o Supabase.')});
+    let payload={};
+    try{payload=await res.json();}catch(e){}
+    if(!res.ok||payload.ok===false){
+      toast(payload.message||'Não foi possível excluir o usuário.','#EF4444');
+      return;
+    }
+    DB.remove('usuarios',id);
+    renderUsuarios();
+    toast(payload.warning?`Usuário excluído — ${payload.warning}`:'Usuário excluído definitivamente ✓','#10B981');
+  }catch(err){
+    console.error('[GexFlow] Erro ao excluir usuário definitivamente:',err);
+    toast(err.message||'Não foi possível excluir o usuário. Veja o console.','#EF4444');
+  }
+}
+
 function switchUserTab(tab,el){
   document.querySelectorAll('#page-usuarios .tab-btn').forEach(b=>b.classList.remove('active'));
   if(el)el.classList.add('active');
@@ -9831,7 +9870,7 @@ function renderUsuarios(opts={}){
       <td>${badge(u.status)}</td>
       <td><div class="td-actions">
         ${canEdit?`<button class="btn btn-ghost btn-sm" onclick='openModal("usuario","${u.id}")'>Editar</button>`:''}
-        ${canDelete?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick='confirmDelete(()=>desativarUsuarioSeguro("${u.id}"))'>Desativar</button>`:''}
+        ${canDelete?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick='confirmDelete(()=>desativarUsuarioSeguro("${u.id}"))'>Desativar</button><button class="btn btn-ghost btn-sm" style="color:#991B1B" title="Apaga o login no Supabase e o cadastro — irreversível" onclick='excluirUsuarioPermanente("${u.id}")'>Excluir</button>`:''}
         ${!canEdit&&!canDelete?`<span style="font-size:11px;color:var(--light)">—</span>`:''}
       </div></td>
     </tr>`;
