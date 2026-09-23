@@ -1875,17 +1875,6 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
     document.querySelectorAll('#login-screen .login-footer').forEach(function(el){
       el.textContent='Portal do Parceiro · GexFlow © 2026';
     });
-    // Link gerado em Gestão de Usuários (botão "🔗 Link" na linha do
-    // parceiro) já vem com o e-mail dele — só preenche e manda o foco pra
-    // senha, pra a pessoa só precisar digitar a senha e entrar.
-    var emailParam=params.get('email');
-    if(emailParam){
-      var emailInput=document.getElementById('login-email');
-      if(emailInput){
-        emailInput.value=emailParam;
-        setTimeout(function(){document.getElementById('login-pass')?.focus();},0);
-      }
-    }
   }catch(e){}
 })();
 </script>
@@ -10090,12 +10079,14 @@ function toggleShowInativos(checked){try{localStorage.setItem('gx2_show_inativos
 // trocada — ver o <script> logo após o login-screen) já com o e-mail do
 // parceiro preenchido, e copia pra área de transferência pra facilitar
 // compartilhar com quem acabou de ser cadastrado.
-function linkPortalParceiro(email){
-  const base=location.origin+location.pathname;
-  return `${base}?portal=parceiro${email?('&email='+encodeURIComponent(email)):''}`;
+// Link único e igual pra todos os parceiros — só troca a marca da tela de
+// login (ver o <script> logo após o login-screen), sem nenhum parâmetro
+// extra na URL.
+function linkPortalParceiro(){
+  return `${location.origin}${location.pathname}?portal=parceiro`;
 }
-function copiarLinkPortalParceiro(email){
-  const url=linkPortalParceiro(email);
+function copiarLinkPortalParceiro(){
+  const url=linkPortalParceiro();
   const done=()=>toast('Link do Portal do Parceiro copiado ✓ Já pode colar e enviar pro parceiro.','#10B981');
   const fallback=()=>{
     try{
@@ -10147,7 +10138,7 @@ function renderUsuarios(opts={}){
       <td>${badge(u.status)}</td>
       <td><div class="td-actions">
         ${canEdit?`<button class="btn btn-ghost btn-sm" onclick='openModal("usuario","${u.id}")'>Editar</button>`:''}
-        ${uRole==='Gex Parceiro'?`<button class="btn btn-ghost btn-sm" style="color:var(--p2)" title="Copiar o link do Portal do Parceiro pra compartilhar com ${escAttr(u.nome||'')}" onclick="copiarLinkPortalParceiro('${escAttr(u.email||'')}')">🔗 Link</button>`:''}
+        ${uRole==='Gex Parceiro'?`<button class="btn btn-ghost btn-sm" style="color:var(--p2)" title="Copiar o link do Portal do Parceiro pra compartilhar com ${escAttr(u.nome||'')}" onclick="copiarLinkPortalParceiro()">🔗 Link</button>`:''}
         ${canDelete?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick='confirmDelete(()=>desativarUsuarioSeguro("${u.id}"))'>Desativar</button><button class="btn btn-ghost btn-sm" style="color:#991B1B" title="Apaga o login no Supabase e o cadastro — irreversível" onclick='excluirUsuarioPermanente("${u.id}")'>Excluir</button>`:''}
         ${!canEdit&&!canDelete&&uRole!=='Gex Parceiro'?`<span style="font-size:11px;color:var(--light)">—</span>`:''}
       </div></td>
