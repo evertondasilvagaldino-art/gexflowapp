@@ -3737,7 +3737,21 @@ function gexReadLocalCollection(collection){
   return Array.isArray(data) ? data : [];
 }
 function gexWriteLocalCollection(collection,value){
-  localStorage.setItem(gexCacheKey(collection),JSON.stringify(Array.isArray(value)?value:[]));
+  try{
+    localStorage.setItem(gexCacheKey(collection),JSON.stringify(Array.isArray(value)?value:[]));
+  }catch(e){
+    // Estouro de cota do localStorage (comum quando várias fotos de perfil em
+    // base64 se acumulam no cache de "usuarios") não pode travar quem chamou
+    // esta função sem avisar — antes disso acontecia de forma silenciosa e
+    // interrompia o fluxo ANTES de chegar na gravação de verdade no Supabase
+    // (ex.: salvar foto de perfil "carregava e sumia": a prévia aparecia, mas
+    // o salvamento local abortava aqui e nunca seguia pra nuvem). Agora só
+    // avisamos no console e deixamos quem chamou continuar normalmente — a
+    // cópia local pode ficar desatualizada, mas o Supabase (fonte real) não
+    // fica bloqueado por causa disso.
+    console.warn(`[GexFlow] localStorage cheio ao salvar cache local de "${collection}":`,e);
+    try{toast('Armazenamento local do navegador está cheio — os dados foram enviados ao Supabase, mas o cache local pode não refletir tudo. Considere limpar dados do site.','#F59E0B')}catch(_e){}
+  }
 }
 function gexNewLocalId(){
   return 'gx_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
@@ -10167,7 +10181,14 @@ function getProfileOverrides(){
   try{return JSON.parse(localStorage.getItem('gx2_profile_overrides')||'{}')||{}}catch(e){return{}}
 }
 function saveProfileOverrides(overrides){
-  localStorage.setItem('gx2_profile_overrides',JSON.stringify(overrides||{}));
+  try{
+    localStorage.setItem('gx2_profile_overrides',JSON.stringify(overrides||{}));
+  }catch(e){
+    // Mesmo motivo do try/catch em gexWriteLocalCollection: sem isso, um
+    // estouro de cota aqui travava savePerfilProprio() antes de chegar na
+    // gravação real no Supabase.
+    console.warn('[GexFlow] localStorage cheio ao salvar overrides de perfil:',e);
+  }
 }
 function profileKeysFor(user){
   const keys=[];
@@ -10285,14 +10306,19 @@ async function uploadUserAvatar(file){
       image.onerror=()=>reject(new Error('Falha ao processar imagem'));
       image.src=rawData;
     });
-    const max=512;
+    // Um avatar só precisa ser nítido num círculo pequeno — 256px a 72% de
+    // qualidade já fica ótimo e cabe numa fração do espaço que 512px/0.84
+    // ocupava. Isso reduz bastante o risco de estourar a cota do localStorage
+    // (que é compartilhada entre todos os usuários cacheados no navegador),
+    // que era a causa da foto "carregar e sumir" ao salvar.
+    const max=256;
     const scale=Math.min(1,max/Math.max(img.width,img.height));
     const canvas=document.createElement('canvas');
     canvas.width=Math.max(1,Math.round(img.width*scale));
     canvas.height=Math.max(1,Math.round(img.height*scale));
     const ctx=canvas.getContext('2d');
     ctx.drawImage(img,0,0,canvas.width,canvas.height);
-    return canvas.toDataURL('image/jpeg',0.84);
+    return canvas.toDataURL('image/jpeg',0.72);
   }catch(e){
     return rawData;
   }
@@ -10592,8 +10618,16 @@ async function savePerfilProprio(){
   }
 
   // 1) Atualiza imediatamente a UI/local para não perder experiência do usuário.
-  saveCurrentUser(upd);
-  applySession();
+  // Em try/catch: mesmo que o cache local (localStorage) esteja cheio — comum
+  // depois de várias fotos de perfil em base64 se acumularem — isso não pode
+  // impedir a gravação de verdade no Supabase logo abaixo, que é quem
+  // realmente persiste a foto entre sessões/dispositivos.
+  try{
+    saveCurrentUser(upd);
+    applySession();
+  }catch(e){
+    console.warn('[GexFlow] Falha ao salvar perfil localmente (seguindo para o Supabase mesmo assim):',e);
+  }
 
   // 2) Confirma no Supabase em public.profiles + Auth metadata.
   const sync=await syncOwnProfileToSupabase(upd);
