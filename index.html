@@ -2915,6 +2915,23 @@ const ROLE_PERMS = {
     // que não é usado por nenhuma tela hoje mas fica reservado pra controles
     // de nível empresa no futuro.
     automacoes:{view:true,create:true,edit:true,delete:true},
+    // Gerar Leads: WhatsApp (botão flutuante), Formulários e Campanhas da
+    // Meta — as três ferramentas de captação que o próprio parceiro usa.
+    // Campanhas da Meta entra porque a conexão é OAuth POR USUÁRIO (ver
+    // metaAdsStorageKey/meta_oauth_credentials.user_id): quando o parceiro
+    // conecta o Facebook DELE, o painel mostra só a conta de anúncios dele,
+    // nunca dados da empresa ou de outro parceiro — então não é uma tela de
+    // nível empresa como pareceria à primeira vista.
+    // Fica de fora só "API": aquela aba é só uma vitrine que redireciona pra
+    // Configurações > Webhook & API, tela de infra da empresa que este
+    // papel não tem acesso mesmo (config_webhook_api).
+    // Igual às Automações, o parceiro só vê/edita/exclui os PRÓPRIOS
+    // formulários e botões de WhatsApp — nunca os de outro parceiro nem os
+    // da empresa (forms()/widgets() dentro do script de Gerar Leads filtram
+    // por createdBy quando o papel não tem visão gerencial).
+    gerar_leads_whatsapp:{view:true,create:true,edit:true,delete:true},
+    gerar_leads_formularios:{view:true,create:true,edit:true,delete:true},
+    gerar_leads_meta:{view:true,edit:true},
     perfil:{view:true,edit:true},
   },
   // Papel mais enxuto que existe: sub-usuário criado por um Gex Parceiro
@@ -19661,8 +19678,17 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
 (function(){
   let glView='list',glEditId='',glFields=[];
   const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-  const forms=()=>{try{return DB.get('lead_forms')||[]}catch(e){return[]}};
-  const submissions=()=>{try{return DB.get('lead_form_submissions')||[]}catch(e){return[]}};
+  // Mesma regra de hierarquia usada em Automações: só Fundador/Adm Gerente
+  // veem TODOS os formulários/botões da empresa. Qualquer outro papel com
+  // acesso a Gerar Leads (ex.: Gex Parceiro) só vê/edita/exclui os que ele
+  // mesmo criou — nunca os de outro parceiro nem os da empresa.
+  function gerarLeadsManagerView(){try{return typeof isSalesManagerView==='function'?isSalesManagerView():true}catch(e){return true}}
+  const forms=()=>{try{const all=DB.get('lead_forms')||[];if(gerarLeadsManagerView())return all;const myId=String(sessionUser?.id||'');return all.filter(f=>String(f.createdBy||'')===myId)}catch(e){return[]}};
+  // Mesmo recorte de forms(): quem não tem visão gerencial só contabiliza os
+  // envios dos PRÓPRIOS formulários nos números de "Leads captados"/"Último
+  // lead" da listagem — senão um parceiro veria estatística misturada com a
+  // de outros parceiros/da empresa.
+  const submissions=()=>{try{const all=DB.get('lead_form_submissions')||[];if(gerarLeadsManagerView())return all;const myFormIds=new Set(forms().map(f=>f.id));return all.filter(s=>myFormIds.has(s.formId))}catch(e){return[]}};
   const fieldTypes={text:'Texto curto',email:'E-mail',phone:'WhatsApp/Telefone',number:'Número',select:'Lista de opções',textarea:'Texto longo',date:'Data'};
   const defaultFields=()=>[
     {id:uid(),type:'text',label:'Nome completo',name:'nome',required:true,placeholder:'Digite seu nome'},
@@ -19837,7 +19863,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   window.gxlMenu=(ev,id)=>{ev.stopPropagation();document.getElementById('gl-action-menu')?.remove();const f=forms().find(x=>x.id===id);if(!f)return;const m=document.createElement('div');m.id='gl-action-menu';m.className='gl-popmenu';m.innerHTML=`<button onclick="gxlOpen('${id}')">↗ Abrir formulário</button><button onclick="gxlCopy('${id}')">⧉ Copiar link</button><button onclick="gxlTogglePublish('${id}')">${f.active?'○ Despublicar':'● Publicar'}</button><hr><button onclick="gxlDuplicate('${id}');gxlCloseMenu()">⧉ Duplicar</button><button class="danger" onclick="gxlDelete('${id}')">⌫ Excluir formulário</button>`;document.body.appendChild(m);const r=ev.currentTarget.getBoundingClientRect(),w=190;m.style.left=Math.max(8,Math.min(innerWidth-w-8,r.right-w))+'px';m.style.top=Math.min(innerHeight-m.offsetHeight-8,r.bottom+5)+'px'};
   window.gxlCloseMenu=()=>document.getElementById('gl-action-menu')?.remove();document.addEventListener('click',e=>{if(!e.target.closest('#gl-action-menu')&&!e.target.closest('.gl-dotbtn'))gxlCloseMenu()});
   window.gxlTogglePublish=id=>{const f=forms().find(x=>x.id===id);if(!f)return;DB.update('lead_forms',id,{active:!f.active,updatedAt:new Date().toISOString()});gxlCloseMenu();renderGerarLeads();toast(f.active?'Formulário despublicado':'Formulário publicado ✓',f.active?'#64748B':'#10B981')};
-  window.gxlDelete=id=>{gxlCloseMenu();confirmDelete(()=>{DB.remove('lead_forms',id);(submissions().filter(s=>s.formId===id)||[]).forEach(s=>DB.remove('lead_form_submissions',s.id));renderGerarLeads();toast('Formulário excluído','#EF4444')})};
+  window.gxlDelete=id=>{if(!forms().some(x=>x.id===id)){toast('Formulário não encontrado','#EF4444');return}gxlCloseMenu();confirmDelete(()=>{DB.remove('lead_forms',id);(submissions().filter(s=>s.formId===id)||[]).forEach(s=>DB.remove('lead_form_submissions',s.id));renderGerarLeads();toast('Formulário excluído','#EF4444')})};
   function enhanceFunnelSelector(){const panel=[...document.querySelectorAll('.gl-panel')].find(p=>p.querySelector('h3')?.textContent==='Destino e automações'),input=panel?.querySelector('.gl-grid .gl-field input[disabled]');if(!input)return;const old=glEditId?forms().find(x=>x.id===glEditId)||{}:{},fs=availableFunnels(),active=typeof getActiveFunnel==='function'?getActiveFunnel():null,selected=old.funnelId||active?.id||fs[0]?.id||'';const sel=document.createElement('select');sel.className='gl-select';sel.id='gl-funnel';sel.onchange=window.gxlFunnelChange;sel.innerHTML=fs.map(f=>`<option value="${esc(f.id)}" ${f.id===selected?'selected':''}>${esc(f.name)}</option>`).join('');input.replaceWith(sel);window.gxlFunnelChange(old.stageId||'')}
   window.gxlFunnelChange=preferred=>{const funnelId=document.getElementById('gl-funnel')?.value,fn=availableFunnels().find(f=>f.id===funnelId),stage=document.getElementById('gl-stage'),wanted=typeof preferred==='string'?preferred:stage?.value;if(!stage)return;stage.innerHTML=(fn?.stages||[]).slice().sort((a,b)=>(a.order||0)-(b.order||0)).map(s=>`<option value="${esc(s.id)}" data-name="${esc(s.name)}" ${s.id===wanted?'selected':''}>${esc(s.name)}</option>`).join('')};
   const renderLeadGenBase=window.renderGerarLeads;window.renderGerarLeads=function(){renderLeadGenBase();if(glView==='editor')setTimeout(enhanceFunnelSelector,0);else setTimeout(()=>document.querySelectorAll('.gl-actions .gl-btn:first-child').forEach(b=>b.textContent='Prévia'),0)};
@@ -19902,7 +19928,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
 
   // ═══ WhatsApp — botão flutuante com popup de captura pro site ═══
   let gxwView='list',gxwEditId='';
-  const widgets=()=>{try{return DB.get('whatsapp_widgets')||[]}catch(e){return[]}};
+  const widgets=()=>{try{const all=DB.get('whatsapp_widgets')||[];if(gerarLeadsManagerView())return all;const myId=String(sessionUser?.id||'');return all.filter(w=>String(w.createdBy||'')===myId)}catch(e){return[]}};
   function gxwDefaults(){
     return {nome:'Minha Empresa',numero:'',saudacao:'Olá! Preencha os dados para atendimento via WhatsApp:',
       mensagem:'Olá, meu nome é {{nome}}. Vim pelo site e gostaria de saber mais!',textoBotao:'Fale conosco!',
@@ -20028,11 +20054,11 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     </div>`;
   }
   window.gxwNew=()=>{gxwEditId='';gxwView='editor';renderGerarLeads()};
-  window.gxwEdit=id=>{gxwEditId=id;gxwView='editor';renderGerarLeads()};
+  window.gxwEdit=id=>{if(!widgets().some(x=>x.id===id)){toast('Botão não encontrado','#EF4444');return}gxwEditId=id;gxwView='editor';renderGerarLeads()};
   window.gxwCancel=()=>{gxwView='list';gxwEditId='';renderGerarLeads()};
   window.gxwFunnelChange=preferred=>{const funnelId=document.getElementById('gxw-funnel')?.value,fn=availableFunnels().find(f=>f.id===funnelId),stage=document.getElementById('gxw-stage'),wanted=typeof preferred==='string'?preferred:stage?.value;if(!stage)return;stage.innerHTML=(fn?.stages||[]).slice().sort((a,b)=>(a.order||0)-(b.order||0)).map(s=>`<option value="${esc(s.id)}" data-name="${esc(s.name)}" ${s.id===wanted?'selected':''}>${esc(s.name)}</option>`).join('')};
   window.gxwToggle=id=>{const w=widgets().find(x=>x.id===id);if(!w)return;DB.update('whatsapp_widgets',id,{ativo:w.ativo===false});renderGerarLeads();toast(w.ativo===false?'Botão ativado ✓':'Botão pausado','#10B981')};
-  window.gxwDelete=id=>{confirmDelete(()=>{DB.remove('whatsapp_widgets',id);renderGerarLeads();toast('Botão excluído','#EF4444')})};
+  window.gxwDelete=id=>{if(!widgets().some(x=>x.id===id)){toast('Botão não encontrado','#EF4444');return}confirmDelete(()=>{DB.remove('whatsapp_widgets',id);renderGerarLeads();toast('Botão excluído','#EF4444')})};
   window.gxwSave=()=>{
     const nome=document.getElementById('gxw-nome')?.value.trim();
     const numero=String(document.getElementById('gxw-numero')?.value||'').replace(/\D/g,'');
