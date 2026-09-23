@@ -1799,7 +1799,7 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
    ═══════════════════════════════════════════════════════════════ */
 .sb-hamburger{display:none}
 .sb-overlay{display:none}
-@media (max-width:860px){
+@media (max-width:1024px), (pointer:coarse){
   .sb-hamburger{
     display:flex;align-items:center;justify-content:center;
     width:34px;height:34px;border-radius:9px;border:1px solid var(--border);
@@ -1829,10 +1829,25 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
 @media (max-width:420px){
   .kpi-grid{grid-template-columns:1fr}
 }
+#gx-diag-badge{position:fixed;bottom:8px;right:8px;background:#000;color:#0f0;font:11px monospace;padding:4px 8px;border-radius:6px;z-index:2147483647;opacity:.85;pointer-events:none}
 
 </style>
 </head>
 <body class="gex-premium-ui">
+<div id="gx-diag-badge"></div>
+<script>
+(function(){
+  try{
+    var b=document.getElementById('gx-diag-badge');
+    function upd(){
+      var coarse=window.matchMedia&&window.matchMedia('(pointer:coarse)').matches;
+      b.textContent='w:'+window.innerWidth+' h:'+window.innerHeight+' touch:'+(coarse?'sim':'não');
+    }
+    upd();
+    window.addEventListener('resize',upd);
+  }catch(e){}
+})();
+</script>
 
 <!-- LOGIN SCREEN -->
 <div class="login-screen" id="login-screen">
