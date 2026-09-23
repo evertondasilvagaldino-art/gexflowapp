@@ -9038,7 +9038,7 @@ function renderCadastroLeads(){
       </div>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>Nome</th><th>Telefone</th><th>Email</th><th>Empresa</th><th>Etapa</th><th>Responsável</th><th>Origem</th><th>Cadastrado em</th></tr></thead>
+          <thead><tr><th>Nome</th><th>Telefone</th><th>Email</th><th>Empresa</th><th>Etapa</th><th>Responsável</th><th>Origem</th><th>Cadastrado em</th><th>Ações</th></tr></thead>
           <tbody id="cl-table-body"></tbody>
         </table>
       </div>
@@ -9068,9 +9068,10 @@ function atualizarCadastroLeadsTable(){
   if(!tbody)return;
   const leads=cadastroLeadsVisiveis();
   if(!leads.length){
-    tbody.innerHTML=`<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted)">${cadastroLeadsBusca?'Nenhum lead encontrado para essa busca.':'Nenhum lead cadastrado ainda.'}</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--muted)">${cadastroLeadsBusca?'Nenhum lead encontrado para essa busca.':'Nenhum lead cadastrado ainda.'}</td></tr>`;
     return;
   }
+  const canDelete=can('comercial_pipeline','delete');
   tbody.innerHTML=leads.map(l=>`<tr style="cursor:pointer" onclick="openModal('lead','${l.id}')">
     <td>${escHtml(l.nome||'—')}</td>
     <td>${escHtml(l.telefone||'—')}</td>
@@ -9080,7 +9081,22 @@ function atualizarCadastroLeadsTable(){
     <td>${escHtml(getLeadOwnerName(l)||'—')}</td>
     <td>${escHtml(l.origem||'—')}</td>
     <td>${l.createdAt?new Date(l.createdAt).toLocaleDateString('pt-BR'):'—'}</td>
+    <td>${canDelete?`<button class="btn btn-ghost btn-sm btn-icon" style="color:var(--red)" title="Excluir lead" onclick="event.stopPropagation();excluirCadastroLead('${l.id}')">🗑️</button>`:''}</td>
   </tr>`).join('');
+}
+
+function excluirCadastroLead(id){
+  if(!can('comercial_pipeline','delete')){toast('Você não tem permissão para excluir leads','#EF4444');return}
+  const lead=DB.find('leads',id);
+  const nome=lead?.nome||'este lead';
+  const run=()=>{
+    DB.remove('leads',id);
+    toast(`"${nome}" removido do banco de leads`,'#EF4444');
+    atualizarCadastroLeadsTable();
+    if(typeof renderComercial==='function')renderComercial();
+  };
+  if(typeof confirmDelete==='function')confirmDelete(run);
+  else if(confirm(`Excluir "${nome}" definitivamente do banco de leads? Isso também remove do Pipeline. Não tem como desfazer.`))run();
 }
 
 function salvarCadastroLeadRapido(){
