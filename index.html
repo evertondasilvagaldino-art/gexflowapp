@@ -547,6 +547,12 @@ tr:hover td{background:#FAFAFD}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 select.form-input{cursor:pointer}
 textarea.form-input{resize:vertical;min-height:75px}
+/* Olhinho de mostrar/ocultar senha (usado em todo campo de senha do sistema) */
+.gx-pwd-wrap{position:relative}
+.gx-pwd-wrap .form-input{padding-right:36px}
+.gx-pwd-eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:28px;height:28px;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:var(--muted);border-radius:6px;padding:0}
+.gx-pwd-eye:hover{color:var(--p3);background:rgba(139,92,246,.1)}
+.gx-pwd-eye svg{width:17px;height:17px}
 
 /* MODAL ESTILO "EVENTO DA AGENDA" (tarefas/lembretes/eventos do Google) */
 .gcal-form{padding:2px 0 6px}
@@ -1883,7 +1889,7 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
     <div class="login-tagline">Plataforma de gestão para agências digitais</div>
     <div class="login-err" id="login-err">Email ou senha incorretos. Tente novamente.</div>
     <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="login-email" type="email" placeholder="seu@email.com" onkeydown="if(event.key==='Enter')doLogin()"></div>
-    <div class="form-group" style="margin-bottom:8px"><label class="form-label">Senha</label><input class="form-input" id="login-pass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <div class="form-group" style="margin-bottom:8px"><label class="form-label">Senha</label><div class="gx-pwd-wrap"><input class="form-input" id="login-pass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"><button type="button" class="gx-pwd-eye" title="Mostrar senha" onclick="toggleGxPwdEye('login-pass',this)"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 10s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6z"/><circle cx="10" cy="10" r="2.6"/></svg></button></div></div>
     <div style="text-align:right;margin-bottom:20px"><a href="#" class="login-link" onclick="showLoginForgotView();return false">Esqueci minha senha</a></div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;font-size:14px" onclick="doLogin()" id="login-btn">Entrar no sistema</button>
     <div class="login-hint" id="login-demo-hint" style="display:none">
@@ -1926,8 +1932,8 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
     <div class="login-greeting">Crie sua nova senha 🔒</div>
     <div class="login-tagline" style="margin-bottom:22px;text-align:left">Escolha uma senha nova com pelo menos 6 caracteres para voltar a acessar sua conta.</div>
     <div class="login-err" id="reset-err"></div>
-    <div class="form-group"><label class="form-label">Nova senha</label><input class="form-input" id="reset-pass1" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')document.getElementById('reset-pass2').focus()"></div>
-    <div class="form-group" style="margin-bottom:20px"><label class="form-label">Confirmar nova senha</label><input class="form-input" id="reset-pass2" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')confirmPasswordReset()"></div>
+    <div class="form-group"><label class="form-label">Nova senha</label><div class="gx-pwd-wrap"><input class="form-input" id="reset-pass1" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')document.getElementById('reset-pass2').focus()"><button type="button" class="gx-pwd-eye" title="Mostrar senha" onclick="toggleGxPwdEye('reset-pass1',this)"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 10s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6z"/><circle cx="10" cy="10" r="2.6"/></svg></button></div></div>
+    <div class="form-group" style="margin-bottom:20px"><label class="form-label">Confirmar nova senha</label><div class="gx-pwd-wrap"><input class="form-input" id="reset-pass2" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')confirmPasswordReset()"><button type="button" class="gx-pwd-eye" title="Mostrar senha" onclick="toggleGxPwdEye('reset-pass2',this)"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 10s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6z"/><circle cx="10" cy="10" r="2.6"/></svg></button></div></div>
     <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;font-size:14px" onclick="confirmPasswordReset()" id="reset-btn">Salvar nova senha</button>
   </div>
 </div>
@@ -4862,6 +4868,38 @@ function navigate(page){
 // ═══ TOAST ═══
 function toast(msg,color='#1A1A2E'){const t=document.getElementById('toast');t.textContent=msg;t.style.background=color;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600)}
 
+// ═══ OLHINHO DE SENHA (mostrar/ocultar) — usado em todo campo de senha ═══
+const GX_EYE_ICON_ON='<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 10s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6z"/><circle cx="10" cy="10" r="2.6"/></svg>';
+const GX_EYE_ICON_OFF='<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 2.5l15 15M8.3 8.4a2.6 2.6 0 003.6 3.6M6.1 6.2C3.6 7.6 1.9 10 1.9 10s3.2 6 9 6c1.3 0 2.5-.24 3.6-.66M12.2 4.35c-.7-.23-1.4-.35-2.1-.35-5.8 0-9 6-9 6"/></svg>';
+function toggleGxPwdEye(inputId,btn){
+  const inp=document.getElementById(inputId);
+  if(!inp)return;
+  const willShow=inp.type==='password';
+  inp.type=willShow?'text':'password';
+  if(btn){
+    btn.innerHTML=willShow?GX_EYE_ICON_OFF:GX_EYE_ICON_ON;
+    btn.title=willShow?'Ocultar senha':'Mostrar senha';
+  }
+}
+// Envolve um <input type="password"> já existente no DOM com o wrapper + botão de olho.
+// Usado pra campos de senha montados dinamicamente (modais renderizados via innerHTML),
+// onde é mais simples aplicar isso via JS do que reescrever cada template.
+function gxAddPwdEye(inputId){
+  const inp=document.getElementById(inputId);
+  if(!inp||inp.type!=='password'||inp.closest('.gx-pwd-wrap'))return;
+  const wrap=document.createElement('div');
+  wrap.className='gx-pwd-wrap';
+  inp.parentNode.insertBefore(wrap,inp);
+  wrap.appendChild(inp);
+  const btn=document.createElement('button');
+  btn.type='button';
+  btn.className='gx-pwd-eye';
+  btn.title='Mostrar senha';
+  btn.innerHTML=GX_EYE_ICON_ON;
+  btn.onclick=function(){toggleGxPwdEye(inputId,btn)};
+  wrap.appendChild(btn);
+}
+
 // ═══ CONFIRM ═══
 function confirmDelete(cb){
   const ov=document.getElementById('confirm-ov');
@@ -6085,7 +6123,7 @@ function integrationConfigFields(id){
       <div class="form-group"><label class="form-label">Servidor SMTP</label><input class="form-input" id="int-host" value="${escAttr(cfg.host||'')}" placeholder="smtp.seudominio.com"></div>
       <div class="form-group"><label class="form-label">Porta</label><input class="form-input" id="int-port" value="${escAttr(cfg.port||'587')}" placeholder="587"></div>
       <div class="form-group"><label class="form-label">Usuário SMTP</label><input class="form-input" id="int-user" value="${escAttr(cfg.user||'')}" placeholder="email@seudominio.com"></div>
-      <div class="form-group"><label class="form-label">Senha / Token</label><input class="form-input" id="int-secret" type="password" value="${escAttr(cfg.secret||'')}" placeholder="••••••••"></div>
+      <div class="form-group"><label class="form-label">Senha / Token</label><div class="gx-pwd-wrap"><input class="form-input" id="int-secret" type="password" value="${escAttr(cfg.secret||'')}" placeholder="••••••••"><button type="button" class="gx-pwd-eye" title="Mostrar senha" onclick="toggleGxPwdEye('int-secret',this)"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 10s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6z"/><circle cx="10" cy="10" r="2.6"/></svg></button></div></div>
       <div class="form-group"><label class="form-label">Nome do remetente</label><input class="form-input" id="int-from-name" value="${escAttr(cfg.fromName||'Gex Company')}" placeholder="Gex Company"></div>
       <div class="form-group"><label class="form-label">E-mail remetente</label><input class="form-input" id="int-from-email" value="${escAttr(cfg.fromEmail||'')}" placeholder="comercial@seudominio.com"></div>
     </div>
@@ -6137,7 +6175,7 @@ function integrationConfigFields(id){
     <div class="form-group"><label class="form-label">ID da conta de anúncios</label><input class="form-input" id="int-url" value="${escAttr(selected)}" placeholder="Ex.: act_123456789012345"></div>
     <details class="meta-manual-details">
       <summary>Configuração manual com token, se precisar</summary>
-      <div class="form-group" style="margin-top:10px"><label class="form-label">Access Token da Meta</label><input class="form-input" id="int-token" type="password" value="${escAttr(cfg.token||'')}" placeholder="Cole o Access Token com ads_read"></div>
+      <div class="form-group" style="margin-top:10px"><label class="form-label">Access Token da Meta</label><div class="gx-pwd-wrap"><input class="form-input" id="int-token" type="password" value="${escAttr(cfg.token||'')}" placeholder="Cole o Access Token com ads_read"><button type="button" class="gx-pwd-eye" title="Mostrar senha" onclick="toggleGxPwdEye('int-token',this)"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 10s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6z"/><circle cx="10" cy="10" r="2.6"/></svg></button></div></div>
     </details>
     <div class="form-group"><label class="form-label">Observações</label><textarea class="form-input" id="int-notes" placeholder="Como essa integração será usada na operação...">${escHtml(cfg.notes||'')}</textarea></div>
     <div class="int-secret-note"><b>Teste real:</b> se a conexão nativa estiver ativa, o teste usa Supabase Edge Function. Se não estiver, usa token manual. O retorno deve mostrar investimento, campanhas, cliques, impressões e leads.</div>
@@ -6145,7 +6183,7 @@ function integrationConfigFields(id){
   }
   return `<div class="form-group"><label class="form-label">Conta / Workspace</label><input class="form-input" id="int-account" value="${escAttr(cfg.account||'')}" placeholder="Nome da conta, workspace ou empresa"></div>
   <div class="form-group"><label class="form-label">URL / ID da integração</label><input class="form-input" id="int-url" value="${escAttr(cfg.url||'')}" placeholder="URL, ID, endpoint ou workspace"></div>
-  <div class="form-group"><label class="form-label">API Key / Token</label><input class="form-input" id="int-token" type="password" value="${escAttr(cfg.token||'')}" placeholder="Opcional"></div>
+  <div class="form-group"><label class="form-label">API Key / Token</label><div class="gx-pwd-wrap"><input class="form-input" id="int-token" type="password" value="${escAttr(cfg.token||'')}" placeholder="Opcional"><button type="button" class="gx-pwd-eye" title="Mostrar senha" onclick="toggleGxPwdEye('int-token',this)"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 10s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6z"/><circle cx="10" cy="10" r="2.6"/></svg></button></div></div>
   <div class="form-group"><label class="form-label">Observações</label><textarea class="form-input" id="int-notes" placeholder="Como essa integração será usada na operação...">${escHtml(cfg.notes||'')}</textarea></div>
   <div class="int-secret-note">Para ${escHtml(app.name||'esta integração')}, salve os dados de conexão aqui. Em produção, tokens sensíveis devem ir para Supabase Secrets/Edge Functions.</div>`;
 }
@@ -7336,7 +7374,7 @@ function formUsuario(d){
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-status"><option ${(d?.status||(isNew?'Inativo':'Ativo'))==='Ativo'?'selected':''}>Ativo</option><option ${(d?.status||(isNew?'Inativo':'Ativo'))==='Inativo'?'selected':''}>Inativo</option></select>${isNew?'<div style="font-size:11px;color:var(--muted);margin-top:5px">Novo usuário já entra Inativo — você ativa manualmente (grátis) ou gera o link de pagamento pra ele ativar sozinho ao pagar.</div>':''}<div id="f-status-billing-note" style="display:none;font-size:11px;color:#B45309;margin-top:5px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:6px 8px">⚠️ Este usuário tem assinatura Stripe vinculada — o campo foi bloqueado pra evitar que uma alteração manual aqui apague, sem querer, o que o pagamento já definiu. <a href="#" onclick="unlockManualStatus();return false" style="color:#B45309;text-decoration:underline;font-weight:700">Editar mesmo assim</a></div></div>
-    <div class="form-group"><label class="form-label">Senha ${d?'(nova)':''}</label><input class="form-input" id="f-senha" type="password" placeholder="••••••••" autocomplete="new-password">${newPwdHint}</div>
+    <div class="form-group"><label class="form-label">Senha ${d?'(nova)':''}</label><div class="gx-pwd-wrap"><input class="form-input" id="f-senha" type="password" placeholder="••••••••" autocomplete="new-password"><button type="button" class="gx-pwd-eye" title="Mostrar senha" onclick="toggleGxPwdEye('f-senha',this)"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 10s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6z"/><circle cx="10" cy="10" r="2.6"/></svg></button></div>${newPwdHint}</div>
   </div>
   ${isNew?origemHtml:''}
   ${!isNew?`<div class="user-origin-info" style="margin-top:14px">
@@ -10589,7 +10627,7 @@ function renderPerfil(){
           <div style="font-size:14px;font-weight:600;margin-bottom:12px">Segurança</div>
           <div class="form-group" style="margin-bottom:10px">
             <label class="form-label">Nova senha</label>
-            <input class="form-input" id="perf-senha" type="password" placeholder="Deixe em branco para manter">
+            <div class="gx-pwd-wrap"><input class="form-input" id="perf-senha" type="password" placeholder="Deixe em branco para manter"><button type="button" class="gx-pwd-eye" title="Mostrar senha" onclick="toggleGxPwdEye('perf-senha',this)"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 10s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6z"/><circle cx="10" cy="10" r="2.6"/></svg></button></div>
           </div>
           <button class="btn btn-ghost" onclick="savePerfilSenha()" style="width:100%;justify-content:center;margin-bottom:8px">Alterar senha</button>
           <button class="btn btn-danger" onclick="doLogout()" style="width:100%;justify-content:center">Sair da conta</button>
@@ -10603,7 +10641,7 @@ function renderPerfil(){
       <div class="profile-edit-grid" style="margin-bottom:10px">
         <div class="form-group"><label class="form-label">Nome</label><input class="form-input" id="me-nome" placeholder="Nome da pessoa"></div>
         <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="me-email" type="email" placeholder="email@exemplo.com"></div>
-        <div class="form-group"><label class="form-label">Senha</label><input class="form-input" id="me-senha" type="password" placeholder="Senha de acesso"></div>
+        <div class="form-group"><label class="form-label">Senha</label><div class="gx-pwd-wrap"><input class="form-input" id="me-senha" type="password" placeholder="Senha de acesso"><button type="button" class="gx-pwd-eye" title="Mostrar senha" onclick="toggleGxPwdEye('me-senha',this)"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 10s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6z"/><circle cx="10" cy="10" r="2.6"/></svg></button></div></div>
         <div class="form-group"><label class="form-label">Funil que ela vai enxergar</label><select class="form-input" id="me-funil"></select></div>
       </div>
       <button class="btn btn-primary" id="me-criar-btn" onclick="criarSubUsuarioParceiro()">+ Criar acesso</button>
@@ -16119,7 +16157,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
       ${appInstructions(id)}
       <details class="meta-manual-details" style="margin-top:12px">
         <summary>Configuração avançada, se precisar</summary>
-        <div class="form-group" style="margin-top:10px"><label class="form-label">Token / API Key externa</label><input class="form-input" id="int-token" type="password" value="${safeAttr(cfg.token||'')}" placeholder="Opcional — evitar salvar tokens sensíveis no navegador"></div>
+        <div class="form-group" style="margin-top:10px"><label class="form-label">Token / API Key externa</label><div class="gx-pwd-wrap"><input class="form-input" id="int-token" type="password" value="${safeAttr(cfg.token||'')}" placeholder="Opcional — evitar salvar tokens sensíveis no navegador"><button type="button" class="gx-pwd-eye" title="Mostrar senha" onclick="toggleGxPwdEye('int-token',this)"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 10s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6z"/><circle cx="10" cy="10" r="2.6"/></svg></button></div></div>
       </details>
       <div class="form-group"><label class="form-label">Observações</label><textarea class="form-input" id="int-notes" placeholder="Como essa integração será usada na operação...">${safeEsc(cfg.notes||'')}</textarea></div>
       ${renderIntegrationModalLastTest(id)}
@@ -16773,7 +16811,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
         <details class="std-details">
           <summary>Configuração avançada</summary>
           <label>Token/API Key externa opcional
-            <input class="form-input" id="int-token" type="password" value="${a(cfg.token || '')}" placeholder="Evite salvar tokens sensíveis no navegador">
+            <div class="gx-pwd-wrap"><input class="form-input" id="int-token" type="password" value="${a(cfg.token || '')}" placeholder="Evite salvar tokens sensíveis no navegador"><button type="button" class="gx-pwd-eye" title="Mostrar senha" onclick="toggleGxPwdEye('int-token',this)"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 10s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6z"/><circle cx="10" cy="10" r="2.6"/></svg></button></div>
           </label>
         </details>
 
