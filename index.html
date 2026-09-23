@@ -264,7 +264,15 @@ tr:hover td{background:#FAFAFD}
 .star-res.on{color:#3B82F6}
 
 /* PIPELINE */
-.pipeline{display:grid;grid-template-columns:repeat(5,minmax(180px,1fr));gap:8px;align-items:start;overflow-x:auto}
+.pipeline{display:grid;grid-template-columns:repeat(5,minmax(180px,1fr));gap:8px;align-items:start;overflow-x:auto;padding-bottom:12px}
+/* Barra de rolagem horizontal sempre visível (não escondida/fina como o
+   padrão do navegador), igual ao funil de outros CRMs — ajuda quem tem
+   muitas etapas a perceber que dá pra arrastar pros lados. */
+.pipeline{scrollbar-width:auto;scrollbar-color:#A78BFA #EFEAFB}
+.pipeline::-webkit-scrollbar{height:12px}
+.pipeline::-webkit-scrollbar-track{background:#EFEAFB;border-radius:999px}
+.pipeline::-webkit-scrollbar-thumb{background:#A78BFA;border-radius:999px;border:2px solid #EFEAFB}
+.pipeline::-webkit-scrollbar-thumb:hover{background:#7C3AED}
 /* ── Abas internas Comercial ── */
 .com-tab-btn{background:none;border:none;padding:10px 20px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .2s}
 .com-tab-btn.active{color:var(--p1);border-bottom-color:var(--p1)}
