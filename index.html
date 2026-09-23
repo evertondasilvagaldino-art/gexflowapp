@@ -21586,7 +21586,14 @@ function calAtendenteOptions(){
   const names=new Set();
   (typeof getVisibleCommercialTasks==='function'?getVisibleCommercialTasks():[]).forEach(t=>{if(t.assignedTo)names.add(t.assignedTo)});
   if(sessionUser?.nome)names.add(sessionUser.nome);
-  return Array.from(names).sort((a,b)=>a.localeCompare(b));
+  // Não lista atendentes desativados no filtro (a não ser que seja o
+  // próprio usuário logado, ou um nome que não bate com nenhum usuário
+  // cadastrado — nesse caso mantém, pra não sumir com atividades antigas
+  // de alguém que já nem existe mais como registro de usuário).
+  const usuarios=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios'))||[];
+  const inativosPorNome=new Set(usuarios.filter(u=>String(u.status||'Ativo').toLowerCase()==='inativo').map(u=>u.nome));
+  const ativos=Array.from(names).filter(n=>n===sessionUser?.nome||!inativosPorNome.has(n));
+  return ativos.sort((a,b)=>a.localeCompare(b));
 }
 function calIsActivePage(){
   return !!document.getElementById('page-calendario')?.classList.contains('active');
