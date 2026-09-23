@@ -264,7 +264,12 @@ tr:hover td{background:#FAFAFD}
 .star-res.on{color:#3B82F6}
 
 /* PIPELINE */
-.pipeline{display:grid;grid-template-columns:repeat(5,minmax(180px,1fr));gap:8px;align-items:start;overflow-x:auto;padding-bottom:12px}
+/* Altura travada + colunas esticadas: cada coluna rola seu próprio
+   conteúdo de cards por dentro (.pipe-col-body), então a barra de
+   rolagem horizontal (pra trocar de etapa) fica sempre visível logo
+   abaixo dos cabeçalhos das colunas — sem precisar descer todos os
+   cards primeiro pra alcançar ela. Mesmo comportamento de outros CRMs. */
+.pipeline{display:grid;grid-template-columns:repeat(5,minmax(180px,1fr));gap:8px;align-items:stretch;overflow-x:auto;overflow-y:hidden;padding-bottom:12px;height:calc(100vh - 380px);min-height:320px}
 /* Barra de rolagem horizontal sempre visível (não escondida/fina como o
    padrão do navegador), igual ao funil de outros CRMs — ajuda quem tem
    muitas etapas a perceber que dá pra arrastar pros lados. */
@@ -273,6 +278,13 @@ tr:hover td{background:#FAFAFD}
 .pipeline::-webkit-scrollbar-track{background:#EFEAFB;border-radius:999px}
 .pipeline::-webkit-scrollbar-thumb{background:#A78BFA;border-radius:999px;border:2px solid #EFEAFB}
 .pipeline::-webkit-scrollbar-thumb:hover{background:#7C3AED}
+.pipe-col{display:flex;flex-direction:column;min-height:0}
+.pipe-col-body{flex:1;min-height:0;overflow-y:auto;padding-right:2px}
+.pipe-col-body::-webkit-scrollbar{width:8px}
+.pipe-col-body::-webkit-scrollbar-track{background:transparent}
+.pipe-col-body::-webkit-scrollbar-thumb{background:rgba(124,58,237,.25);border-radius:999px}
+.pipe-col-body::-webkit-scrollbar-thumb:hover{background:rgba(124,58,237,.45)}
+.pipe-col-body{scrollbar-width:thin;scrollbar-color:rgba(124,58,237,.25) transparent}
 /* ── Abas internas Comercial ── */
 .com-tab-btn{background:none;border:none;padding:10px 20px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .2s}
 .com-tab-btn.active{color:var(--p1);border-bottom-color:var(--p1)}
@@ -9391,6 +9403,7 @@ function renderComercial(){
         </div>
         <span class="kol-count">${items.length}</span>
       </div>
+      <div class="pipe-col-body">
       ${items.map(l=>`<div class="pcard" draggable="true" ondragstart="dragStart(event,'${l.id}','lead')" ondragend="dragEnd(event)" onclick="openDealDetail('${l.id}')">
         <div class="pcard-name">${l.nome||'Lead sem nome'}</div>
         <div class="pcard-co">🏢 ${l.empresa||'—'}</div>
@@ -9403,6 +9416,7 @@ function renderComercial(){
         </div>
       </div>`).join('')}
       <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:12px;border-style:dashed;margin-top:4px" onclick='openModal("lead")'>+</button>
+      </div>
     </div>`;
   }).join('');
   const nextPipelineHash=gexSimpleHash(nextPipelineBoardHtml);
