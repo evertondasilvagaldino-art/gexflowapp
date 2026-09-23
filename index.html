@@ -1852,6 +1852,33 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
   </div>
 </div>
 
+<!-- Portal do Parceiro: acessando a tela de login por
+     ?portal=parceiro (ex.: gexflowapp.vercel.app/?portal=parceiro) ou pelo
+     hash #parceiro, a tela de login troca a marca "GexFlow" por "Portal do
+     Parceiro" — é a MESMA tela/login de sempre (qualquer usuário continua
+     entrando com o e-mail e senha normais), só muda a identidade visual pra
+     quem chega por esse link, pensado pra ser o link que os parceiros usam
+     pra acessar o sistema. Roda antes de qualquer outra coisa, então não
+     interfere na lógica de sessão/Supabase que vem depois. -->
+<script>
+(function(){
+  try{
+    var params=new URLSearchParams(location.search);
+    var isPartnerPortal = params.get('portal')==='parceiro' || location.hash==='#parceiro';
+    if(!isPartnerPortal)return;
+    document.title='Portal do Parceiro · GexFlow';
+    document.querySelectorAll('#login-screen .login-brand').forEach(function(el){
+      el.innerHTML='Portal<span> Parceiro</span>';
+    });
+    var mainTagline=document.querySelector('#login-box-form .login-tagline');
+    if(mainTagline)mainTagline.textContent='Acesso exclusivo para parceiros GexFlow';
+    document.querySelectorAll('#login-screen .login-footer').forEach(function(el){
+      el.textContent='Portal do Parceiro · GexFlow © 2026';
+    });
+  }catch(e){}
+})();
+</script>
+
 <!-- SIDEBAR -->
 <aside class="sidebar">
   <div class="sb-company">
