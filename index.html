@@ -1842,33 +1842,10 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
 @media (max-width:420px){
   .kpi-grid{grid-template-columns:1fr}
 }
-#gx-diag-badge{position:fixed;bottom:8px;right:8px;background:#000;color:#0f0;font:11px monospace;padding:4px 8px;border-radius:6px;z-index:2147483647;opacity:.85;pointer-events:none}
 
 </style>
 </head>
 <body class="gex-premium-ui">
-<div id="gx-diag-badge"></div>
-<script>
-(function(){
-  try{
-    var b=document.getElementById('gx-diag-badge');
-    function upd(){
-      var coarse=window.matchMedia&&window.matchMedia('(pointer:coarse)').matches;
-      var sb=document.querySelector('.sidebar');
-      var pos=sb?getComputedStyle(sb).position:'?';
-      var ham=document.querySelector('.sb-hamburger');
-      var hamDisp=ham?getComputedStyle(ham).display:'?';
-      b.textContent='w:'+window.innerWidth+' touch:'+(coarse?'s':'n')+' sb-pos:'+pos+' ham:'+hamDisp+' open:'+document.body.classList.contains('sb-mobile-open');
-    }
-    upd();
-    window.addEventListener('resize',upd);
-    document.addEventListener('DOMContentLoaded',upd);
-    window.addEventListener('load',upd);
-    setTimeout(upd,500);
-    setTimeout(upd,2000);
-  }catch(e){}
-})();
-</script>
 
 <!-- LOGIN SCREEN -->
 <div class="login-screen" id="login-screen">
@@ -18261,9 +18238,11 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   body.gex-premium-ui.gx-mounted .main{
     animation:gxShellIn .34s ease-out both;
   }
-  body.gex-premium-ui.gx-mounted .sidebar{
-    animation:gxShellIn .26s ease-out both;
-  }
+  /* Removido do .sidebar: a animação usava transform (translateY), e o
+     "fill-mode: both" prendia esse transform no elemento depois de
+     terminar — isso brigava com o transform:translateX usado pra
+     esconder/mostrar o menu no celular, fazendo o menu mobile nunca
+     ficar escondido de verdade num aparelho real. */
 }
 @media (prefers-reduced-motion:reduce){
   body.gex-premium-ui *,
