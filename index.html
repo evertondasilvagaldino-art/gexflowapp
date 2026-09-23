@@ -279,7 +279,11 @@ tr:hover td{background:#FAFAFD}
 .pipeline::-webkit-scrollbar-thumb{background:#A78BFA;border-radius:999px;border:2px solid #EFEAFB}
 .pipeline::-webkit-scrollbar-thumb:hover{background:#7C3AED}
 .pipe-col{display:flex;flex-direction:column;min-height:0}
-.pipe-col-body{flex:1;min-height:0;overflow-y:auto;padding-right:2px}
+/* overflow-x:hidden explícito: sem isso, o navegador converte o eixo
+   horizontal pra "auto" automaticamente só por causa do overflow-y:auto
+   (regra da spec do CSS), e aí sobra uma barrinha horizontal indesejada
+   dentro da coluna sempre que o conteúdo fica 1px mais largo que ela. */
+.pipe-col-body{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding-right:2px}
 .pipe-col-body::-webkit-scrollbar{width:8px}
 .pipe-col-body::-webkit-scrollbar-track{background:transparent}
 .pipe-col-body::-webkit-scrollbar-thumb{background:rgba(124,58,237,.25);border-radius:999px}
