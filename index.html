@@ -11512,42 +11512,73 @@ function saveTarefaGlobal(id){
   toast(id?'Tarefa atualizada ✓':'Tarefa criada ✓','#10B981');
 }
 
-// Agenda de Projetos
+// Agenda de Projetos — mesma grade visual (mês) usada no Calendário.
+let _projCursor=(()=>{try{const t=new Date();return new Date(t.getFullYear(),t.getMonth(),1)}catch(e){return new Date(2026,0,1)}})();
+function projChangeMonth(delta){
+  _projCursor=new Date(_projCursor.getFullYear(),_projCursor.getMonth()+delta,1);
+  renderAgendaProj();
+}
+function projGoToToday(){
+  const t=new Date();
+  _projCursor=new Date(t.getFullYear(),t.getMonth(),1);
+  renderAgendaProj();
+}
 function renderAgendaProj(){
-  const pros=getVisibleProjects().filter(p=>p.prazo).sort((a,b)=>a.prazo.localeCompare(b.prazo));
-  const months=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  const grouped={};
-  pros.forEach(p=>{
-    const d=new Date(p.prazo+'T00:00:00');
-    const key=`${months[d.getMonth()]} ${d.getFullYear()}`;
-    if(!grouped[key])grouped[key]=[];
-    grouped[key].push({...p,_d:d});
-  });
+  const pros=getVisibleProjects().filter(p=>p.prazo);
+  const todayStr=(typeof _today==='function')?_today():new Date().toISOString().slice(0,10);
   const today=new Date();
+
+  const projByDate={};
+  pros.forEach(p=>{(projByDate[p.prazo]=projByDate[p.prazo]||[]).push(p)});
+
+  const year=_projCursor.getFullYear(),month=_projCursor.getMonth();
+  const first=new Date(year,month,1);
+  const startWeekday=first.getDay();
+  const daysInMonth=new Date(year,month+1,0).getDate();
+  const prevDays=new Date(year,month,0).getDate();
+  const cells=[];
+  for(let i=0;i<startWeekday;i++)cells.push({day:prevDays-startWeekday+1+i,cur:false,dateStr:''});
+  for(let d=1;d<=daysInMonth;d++)cells.push({day:d,cur:true,dateStr:`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`});
+  let nextDay=1;
+  while(cells.length%7!==0)cells.push({day:nextDay++,cur:false,dateStr:''});
+
+  const CAP=3;
+  const gridHtml=`<div class="cal-grid"><div class="cal-grid-hdr">${CAL_DIAS_SEMANA.map(d=>`<div>${d}</div>`).join('')}</div>
+    <div class="cal-grid-body">
+      ${cells.map(c=>{
+        if(!c.cur)return `<div class="cal-cell muted"><div class="cal-daynum">${c.day}</div></div>`;
+        const isToday=c.dateStr===todayStr;
+        const dayItems=projByDate[c.dateStr]||[];
+        const shown=dayItems.slice(0,CAP);
+        const extra=dayItems.length-shown.length;
+        const itemsHtml=shown.map(p=>{
+          const d=new Date(p.prazo+'T00:00:00');
+          const late=d<today&&p.status!=='Postado';
+          return `<div class="cal-item${late?' late':''}" style="${late?'background:#FEE2E2;color:#991B1B':''}" onclick="event.stopPropagation();openModal('projeto','${p.id}')" title="${escAttr(p.nome||'')}">${escHtml(p.nome||'')}</div>`;
+        }).join('');
+        return `<div class="cal-cell${isToday?' today':''}" onclick="openModal('projeto',{prazo:'${c.dateStr}'})">
+          <div class="cal-daynum">${c.day}</div>
+          <div class="cal-items">${itemsHtml}${extra>0?`<div class="cal-more">+${extra}</div>`:''}</div>
+        </div>`;
+      }).join('')}
+    </div></div>`;
+
   document.getElementById('proj-content').innerHTML=`
     <div class="page-header">
       <div><div class="page-title">📅 Agenda de Projetos</div><div class="page-sub">Prazos e entregas organizados por mês</div></div>
       <button class="btn btn-primary" onclick="openModal('projeto')">+ Novo Projeto</button>
     </div>
-    ${Object.keys(grouped).length?Object.entries(grouped).map(([month,items])=>`
-    <div class="agenda-month">
-      <div class="agenda-month-hdr">${month}</div>
-      ${items.map(p=>{
-        const late=p._d<today&&p.status!=='Postado';
-        return `<div class="agenda-item" onclick="openModal('projeto','${p.id}')">
-          <div class="agenda-date-box" style="${late?'background:#FEE2E2;color:#991B1B':''}">
-            <div class="agenda-day">${String(p._d.getDate()).padStart(2,'0')}</div>
-            <div class="agenda-mon">${months[p._d.getMonth()]}</div>
-          </div>
-          <div style="flex:1">
-            <div style="font-size:13px;font-weight:600">${p.nome}</div>
-            <div style="font-size:11px;color:var(--muted)">${p.cliente||'—'}</div>
-          </div>
-          ${badge(p.status)}
-          ${late?'<span class="badge badge-red">⚠ Atrasado</span>':''}
-        </div>`;
-      }).join('')}
-    </div>`).join(''):`<div class="empty"><div class="empty-ico">📅</div><div class="empty-txt">Nenhum projeto com prazo definido</div></div>`}`;
+    <div class="card" style="padding:18px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <button class="btn btn-ghost btn-sm" onclick="projGoToToday()">Hoje</button>
+          <button class="btn btn-ghost btn-sm" onclick="projChangeMonth(-1)">‹</button>
+          <button class="btn btn-ghost btn-sm" onclick="projChangeMonth(1)">›</button>
+          <div style="font-weight:800;font-size:16px;letter-spacing:.03em;color:var(--txt)">${calMonthLabel(_projCursor)}</div>
+        </div>
+      </div>
+      ${gridHtml}
+    </div>`;
 }
 
 // Aprovação de Conteúdo
@@ -20349,6 +20380,8 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
 .wac-tag-btn{border:1px solid var(--border);background:#fff;color:#475569;border-radius:8px;height:28px;padding:0 10px;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap}
 .wac-tag-btn:hover{border-color:#128C7E;color:#128C7E}
 .wac-tag-btn-danger:hover{border-color:#DC2626;color:#DC2626}
+.wac-tag-btn-primary{background:var(--p2);border-color:var(--p2);color:#fff}
+.wac-tag-btn-primary:hover{background:var(--p2);border-color:var(--p2);color:#fff;opacity:.88}
 .wac-tag-editor{padding:12px 16px;border-bottom:1px solid var(--border);background:#FBFDFC;display:flex;flex-direction:column;gap:10px}
 .wac-tag-check-list{display:flex;flex-direction:column;gap:2px;max-height:180px;overflow-y:auto}
 .wac-tag-check-row{display:flex;align-items:center;gap:8px;padding:6px 4px;border-radius:8px;cursor:pointer;font-size:11.5px;color:var(--txt)}
@@ -20574,6 +20607,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
         <div class="wac-thread-head-phone">${esc(wacSelectedPhone)}</div>
         ${(chat.tags&&chat.tags.length)?`<div class="wac-item-tags" style="margin-top:4px">${chat.tags.map(tagPillHtml).join('')}</div>`:''}
       </div>
+      ${(typeof can==='function'?can('comercial','create'):true)?`<button class="wac-tag-btn wac-tag-btn-primary" onclick="wacSendToPipeline('${A(wacSelectedPhone)}')" title="Criar um lead no Pipeline a partir desta conversa">📥 Enviar para o Pipeline</button>`:''}
       <button class="wac-tag-btn" onclick="wacToggleTagEditor()">🏷️ Etiquetas</button>
       <button class="wac-tag-btn wac-tag-btn-danger" onclick="wacDeleteChat('${A(wacSelectedPhone)}')" title="Excluir esta conversa">🗑️ Excluir</button>
     </div>
@@ -20779,6 +20813,35 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     };
     if(typeof confirmDelete==='function')confirmDelete(run);
     else if(confirm(`Excluir a etiqueta "${name}" do catálogo?`))run();
+  };
+
+  // Abre o mesmo formulário de "Novo Lead" do Pipeline, já preenchido com o
+  // nome/telefone da conversa. Reaproveita openModal('lead',...) de
+  // propósito: assim o lead nasce no funil e com as opções de responsável
+  // que a hierarquia de usuários já define pra quem está logado (Fundador/
+  // Adm Gerente vê o funil principal, Parceiro/colaborador cai no funil
+  // próprio dele) — a mesma regra usada em qualquer outro lead criado no
+  // sistema, sem duplicar essa lógica aqui.
+  window.wacSendToPipeline=function(phone){
+    if(typeof can==='function'&&!can('comercial','create')){
+      toast('Você não tem permissão para criar leads no Pipeline','#EF4444');
+      return;
+    }
+    const chat=wacChats.find(c=>c.phone===phone)||{phone};
+    if(chat.is_group){
+      toast('Não é possível enviar uma conversa em grupo para o Pipeline','#EF4444');
+      return;
+    }
+    if(typeof openModal!=='function'){
+      toast('Não foi possível abrir o formulário de lead','#EF4444');
+      return;
+    }
+    openModal('lead',{
+      nome:chat.name||phone,
+      telefone:phone,
+      origem:'WhatsApp',
+      desc:`Enviado a partir da conversa de WhatsApp com ${chat.name||phone}.`
+    });
   };
 
   window.wacDeleteChat=function(phone){
