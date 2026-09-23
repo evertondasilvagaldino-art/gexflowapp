@@ -1934,6 +1934,9 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
       <div class="nav-sub" data-sub="comercial" onclick="navigateSub('comercial','comercial');switchComTab('pipeline')">
         <span class="nav-sub-ico">·</span>Pipeline CRM
       </div>
+      <div class="nav-sub" data-sub="cadastro-leads" onclick="navigateSub('comercial','comercial');switchComTab('cadastro')">
+        <span class="nav-sub-ico">·</span>Cadastro de Leads
+      </div>
       <div class="nav-sub" data-sub="relatorio-comercial" onclick="navigateSub('comercial','comercial');switchComTab('relatorio')">
         <span class="nav-sub-ico">·</span>Relatório Comercial
       </div>
@@ -2201,6 +2204,8 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
         </div>
       </div>
     </div>
+    <!-- Cadastro de Leads (banco de dados, cadastro rápido em tabela) -->
+    <div id="com-tab-cadastro" style="display:none"></div>
     <!-- Relatório Comercial -->
     <div id="com-tab-relatorio" style="display:none">
       <!-- Filtros -->
@@ -2676,6 +2681,7 @@ PERMISSION_SECTIONS.forEach(sec => (sec.tabs||[]).forEach(tab => { PERMISSION_TA
 const COMMERCIAL_TAB_PERMISSIONS = {
   tarefas:'comercial_tarefas',
   pipeline:'comercial_pipeline',
+  cadastro:'comercial_pipeline',
   relatorio:'comercial_relatorio',
   equipe:'comercial_equipe'
 };
@@ -4425,6 +4431,7 @@ function applyNavPermissions(){
       items:[
         {selector:'[data-sub="tarefas-dia"]', mod:'comercial_tarefas'},
         {selector:'[data-sub="comercial"]', mod:'comercial_pipeline'},
+        {selector:'[data-sub="cadastro-leads"]', mod:'comercial_pipeline'},
         {selector:'[data-sub="relatorio-comercial"]', mod:'comercial_relatorio'},
         {selector:'[data-sub="equipe-comercial"]', mod:'comercial_equipe'}
       ]
@@ -4640,6 +4647,7 @@ function navigateSub(sub,grp){
     const commercialPermMap={
       'tarefas-dia':'comercial_tarefas',
       'comercial':'comercial_pipeline',
+      'cadastro-leads':'comercial_pipeline',
       'relatorio-comercial':'comercial_relatorio',
       'equipe-comercial':'comercial_equipe'
     };
@@ -8938,7 +8946,7 @@ function renderSalesTeamDashboard(){
 
 
 function getFirstAllowedCommercialTab(){
-  const order=['pipeline','tarefas','relatorio','equipe'];
+  const order=['pipeline','tarefas','cadastro','relatorio','equipe'];
   return order.find(t=>can(COMMERCIAL_TAB_PERMISSIONS[t]||'comercial','view')) || null;
 }
 
@@ -8956,19 +8964,192 @@ function switchComTab(tab){
 
   const elTarefas=document.getElementById('com-tab-tarefas');
   const elPipeline=document.getElementById('com-tab-pipeline');
+  const elCadastro=document.getElementById('com-tab-cadastro');
   const elRelatorio=document.getElementById('com-tab-relatorio');
   if(elTarefas)elTarefas.style.display=tab==='tarefas'?'':'none';
   if(elPipeline)elPipeline.style.display=tab==='pipeline'?'':'none';
+  if(elCadastro)elCadastro.style.display=tab==='cadastro'?'':'none';
   if(elRelatorio)elRelatorio.style.display=tab==='relatorio'?'':'none';
   const equipeTab=document.getElementById('com-tab-equipe');
   if(equipeTab)equipeTab.style.display=tab==='equipe'?'':'none';
   // Sincroniza seleção no nav lateral
-  document.querySelectorAll('[data-sub="tarefas-dia"],[data-sub="comercial"],[data-sub="relatorio-comercial"],[data-sub="equipe-comercial"]').forEach(el=>el.classList.remove('active'));
-  const subMap={tarefas:'tarefas-dia',pipeline:'comercial',relatorio:'relatorio-comercial',equipe:'equipe-comercial'};
+  document.querySelectorAll('[data-sub="tarefas-dia"],[data-sub="comercial"],[data-sub="cadastro-leads"],[data-sub="relatorio-comercial"],[data-sub="equipe-comercial"]').forEach(el=>el.classList.remove('active'));
+  const subMap={tarefas:'tarefas-dia',pipeline:'comercial',cadastro:'cadastro-leads',relatorio:'relatorio-comercial',equipe:'equipe-comercial'};
   document.querySelector(`[data-sub="${subMap[tab]}"]`)?.classList.add('active');
+  if(tab==='cadastro') renderCadastroLeads();
   if(tab==='relatorio') renderRelatorioComercial();
   if(tab==='tarefas') renderTarefasDia();
   if(tab==='equipe') renderSalesTeamDashboard();
+}
+
+// ═══ CADASTRO DE LEADS (aba dentro de Comercial) ═══
+// Banco de dados de leads em formato de tabela: qualquer usuário com
+// permissão de criar no Pipeline pode cadastrar um lead aqui rapidamente.
+// O lead cai automaticamente no FUNIL ATIVO de quem cadastrou (o mesmo
+// mecanismo de getActiveFunnel()/hierarquia usado no resto do sistema — um
+// Parceiro cai no funil dele, Fundador/Adm Gerente no funil principal) e na
+// PRIMEIRA etapa desse funil, com o próprio usuário como responsável
+// (mesmo fallback de resolveLeadOwnerFromForm usado nos outros formulários
+// de lead). Serve também como banco pra exportar a lista completa em Excel.
+let cadastroLeadsBusca='';
+
+function renderCadastroLeads(){
+  const page=document.getElementById('com-tab-cadastro');
+  if(!page)return;
+  ensureDefaultCommercialFunnel();
+  const activeFunnel=getActiveFunnel();
+  const stages=(activeFunnel?.stages||[]).slice().sort((a,b)=>a.order-b.order);
+  const firstStage=stages.find(s=>!s.isLost)||stages[0]||null;
+  const canCreate=can('comercial_pipeline','create');
+  const prods=getProdutos();
+
+  page.innerHTML=`
+    <div class="card" style="padding:16px;margin-bottom:16px">
+      <div style="margin-bottom:12px">
+        <div style="font-weight:800;font-size:14px">📋 Cadastro rápido de leads</div>
+        <div style="font-size:11.5px;color:var(--muted)">Todo lead cadastrado aqui entra automaticamente no seu Pipeline (funil "${escHtml(activeFunnel?.name||'—')}"), na primeira etapa — <b>${escHtml(firstStage?.name||'—')}</b> — com você como responsável.</div>
+      </div>
+      ${canCreate?`
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="cl-nome" placeholder="Nome do lead" onkeydown="if(event.key==='Enter')salvarCadastroLeadRapido()"></div>
+        <div class="form-group"><label class="form-label">Telefone / WhatsApp</label><input class="form-input" id="cl-tel" placeholder="(00) 00000-0000"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="cl-email" type="email" placeholder="email@exemplo.com"></div>
+        <div class="form-group"><label class="form-label">Empresa</label><input class="form-input" id="cl-empresa" placeholder="Empresa (opcional)"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Produto / Serviço</label>
+          <select class="form-input" id="cl-produto"><option value="">— Selecione —</option>${prods.map(p=>`<option>${escHtml(p)}</option>`).join('')}</select></div>
+        <div class="form-group"><label class="form-label">Origem</label>
+          <select class="form-input" id="cl-origem">${LEAD_ORIGENS.map(o=>`<option ${o==='Prospecção ativa'?'selected':''}>${escHtml(o)}</option>`).join('')}</select></div>
+      </div>
+      <div class="form-group"><label class="form-label">Observações</label><input class="form-input" id="cl-obs" placeholder="Alguma observação sobre esse lead (opcional)"></div>
+      <button class="btn btn-primary" onclick="salvarCadastroLeadRapido()">+ Adicionar ao meu Pipeline</button>
+      `:`<div style="font-size:12px;color:var(--muted)">Você não tem permissão para cadastrar leads.</div>`}
+    </div>
+    <div class="card" style="padding:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div style="font-weight:800;font-size:14px">🗂️ Banco de leads cadastrados</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input class="form-input" id="cl-busca" placeholder="🔎 Buscar por nome, telefone, email..." style="width:240px;padding:6px 10px;font-size:12px" value="${escAttr(cadastroLeadsBusca)}" oninput="setCadastroLeadsBusca(this.value)">
+          <button class="btn btn-ghost btn-sm" onclick="gxExportCadastroLeadsXLSX()">⬇️ Baixar lista (Excel)</button>
+        </div>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Nome</th><th>Telefone</th><th>Email</th><th>Empresa</th><th>Etapa</th><th>Responsável</th><th>Origem</th><th>Cadastrado em</th></tr></thead>
+          <tbody id="cl-table-body"></tbody>
+        </table>
+      </div>
+    </div>`;
+  atualizarCadastroLeadsTable();
+}
+
+function setCadastroLeadsBusca(valor){
+  cadastroLeadsBusca=valor;
+  atualizarCadastroLeadsTable();
+}
+
+function cadastroLeadsVisiveis(){
+  let leads=getVisibleCommercialLeads(DB.get('leads')||[]).slice()
+    .sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+  const search=(cadastroLeadsBusca||'').trim().toLowerCase();
+  if(search){
+    leads=leads.filter(l=>[l.nome,l.telefone,l.email,l.empresa].some(v=>String(v||'').toLowerCase().includes(search)));
+  }
+  return leads;
+}
+
+// Só atualiza o corpo da tabela — assim a busca por texto não perde o foco
+// do campo a cada letra digitada (mesmo motivo de setEntregasFiltroBusca).
+function atualizarCadastroLeadsTable(){
+  const tbody=document.getElementById('cl-table-body');
+  if(!tbody)return;
+  const leads=cadastroLeadsVisiveis();
+  if(!leads.length){
+    tbody.innerHTML=`<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--muted)">${cadastroLeadsBusca?'Nenhum lead encontrado para essa busca.':'Nenhum lead cadastrado ainda.'}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML=leads.map(l=>`<tr style="cursor:pointer" onclick="openModal('lead','${l.id}')">
+    <td>${escHtml(l.nome||'—')}</td>
+    <td>${escHtml(l.telefone||'—')}</td>
+    <td>${escHtml(l.email||'—')}</td>
+    <td>${escHtml(l.empresa||'—')}</td>
+    <td>${badge(l.estagio||'—')}</td>
+    <td>${escHtml(getLeadOwnerName(l)||'—')}</td>
+    <td>${escHtml(l.origem||'—')}</td>
+    <td>${l.createdAt?new Date(l.createdAt).toLocaleDateString('pt-BR'):'—'}</td>
+  </tr>`).join('');
+}
+
+function salvarCadastroLeadRapido(){
+  if(!can('comercial_pipeline','create')){toast('Você não tem permissão para cadastrar leads','#EF4444');return}
+  const nome=document.getElementById('cl-nome')?.value?.trim()||'';
+  if(!nome){toast('Nome obrigatório','#EF4444');return}
+  ensureDefaultCommercialFunnel();
+  const activeFunnel=getActiveFunnel();
+  const stages=(activeFunnel?.stages||[]).slice().sort((a,b)=>a.order-b.order);
+  const firstStage=stages.find(s=>!s.isLost)||stages[0]||null;
+  // Sem <select id="f-responsavel"> na tela, resolveLeadOwnerFromForm cai
+  // direto no fallback (o próprio usuário logado) — exatamente o que
+  // queremos: cada um cadastra e assume os próprios leads aqui.
+  const ownerPick=resolveLeadOwnerFromForm(null);
+  const today=new Date().toISOString().slice(0,10);
+  const obj={
+    nome,
+    empresa:document.getElementById('cl-empresa')?.value?.trim()||'',
+    email:document.getElementById('cl-email')?.value?.trim()||'',
+    telefone:document.getElementById('cl-tel')?.value?.trim()||'',
+    valor:0,
+    estagio:firstStage?.name||'Novo Lead',
+    funnelId:activeFunnel?.id||'',
+    stageId:firstStage?.id||'',
+    produto:document.getElementById('cl-produto')?.value||'',
+    responsavelId:ownerPick.id,
+    responsavelNome:ownerPick.nome,
+    responsavelEmail:ownerPick.email||'',
+    ownerId:ownerPick.id,
+    ownerName:ownerPick.nome,
+    ownerEmail:ownerPick.email||'',
+    vendedorId:ownerPick.id,
+    vendedorNome:ownerPick.nome,
+    vendedorEmail:ownerPick.email||'',
+    assignedToId:ownerPick.id,
+    assignedTo:ownerPick.nome,
+    assignedToEmail:ownerPick.email||'',
+    dataInicio:today,
+    dataFechamento:'',
+    origem:document.getElementById('cl-origem')?.value||'Prospecção ativa',
+    desc:document.getElementById('cl-obs')?.value?.trim()||'',
+    createdAt:new Date().toISOString(),
+    createdById:sessionUser?.id||'',
+    createdByEmail:sessionUser?.email||'',
+    createdBy:sessionUser?.nome||''
+  };
+  const lead={id:uid(),...obj};
+  DB.push('leads',lead);
+  fireWebhook('lead.criado',lead);
+  if(typeof playChime==='function')playChime('lead');
+  if(typeof notifyLeadCreated==='function')notifyLeadCreated(lead);
+  ['cl-nome','cl-tel','cl-email','cl-empresa','cl-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  const prodSel=document.getElementById('cl-produto');if(prodSel)prodSel.value='';
+  toast(`Lead adicionado na etapa "${firstStage?.name||'—'}" ✓`,'#10B981');
+  atualizarCadastroLeadsTable();
+}
+
+function gxExportCadastroLeadsXLSX(){
+  if(typeof XLSX==='undefined'){toast('Biblioteca de Excel não carregou. Recarregue a página e tente novamente.','#EF4444');return}
+  const leads=cadastroLeadsVisiveis();
+  if(!leads.length){toast('Nenhum lead pra exportar','#F59E0B');return}
+  const head=['Nome','Empresa','Email','Telefone','Etapa','Responsável','Origem','Produto','Observações','Data de cadastro'];
+  const rows=leads.map(l=>[l.nome||'',l.empresa||'',l.email||'',l.telefone||'',l.estagio||'',getLeadOwnerName(l)||'',l.origem||'',l.produto||'',l.desc||'',l.createdAt?new Date(l.createdAt).toLocaleDateString('pt-BR'):'']);
+  const ws=XLSX.utils.aoa_to_sheet([head,...rows]);
+  ws['!cols']=head.map(h=>({wch:Math.max(12,Math.min(32,String(h).length+4))}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Leads');
+  XLSX.writeFile(wb,`gex-banco-de-leads-${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast(`${leads.length} lead(s) exportado(s) ✓`,'#10B981');
 }
 
 function renderComercial(){
@@ -10924,7 +11105,23 @@ function renderEntregasClientes(prosAll){
   const squad=isSemSquad?null:(DB.get('squads')||[]).find(s=>s.nome===projFolderView);
   const folderNome=isSemSquad?'Sem squad':(squad?.nome||projFolderView);
   const folderCor=isSemSquad?'var(--muted)':(squad?.cor||'var(--muted)');
-  const clientes=(DB.get('clientes')||[]).filter(c=>isSemSquad?(clienteSquads(c).length===0):clienteSquads(c).includes(folderNome));
+
+  // "Sem squad" precisa listar exatamente os mesmos projetos que foram
+  // contados na pasta (via projectSquads(p), que depende do campo Cliente
+  // do projeto bater com um cliente cadastrado) — e não só "clientes sem
+  // squad marcado". Sem isso, um projeto com o campo Cliente em branco, com
+  // erro de digitação, ou apontando pra um cliente já renomeado/excluído
+  // contava na pasta "Sem squad" mas sumia na tela seguinte, porque nenhum
+  // card de cliente representava esse valor. Aqui agrupamos direto pelos
+  // nomes de cliente que aparecem nesses projetos "órfãos" (usando o
+  // cadastro real quando existe, e um card avulso quando não existe).
+  let clientes;
+  if(isSemSquad){
+    const nomes=[...new Set(prosAll.filter(p=>!projectSquads(p).length).map(p=>p.cliente||''))];
+    clientes=nomes.map(nome=>(DB.get('clientes')||[]).find(c=>c.nome===nome)||{nome});
+  }else{
+    clientes=(DB.get('clientes')||[]).filter(c=>clienteSquads(c).includes(folderNome));
+  }
 
   document.getElementById('proj-content').innerHTML=`
     <div class="proj-breadcrumb"><span class="bc-back" onclick="backToProjFolders()">📁 Squads</span> / <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${folderCor};display:inline-block"></span><b>${folderNome}</b></span></div>
@@ -10935,16 +11132,17 @@ function renderEntregasClientes(prosAll){
 
   const grid=document.getElementById('cliente-folder-grid');
   if(!clientes.length){
-    grid.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="empty-ico">👥</div><div class="empty-txt">Nenhum cliente atribuído a este squad ainda. Defina o squad no cadastro do cliente.</div></div>`;
+    grid.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="empty-ico">👥</div><div class="empty-txt">${isSemSquad?'Nenhum projeto sem squad no momento.':'Nenhum cliente atribuído a este squad ainda. Defina o squad no cadastro do cliente.'}</div></div>`;
     return;
   }
   grid.innerHTML=clientes.map(c=>{
     const itens=prosAll.filter(p=>p.cliente===c.nome);
     const pend=itens.filter(p=>!['Aprovado','Postado'].includes(p.status||'A fazer')).length;
-    return `<div class="squad-folder-card" onclick="openProjClienteFolder('${c.nome.replace(/'/g,"\\'")}')">
+    const label=c.nome||'(Sem cliente definido)';
+    return `<div class="squad-folder-card" onclick="openProjClienteFolder('${(c.nome||'').replace(/'/g,"\\'")}')">
       <div class="squad-folder-bar" style="background:${folderCor}"></div>
-      <div class="squad-folder-ico" style="background:var(--p-light);color:var(--p2);font-size:15px;font-weight:700">${initials(c.nome)}</div>
-      <div class="squad-folder-name">${c.nome}</div>
+      <div class="squad-folder-ico" style="background:var(--p-light);color:var(--p2);font-size:15px;font-weight:700">${c.nome?initials(c.nome):'❔'}</div>
+      <div class="squad-folder-name">${label}</div>
       <div class="squad-folder-cnt">${itens.length} entrega${itens.length===1?'':'s'}${pend?` · ${pend} em aberto`:''}</div>
     </div>`;
   }).join('');
@@ -11118,16 +11316,17 @@ function renderEntregasClienteBoard(prosAll){
   const folderNome=isSemSquad?'Sem squad':(squad?.nome||projFolderView);
   const folderCor=isSemSquad?'var(--muted)':(squad?.cor||'var(--muted)');
   const clienteNome=projClienteView;
+  const clienteLabel=clienteNome||'(Sem cliente definido)';
   const prosDoCliente=prosAll.filter(p=>p.cliente===clienteNome);
 
   document.getElementById('proj-content').innerHTML=`
     <div class="proj-breadcrumb">
       <span class="bc-back" onclick="backToProjFolders()">📁 Squads</span> /
       <span class="bc-back" onclick="backToProjClientes()" style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${folderCor};display:inline-block"></span>${folderNome}</span> /
-      <b>${clienteNome}</b>
+      <b>${clienteLabel}</b>
     </div>
     <div class="page-header">
-      <div><div class="page-title">📦 ${clienteNome}</div><div class="page-sub">Entregas agrupadas por etapa</div></div>
+      <div><div class="page-title">📦 ${clienteLabel}</div><div class="page-sub">Entregas agrupadas por etapa</div></div>
       <div style="display:flex;gap:8px;align-items:center">
         <div style="display:flex;gap:2px;background:var(--bg);border-radius:8px;padding:3px">
           <button class="btn btn-sm" style="background:${entregasViewMode==='lista'?'#fff':'transparent'};color:${entregasViewMode==='lista'?'var(--p2)':'var(--muted)'};box-shadow:${entregasViewMode==='lista'?'0 1px 3px rgba(0,0,0,.1)':'none'}" onclick="toggleEntregasView('lista')">📋 Lista</button>
