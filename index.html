@@ -4897,7 +4897,7 @@ function renderProjComments(){
   const body=document.getElementById('proj-com-body');
   if(!coms.length){body.innerHTML=`<div class="empty"><div class="empty-ico">💬</div><div class="empty-txt">Nenhum comentário ainda</div></div>`;return}
   body.innerHTML=coms.map(c=>`<div style="padding:10px 0;border-bottom:1px solid var(--border)">
-    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px"><b style="color:var(--txt)">${c.autor||'Usuário'}</b><span>${new Date(c.data).toLocaleString('pt-BR')}</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px"><b style="color:var(--txt)">${(c.autor||'Usuário').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}</b><span>${new Date(c.data).toLocaleString('pt-BR')}</span></div>
     <div style="font-size:13px">${(c.texto||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}</div>
   </div>`).join('');
 }
@@ -21438,7 +21438,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   }
 
   sync();
-  setInterval(sync, 1500);
+  setInterval(sync, 4000);
 })();
 </script>
 
