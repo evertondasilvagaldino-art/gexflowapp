@@ -13386,6 +13386,14 @@ function renderFunnelSelector(){
   const active=getActiveFunnel();
   const canEdit=can('comercial','edit');
   const canCreate=can('comercial','create');
+  // Gex Parceiro não tem o módulo 'comercial' (usa o sub-módulo
+  // 'comercial_pipeline', que também é usado por Operador de Funil pra
+  // outra finalidade — mexer nos leads do próprio pipeline). Por isso o
+  // botão de "Arquivados" usa uma checagem própria, baseada em quem
+  // realmente pode excluir definitivamente um funil (delete no
+  // comercial_pipeline é exclusivo do Gex Parceiro — Operador de Funil
+  // não tem essa permissão, então continua sem ver este botão).
+  const canOpenArchived=canEdit||can('comercial_pipeline','delete');
 
   if(!funnels.length){
     bar.innerHTML=`<div class="funnel-select-wrap">
@@ -13425,7 +13433,7 @@ function renderFunnelSelector(){
     ${canEdit&&active&&(canManageAnyFunnel||!active.isDefault)?`<button class="fbtn" onclick="openFunnelModal('edit','${active.id}')">✏️ Editar Funil</button>`:''}
     ${canCreate&&active?`<button class="fbtn" onclick="duplicateCommercialFunnel('${active.id}')">⧉ Duplicar</button>`:''}
     ${canEdit&&active&&!active.isDefault?`<button class="fbtn fbtn-danger" onclick="confirmArchiveFunnel('${active.id}')">📦 Arquivar</button>`:''}
-    ${canEdit?`<button class="fbtn" onclick="openArchivedFunnelsModal()">🗂️ Arquivados ${getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length?`(${getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length})`:''}</button>`:''}
+    ${canOpenArchived?`<button class="fbtn" onclick="openArchivedFunnelsModal()">🗂️ Arquivados ${getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length?`(${getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length})`:''}</button>`:''}
   </div>`;
 
   bar.innerHTML=selectHtml+ownerFilterHtml+btnsHtml;
@@ -13469,8 +13477,15 @@ function renderArchivedFunnelsModal(){
   const archived=getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived))
     .sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
 
-  const canEditFunnel=can('comercial','edit');
-  const canDeleteFunnel=can('comercial','delete');
+  // Gex Parceiro não tem o módulo 'comercial' (usa o sub-módulo
+  // 'comercial_pipeline'), então checa os dois — sem isso, o botão de
+  // restaurar/excluir nem aparecia pra ele, mesmo já estando liberado em
+  // ROLE_PERMS. Usa 'delete' do comercial_pipeline (não 'edit') como
+  // critério, porque só o Gex Parceiro tem essa permissão ali — Operador
+  // de Funil tem 'edit' nesse sub-módulo só pra mexer nos próprios leads,
+  // e não deve enxergar esta tela de gestão de funis.
+  const canEditFunnel=can('comercial','edit')||can('comercial_pipeline','delete');
+  const canDeleteFunnel=can('comercial','delete')||can('comercial_pipeline','delete');
 
   if(!archived.length){
     body.innerHTML=`<div class="archived-empty">
@@ -13505,7 +13520,7 @@ function renderArchivedFunnelsModal(){
 }
 
 function restoreArchivedFunnel(funnelId){
-  if(!can('comercial','edit')){
+  if(!can('comercial','edit')&&!can('comercial_pipeline','delete')){
     toast('Você não tem permissão para restaurar funis','#EF4444');
     return;
   }
@@ -13533,7 +13548,7 @@ function confirmDeleteArchivedFunnel(funnelId){
 }
 
 function deleteArchivedFunnel(funnelId,opts={}){
-  if(!can('comercial','delete')){
+  if(!can('comercial','delete')&&!can('comercial_pipeline','delete')){
     toast('Você não tem permissão para excluir funis','#EF4444');
     return;
   }
@@ -13957,6 +13972,12 @@ function confirmImportLeadsXLSX(){
   const activeFunnel=typeof getActiveFunnel==='function'?getActiveFunnel():null;
   const stageObjs=typeof getActiveFunnelStages==='function'?getActiveFunnelStages():[];
   const defaultStage=stageObjs.find(s=>!s.isLost)||stageObjs[0]||null;
+  // Cada lead importado entra com QUEM ESTÁ IMPORTANDO como responsável
+  // (mesmo mecanismo do Cadastro de Leads: sem <select id="f-responsavel">
+  // na tela, resolveLeadOwnerFromForm cai no próprio usuário logado) —
+  // assim quem importou a planilha garante que o lead aparece pra ele no
+  // Pipeline, em vez de ficar sem dono.
+  const ownerPick=resolveLeadOwnerFromForm(null);
   let created=0;
   records.forEach(r=>{
     const matchedStage=r.estagio?stageObjs.find(s=>gxNormalizeHeader(s.name)===gxNormalizeHeader(r.estagio)):null;
@@ -13975,6 +13996,18 @@ function confirmImportLeadsXLSX(){
       origem:r.origem||'Importação Excel',
       desc:r.desc||'',
       produto:r.produto||'',
+      responsavelId:ownerPick.id,
+      responsavelNome:ownerPick.nome,
+      responsavelEmail:ownerPick.email||'',
+      ownerId:ownerPick.id,
+      ownerName:ownerPick.nome,
+      ownerEmail:ownerPick.email||'',
+      vendedorId:ownerPick.id,
+      vendedorNome:ownerPick.nome,
+      vendedorEmail:ownerPick.email||'',
+      assignedToId:ownerPick.id,
+      assignedTo:ownerPick.nome,
+      assignedToEmail:ownerPick.email||'',
       dataInicio:r.dataInicio||new Date().toISOString().slice(0,10),
       dataFechamento:r.dataFechamento||'',
       createdAt:new Date().toISOString()
