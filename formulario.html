@@ -6,26 +6,172 @@
   <meta name="robots" content="noindex,nofollow">
   <title>Formulário | GEX Flow</title>
   <style>
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;padding:42px 16px;background:linear-gradient(145deg,#eef2ff,#f8fafc);font-family:Inter,Arial,sans-serif;color:#0f172a}.card{width:100%;max-width:620px;margin:auto;padding:32px;background:#fff;border:1px solid #e2e8f0;border-radius:22px;box-shadow:0 24px 70px #1e293b1f}.brand{text-align:center;color:#4f46e5;font-size:12px;font-weight:900;letter-spacing:.12em;margin-bottom:22px}h1{text-align:center;font-size:28px;margin:0}.description{text-align:center;color:#64748b;font-size:14px;line-height:1.55;margin:9px 0 26px}.field{display:block;margin-bottom:15px}.field span{display:block;margin-bottom:6px;color:#475569;font-size:12px;font-weight:800}input,select,textarea{width:100%;height:46px;padding:0 13px;border:1px solid #dbe2ea;border-radius:10px;outline:none;background:#f8fafc;color:#0f172a;font-size:14px}textarea{height:90px;padding-top:12px;resize:vertical}input:focus,select:focus,textarea:focus{border-color:#6366f1;background:#fff;box-shadow:0 0 0 3px #6366f119}button{width:100%;height:48px;border:0;border-radius:11px;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;font-size:14px;font-weight:900;cursor:pointer}button:disabled{opacity:.65;cursor:wait}.hidden{display:none!important}.hp{position:absolute;left:-10000px;opacity:0}.state{text-align:center;padding:30px 10px}.state-icon{width:58px;height:58px;margin:0 auto 14px;display:grid;place-items:center;border-radius:50%;background:#eef2ff;color:#4f46e5;font-size:27px;font-weight:900}.state.error .state-icon{background:#fee2e2;color:#dc2626}.state.success .state-icon{background:#dcfce7;color:#059669}.state h2{margin:0 0 8px}.state p{margin:0;color:#64748b;line-height:1.55}.loader{width:34px;height:34px;margin:0 auto 15px;border:3px solid #e2e8f0;border-top-color:#4f46e5;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:600px){body{padding:18px 10px}.card{padding:24px 18px}h1{font-size:23px}}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;padding:42px 16px;background:linear-gradient(145deg,#eef2ff,#f8fafc);font-family:Inter,Arial,sans-serif;color:#0f172a}.card{width:100%;max-width:620px;margin:auto;padding:32px;background:#fff;border:1px solid #e2e8f0;border-radius:22px;box-shadow:0 24px 70px #1e293b1f}.brand{text-align:center;color:#4f46e5;font-size:12px;font-weight:900;letter-spacing:.12em;margin-bottom:22px}.logo-img{display:block;max-height:52px;max-width:220px;margin:0 auto 20px}h1{text-align:center;font-size:28px;margin:0}.description{text-align:center;color:#64748b;font-size:14px;line-height:1.55;margin:9px 0 26px}.field{display:block;margin-bottom:15px}.field span{display:block;margin-bottom:6px;color:#475569;font-size:12px;font-weight:800}input,select,textarea{width:100%;height:46px;padding:0 13px;border:1px solid #dbe2ea;border-radius:10px;outline:none;background:#f8fafc;color:#0f172a;font-size:14px}textarea{height:90px;padding-top:12px;resize:vertical}input:focus,select:focus,textarea:focus{border-color:#6366f1;background:#fff;box-shadow:0 0 0 3px #6366f119}button{width:100%;height:48px;border:0;border-radius:11px;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;font-size:14px;font-weight:900;cursor:pointer}button:disabled{opacity:.65;cursor:wait}.hidden{display:none!important}.hp{position:absolute;left:-10000px;opacity:0}.state{text-align:center;padding:30px 10px}.state-icon{width:58px;height:58px;margin:0 auto 14px;display:grid;place-items:center;border-radius:50%;background:#eef2ff;color:#4f46e5;font-size:27px;font-weight:900}.state.error .state-icon{background:#fee2e2;color:#dc2626}.state.success .state-icon{background:#dcfce7;color:#059669}.state h2{margin:0 0 8px}.state p{margin:0;color:#64748b;line-height:1.55}.loader{width:34px;height:34px;margin:0 auto 15px;border:3px solid #e2e8f0;border-top-color:#4f46e5;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:600px){body{padding:18px 10px}.card{padding:24px 18px}h1{font-size:23px}}
+    /* Modo Quiz: barra de progresso + uma pergunta por vez */
+    .progress{height:6px;background:#eef2ff;border-radius:99px;overflow:hidden;margin-bottom:24px}
+    .progress-bar{height:100%;width:0%;background:linear-gradient(135deg,#2563eb,#4f46e5);border-radius:99px;transition:width .25s ease}
+    .quiz-step{display:none;flex-direction:column}
+    .quiz-step.active{display:flex}
+    .quiz-eyebrow{display:block;text-align:center;font-size:10.5px;font-weight:800;color:#818cf8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+    .quiz-nav{display:flex;gap:10px;margin-top:2px;margin-bottom:15px}
+    .quiz-nav button{margin:0}
+    #quiz-back{flex:0 0 auto;background:#f1f5f9;color:#475569;width:auto;padding:0 18px;box-shadow:none}
+    #quiz-next{flex:1}
   </style>
 </head>
 <body>
   <main class="card">
-    <div class="brand">GEX FLOW</div>
+    <div id="form-brand" class="brand">GEX FLOW</div>
     <section id="loading" class="state"><div class="loader"></div><p>Carregando formulário…</p></section>
     <section id="error" class="state error hidden"><div class="state-icon">!</div><h2>Formulário indisponível</h2><p id="error-message"></p></section>
     <section id="success" class="state success hidden"><div class="state-icon">✓</div><h2>Formulário enviado!</h2><p id="success-message"></p></section>
-    <section id="form-area" class="hidden"><h1 id="form-title"></h1><div id="form-description" class="description"></div><form id="lead-form"><label class="hp">Não preencha<input name="website" tabindex="-1" autocomplete="off"></label><div id="fields"></div><button id="submit-button" type="submit">Enviar informações</button></form></section>
+    <section id="form-area" class="hidden">
+      <div id="progress" class="progress hidden"><div id="progress-bar" class="progress-bar"></div></div>
+      <h1 id="form-title"></h1>
+      <div id="form-description" class="description"></div>
+      <form id="lead-form">
+        <label class="hp">Não preencha<input name="website" tabindex="-1" autocomplete="off"></label>
+        <div id="fields"></div>
+        <div id="quiz-nav" class="quiz-nav hidden">
+          <button type="button" id="quiz-back" class="hidden">← Voltar</button>
+          <button type="button" id="quiz-next" class="hidden">Próxima →</button>
+        </div>
+        <button id="submit-button" type="submit">Enviar informações</button>
+      </form>
+    </section>
   </main>
   <script>
     const API_URL='https://kghgmraezxcssipccodn.supabase.co/functions/v1/public-lead-form';
     const query=new URLSearchParams(location.search),slug=query.get('slug')||'';
     const $=id=>document.getElementById(id);
     const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    let currentForm=null;
+    let quizStep=0;
+
     function showError(message){$('loading').classList.add('hidden');$('form-area').classList.add('hidden');$('error-message').textContent=message;$('error').classList.remove('hidden')}
-    function renderField(field){const req=field.required?'required':'',name=esc(field.name||'campo'),ph=esc(field.placeholder||''),label=`${esc(field.label||'Campo')}${field.required?' *':''}`;let control=`<input name="${name}" type="text" ${req} placeholder="${ph}">`;if(field.type==='email')control=`<input name="${name}" type="email" ${req} placeholder="${ph}">`;if(field.type==='phone')control=`<input name="${name}" type="tel" ${req} placeholder="${ph}">`;if(field.type==='number')control=`<input name="${name}" type="number" ${req} placeholder="${ph}">`;if(field.type==='date')control=`<input name="${name}" type="date" ${req}>`;if(field.type==='textarea')control=`<textarea name="${name}" ${req} placeholder="${ph}"></textarea>`;if(field.type==='select')control=`<select name="${name}" ${req}><option value="">Selecione</option>${(field.options||[]).map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`;return `<label class="field"><span>${label}</span>${control}</label>`}
-    async function loadForm(){if(!/^[a-z0-9][a-z0-9-]{0,79}$/.test(slug)){showError('O link informado é inválido.');return}try{const response=await fetch(`${API_URL}?slug=${encodeURIComponent(slug)}`),result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'Formulário não encontrado.');const form=result.form;$('form-title').textContent=form.title||form.name||'Formulário';$('form-description').textContent=form.description||'';$('fields').innerHTML=(form.fields||[]).map(renderField).join('');$('loading').classList.add('hidden');$('form-area').classList.remove('hidden')}catch(error){showError(error.message||'Não foi possível carregar o formulário.')}}
-    $('lead-form').addEventListener('submit',async event=>{event.preventDefault();const button=$('submit-button'),data=new FormData(event.currentTarget),website=String(data.get('website')||''),answers={};data.delete('website');for(const [key,value] of data.entries())answers[key]=String(value);const utm={};for(const key of ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'])utm[key]=query.get(key)||'';button.disabled=true;button.textContent='Enviando…';try{const response=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slug,website,answers,utm})}),result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'Não foi possível enviar.');$('form-area').classList.add('hidden');$('success-message').textContent=result.message||'Recebemos seus dados.';$('success').classList.remove('hidden')}catch(error){button.disabled=false;button.textContent='Enviar informações';alert(error.message||'Não foi possível enviar o formulário.')}});
+
+    // isQuiz: quando true, o campo NÃO leva o atributo "required" direto (pra não
+    // travar o submit do navegador com campo obrigatório escondido em outra etapa) —
+    // fica marcado em data-required e é ligado/desligado dinamicamente conforme o
+    // visitante avança (ver setActiveQuizField).
+    function renderField(field,isQuiz){
+      const req=(!isQuiz&&field.required)?'required':'',dataReq=field.required?'data-required="1"':'',name=esc(field.name||'campo'),ph=esc(field.placeholder||''),label=`${esc(field.label||'Campo')}${field.required?' *':''}`;
+      let control=`<input name="${name}" type="text" ${req} ${dataReq} placeholder="${ph}">`;
+      if(field.type==='email')control=`<input name="${name}" type="email" ${req} ${dataReq} placeholder="${ph}">`;
+      if(field.type==='phone')control=`<input name="${name}" type="tel" ${req} ${dataReq} placeholder="${ph}">`;
+      if(field.type==='number')control=`<input name="${name}" type="number" ${req} ${dataReq} placeholder="${ph}">`;
+      if(field.type==='date')control=`<input name="${name}" type="date" ${req} ${dataReq}>`;
+      if(field.type==='textarea')control=`<textarea name="${name}" ${req} ${dataReq} placeholder="${ph}"></textarea>`;
+      if(field.type==='select')control=`<select name="${name}" ${req} ${dataReq}><option value="">Selecione</option>${(field.options||[]).map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>`;
+      return `<label class="field">${label?`<span>${label}</span>`:''}${control}</label>`;
+    }
+
+    function injectMetaPixel(pixelId){
+      if(!pixelId||window._gxPixelLoaded)return;
+      window._gxPixelLoaded=true;
+      !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+      try{window.fbq('init',pixelId);window.fbq('track','PageView')}catch(e){}
+    }
+
+    function setActiveQuizStep(n){
+      const steps=[...document.querySelectorAll('#fields .quiz-step')];
+      if(!steps.length)return;
+      steps[quizStep]?.classList.remove('active');
+      quizStep=Math.max(0,Math.min(steps.length-1,n));
+      steps[quizStep].classList.add('active');
+      const bar=$('progress-bar');
+      if(bar)bar.style.width=Math.round(((quizStep+1)/steps.length)*100)+'%';
+      $('quiz-back').classList.toggle('hidden',quizStep===0);
+      const isLast=quizStep===steps.length-1;
+      $('quiz-next').classList.toggle('hidden',isLast);
+      $('submit-button').classList.toggle('hidden',!isLast);
+      // Só o campo da etapa atual fica "required" de verdade — evita o navegador
+      // bloquear o envio por causa de um campo obrigatório que está escondido
+      // numa etapa anterior/posterior.
+      document.querySelectorAll('#fields input,#fields select,#fields textarea').forEach((el,i)=>{
+        el.required=(i===quizStep)&&el.dataset.required==='1';
+      });
+      const focusEl=steps[quizStep].querySelector('input,select,textarea');
+      if(focusEl)setTimeout(()=>{try{focusEl.focus()}catch(e){}},50);
+    }
+
+    function renderFormArea(form){
+      currentForm=form;
+      const isQuiz=!!form.quizMode;
+      const fields=form.fields||[];
+      const submitText=String(form.submitButtonText||'').trim()||'Enviar informações';
+      if(form.logoUrl){
+        const img=document.createElement('img');
+        img.id='form-brand';img.className='logo-img';img.src=form.logoUrl;img.alt=esc(form.name||'');
+        $('form-brand').replaceWith(img);
+      }
+      $('form-title').textContent=form.title||form.name||'Formulário';
+      $('form-description').textContent=form.description||'';
+      $('submit-button').textContent=submitText;
+      const fieldsWrap=$('fields');
+      if(!isQuiz||!fields.length){
+        $('progress').classList.add('hidden');
+        $('quiz-nav').classList.add('hidden');
+        $('submit-button').classList.remove('hidden');
+        fieldsWrap.innerHTML=fields.map(f=>renderField(f,false)).join('');
+      }else{
+        $('progress').classList.remove('hidden');
+        $('quiz-nav').classList.remove('hidden');
+        fieldsWrap.innerHTML=fields.map((f,i)=>`<div class="quiz-step" data-step="${i}"><span class="quiz-eyebrow">Pergunta ${i+1} de ${fields.length}</span>${renderField(f,true)}</div>`).join('');
+        quizStep=0;
+        setActiveQuizStep(0);
+        $('quiz-back').addEventListener('click',()=>setActiveQuizStep(quizStep-1));
+        $('quiz-next').addEventListener('click',()=>{
+          const activeStep=fieldsWrap.querySelector('.quiz-step.active');
+          const input=activeStep&&activeStep.querySelector('input,select,textarea');
+          if(input&&input.required&&!String(input.value||'').trim()){
+            input.reportValidity?input.reportValidity():input.focus();
+            return;
+          }
+          setActiveQuizStep(quizStep+1);
+        });
+        fieldsWrap.addEventListener('keydown',e=>{
+          if(e.key!=='Enter')return;
+          const activeStep=fieldsWrap.querySelector('.quiz-step.active');
+          if(activeStep&&activeStep.querySelector('textarea'))return;
+          if(!$('quiz-next').classList.contains('hidden')){e.preventDefault();$('quiz-next').click()}
+        });
+      }
+      if(form.metaPixelId)injectMetaPixel(form.metaPixelId);
+    }
+
+    async function loadForm(){
+      if(!/^[a-z0-9][a-z0-9-]{0,79}$/.test(slug)){showError('O link informado é inválido.');return}
+      try{
+        const response=await fetch(`${API_URL}?slug=${encodeURIComponent(slug)}`),result=await response.json();
+        if(!response.ok||!result.ok)throw new Error(result.error||'Formulário não encontrado.');
+        renderFormArea(result.form);
+        $('loading').classList.add('hidden');
+        $('form-area').classList.remove('hidden');
+      }catch(error){showError(error.message||'Não foi possível carregar o formulário.')}
+    }
+
+    $('lead-form').addEventListener('submit',async event=>{
+      event.preventDefault();
+      const button=$('submit-button'),originalText=button.textContent,data=new FormData(event.currentTarget),website=String(data.get('website')||''),answers={};
+      data.delete('website');
+      for(const [key,value] of data.entries())answers[key]=String(value);
+      const utm={};
+      for(const key of ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'])utm[key]=query.get(key)||'';
+      button.disabled=true;button.textContent='Enviando…';
+      try{
+        const response=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slug,website,answers,utm})}),result=await response.json();
+        if(!response.ok||!result.ok)throw new Error(result.error||'Não foi possível enviar.');
+        $('form-area').classList.add('hidden');
+        $('success-message').textContent=result.message||'Recebemos seus dados.';
+        $('success').classList.remove('hidden');
+        if(currentForm&&currentForm.metaPixelId){try{window.fbq&&window.fbq('track','Lead')}catch(e){}}
+      }catch(error){
+        button.disabled=false;button.textContent=originalText;
+        alert(error.message||'Não foi possível enviar o formulário.');
+      }
+    });
+
     loadForm();
   </script>
 </body>
