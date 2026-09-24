@@ -102,9 +102,10 @@ nav{flex:1;padding:6px 0;overflow-y:auto}
 .bar-xl{background:linear-gradient(180deg,#8B5CF6,#6D28D9)}
 .bar-xl.curr{background:linear-gradient(180deg,#A78BFA,#7C3AED);box-shadow:0 0 12px rgba(124,58,237,.3)}
 .bar-lbl-x{font-size:9px;color:var(--light);padding-top:5px;font-weight:500}
-.pipe-mini{display:flex;flex-wrap:wrap;gap:10px 8px;margin-top:4px}
+.pipe-mini{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 8px;margin-top:4px}
 .pipe-stage{flex:1 1 84px;min-width:84px;text-align:center}
-.pipe-stage-bar{height:6px;border-radius:3px;margin-bottom:5px}
+.pipe-stage-track{height:46px;border-radius:3px;margin-bottom:6px;display:flex;align-items:flex-end;overflow:hidden}
+.pipe-stage-fill{width:100%;border-radius:3px;min-height:4px;transition:height .3s}
 .pipe-stage-lbl{font-size:9px;color:var(--muted);font-weight:500}
 .pipe-stage-val{font-size:12px;font-weight:700;color:var(--txt)}
 
@@ -8067,12 +8068,17 @@ function renderInicio(){
     const estagios=getStages();
     document.getElementById('pipe-total-lbl').textContent=fmtBRL(pipelineTotal);
     const pipeColors=['#E0E0F0','#C4B5FD','#A78BFA','#8B5CF6','#7C3AED'];
+    const pipeCounts=estagios.map(est=>leads.filter(l=>l.estagio===est).length);
+    const pipeMaxV=Math.max(1,...pipeCounts);
     document.getElementById('pipe-mini-chart').innerHTML=estagios.map((est,i)=>{
-      const lv=leads.filter(l=>l.estagio===est);
+      const qtd=pipeCounts[i];
+      const pct=qtd>0?Math.max(6,Math.round(qtd/pipeMaxV*100)):2;
       return `<div class="pipe-stage">
-        <div class="pipe-stage-bar" style="background:${pipeColors[i%pipeColors.length]}"></div>
+        <div class="pipe-stage-track">
+          <div class="pipe-stage-fill" style="height:${pct}%;background:${pipeColors[i%pipeColors.length]}"></div>
+        </div>
         <div class="pipe-stage-lbl">${est}</div>
-        <div class="pipe-stage-val">${lv.length}</div>
+        <div class="pipe-stage-val">${qtd}</div>
       </div>`;
     }).join('');
     document.getElementById('pipe-stats-mini').innerHTML=`
