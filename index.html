@@ -830,10 +830,16 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
 @keyframes colEnter{from{opacity:1;transform:none}to{opacity:1;transform:none}}
 .pipe-col{animation:none!important}
 
-/* DEAL DETAIL OVERLAY */
-.deal-ov{position:fixed;inset:0;background:#fff;z-index:150;display:none;flex-direction:column;overflow:hidden}
+/* DEAL DETAIL OVERLAY — modal flutuante (não ocupa a tela inteira), igual
+   ao padrão de outros CRMs: fundo escurecido com o Pipeline visível atrás,
+   caixa branca centralizada com cantos arredondados; clicar fora ou no ✕
+   fecha e volta pro Pipeline sem perder o contexto de onde estava. */
+.deal-ov{position:fixed;inset:0;background:rgba(20,16,38,.55);z-index:150;display:none;align-items:center;justify-content:center;padding:24px;overflow:hidden}
 .deal-ov.open{display:flex}
-.deal-topbar{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);background:#fff;flex-shrink:0}
+.deal-ov-box{background:#fff;border-radius:16px;box-shadow:0 24px 60px rgba(20,16,38,.35);width:100%;max-width:1360px;height:min(92vh,920px);display:flex;flex-direction:column;overflow:hidden}
+.deal-topbar{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid var(--border);background:#fff;flex-shrink:0;border-radius:16px 16px 0 0}
+.deal-close-x{width:30px;height:30px;border-radius:50%;border:1px solid var(--border);background:#fff;color:var(--muted);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+.deal-close-x:hover{background:var(--bg);color:var(--txt);border-color:var(--p3)}
 .deal-back{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:var(--bg);border:1px solid var(--border);cursor:pointer;font-size:13px;font-weight:500;color:var(--muted);transition:all .15s}
 .deal-back:hover{color:var(--txt);border-color:var(--p3)}
 .deal-name{font-size:16px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -2675,7 +2681,8 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
 </div>
 
 <!-- DEAL DETAIL OVERLAY -->
-<div class="deal-ov" id="deal-ov">
+<div class="deal-ov" id="deal-ov" onclick="if(event.target===this)closeDealDetail()">
+  <div class="deal-ov-box">
   <div class="deal-topbar">
     <button class="deal-back" onclick="closeDealDetail()">← Comercial</button>
     <div class="deal-name" id="deal-title-name">Negócio</div>
@@ -2685,11 +2692,13 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
       <button class="dstatus-btn ganho" id="dstatus-ganho" onclick="setDealStatus('Ganho')">✓ Ganho</button>
     </div>
     <button class="btn btn-ghost btn-sm" onclick="editCurrentDeal()">✏️ Editar</button>
+    <button class="deal-close-x" onclick="closeDealDetail()" title="Fechar">✕</button>
   </div>
   <div class="deal-breadcrumb" id="deal-breadcrumb"></div>
   <div class="deal-body">
     <div class="deal-main" id="deal-main"></div>
     <div class="deal-sidebar" id="deal-sidebar"></div>
+  </div>
   </div>
 </div>
 
