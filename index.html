@@ -2749,6 +2749,12 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
 <script>
 // ═══ VARIÁVEIS GLOBAIS — todas declaradas aqui para evitar TDZ com callbacks do Supabase ═══
 let sessionUser = null;
+// Nível do plano do Gex Parceiro logado ('basic'|'pro'|null — null = sem
+// assinatura ativa ainda ou plano desconhecido). Preenchido de forma
+// assíncrona por gxLoadPartnerPlanTier()/carregarMinhaAssinatura() e usado
+// só dentro de can() pra travar módulos exclusivos do plano Pro (ver
+// GX_PRO_ONLY_MODULES mais abaixo). Não afeta nenhum outro papel.
+let gxMyPlanTier = null;
 let currentSubPage = '';
 let dragId = '', dragType = '';
 let detailId = '';
@@ -2961,6 +2967,10 @@ const ROLE_PERMS = {
     comercial_relatorio:{view:true},
     'whatsapp-chat':{view:true,create:true,edit:true},
     integracoes:{view:true},
+    // Calendário próprio do parceiro — incluído em todos os planos (Basic e
+    // Pro); quem trava por plano são só automacoes e whatsapp-chat, ver
+    // GX_PRO_ONLY_MODULES e gxPlanBlocksModule() mais abaixo.
+    calendario:{view:true,create:true,edit:true},
     // Só vê/edita/exclui as automações que ele mesmo criar (rules()/tasks()
     // dentro do script de Automações filtram por createdBy quando o papel
     // não tem visão gerencial — veja automacoesManagerView()). Sem "manage",
@@ -4582,10 +4592,22 @@ function userCanAccess(user,module,action){
   return getRolePermissionValue(role,module,action);
 }
 
+// Módulos que só entram no plano Pro do Gex Parceiro (plano Basic não tem
+// acesso, mesmo o papel Gex Parceiro permitindo por padrão). Calendário,
+// Comercial, Integrações, Gerar Leads e Meu Perfil ficam liberados nos
+// dois planos — só isso aqui é exclusivo do Pro.
+const GX_PRO_ONLY_MODULES = ['automacoes', 'whatsapp-chat'];
+function gxPlanBlocksModule(module){
+  if(!gxIsPartnerRole())return false;
+  if(!GX_PRO_ONLY_MODULES.includes(module))return false;
+  return gxMyPlanTier!=='pro';
+}
 // Central permission gate
 function can(module, action){
   if(!sessionUser)return false;
-  return userCanAccess(sessionUser,module,action);
+  if(!userCanAccess(sessionUser,module,action))return false;
+  if(gxPlanBlocksModule(module))return false;
+  return true;
 }
 // Build nav — mostra somente setores/abas liberados para o usuário.
 function applyNavPermissions(){
@@ -7605,6 +7627,7 @@ async function carregarMinhaAssinatura(){
     const sub=j.subscription||null;
     const plans=j.plans||[];
     _minhaAssinaturaPlansCache=plans;
+    _gxApplyPlanTierFromSubPlans(sub,plans);
     const isActive=!!sub&&(sub.status==='active'||sub.status==='past_due');
     const[label,color]=BILLING_STATUS_LABELS[sub?.status]||['Sem assinatura ativa','#64748B'];
     const planName=sub?.plan_id?((plans.find(p=>p.id===sub.plan_id)||{}).name||sub.plan_id):'';
@@ -13217,6 +13240,38 @@ function gxApplyPartnerTutorialLink(){
   if(row) row.style.display=gxIsPartnerRole()?'flex':'none';
 }
 
+// ─── trava de módulos por plano (Basic x Pro) do Gex Parceiro ─────────────
+// Lê a assinatura + a coluna "tier" de gex_billing_plans (ver
+// sql_planos_tier_modulos.sql) pra saber se o parceiro está no Basic ou no
+// Pro, guarda em gxMyPlanTier (usado dentro de can(), dos dois arquivos
+// acima) e atualiza o menu na hora — sem precisar recarregar a página.
+function _gxApplyPlanTierFromSubPlans(sub,plans){
+  const planRow=sub?.plan_id?(plans||[]).find(p=>p.id===sub.plan_id):null;
+  const isActive=!!sub&&(sub.status==='active'||sub.status==='past_due');
+  const novoTier=isActive?(planRow?.tier||'basic'):null;
+  const mudou=novoTier!==gxMyPlanTier;
+  gxMyPlanTier=novoTier;
+  if(mudou){
+    try{ applyNavPermissions(); }catch(e){}
+    if(gxMyPlanTier!=='pro' && typeof currentPage!=='undefined' && GX_PRO_ONLY_MODULES.includes(currentPage) && !can(currentPage,'view')){
+      navigate('perfil');
+      toast('Esse recurso é exclusivo do plano Pro 🔒','#F59E0B');
+    }
+  }
+}
+async function gxLoadPartnerPlanTier(){
+  if(!gxIsPartnerRole())return;
+  try{
+    const token=await getGexSupabaseToken();
+    const res=await fetch(getSupabaseFunctionUrl('billing-self-status'),{headers:{Authorization:`Bearer ${token}`}});
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||j?.ok===false)return;
+    _gxApplyPlanTierFromSubPlans(j.subscription||null,j.plans||[]);
+  }catch(e){
+    console.warn('[GexFlow] gxLoadPartnerPlanTier:',e);
+  }
+}
+
 function _buildDefaultFunnelStages(){
   let stageNames=[...DEFAULT_STAGES];
   try{
@@ -15670,6 +15725,7 @@ function _onLoginSuccess(btn){
   document.querySelector('[data-page="inicio"]')?.classList.add('active');
   gxApplyPartnerTutorialLink();
   gxMaybeShowPartnerWelcome();
+  gxLoadPartnerPlanTier();
   // Carrega/sincroniza todos os setores no Supabase sem travar o login.
   initGexCloudDataSync?.().then(ok=>{
     if(ok){
@@ -16151,6 +16207,7 @@ if(GEX_PASSWORD_RECOVERY_MODE){
       gxRestoreLastLocation();
       gxApplyPartnerTutorialLink();
       gxMaybeShowPartnerWelcome();
+      gxLoadPartnerPlanTier();
     }
   });
 }
