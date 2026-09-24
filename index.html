@@ -2150,7 +2150,7 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
     </div>
   </nav>
   <div class="sb-bottom">
-    <div class="sb-row" id="sb-partner-tutorial-row" style="display:none;cursor:pointer" onclick="gxShowPartnerWelcome()"><span class="sb-lbl" style="cursor:pointer">🎓 Como usar o sistema</span></div>
+    <button id="sb-partner-tutorial-row" onclick="gxShowPartnerWelcome()" style="display:none;width:100%;align-items:center;gap:8px;justify-content:center;cursor:pointer;background:rgba(139,92,246,.18);border:1px solid rgba(139,92,246,.45);color:#fff;border-radius:9px;padding:9px 10px;margin-bottom:8px;font-size:13.5px;font-weight:700;font-family:inherit">🎓 Como usar o sistema</button>
     <div class="sb-row"><span class="sb-lbl" style="cursor:pointer">Suporte</span><span style="font-size:9px;color:rgba(255,255,255,.2)">v3.1 Connect</span></div>
   </div>
 </aside>
@@ -7581,6 +7581,104 @@ window.gerarLinkCobranca=async function(userId){
   }
 };
 
+// ═══ "Minha Assinatura" — autoatendimento do próprio Gex Parceiro ═══
+// Usa duas Edge Functions novas, separadas das de admin acima:
+// billing-self-status (consulta só a PRÓPRIA assinatura + planos
+// disponíveis) e billing-self-portal-checkout (abre o Portal do Cliente
+// Stripe pra quem já tem assinatura, ou gera um novo checkout pra quem
+// ainda não tem/foi cancelada). O ID do usuário nunca vem do front-end —
+// as duas funções pegam sempre do token de login, pra ninguém conseguir
+// mexer na assinatura de outra pessoa.
+let _minhaAssinaturaPlansCache=[];
+async function carregarMinhaAssinatura(){
+  const box=document.getElementById('minha-assinatura-content');
+  if(!box)return;
+  try{
+    const token=await getGexSupabaseToken();
+    const res=await fetch(getSupabaseFunctionUrl('billing-self-status'),{headers:{Authorization:`Bearer ${token}`}});
+    const j=await res.json().catch(()=>({}));
+    if(!document.getElementById('minha-assinatura-content'))return; // saiu da tela
+    if(!res.ok||j?.ok===false){
+      box.innerHTML=`<div class="empty-txt" style="font-size:12px">${escHtml(j?.message||'Não foi possível consultar sua assinatura agora.')}</div>`;
+      return;
+    }
+    const sub=j.subscription||null;
+    const plans=j.plans||[];
+    _minhaAssinaturaPlansCache=plans;
+    const isActive=!!sub&&(sub.status==='active'||sub.status==='past_due');
+    const[label,color]=BILLING_STATUS_LABELS[sub?.status]||['Sem assinatura ativa','#64748B'];
+    const planName=sub?.plan_id?((plans.find(p=>p.id===sub.plan_id)||{}).name||sub.plan_id):'';
+    const vigenciaTxt=sub?.current_period_end?`Vigente até ${new Date(sub.current_period_end).toLocaleDateString('pt-BR')}`:'';
+    if(isActive){
+      box.innerHTML=`
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+          <span style="background:${color}20;color:${color};padding:3px 10px;border-radius:10px;font-weight:700;font-size:12px">${label}</span>
+          ${planName?`<span style="font-size:13px;font-weight:600">${escHtml(planName)}</span>`:''}
+        </div>
+        ${vigenciaTxt?`<div style="font-size:12.5px;color:var(--muted);margin-bottom:14px">${escHtml(vigenciaTxt)}</div>`:'<div style="margin-bottom:14px"></div>'}
+        <button class="btn btn-primary" id="minha-assinatura-portal-btn" onclick="abrirPortalAssinatura()">Gerenciar assinatura</button>
+        <div style="font-size:11.5px;color:var(--muted);margin-top:8px">Você vai pra uma página segura do Stripe — lá dá pra cancelar, reativar, ver faturas e trocar a forma de pagamento.</div>
+      `;
+    }else{
+      const planOpts=plans.length
+        ? plans.map(p=>`<option value="${escAttr(p.id)}">${escHtml(p.name)}${p.price_display?` — ${escHtml(p.price_display)}`:''}</option>`).join('')
+        : '<option value="">Nenhum plano disponível no momento</option>';
+      box.innerHTML=`
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <span style="background:${color}20;color:${color};padding:3px 10px;border-radius:10px;font-weight:700;font-size:12px">${label}</span>
+        </div>
+        <div class="form-row" style="margin:0">
+          <div class="form-group" style="margin:0"><select class="form-input" id="minha-assinatura-plano">${planOpts}</select></div>
+          <div class="form-group" style="margin:0"><button type="button" class="btn btn-primary" style="width:100%" id="minha-assinatura-contratar-btn" onclick="contratarPlanoProprio()" ${plans.length?'':'disabled'}>Contratar plano</button></div>
+        </div>
+      `;
+    }
+  }catch(e){
+    console.warn('[GexFlow] carregarMinhaAssinatura:',e);
+    if(box)box.innerHTML='<div class="empty-txt" style="font-size:12px">Não foi possível consultar sua assinatura agora.</div>';
+  }
+}
+window.abrirPortalAssinatura=async function(){
+  const btn=document.getElementById('minha-assinatura-portal-btn');
+  if(btn){btn.disabled=true;btn.textContent='Abrindo...'}
+  try{
+    const token=await getGexSupabaseToken();
+    const returnUrl=location.origin+location.pathname;
+    const res=await fetch(getSupabaseFunctionUrl('billing-self-portal-checkout'),{
+      method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({action:'portal',returnUrl})
+    });
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível abrir o portal de assinatura.');
+    window.open(j.url,'_blank');
+  }catch(e){
+    toast(e.message||'Erro ao abrir o portal de assinatura','#EF4444');
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='Gerenciar assinatura'}
+  }
+};
+window.contratarPlanoProprio=async function(){
+  const planId=document.getElementById('minha-assinatura-plano')?.value||'';
+  if(!planId){toast('Selecione um plano','#F59E0B');return}
+  const btn=document.getElementById('minha-assinatura-contratar-btn');
+  if(btn){btn.disabled=true;btn.textContent='Gerando...'}
+  try{
+    const token=await getGexSupabaseToken();
+    const returnUrl=location.origin+location.pathname;
+    const res=await fetch(getSupabaseFunctionUrl('billing-self-portal-checkout'),{
+      method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({action:'checkout',planId,successUrl:returnUrl+'?billing=sucesso',cancelUrl:returnUrl+'?billing=cancelado'})
+    });
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível gerar o link de pagamento.');
+    location.href=j.url;
+  }catch(e){
+    toast(e.message||'Erro ao contratar o plano','#EF4444');
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='Contratar plano'}
+  }
+};
+
 function getRolePerm(role,module,action){
   const r=resolveRole(role||'Colaborador');
   return getRolePermissionValue(r,module,action);
@@ -10809,6 +10907,11 @@ function renderPerfil(){
       </div>
     </div>
     ${role==='Gex Parceiro'?`
+    <div class="card card-pad" id="minha-assinatura-card" style="margin-top:14px;max-width:980px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px">💳 Minha Assinatura</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Veja sua data de vigência, cancele, reative ou contrate um plano — direto por aqui.</div>
+      <div id="minha-assinatura-content"><div class="empty-txt" style="font-size:12px">Consultando...</div></div>
+    </div>
     <div class="card card-pad" id="minha-equipe-card" style="margin-top:14px;max-width:980px">
       <div style="font-size:14px;font-weight:600;margin-bottom:4px">👥 Minha Equipe</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Crie contas pra pessoas do seu time acessarem só o Pipeline de um funil seu — elas não veem mais nada além disso (nem seus outros funis, se você tiver mais de um).</div>
@@ -10825,6 +10928,7 @@ function renderPerfil(){
       </div>
     </div>`:''}`;
   if(role==='Gex Parceiro'){
+    carregarMinhaAssinatura();
     popularSelectFunisMinhaEquipe();
     // renderPerfil() faz innerHTML completo da página e pode ser chamado com
     // frequência em segundo plano (Realtime de profiles, sync geral etc.) —
@@ -13110,7 +13214,7 @@ function gxDismissPartnerWelcome(){
 }
 function gxApplyPartnerTutorialLink(){
   const row=document.getElementById('sb-partner-tutorial-row');
-  if(row) row.style.display=gxIsPartnerRole()?'':'none';
+  if(row) row.style.display=gxIsPartnerRole()?'flex':'none';
 }
 
 function _buildDefaultFunnelStages(){
