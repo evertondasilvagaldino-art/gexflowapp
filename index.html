@@ -2150,6 +2150,7 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
     </div>
   </nav>
   <div class="sb-bottom">
+    <div class="sb-row" id="sb-partner-tutorial-row" style="display:none;cursor:pointer" onclick="gxShowPartnerWelcome()"><span class="sb-lbl" style="cursor:pointer">🎓 Como usar o sistema</span></div>
     <div class="sb-row"><span class="sb-lbl" style="cursor:pointer">Suporte</span><span style="font-size:9px;color:rgba(255,255,255,.2)">v3.1 Connect</span></div>
   </div>
 </aside>
@@ -2711,6 +2712,34 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
     <div class="confirm-btns">
       <button class="btn btn-ghost" onclick="document.getElementById('confirm-ov').classList.remove('open')">Cancelar</button>
       <button class="btn btn-danger" id="confirm-ok">Excluir</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOAS-VINDAS GEX PARCEIRO -->
+<div class="overlay" id="partner-welcome-ov">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title">👋 Bem-vindo(a) ao GexFlow!</span>
+      <button class="modal-close" onclick="gxDismissPartnerWelcome()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:16px">Aqui vai um resumo rápido do que você encontra no menu:</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:20px">📌</span><div><b style="font-size:13px">Tarefas do Dia</b><div style="font-size:12.5px;color:var(--muted)">Suas atividades e follow-ups pendentes com os leads.</div></div></div>
+        <div style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:20px">💼</span><div><b style="font-size:13px">Pipeline CRM</b><div style="font-size:12.5px;color:var(--muted)">Acompanhe seus negócios em andamento, etapa por etapa.</div></div></div>
+        <div style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:20px">📋</span><div><b style="font-size:13px">Cadastro de Leads</b><div style="font-size:12.5px;color:var(--muted)">Cadastre e organize seus leads manualmente.</div></div></div>
+        <div style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:20px">📊</span><div><b style="font-size:13px">Relatório Comercial</b><div style="font-size:12.5px;color:var(--muted)">Veja o desempenho das suas vendas e conversões.</div></div></div>
+        <div style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:20px">💬</span><div><b style="font-size:13px">WhatsApp</b><div style="font-size:12.5px;color:var(--muted)">Converse com seus leads direto pelo sistema.</div></div></div>
+        <div style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:20px">🎯</span><div><b style="font-size:13px">Gerar Leads</b><div style="font-size:12.5px;color:var(--muted)">Capte novos leads por WhatsApp, Formulários ou Meta Ads.</div></div></div>
+        <div style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:20px">⚡</span><div><b style="font-size:13px">Automações</b><div style="font-size:12.5px;color:var(--muted)">Configure ações automáticas para agilizar seu dia a dia.</div></div></div>
+        <div style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:20px">🔌</span><div><b style="font-size:13px">Integrações</b><div style="font-size:12.5px;color:var(--muted)">Veja as integrações conectadas à sua conta.</div></div></div>
+        <div style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:20px">👤</span><div><b style="font-size:13px">Meu Perfil</b><div style="font-size:12.5px;color:var(--muted)">Seus dados de acesso e informações pessoais.</div></div></div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:16px">Você pode rever esse resumo a qualquer momento clicando em "Como usar o sistema" no rodapé do menu.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="gxDismissPartnerWelcome()">Vamos começar 🚀</button>
     </div>
   </div>
 </div>
@@ -13053,6 +13082,37 @@ function setActiveFunnelId(id){
   if(id)localStorage.setItem(_activeFunnelStorageKey(),id);
 }
 
+// ─── tela de boas-vindas do Gex Parceiro (aparece só no 1º login; pode ser
+// reaberta depois pelo link "Como usar o sistema" no rodapé do menu) ──────
+function _gxPartnerWelcomeKey(){
+  const myId=(typeof sessionUser!=='undefined'&&sessionUser?.id)||'anon';
+  return `gx2_partner_welcome_seen__${myId}`;
+}
+function gxIsPartnerRole(){
+  try{
+    return resolveRole(sessionUser?.permissao||sessionUser?.cargo||'')==='Gex Parceiro';
+  }catch(e){ return false; }
+}
+function gxMaybeShowPartnerWelcome(){
+  if(!gxIsPartnerRole())return;
+  let seen=false;
+  try{ seen=localStorage.getItem(_gxPartnerWelcomeKey())==='1'; }catch(e){}
+  if(!seen) gxShowPartnerWelcome();
+}
+function gxShowPartnerWelcome(){
+  const ov=document.getElementById('partner-welcome-ov');
+  if(ov) ov.classList.add('open');
+}
+function gxDismissPartnerWelcome(){
+  const ov=document.getElementById('partner-welcome-ov');
+  if(ov) ov.classList.remove('open');
+  try{ localStorage.setItem(_gxPartnerWelcomeKey(),'1'); }catch(e){}
+}
+function gxApplyPartnerTutorialLink(){
+  const row=document.getElementById('sb-partner-tutorial-row');
+  if(row) row.style.display=gxIsPartnerRole()?'':'none';
+}
+
 function _buildDefaultFunnelStages(){
   let stageNames=[...DEFAULT_STAGES];
   try{
@@ -15504,6 +15564,8 @@ function _onLoginSuccess(btn){
   renderInicio();
   resetSidebarToHomeState();
   document.querySelector('[data-page="inicio"]')?.classList.add('active');
+  gxApplyPartnerTutorialLink();
+  gxMaybeShowPartnerWelcome();
   // Carrega/sincroniza todos os setores no Supabase sem travar o login.
   initGexCloudDataSync?.().then(ok=>{
     if(ok){
@@ -15983,6 +16045,8 @@ if(GEX_PASSWORD_RECOVERY_MODE){
       // pessoa estava antes de recarregar a página, em vez de sempre cair
       // no Início (ver gxRestoreLastLocation/gxSaveLastLocation acima).
       gxRestoreLastLocation();
+      gxApplyPartnerTutorialLink();
+      gxMaybeShowPartnerWelcome();
     }
   });
 }
