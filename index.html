@@ -2373,7 +2373,15 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
     <div class="fin-summary" id="fin-sum"></div>
     <div class="card">
       <div class="sec-hdr"><div class="sec-ico">📊</div><div style="flex:1"><div class="sec-title">Transações</div></div>
-        <select class="form-input" style="width:130px;padding:5px 10px;font-size:12px" id="fin-filter" onchange="renderFinancas()"><option value="todos">Todos</option><option value="Receita">Receitas</option><option value="Despesa">Despesas</option></select>
+        <button class="btn btn-ghost btn-sm" onclick="gxExportFinancasXLSX()">⬇️ Exportar Excel</button>
+      </div>
+      <div class="rel-filter-bar" id="fin-filter-bar">
+        <input class="form-input" id="fin-busca" placeholder="Buscar por descrição..." oninput="renderFinancas()" style="max-width:220px;flex:1;min-width:160px">
+        <select class="form-input" style="width:150px" id="fin-filter" onchange="renderFinancas()"><option value="todos">Todos os tipos</option><option value="Receita">Receitas</option><option value="Despesa">Despesas</option></select>
+        <select class="form-input" style="width:170px" id="fin-cat-filter" onchange="renderFinancas()"><option value="todos">Todas categorias</option></select>
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);font-weight:600">De<input class="form-input" style="width:145px" id="fin-data-de" type="date" onchange="renderFinancas()"></label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);font-weight:600">Até<input class="form-input" style="width:145px" id="fin-data-ate" type="date" onchange="renderFinancas()"></label>
+        <button class="btn btn-ghost btn-sm" onclick="gxLimparFiltrosFinancas()">Limpar filtros</button>
       </div>
       <div class="tbl-wrap"><table><thead><tr><th>Descrição</th><th>Categoria</th><th>Tipo</th><th>Valor</th><th>Data</th><th>Ações</th></tr></thead><tbody id="fin-tbody"></tbody></table></div>
     </div>
@@ -7323,9 +7331,12 @@ function formLead(d){
   <\/script>`;
 }
 const LEAD_ORIGENS=['Formulário do site','Meta Ads','Google Ads','Indicação','WhatsApp','Instagram','Site institucional','Prospecção ativa'];
+// Compartilhado entre o formulário de transação e o filtro de categoria em
+// Finanças, pra nunca ficarem dessincronizados.
+const FINANCAS_CATEGORIAS=['Mensalidade','Projeto','Software','Pessoal','Marketing','Ads / Tráfego Pago','Infraestrutura','Outros'];
 
 function formTransacao(d){
-  const cats=['Mensalidade','Projeto','Software','Pessoal','Marketing','Ads / Tráfego Pago','Infraestrutura','Outros'];
+  const cats=FINANCAS_CATEGORIAS;
   return `<div class="form-group"><label class="form-label">Descrição *</label><input class="form-input" id="f-desc" value="${d?.desc||''}"></div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Categoria</label><select class="form-input" id="f-cat">${cats.map(c=>`<option ${d?.cat===c?'selected':''}>${c}</option>`).join('')}</select></div>
@@ -9961,9 +9972,55 @@ function renderRelatorioComercial(){
   }
 }
 
-function renderFinancas(){
-  const f=document.getElementById('fin-filter')?.value||'todos';
+function getFilteredTransacoesFinancas(){
+  const tipo=document.getElementById('fin-filter')?.value||'todos';
+  const cat=document.getElementById('fin-cat-filter')?.value||'todos';
+  const busca=(document.getElementById('fin-busca')?.value||'').trim().toLowerCase();
+  const de=document.getElementById('fin-data-de')?.value||'';
+  const ate=document.getElementById('fin-data-ate')?.value||'';
   let txs=DB.get('transacoes');
+  if(tipo!=='todos')txs=txs.filter(t=>t.tipo===tipo);
+  if(cat!=='todos')txs=txs.filter(t=>t.cat===cat);
+  if(busca)txs=txs.filter(t=>String(t.desc||'').toLowerCase().includes(busca));
+  if(de)txs=txs.filter(t=>t.data&&t.data>=de);
+  if(ate)txs=txs.filter(t=>t.data&&t.data<=ate);
+  return txs;
+}
+function gxLimparFiltrosFinancas(){
+  ['fin-busca'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  ['fin-data-de','fin-data-ate'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
+  const tipoSel=document.getElementById('fin-filter');if(tipoSel)tipoSel.value='todos';
+  const catSel=document.getElementById('fin-cat-filter');if(catSel)catSel.value='todos';
+  renderFinancas();
+}
+function gxExportFinancasXLSX(){
+  if(typeof XLSX==='undefined'){toast('Biblioteca de Excel não carregou. Recarregue a página e tente novamente.','#EF4444');return}
+  const txs=getFilteredTransacoesFinancas();
+  if(!txs.length){toast('Nenhuma transação pra exportar com esse filtro','#F59E0B');return}
+  const head=['Descrição','Categoria','Tipo','Valor (R$)','Data'];
+  const rows=txs.slice().sort((a,b)=>(b.data||'').localeCompare(a.data||'')).map(t=>[
+    t.desc||'',
+    t.cat||'',
+    t.tipo||'',
+    +(t.valor||0),
+    t.data?new Date(t.data+'T00:00:00').toLocaleDateString('pt-BR'):''
+  ]);
+  const ws=XLSX.utils.aoa_to_sheet([head,...rows]);
+  ws['!cols']=head.map(h=>({wch:Math.max(12,Math.min(32,String(h).length+6))}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Transações');
+  XLSX.writeFile(wb,`gex-financas-${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast(`${txs.length} transação(ões) exportada(s) ✓`,'#10B981');
+}
+function renderFinancas(){
+  // Popula o filtro de categoria uma única vez (a lista é fixa) — o select
+  // já nasce no HTML só com "Todas categorias" pra não duplicar a lista de
+  // FINANCAS_CATEGORIAS direto no HTML estático da página.
+  const catSel=document.getElementById('fin-cat-filter');
+  if(catSel&&catSel.options.length<=1){
+    FINANCAS_CATEGORIAS.forEach(c=>{const opt=document.createElement('option');opt.textContent=c;catSel.appendChild(opt)});
+  }
+  const txs=getFilteredTransacoesFinancas();
   const rec=txs.filter(t=>t.tipo==='Receita').reduce((a,t)=>a+t.valor,0);
   const desp=txs.filter(t=>t.tipo==='Despesa').reduce((a,t)=>a+t.valor,0);
   const margin=rec>0?Math.round(((rec-desp)/rec)*100):0;
@@ -9971,7 +10028,6 @@ function renderFinancas(){
     <div class="fin-card receita"><div class="fin-label">Receita total</div><div class="fin-val green">${fmtBRL(rec)}</div><div style="font-size:10px;color:#059669;margin-top:4px;font-weight:600">${txs.filter(t=>t.tipo==='Receita').length} transações</div></div>
     <div class="fin-card despesa"><div class="fin-label">Despesas totais</div><div class="fin-val red">${fmtBRL(desp)}</div><div style="font-size:10px;color:#DC2626;margin-top:4px;font-weight:600">${txs.filter(t=>t.tipo==='Despesa').length} transações</div></div>
     <div class="fin-card lucro"><div class="fin-label">Lucro líquido</div><div class="fin-val purple">${fmtBRL(rec-desp)}</div><div style="font-size:10px;color:var(--p2);margin-top:4px;font-weight:600">Margem: ${margin}%</div></div>`;
-  if(f!=='todos') txs=txs.filter(t=>t.tipo===f);
   const tbody=document.getElementById('fin-tbody');
   tbody.innerHTML=txs.sort((a,b)=>b.data?.localeCompare(a.data)).map(t=>`<tr>
     <td style="font-weight:500">${t.desc}</td>
