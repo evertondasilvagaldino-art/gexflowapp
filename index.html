@@ -4853,6 +4853,8 @@ function navigateSub(sub,grp){
     return;
   }
 
+  gxSaveLastLocation({kind:'sub',sub,grp});
+
   if(page==='projetos'){
     currentProjView=sub;
     renderProjView();
@@ -4878,6 +4880,47 @@ function showAccessDenied(pageEl,pageName){
 function toggleMobileSidebar(){document.body.classList.toggle('sb-mobile-open')}
 function closeMobileSidebar(){document.body.classList.remove('sb-mobile-open')}
 
+// ═══ LEMBRAR ÚLTIMA TELA ═══
+// Antes, todo F5/recarregamento de página jogava a pessoa de volta pro
+// Início, mesmo que estivesse trabalhando em outro setor (ex.: Pipeline
+// Comercial) — obrigava reabrir tudo de novo toda hora. Agora cada
+// navegação real (clique na barra lateral, "Voltar ao início" etc.) grava
+// onde a pessoa estava; ao recarregar com a sessão ainda válida, volta pra
+// lá em vez de sempre cair no Início. Guardado por usuário (mesmo esquema
+// de _activeFunnelStorageKey) pra não vazar de uma conta pra outra no
+// mesmo navegador/computador.
+function _gxLastLocationKey(){
+  const myId=(typeof sessionUser!=='undefined'&&sessionUser?.id)||'anon';
+  return `gx2_last_location__${myId}`;
+}
+function gxSaveLastLocation(loc){
+  try{ localStorage.setItem(_gxLastLocationKey(), JSON.stringify(loc)); }catch(e){}
+}
+function gxGoHomeLocation(){
+  renderInicio();
+  resetSidebarToHomeState();
+  document.querySelector('[data-page="inicio"]')?.classList.add('active');
+}
+function gxRestoreLastLocation(){
+  let loc=null;
+  try{ loc=JSON.parse(localStorage.getItem(_gxLastLocationKey())||'null'); }catch(e){ loc=null; }
+  if(!loc || !loc.kind || loc.page==='inicio'){ gxGoHomeLocation(); return; }
+  try{
+    if(loc.kind==='top' && loc.page){
+      navigate(loc.page);
+    } else if(loc.kind==='sub' && loc.sub && loc.grp){
+      navigateSub(loc.sub, loc.grp);
+      if(loc.comTab){
+        setTimeout(()=>{ try{ switchComTab(loc.comTab); }catch(e){} }, 30);
+      }
+    } else {
+      gxGoHomeLocation();
+    }
+  }catch(e){
+    gxGoHomeLocation();
+  }
+}
+
 function navigate(page){
   closeMobileSidebar();
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -4902,6 +4945,7 @@ function navigate(page){
     }
     return;
   }
+  gxSaveLastLocation({kind:'top',page});
   ({inicio:renderInicio,configuracoes:renderConfiguracoes,integracoes:renderIntegracoes,rh:renderRH,calendario:renderCalendario,usuarios:renderUsuarios,perfil:renderPerfil,automacoes:renderAutomacoes,'whatsapp-chat':renderWhatsappChat})[page]?.();
 }
 
@@ -9191,6 +9235,7 @@ function switchComTab(tab){
   document.querySelectorAll('[data-sub="tarefas-dia"],[data-sub="comercial"],[data-sub="cadastro-leads"],[data-sub="relatorio-comercial"],[data-sub="equipe-comercial"]').forEach(el=>el.classList.remove('active'));
   const subMap={tarefas:'tarefas-dia',pipeline:'comercial',cadastro:'cadastro-leads',relatorio:'relatorio-comercial',equipe:'equipe-comercial'};
   document.querySelector(`[data-sub="${subMap[tab]}"]`)?.classList.add('active');
+  gxSaveLastLocation({kind:'sub',sub:'comercial',grp:'comercial',comTab:tab});
   if(tab==='cadastro') renderCadastroLeads();
   if(tab==='relatorio') renderRelatorioComercial();
   if(tab==='tarefas') renderTarefasDia();
@@ -15934,9 +15979,10 @@ if(GEX_PASSWORD_RECOVERY_MODE){
   // checkSession é async — aguarda e renderiza após resolução
   checkSession().then(loggedIn=>{
     if(loggedIn){
-      renderInicio();
-      resetSidebarToHomeState();
-      document.querySelector('[data-page="inicio"]')?.classList.add('active');
+      // Sessão restaurada (não é um login novo) — volta pro setor onde a
+      // pessoa estava antes de recarregar a página, em vez de sempre cair
+      // no Início (ver gxRestoreLastLocation/gxSaveLastLocation acima).
+      gxRestoreLastLocation();
     }
   });
 }
