@@ -13063,7 +13063,24 @@ function ensureDefaultCommercialFunnel(){
   let changed=JSON.stringify(raw)!==JSON.stringify(funnels);
 
   if(!funnels.length){
-    funnels=[{
+    // A lista local pode estar vazia só porque a sincronização inicial com o
+    // Supabase ainda não terminou de baixar/mesclar os dados (ela roda em
+    // segundo plano, de forma assíncrona, depois do login) — isso NÃO
+    // significa que não existe funil nenhum. Se essa função criasse e
+    // salvasse aqui um funil padrão "do zero", ele usaria sempre o mesmo ID
+    // fixo ('funnel_default') do funil real e compartilhado — assim que a
+    // sincronização com a nuvem rodasse (upsert por ID), isso SOBRESCREVIA o
+    // funil de verdade, apagando etapas customizadas de todo mundo (bug
+    // relatado: etapas "voltando sozinhas" pro padrão, pra todos os
+    // usuários, sem ninguém ter mexido). Enquanto a nuvem ainda está
+    // carregando, devolve um funil padrão só EM MEMÓRIA — nada é gravado no
+    // localStorage nem enviado à nuvem — só pra tela ter algo pra mostrar
+    // até chegar o dado real; rerenderActivePageAfterCloudSync() then
+    // re-renderiza a tela assim que a sincronização terminar.
+    const cloudSyncPending = typeof supabaseClient!=='undefined' && supabaseClient
+      && typeof sessionUser!=='undefined' && sessionUser?.id
+      && typeof gexCloudReady!=='undefined' && !gexCloudReady;
+    const placeholderDefault={
       id:'funnel_default',
       name:'Funil Comercial Principal',
       description:'Funil padrão da operação comercial',
@@ -13072,7 +13089,9 @@ function ensureDefaultCommercialFunnel(){
       createdAt:new Date().toISOString(),
       updatedAt:new Date().toISOString(),
       stages:_buildDefaultFunnelStages()
-    }];
+    };
+    if(cloudSyncPending) return [placeholderDefault];
+    funnels=[placeholderDefault];
     changed=true;
   }
 
