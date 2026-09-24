@@ -86,8 +86,8 @@ nav{flex:1;padding:6px 0;overflow-y:auto}
 .perm-check-wrap{display:flex;justify-content:center}
 
 /* EXEC DASHBOARD KPI */
-.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
-.kpi-card{background:var(--card);border-radius:14px;border:1px solid var(--border);padding:18px 20px;position:relative;overflow:hidden}
+.kpi-grid{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:18px}
+.kpi-card{flex:1 1 420px;background:var(--card);border-radius:14px;border:1px solid var(--border);padding:18px 20px;position:relative;overflow:hidden}
 .kpi-accent{position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0}
 .kpi-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
 .kpi-value{font-size:26px;font-weight:800;letter-spacing:-1px;line-height:1}
@@ -1849,7 +1849,7 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
   body.sb-mobile-open .sb-overlay{display:block!important}
   .page{padding:14px}
   .form-row{grid-template-columns:1fr}
-  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .kpi-card{flex-basis:calc(50% - 7px)}
   .kanban{
     grid-template-columns:none!important;
     grid-auto-flow:column;grid-auto-columns:172px;
@@ -1870,7 +1870,7 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
   body.sb-mobile-open .sb-overlay{display:block!important;position:fixed;inset:0;background:rgba(10,10,20,.45);z-index:999}
 }
 @media (max-width:420px){
-  .kpi-grid{grid-template-columns:1fr}
+  .kpi-card{flex-basis:100%}
 }
 
 </style>
