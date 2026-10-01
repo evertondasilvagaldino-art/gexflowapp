@@ -5990,54 +5990,20 @@ function cfgWebhookPanelHtml(){
 function renderConfiguracoesWebhookApi(){
   const page=document.getElementById('page-configuracoes');
   if(!page)return;
-  const outgoing=JSON.parse(localStorage.getItem('gx2_outgoing_webhooks')||'[]');
   page.innerHTML=`
     <div class="cfg-hero">
-      <div><div class="cfg-title">Webhook & API</div><div class="cfg-sub">Entrada de leads/dados externos e saída de eventos do CRM para parceiros.</div></div>
+      <div><div class="cfg-title">Webhook & API</div><div class="cfg-sub">Entrada de leads/dados externos para o Gex Flow.</div></div>
       <div class="cfg-badge">🔗 API do Gex Flow</div>
     </div>
     ${configTabbar('config-webhook-api')}
     <div id="cfg-webhook-root">${cfgWebhookPanelHtml()}</div>
     <div class="cfg-panel">
       <div class="cfg-panel-head">
-        <div><div class="cfg-panel-title">Webhooks de saída do CRM</div><div class="cfg-panel-sub">Cadastre URLs externas para receber eventos do Gex Flow, como lead criado, oportunidade ganha ou tarefa concluída.</div></div>
+        <div><div class="cfg-panel-title">Webhooks de saída do CRM</div><div class="cfg-panel-sub">Esse recurso já existe em outro lugar do sistema — ver abaixo.</div></div>
       </div>
-      <div class="cfg-form-grid">
-        <input class="form-input" id="cfg-out-url" placeholder="https://app-parceiro.com/webhook">
-        <select class="form-input" id="cfg-out-event">
-          <option value="lead.created">Lead criado</option>
-          <option value="deal.won">Negócio ganho</option>
-          <option value="deal.lost">Negócio perdido</option>
-          <option value="task.completed">Tarefa concluída</option>
-        </select>
-      </div>
-      <div class="cfg-actions" style="margin-top:12px">
-        <button class="cfg-btn primary" onclick="addOutgoingWebhook()">Adicionar webhook de saída</button>
-        <button class="cfg-btn" onclick="testOutgoingWebhook()">Testar envio</button>
-      </div>
-      <div style="margin-top:14px">${outgoing.length?outgoing.map(w=>`<div class="cfg-copy-row"><code>${escHtml(w.event)} · ${escHtml(w.url)}</code><button class="cfg-btn" onclick="removeOutgoingWebhook('${w.id}')">Remover</button></div>`).join(''):'<div class="empty" style="padding:20px">Nenhum webhook de saída cadastrado.</div>'}</div>
+      <div class="cfg-note" style="margin-top:0">Pra mandar os eventos do Gex Flow (lead criado, lead movido de etapa, cliente criado/atualizado) pra um Zapier, Make, n8n ou sistema próprio, use o ícone <b>🔗</b> no topo da tela, ao lado do sino de notificações. Essa configuração já é salva no servidor (não só no seu navegador) — a equipe toda usa a mesma conexão, com log de envios reais e chave de assinatura (HMAC) opcional.</div>
     </div>`;
   if(!cfgWhkState.booted&&!cfgWhkState.loading)cfgWebhookKeyBoot();
-}
-
-function addOutgoingWebhook(){
-  const url=document.getElementById('cfg-out-url')?.value?.trim();
-  const event=document.getElementById('cfg-out-event')?.value||'lead.created';
-  if(!url||!/^https?:\/\//i.test(url)){toast('Informe uma URL válida.','#EF4444');return}
-  const arr=JSON.parse(localStorage.getItem('gx2_outgoing_webhooks')||'[]');
-  arr.unshift({id:uid(),url,event,createdAt:now()});
-  localStorage.setItem('gx2_outgoing_webhooks',JSON.stringify(arr));
-  toast('Webhook de saída adicionado.','#10B981');
-  renderConfiguracoesWebhookApi();
-}
-function removeOutgoingWebhook(id){
-  const arr=JSON.parse(localStorage.getItem('gx2_outgoing_webhooks')||'[]').filter(w=>w.id!==id);
-  localStorage.setItem('gx2_outgoing_webhooks',JSON.stringify(arr));
-  toast('Webhook removido.','#10B981');
-  renderConfiguracoesWebhookApi();
-}
-function testOutgoingWebhook(){
-  toast('Teste preparado. Em produção, o envio deve passar por Edge Function segura.','#7C3AED');
 }
 
 function renderConfiguracoesPagamentos(){
