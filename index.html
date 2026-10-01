@@ -20231,9 +20231,115 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   function availableFunnels(){try{ensureDefaultCommercialFunnel();const all=getCommercialFunnels().filter(f=>!f.isArchived);return typeof getVisibleCommercialFunnels==='function'?getVisibleCommercialFunnels(all):all}catch(e){return[]}}
   head=function(title,sub,button=''){return `<div class="gl-head"><div><div style="display:flex;align-items:center;gap:8px"><h1>${title}</h1><span class="gxi-tag">Formulários 2.0</span></div><p>${sub}</p></div>${button}</div>`};
   function linkForOpen(f){const u=new URL(publicUrl(f));if(!f.active)u.searchParams.set('gex_preview','1');return u.toString()}
-  listHtml=function(){const fs=forms(),subs=submissions();return `${head('Formulários','Crie páginas personalizadas para captar leads diretamente no seu CRM.','<button class="gl-btn primary" onclick="gxlNewForm()">＋ Novo formulário</button>')}<div class="gl-stats"><div class="gl-stat"><span>FORMULÁRIOS</span><b>${fs.length}</b><small>${fs.filter(x=>x.active).length} publicados</small></div><div class="gl-stat"><span>LEADS CAPTADOS</span><b>${subs.length}</b><small>via formulários</small></div><div class="gl-stat"><span>PUBLICADOS</span><b>${fs.filter(x=>x.active).length}</b><small>links disponíveis</small></div><div class="gl-stat"><span>ÚLTIMO LEAD</span><b style="font-size:13px">${subs[0]?.createdAt?new Date(subs[0].createdAt).toLocaleString('pt-BR'):'—'}</b><small>registro mais recente</small></div></div><div class="gl-card gl-table">${fs.length?`<div class="gl-row head"><div>Nome</div><div>Link público</div><div>Leads</div><div>Status</div><div style="text-align:right">Ações</div></div>${fs.map(f=>`<div class="gl-row"><div><div class="gl-name">${esc(f.name)}</div><div class="gl-sub">Criado em ${new Date(f.createdAt||Date.now()).toLocaleDateString('pt-BR')}</div></div><div class="gl-link"><a href="${esc(linkForOpen(f))}" target="_blank" rel="noopener">${esc(publicUrl(f))}</a></div><div><b>${subs.filter(s=>s.formId===f.id).length}</b> envios</div><div><span class="gl-status ${f.active?'on':''}">${f.active?'Publicado':'Rascunho'}</span></div><div class="gl-actions"><button class="gl-btn sm" onclick="gxlOpen('${f.id}')">Abrir</button><button class="gl-btn sm" onclick="gxlEdit('${f.id}')">Editar</button><button class="gl-btn sm gl-dotbtn" onclick="gxlMenu(event,'${f.id}')">⋯</button></div></div>`).join('')}`:`<div class="gl-empty"><i>✦</i><b>Nenhum formulário criado</b>Crie seu primeiro formulário e envie os leads automaticamente para o Pipeline.<div style="margin-top:15px"><button class="gl-btn primary" onclick="gxlNewForm()">Criar formulário</button></div></div>`}</div>`}
+  const GEX_PUBLIC_FORM_API='https://kghgmraezxcssipccodn.supabase.co/functions/v1/public-lead-form';
+  function gxlEmbedSnippet(f){
+    const url=publicUrl(f),title=esc(f.title||f.name||'Formulário');
+    return `<!-- GexFlow - formulario "${(f.name||'').replace(/-->/g,'')}" -->
+<iframe src="${url}" style="width:100%;max-width:620px;height:600px;border:0;" loading="lazy" title="${title}"></iframe>
+
+<!-- Prefere um botao/link em vez de incorporar o formulario? Use este endereco direto: -->
+<!-- ${url} -->`;
+  }
+  function gxlWebhookSnippet(f){
+    const fields=(f.fields||[]).filter(x=>x && x.name);
+    const names=fields.length?fields.map(x=>x.name):['nome_completo','whatsapp','email'];
+    const destructure=names.join(', ');
+    const answersBody=names.map(n=>`        ${n}`).join(',\n');
+    const exampleCall=names.map(n=>`    ${n}: document.getElementById('${n}').value`).join(',\n');
+    return `// === Enviar lead do SEU formulario (que ja existe no site) para o GexFlow ===
+// Formulario de destino: "${(f.name||'').replace(/\*\//g,'')}"  |  Endpoint fixo, nao muda entre formularios.
+// Os nomes abaixo (${names.join(', ')}) sao os campos configurados nesse formulario especifico dentro do GexFlow.
+// Troque o conteudo da funcao de exemplo (getElementById) pelos ids/valores reais do SEU formulario.
+
+const GEX_WEBHOOK_URL = '${GEX_PUBLIC_FORM_API}';
+const GEX_FORM_SLUG = '${f.slug}';
+
+async function enviarLeadParaGexFlow({ ${destructure} }) {
+  const resposta = await fetch(GEX_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      slug: GEX_FORM_SLUG,
+      website: '', // NAO altere - campo anti-spam, sempre vazio
+      answers: {
+${answersBody}
+      },
+      utm: {
+        utm_source: '',
+        utm_medium: '',
+        utm_campaign: '',
+        utm_content: '',
+        utm_term: ''
+      }
+    })
+  });
+  const resultado = await resposta.json().catch(() => ({}));
+  if (!resposta.ok || !resultado.ok) {
+    throw new Error(resultado.error || 'Nao foi possivel enviar o formulario agora.');
+  }
+  return resultado; // { ok: true, leadId, message }
+}
+
+// Exemplo de uso no submit do SEU formulario (adapte os ids abaixo para os do seu HTML):
+//
+// document.getElementById('meu-formulario').addEventListener('submit', async (evento) => {
+//   evento.preventDefault();
+//   try {
+//     await enviarLeadParaGexFlow({
+${exampleCall}
+//     });
+//     alert('Recebemos seus dados, obrigado!');
+//   } catch (erro) {
+//     alert(erro.message);
+//   }
+// });`;
+  }
+  let glCodeTab='embed';
+  window.gxlCode=function(id){
+    const f=forms().find(x=>x.id===id);
+    if(!f){toast('Formulario nao encontrado','#EF4444');return}
+    glCodeTab='embed';
+    document.getElementById('gl-code-ov')?.remove();
+    const ov=document.createElement('div');
+    ov.id='gl-code-ov';
+    ov.dataset.formId=id;
+    ov.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:20px';
+    ov.innerHTML=gxlCodeModalHtml(f);
+    document.body.appendChild(ov);
+  };
+  function gxlCodeModalHtml(f){
+    const embedCode=gxlEmbedSnippet(f),webhookCode=gxlWebhookSnippet(f);
+    const isEmbed=glCodeTab==='embed';
+    return `<div style="background:#fff;border-radius:16px;max-width:680px;width:100%;padding:24px;box-shadow:0 24px 70px rgba(0,0,0,.35)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h3 style="font-size:16px">Código para o site - ${esc(f.name)}</h3><span style="cursor:pointer;font-size:20px;color:#94A3B8" onclick="document.getElementById('gl-code-ov').remove()">&times;</span></div>
+      <div style="display:flex;gap:6px;margin:14px 0 12px;border-bottom:1px solid #E2E8F0">
+        <button onclick="gxlSwitchCodeTab('embed')" style="border:0;background:none;cursor:pointer;padding:8px 4px;font-size:12.5px;font-weight:800;color:${isEmbed?'#4F46E5':'#94A3B8'};border-bottom:2px solid ${isEmbed?'#4F46E5':'transparent'}">Incorporar (iframe)</button>
+        <button onclick="gxlSwitchCodeTab('webhook')" style="border:0;background:none;cursor:pointer;padding:8px 4px;font-size:12.5px;font-weight:800;color:${isEmbed?'#94A3B8':'#4F46E5'};border-bottom:2px solid ${isEmbed?'transparent':'#4F46E5'}">Webhook (meu form já existe)</button>
+      </div>
+      <p style="font-size:12px;color:#64748B;margin-bottom:12px">${isEmbed?'Cole este código na página do seu site onde o formulário deve aparecer. Ele carrega sozinho, com os mesmos campos e destino (funil/etapa) configurados aqui.':'Já tem um formulário pronto no site? Use este código para enviar os dados dele direto para o GexFlow, sem precisar trocar o visual do seu formulário.'}</p>
+      <textarea readonly style="width:100%;height:280px;font-family:monospace;font-size:11px;border:1px solid #E2E8F0;border-radius:10px;padding:12px;background:#F8FAFC;box-sizing:border-box" id="gl-code-text">${esc(isEmbed?embedCode:webhookCode)}</textarea>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="gl-btn" onclick="document.getElementById('gl-code-ov').remove()">Fechar</button><button class="gl-btn primary" onclick="gxlCopyFormCode()">📋 Copiar código</button></div>
+    </div>`;
+  }
+  window.gxlSwitchCodeTab=function(tab){
+    glCodeTab=tab;
+    const ov=document.getElementById('gl-code-ov');
+    if(!ov)return;
+    const f=forms().find(x=>x.id===ov.dataset.formId);
+    if(!f)return;
+    ov.innerHTML=gxlCodeModalHtml(f);
+  };
+  window.gxlCopyFormCode=function(){
+    const ta=document.getElementById('gl-code-text');
+    if(!ta)return;
+    ta.select();
+    try{document.execCommand('copy')}catch(e){}
+    if(navigator.clipboard?.writeText)navigator.clipboard.writeText(ta.value).catch(()=>{});
+    toast('Código copiado ✓','#10B981');
+  };
+  listHtml=function(){const fs=forms(),subs=submissions();return `${head('Formulários','Crie páginas personalizadas para captar leads diretamente no seu CRM.','<button class="gl-btn primary" onclick="gxlNewForm()">＋ Novo formulário</button>')}<div class="gl-stats"><div class="gl-stat"><span>FORMULÁRIOS</span><b>${fs.length}</b><small>${fs.filter(x=>x.active).length} publicados</small></div><div class="gl-stat"><span>LEADS CAPTADOS</span><b>${subs.length}</b><small>via formulários</small></div><div class="gl-stat"><span>PUBLICADOS</span><b>${fs.filter(x=>x.active).length}</b><small>links disponíveis</small></div><div class="gl-stat"><span>ÚLTIMO LEAD</span><b style="font-size:13px">${subs[0]?.createdAt?new Date(subs[0].createdAt).toLocaleString('pt-BR'):'—'}</b><small>registro mais recente</small></div></div><div class="gl-card gl-table">${fs.length?`<div class="gl-row head"><div>Nome</div><div>Link público</div><div>Leads</div><div>Status</div><div style="text-align:right">Ações</div></div>${fs.map(f=>`<div class="gl-row"><div><div class="gl-name">${esc(f.name)}</div><div class="gl-sub">Criado em ${new Date(f.createdAt||Date.now()).toLocaleDateString('pt-BR')}</div></div><div class="gl-link"><a href="${esc(linkForOpen(f))}" target="_blank" rel="noopener">${esc(publicUrl(f))}</a></div><div><b>${subs.filter(s=>s.formId===f.id).length}</b> envios</div><div><span class="gl-status ${f.active?'on':''}">${f.active?'Publicado':'Rascunho'}</span></div><div class="gl-actions"><button class="gl-btn sm" onclick="gxlOpen('${f.id}')">Abrir</button><button class="gl-btn sm" onclick="gxlEdit('${f.id}')">Editar</button><button class="gl-btn sm" onclick="gxlCode('${f.id}')">&lt;/&gt; Código</button><button class="gl-btn sm gl-dotbtn" onclick="gxlMenu(event,'${f.id}')">⋯</button></div></div>`).join('')}`:`<div class="gl-empty"><i>✦</i><b>Nenhum formulário criado</b>Crie seu primeiro formulário e envie os leads automaticamente para o Pipeline.<div style="margin-top:15px"><button class="gl-btn primary" onclick="gxlNewForm()">Criar formulário</button></div></div>`}</div>`}
   window.gxlOpen=id=>{const f=forms().find(x=>x.id===id);if(!f)return;window.open(linkForOpen(f),'_blank','noopener')};
-  window.gxlMenu=(ev,id)=>{ev.stopPropagation();document.getElementById('gl-action-menu')?.remove();const f=forms().find(x=>x.id===id);if(!f)return;const m=document.createElement('div');m.id='gl-action-menu';m.className='gl-popmenu';m.innerHTML=`<button onclick="gxlOpen('${id}')">↗ Abrir formulário</button><button onclick="gxlCopy('${id}')">⧉ Copiar link</button><button onclick="gxlTogglePublish('${id}')">${f.active?'○ Despublicar':'● Publicar'}</button><hr><button onclick="gxlDuplicate('${id}');gxlCloseMenu()">⧉ Duplicar</button><button class="danger" onclick="gxlDelete('${id}')">⌫ Excluir formulário</button>`;document.body.appendChild(m);const r=ev.currentTarget.getBoundingClientRect(),w=190;m.style.left=Math.max(8,Math.min(innerWidth-w-8,r.right-w))+'px';m.style.top=Math.min(innerHeight-m.offsetHeight-8,r.bottom+5)+'px'};
+  window.gxlMenu=(ev,id)=>{ev.stopPropagation();document.getElementById('gl-action-menu')?.remove();const f=forms().find(x=>x.id===id);if(!f)return;const m=document.createElement('div');m.id='gl-action-menu';m.className='gl-popmenu';m.innerHTML=`<button onclick="gxlOpen('${id}')">↗ Abrir formulário</button><button onclick="gxlCopy('${id}')">⧉ Copiar link</button><button onclick="gxlCode('${id}');gxlCloseMenu()">&lt;/&gt; Gerar código para o site</button><button onclick="gxlTogglePublish('${id}')">${f.active?'○ Despublicar':'● Publicar'}</button><hr><button onclick="gxlDuplicate('${id}');gxlCloseMenu()">⧉ Duplicar</button><button class="danger" onclick="gxlDelete('${id}')">⌫ Excluir formulário</button>`;document.body.appendChild(m);const r=ev.currentTarget.getBoundingClientRect(),w=190;m.style.left=Math.max(8,Math.min(innerWidth-w-8,r.right-w))+'px';m.style.top=Math.min(innerHeight-m.offsetHeight-8,r.bottom+5)+'px'};
   window.gxlCloseMenu=()=>document.getElementById('gl-action-menu')?.remove();document.addEventListener('click',e=>{if(!e.target.closest('#gl-action-menu')&&!e.target.closest('.gl-dotbtn'))gxlCloseMenu()});
   window.gxlTogglePublish=id=>{const f=forms().find(x=>x.id===id);if(!f)return;DB.update('lead_forms',id,{active:!f.active,updatedAt:new Date().toISOString()});gxlCloseMenu();renderGerarLeads();toast(f.active?'Formulário despublicado':'Formulário publicado ✓',f.active?'#64748B':'#10B981')};
   window.gxlDelete=id=>{if(!forms().some(x=>x.id===id)){toast('Formulário não encontrado','#EF4444');return}gxlCloseMenu();confirmDelete(()=>{DB.remove('lead_forms',id);(submissions().filter(s=>s.formId===id)||[]).forEach(s=>DB.remove('lead_form_submissions',s.id));renderGerarLeads();toast('Formulário excluído','#EF4444')})};
