@@ -8017,7 +8017,12 @@ function renderInicio(){
     const estagios=getStages();
     document.getElementById('pipe-total-lbl').textContent=fmtBRL(pipelineTotal);
     const pipeColors=['#E0E0F0','#C4B5FD','#A78BFA','#8B5CF6','#7C3AED'];
-    const pipeCounts=estagios.map(est=>leads.filter(l=>l.estagio===est).length);
+    // Usa leadsPeriod (já filtrado por dashFilter.mes/ano) em vez de "leads"
+    // puro — sem isso, o gráfico de barras por etapa nunca mudava ao trocar
+    // o filtro de mês/ano (ficava sempre com a contagem de TODOS os leads,
+    // enquanto o valor total do pipeline e os cards de estatística logo
+    // abaixo já respeitavam o período corretamente).
+    const pipeCounts=estagios.map(est=>leadsPeriod.filter(l=>l.estagio===est).length);
     const pipeMaxV=Math.max(1,...pipeCounts);
     document.getElementById('pipe-mini-chart').innerHTML=estagios.map((est,i)=>{
       const qtd=pipeCounts[i];
