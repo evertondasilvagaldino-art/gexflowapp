@@ -108,6 +108,8 @@
       $('form-title').textContent=form.title||form.name||'Formulário';
       $('form-description').textContent=form.description||'';
       $('submit-button').textContent=submitText;
+      const btnColor=String(form.buttonColor||'').trim();
+      if(btnColor){$('submit-button').style.background=btnColor;$('quiz-next').style.background=btnColor}
       const fieldsWrap=$('fields');
       if(!isQuiz||!fields.length){
         $('progress').classList.add('hidden');
