@@ -162,10 +162,11 @@
       try{
         const response=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slug,website,answers,utm})}),result=await response.json();
         if(!response.ok||!result.ok)throw new Error(result.error||'Não foi possível enviar.');
+        if(currentForm&&currentForm.metaPixelId){try{window.fbq&&window.fbq('track','Lead')}catch(e){}}
+        if(currentForm&&currentForm.redirectUrl){location.href=currentForm.redirectUrl;return}
         $('form-area').classList.add('hidden');
         $('success-message').textContent=result.message||'Recebemos seus dados.';
         $('success').classList.remove('hidden');
-        if(currentForm&&currentForm.metaPixelId){try{window.fbq&&window.fbq('track','Lead')}catch(e){}}
       }catch(error){
         button.disabled=false;button.textContent=originalText;
         alert(error.message||'Não foi possível enviar o formulário.');
