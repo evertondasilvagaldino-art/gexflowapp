@@ -5842,22 +5842,139 @@ function cfgWebhookUrl(){
   const base=(typeof SUPABASE_URL!=='undefined'&&SUPABASE_URL)?SUPABASE_URL.replace(/\/$/,''):'https://SEU-PROJETO.supabase.co';
   return `${base}/functions/v1/gex-webhook`;
 }
-function cfgWebhookKey(){
-  let key=localStorage.getItem('gx2_webhook_key');
-  if(!key){
-    key='gex_'+Math.random().toString(36).slice(2,10)+Math.random().toString(36).slice(2,8);
-    localStorage.setItem('gx2_webhook_key',key);
-  }
-  return key;
-}
 function copyTextSafe(txt,label){
   navigator.clipboard?.writeText(txt).then(()=>toast((label||'Texto')+' copiado.','#10B981')).catch(()=>toast('Não foi possível copiar.','#EF4444'));
 }
 
+// A chave de webhook de entrada deixou de ser um valor aleatório guardado só
+// no localStorage (nunca validado por ninguém) — agora ela é uma linha real
+// na tabela gex_webhook_keys, criada/lida pela Edge Function
+// gex-webhook-key-manage (autenticada pelo login do próprio usuário). Cada
+// usuário (fundador ou parceiro) tem a sua própria linha — próprio token e
+// próprio funil/etapa de destino — igual foi combinado quando esse recurso
+// foi planejado.
+let cfgWhkState={loading:false,error:'',key:null,booted:false};
+
+async function cfgWebhookKeyBoot(){
+  cfgWhkState.loading=true;cfgWhkState.error='';
+  try{
+    const token=await getGexSupabaseToken();
+    const res=await fetch(getSupabaseFunctionUrl('gex-webhook-key-manage'),{headers:{Authorization:`Bearer ${token}`}});
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||!j.ok)throw new Error(j.error||'Não foi possível carregar sua chave de webhook.');
+    cfgWhkState.key=j.key;
+  }catch(e){
+    cfgWhkState.error=e.message||'Erro ao carregar sua chave de webhook.';
+  }
+  cfgWhkState.loading=false;
+  cfgWhkState.booted=true;
+  const root=document.getElementById('cfg-webhook-root');
+  if(root)root.innerHTML=cfgWebhookPanelHtml();
+}
+
+async function cfgWebhookKeyUpdate(payload,successMsg){
+  try{
+    const token=await getGexSupabaseToken();
+    const res=await fetch(getSupabaseFunctionUrl('gex-webhook-key-manage'),{
+      method:'POST',
+      headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},
+      body:JSON.stringify(payload)
+    });
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||!j.ok)throw new Error(j.error||'Não foi possível salvar agora.');
+    cfgWhkState.key=j.key;
+    const root=document.getElementById('cfg-webhook-root');
+    if(root)root.innerHTML=cfgWebhookPanelHtml();
+    if(successMsg)toast(successMsg,'#10B981');
+  }catch(e){
+    toast(e.message||'Erro ao salvar.','#EF4444');
+  }
+}
+
+function cfgWebhookFunnelOptions(selectedId){
+  try{
+    ensureDefaultCommercialFunnel();
+    const all=getCommercialFunnels().filter(f=>!f.isArchived);
+    const visible=typeof getVisibleCommercialFunnels==='function'?getVisibleCommercialFunnels(all):all;
+    return visible.map(f=>`<option value="${escAttr(f.id)}" ${f.id===selectedId?'selected':''}>${escHtml(f.name)}</option>`).join('');
+  }catch(e){return ''}
+}
+function cfgWebhookStageOptions(funnelId,selectedStageId){
+  try{
+    const f=getCommercialFunnels().find(x=>x.id===funnelId);
+    const stages=(f?.stages||[]).slice().sort((a,b)=>(a.order||0)-(b.order||0));
+    return stages.map(s=>`<option value="${escAttr(s.id)}" data-name="${escAttr(s.name)}" ${s.id===selectedStageId?'selected':''}>${escHtml(s.name)}</option>`).join('');
+  }catch(e){return ''}
+}
+
+window.cfgWebhookFunnelChange=function(funnelId){
+  const sel=document.getElementById('cfg-whk-stage');
+  if(sel)sel.innerHTML=cfgWebhookStageOptions(funnelId,'');
+};
+window.cfgWebhookSaveDestino=function(){
+  const funnelSel=document.getElementById('cfg-whk-funnel'),stageSel=document.getElementById('cfg-whk-stage');
+  const funnelId=funnelSel?.value||'',funnelName=funnelSel?.selectedOptions[0]?.textContent||'';
+  const stageId=stageSel?.value||'',stageName=stageSel?.selectedOptions[0]?.dataset.name||stageSel?.selectedOptions[0]?.textContent||'';
+  if(!funnelId||!stageId){toast('Escolha o funil e a etapa de destino.','#F59E0B');return}
+  cfgWebhookKeyUpdate({defaultFunnelId:funnelId,defaultFunnelName:funnelName,defaultStageId:stageId,defaultStageName:stageName},'Destino salvo ✓');
+};
+window.cfgWebhookRegenerate=function(){
+  if(!confirm('Isso cria uma chave nova e a chave atual para de funcionar. Se alguma integração externa já usa a chave antiga, ela vai parar de enviar leads até você atualizar lá também. Continuar?'))return;
+  cfgWebhookKeyUpdate({regenerate:true},'Nova chave gerada ✓');
+};
+window.cfgWebhookToggleActive=function(checked){
+  cfgWebhookKeyUpdate({active:!!checked},checked?'Webhook ativado ✓':'Webhook desativado');
+};
+
+function cfgWebhookPanelHtml(){
+  const url=cfgWebhookUrl();
+  if(cfgWhkState.loading&&!cfgWhkState.key){
+    return `<div class="cfg-panel"><div class="cfg-panel-head"><div><div class="cfg-panel-title">Webhook de entrada</div><div class="cfg-panel-sub">Carregando sua chave...</div></div></div></div>`;
+  }
+  if(cfgWhkState.error&&!cfgWhkState.key){
+    return `<div class="cfg-panel"><div class="cfg-panel-head"><div><div class="cfg-panel-title">Webhook de entrada</div><div class="cfg-panel-sub" style="color:#DC2626">${escHtml(cfgWhkState.error)}</div></div></div><button class="cfg-btn" onclick="cfgWebhookKeyBoot()">Tentar de novo</button></div>`;
+  }
+  const k=cfgWhkState.key||{},key=k.apiKey||'',funnelId=k.defaultFunnelId||'';
+  return `
+    <div class="cfg-panel">
+      <div class="cfg-panel-head"><div><div class="cfg-panel-title">Webhook de entrada</div><div class="cfg-panel-sub">Use esta URL e esta chave para receber leads de fora do GexFlow (Make, Zapier, sistema próprio). A chave é pessoal — se você é parceiro, é só sua, separada da do fundador, cada uma com seu próprio destino.</div></div></div>
+      <div class="cfg-copy-row"><code>${escHtml(url)}</code><button class="cfg-btn" onclick="copyTextSafe('${escAttr(url)}','URL')">Copiar URL</button></div>
+      <div class="cfg-copy-row"><code>${escHtml(key)}</code><button class="cfg-btn" onclick="copyTextSafe('${escAttr(key)}','Chave')">Copiar chave</button></div>
+      <div class="cfg-note">Envie a chave no header <b>x-gex-key</b> ou no corpo JSON como <b>apiKey</b>.</div>
+      <div class="cfg-actions" style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <button class="cfg-btn" onclick="cfgWebhookRegenerate()">🔄 Gerar nova chave</button>
+        <label style="display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:#475569;margin-left:auto">
+          <input type="checkbox" id="cfg-whk-active" ${k.active!==false?'checked':''} onchange="cfgWebhookToggleActive(this.checked)"> Webhook ativo
+        </label>
+      </div>
+    </div>
+    <div class="cfg-panel">
+      <div class="cfg-panel-head"><div><div class="cfg-panel-title">Destino dos leads</div><div class="cfg-panel-sub">Todo lead recebido por este webhook entra automaticamente neste funil e nesta etapa.</div></div></div>
+      <div class="cfg-form-grid">
+        <select class="form-input" id="cfg-whk-funnel" onchange="cfgWebhookFunnelChange(this.value)">${cfgWebhookFunnelOptions(funnelId)}</select>
+        <select class="form-input" id="cfg-whk-stage">${cfgWebhookStageOptions(funnelId,k.defaultStageId||'')}</select>
+      </div>
+      <div class="cfg-actions" style="margin-top:12px">
+        <button class="cfg-btn primary" onclick="cfgWebhookSaveDestino()">Salvar destino</button>
+      </div>
+    </div>
+    <div class="cfg-panel">
+      <div class="cfg-panel-head"><div><div class="cfg-panel-title">Payload recomendado</div><div class="cfg-panel-sub">Modelo simples para criar lead no CRM.</div></div></div>
+      <pre style="white-space:pre-wrap;background:#12112A;color:#EDE9FE;border-radius:12px;padding:14px;font-size:12px;overflow:auto">{
+  "nome": "Nome do lead",
+  "telefone": "(00) 00000-0000",
+  "email": "lead@email.com",
+  "origem": "Meta Ads",
+  "valor": 1500,
+  "responsavelEmail": "vendedor@email.com",
+  "apiKey": "${escHtml(key)}"
+}</pre>
+    </div>`;
+}
+
 function renderConfiguracoesWebhookApi(){
   const page=document.getElementById('page-configuracoes');
-  const url=cfgWebhookUrl();
-  const key=cfgWebhookKey();
+  if(!page)return;
   const outgoing=JSON.parse(localStorage.getItem('gx2_outgoing_webhooks')||'[]');
   page.innerHTML=`
     <div class="cfg-hero">
@@ -5865,25 +5982,7 @@ function renderConfiguracoesWebhookApi(){
       <div class="cfg-badge">🔗 API do Gex Flow</div>
     </div>
     ${configTabbar('config-webhook-api')}
-    <div class="cfg-panel">
-      <div class="cfg-panel-head"><div><div class="cfg-panel-title">Webhook de entrada</div><div class="cfg-panel-sub">Use esta URL para receber leads, vendas, tarefas, eventos e dados externos.</div></div></div>
-      <div class="cfg-copy-row"><code>${escHtml(url)}</code><button class="cfg-btn" onclick="copyTextSafe('${escAttr(url)}','URL')">Copiar URL</button></div>
-      <div class="cfg-copy-row"><code>${escHtml(key)}</code><button class="cfg-btn" onclick="copyTextSafe('${escAttr(key)}','Chave')">Copiar chave</button></div>
-      <div class="cfg-note">Envie a chave no header <b>x-gex-key</b> ou no corpo JSON como <b>apiKey</b>.</div>
-    </div>
-    <div class="cfg-panel">
-      <div class="cfg-panel-head"><div><div class="cfg-panel-title">Payload recomendado</div><div class="cfg-panel-sub">Modelo simples para criar lead no CRM.</div></div></div>
-      <pre style="white-space:pre-wrap;background:#12112A;color:#EDE9FE;border-radius:12px;padding:14px;font-size:12px;overflow:auto">{
-  "tipo": "lead",
-  "apiKey": "${escHtml(key)}",
-  "nome": "Nome do lead",
-  "telefone": "(00) 00000-0000",
-  "email": "lead@email.com",
-  "origem": "Meta Ads",
-  "valor": 1500,
-  "responsavelEmail": "vendedor@email.com"
-}</pre>
-    </div>
+    <div id="cfg-webhook-root">${cfgWebhookPanelHtml()}</div>
     <div class="cfg-panel">
       <div class="cfg-panel-head">
         <div><div class="cfg-panel-title">Webhooks de saída do CRM</div><div class="cfg-panel-sub">Cadastre URLs externas para receber eventos do Gex Flow, como lead criado, oportunidade ganha ou tarefa concluída.</div></div>
@@ -5903,6 +6002,7 @@ function renderConfiguracoesWebhookApi(){
       </div>
       <div style="margin-top:14px">${outgoing.length?outgoing.map(w=>`<div class="cfg-copy-row"><code>${escHtml(w.event)} · ${escHtml(w.url)}</code><button class="cfg-btn" onclick="removeOutgoingWebhook('${w.id}')">Remover</button></div>`).join(''):'<div class="empty" style="padding:20px">Nenhum webhook de saída cadastrado.</div>'}</div>
     </div>`;
+  if(!cfgWhkState.booted&&!cfgWhkState.loading)cfgWebhookKeyBoot();
 }
 
 function addOutgoingWebhook(){
