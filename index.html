@@ -8885,6 +8885,17 @@ function isLostOpportunityLocal(o){
 function salesDateInPeriod(raw,period){
   if(!period||period==='todos')return true;
   const d=_parseReportDate(raw);
+  // Além dos períodos pré-definidos (string: 'mes'/'30dias'/'90dias'/'ano'),
+  // aceita também um objeto {mes,ano} no formato do dashFilter do Início —
+  // é o que faz o card "Performance Comercial" da tela Início reagir ao
+  // filtro de mês/ano escolhido ali em cima, em vez de ficar sempre fixo
+  // mostrando "todos os períodos".
+  if(typeof period==='object'){
+    if(!d)return true; // sem data no lead: não exclui, mesmo padrão de leadInPeriod/leadInPipelinePeriod
+    if(period.mes&&(d.getMonth()+1)!==period.mes)return false;
+    if(period.ano&&d.getFullYear()!==period.ano)return false;
+    return true;
+  }
   if(!d)return period==='todos';
   const now=new Date();
   if(period==='mes')return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
@@ -8959,6 +8970,10 @@ function getSalesSummary(rows){
 }
 
 function salesPeriodLabel(period){
+  if(period&&typeof period==='object'){
+    const MESES=['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    return period.mes?`${MESES[period.mes]} / ${period.ano}`:`Ano ${period.ano}`;
+  }
   return {mes:'Este mês', '30dias':'Últimos 30 dias','90dias':'Últimos 90 dias',ano:'Ano atual',todos:'Todos os períodos'}[period]||'Este mês';
 }
 
@@ -9003,7 +9018,11 @@ function renderSalesTeamHome(){
     if(charts)charts.insertAdjacentElement('afterend',sec);
     else page.appendChild(sec);
   }
-  const period='todos';
+  // Usa o mesmo filtro de mês/ano do resto da tela Início (dashFilter),
+  // em vez de um período fixo "todos" — sem isso, este card de ranking
+  // de vendedores nunca mudava quando a pessoa trocava o período lá em
+  // cima, mesmo os outros cards/gráficos da página já reagindo certo.
+  const period={...dashFilter};
   const rows=getSalesTeamMetrics(period);
   const sum=getSalesSummary(rows);
   const title=isSalesManagerView()?'Performance Comercial por Vendedor':'Minha Performance Comercial';
