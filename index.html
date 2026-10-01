@@ -2536,13 +2536,6 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:5px">Quando preenchida, cada envio leva o cabeçalho <code>X-GexFlow-Signature</code> (HMAC SHA-256) pra você validar que veio do GexFlow.</div>
       </div>
-      <div class="form-group">
-        <label class="form-label">Chave de API (somente leitura)</label>
-        <div style="display:flex;gap:8px">
-          <input class="form-input" id="api-key" readonly style="font-family:monospace;font-size:12px">
-          <button class="btn btn-ghost" onclick="copyApiKey()">Copiar</button>
-        </div>
-      </div>
       <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Eventos enviados automaticamente</div>
       <div id="wh-events" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">
         <label style="display:flex;align-items:center;gap:5px;font-size:12px"><input type="checkbox" class="wh-ev-chk" value="cliente.criado" checked> cliente.criado</label>
@@ -5268,7 +5261,6 @@ function dropLead(e,stageId,stageName){
 
 // ═══ WEBHOOK ═══
 async function openWebhookModal(){
-  document.getElementById('api-key').value=localStorage.getItem('gx2_api_key')||'';
   document.getElementById('wh-ov').classList.add('open');
   const urlEl=document.getElementById('wh-url'),secretEl=document.getElementById('wh-secret'),clearBtn=document.getElementById('wh-secret-clear-btn');
   urlEl.value='';secretEl.value='';secretEl.placeholder='Deixe em branco pra não assinar';clearBtn.style.display='none';
@@ -5308,10 +5300,6 @@ async function saveWebhook(){
   }catch(err){
     toast(err.message||'Erro ao salvar Webhook & API','#EF4444');
   }
-}
-
-function copyApiKey(){
-  navigator.clipboard?.writeText(document.getElementById('api-key').value).then(()=>toast('Chave copiada ✓','#10B981')).catch(()=>toast('Copie manualmente'));
 }
 
 async function testWebhook(){
