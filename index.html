@@ -3762,6 +3762,15 @@ async function syncOwnProfileToSupabase(updates={}){
     }
 
     // Atualiza metadata do Auth também para o fallback funcionar em qualquer navegador.
+    //
+    // IMPORTANTE: NUNCA colocar a foto de perfil (avatarUrl/avatar_url) aqui.
+    // Tudo que entra em user_metadata vai dentro do JWT que o Supabase emite
+    // pra esse usuário em TODO login/refresh — com a foto em base64 (que
+    // pode ter várias dezenas de KB) o token fica gigante e o Supabase passa
+    // a rejeitar com 400 Bad Request as chamadas às Edge Functions
+    // autenticadas (Webhook & API, Gestão de Usuários, etc.), mesmo com login
+    // válido. A foto já fica salva certinho em public.profiles (acima) — é
+    // de lá que o app deve sempre ler o avatar.
     try{
       await supabaseClient.auth.updateUser({
         data:{
@@ -3772,8 +3781,6 @@ async function syncOwnProfileToSupabase(updates={}){
           permissao:updates.permissao??sessionUser.permissao,
           role:updates.permissao??sessionUser.permissao,
           status:updates.status??sessionUser.status,
-          avatar_url:updates.avatarUrl!==undefined?updates.avatarUrl:(updates.avatarBase64!==undefined?updates.avatarBase64:sessionUser.avatarUrl||''),
-          avatarUrl:updates.avatarUrl!==undefined?updates.avatarUrl:(updates.avatarBase64!==undefined?updates.avatarBase64:sessionUser.avatarUrl||''),
           perm_overrides:sessionUser.permOverrides||{}
         }
       });
