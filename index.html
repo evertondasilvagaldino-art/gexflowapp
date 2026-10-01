@@ -20267,7 +20267,6 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
 <form id="${formId}" style="max-width:420px;margin:0 auto;font-family:Arial,sans-serif">
   <h3 style="margin:0 0 14px;font-size:18px;color:#0F172A">${title}</h3>
 ${fieldsHtmlBlock}
-  <input type="text" name="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;opacity:0" aria-hidden="true">
   <button type="submit" style="width:100%;height:46px;border:0;border-radius:10px;background:#4F46E5;color:#fff;font:700 14px Arial,sans-serif;cursor:pointer">${submitText}</button>
   <p class="gex-form-msg" style="display:none;margin-top:12px;font:13px Arial,sans-serif;color:#059669"></p>
   <p class="gex-form-err" style="display:none;margin-top:12px;font:13px Arial,sans-serif;color:#DC2626"></p>
@@ -20279,8 +20278,7 @@ ${fieldsHtmlBlock}
   var msg=form.querySelector('.gex-form-msg'),err=form.querySelector('.gex-form-err'),btn=form.querySelector('button[type="submit"]'),originalText=btn.textContent;
   form.addEventListener('submit', function(evento){
     evento.preventDefault();
-    var fd=new FormData(form),website=String(fd.get('website')||'');
-    fd.delete('website');
+    var fd=new FormData(form);
     var answers={};
     fd.forEach(function(value,key){ answers[key]=String(value); });
     err.style.display='none';
@@ -20288,7 +20286,7 @@ ${fieldsHtmlBlock}
     fetch('${GEX_PUBLIC_FORM_API}', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ slug:'${f.slug}', website:website, answers:answers, utm:{ utm_source:'', utm_medium:'', utm_campaign:'', utm_content:'', utm_term:'' } })
+      body:JSON.stringify({ slug:'${f.slug}', website:'', answers:answers, utm:{ utm_source:'', utm_medium:'', utm_campaign:'', utm_content:'', utm_term:'' } })
     }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, body:j}; }); }).then(function(res){
       if(!res.ok||!res.body.ok) throw new Error(res.body.error||'Nao foi possivel enviar agora.');
       form.reset();
