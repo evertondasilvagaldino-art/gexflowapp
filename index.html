@@ -3840,7 +3840,18 @@ function startProfilesRealtime(){
           const normalized=normalizeSupabaseProfile(row,null);
           upsertUsuarioCache(normalized);
 
-          if(sessionUser&&(normalized.id===sessionUser.id||normalizeLoginEmail(normalized.email)===normalizeLoginEmail(sessionUser.email))){
+          // Comparação por email exige que o email normalizado não seja vazio
+          // dos dois lados — sem essa guarda, duas linhas distintas de
+          // profiles SEM email cadastrado (ex.: sub-usuários "Minha Equipe"
+          // criados antes do email virar obrigatório, ou qualquer perfil com
+          // o campo em branco) batiam entre si (''===''), fazendo o sistema
+          // achar que o PRÓPRIO usuário logado tinha mudado sempre que
+          // QUALQUER outro perfil sem email era alterado — isso disparava
+          // renderPerfil() repetidamente e derrubava o conteúdo de "Minha
+          // Assinatura"/"Minha Equipe" no meio da tela (parecia a tela
+          // "fechando e abrindo" sozinha).
+          const normalizedEmailMatch=normalizeLoginEmail(normalized.email)&&normalizeLoginEmail(normalized.email)===normalizeLoginEmail(sessionUser.email);
+          if(sessionUser&&(normalized.id===sessionUser.id||normalizedEmailMatch)){
             // Se o PRÓPRIO usuário logado teve o status mudado pra Inativo
             // (ex.: assinatura Stripe cancelada/pagamento falhou enquanto ele
             // estava com o sistema aberto), derruba a sessão na hora — sem
@@ -7381,6 +7392,11 @@ async function carregarMinhaAssinatura(){
         </div>
       `;
     }
+    // Guarda o resultado pra não jogar fora o dropdown/botão (ou a tela de
+    // "assinatura ativa") num re-render em segundo plano que acontecer
+    // enquanto a pessoa ainda está escolhendo o plano — ver o guard em
+    // renderPerfil() que usa esse cache.
+    _minhaAssinaturaCache={html:box.innerHTML,at:Date.now()};
   }catch(e){
     console.warn('[GexFlow] carregarMinhaAssinatura:',e);
     if(box)box.innerHTML='<div class="empty-txt" style="font-size:12px">Não foi possível consultar sua assinatura agora.</div>';
@@ -10658,7 +10674,7 @@ function renderPerfil(){
     <div class="card card-pad" id="minha-assinatura-card" style="margin-top:14px;max-width:980px">
       <div style="font-size:14px;font-weight:600;margin-bottom:4px">💳 Minha Assinatura</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Veja sua data de vigência, cancele, reative ou contrate um plano — direto por aqui.</div>
-      <div id="minha-assinatura-content"><div class="empty-txt" style="font-size:12px">Consultando...</div></div>
+      <div id="minha-assinatura-content">${_minhaAssinaturaCache?_minhaAssinaturaCache.html:'<div class="empty-txt" style="font-size:12px">Consultando...</div>'}</div>
     </div>
     <div class="card card-pad" id="minha-equipe-card" style="margin-top:14px;max-width:980px">
       <div style="font-size:14px;font-weight:600;margin-bottom:4px">👥 Minha Equipe</div>
@@ -10676,8 +10692,19 @@ function renderPerfil(){
       </div>
     </div>`:''}`;
   if(role==='Gex Parceiro'){
-    carregarMinhaAssinatura();
     popularSelectFunisMinhaEquipe();
+    // Mesmo motivo/mesmo remédio do cache de "Minha Equipe" logo abaixo:
+    // renderPerfil() pode ser chamado de novo em segundo plano (Realtime de
+    // profiles etc.) enquanto a pessoa está no meio de escolher um plano
+    // pra contratar — sem esse cache, a cada re-render o card de "Minha
+    // Assinatura" voltava pro estado "Consultando...", apagando o
+    // dropdown/botão "Contratar plano" embaixo da pessoa e dando a
+    // impressão de o painel "ficar fechando e abrindo" sozinho, o que
+    // impedia de completar a contratação. Só busca de novo se nunca
+    // carregou ainda ou se o último carregamento já não é mais recente.
+    if(!_minhaAssinaturaCache||(Date.now()-_minhaAssinaturaCache.at)>15000){
+      carregarMinhaAssinatura();
+    }
     // renderPerfil() faz innerHTML completo da página e pode ser chamado com
     // frequência em segundo plano (Realtime de profiles, sync geral etc.) —
     // sem esse cache, TODA vez que isso acontece a lista de "Minha Equipe"
@@ -10689,6 +10716,7 @@ function renderPerfil(){
     }
   }
 }
+let _minhaAssinaturaCache=null;
 let _minhaEquipeListCache=null;
 
 // ═══ "Minha Equipe" — Gex Parceiro cria sub-usuários travados a UM funil ═══
@@ -16859,8 +16887,8 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     const yearSel=document.getElementById('dash-ano');
     const mesSel=document.getElementById('dash-mes');
     const now=new Date();
-    const year=Number(yearSel?.value || window.dashFilter?.ano || now.getFullYear());
-    const month=Number(mesSel?.value || window.dashFilter?.mes || 0);
+    const year=Number(window.dashFilter?.ano || yearSel?.value || now.getFullYear());
+    const month=Number(window.dashFilter?.mes || mesSel?.value || 0);
     const list=holidayList(year);
     let base;
     if(year===now.getFullYear()){
@@ -17045,6 +17073,12 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
 
   function bootFixes(){
     initGlobalSearch();
+    try{
+      const yearSelBoot=document.getElementById('dash-ano');
+      const mesSelBoot=document.getElementById('dash-mes');
+      if(yearSelBoot && window.dashFilter?.ano)yearSelBoot.value=String(window.dashFilter.ano);
+      if(mesSelBoot && window.dashFilter?.mes)mesSelBoot.value=String(window.dashFilter.mes);
+    }catch(e){}
     updateHolidayBanner();
     const oldSetDash=window.setDashFilter;
     if(typeof oldSetDash==='function' && !oldSetDash._gexHolidayWrapped){
@@ -18031,7 +18065,7 @@ ${gxlCloseScriptTag}`;
     // informação livre e personalizável junto com o lead.
     const descField=fields.find(x=>x.type==='textarea');
     const descValue=descField?String(data[descField.name]||'').trim():'';
-    const lead={id:uid(),nome:data.nome||data.nome_completo||data.name||'Lead de formulário',email:data.email||'',telefone:data.telefone||data.whatsapp||data.phone||'',origem:`Formulário: ${f.name}`,desc:descValue,estagio:f.stageName||'Novo Lead',stageId:f.stageId||'',funnelId:f.funnelId||'',data:new Date().toLocaleDateString('pt-BR'),createdAt:new Date().toISOString(),utm_source:data.utm_source||'',utm_medium:data.utm_medium||'',utm_campaign:data.utm_campaign||'',utm_content:data.utm_content||'',formData:data};DB.push('leads',lead);DB.push('lead_form_submissions',{id:uid(),formId:f.id,formName:f.name,leadId:lead.id,data,createdAt:new Date().toISOString()});root.querySelector('.gl-public-card').innerHTML=`<div class="gl-success"><i>✓</i><h2>Formulário enviado!</h2><p>${esc(f.successMessage||'Recebemos seus dados. Em breve entraremos em contato!')}</p></div>`;try{fireWebhook('lead.criado',{...lead,formId:f.id})}catch(err){}if(!preview&&f.metaPixelId){try{window.fbq&&window.fbq('track','Lead')}catch(err){}}}
+    const lead={id:uid(),nome:data.nome||data.nome_completo||data.name||'Lead de formulário',email:data.email||'',telefone:data.telefone||data.whatsapp||data.phone||'',origem:`Formulário: ${f.name}`,desc:descValue,estagio:f.stageName||'Novo Lead',stageId:f.stageId||'',funnelId:f.funnelId||'',data:new Date().toLocaleDateString('pt-BR'),dataInicio:new Date().toISOString().slice(0,10),createdAt:new Date().toISOString(),utm_source:data.utm_source||'',utm_medium:data.utm_medium||'',utm_campaign:data.utm_campaign||'',utm_content:data.utm_content||'',formData:data};DB.push('leads',lead);DB.push('lead_form_submissions',{id:uid(),formId:f.id,formName:f.name,leadId:lead.id,data,createdAt:new Date().toISOString()});root.querySelector('.gl-public-card').innerHTML=`<div class="gl-success"><i>✓</i><h2>Formulário enviado!</h2><p>${esc(f.successMessage||'Recebemos seus dados. Em breve entraremos em contato!')}</p></div>`;try{fireWebhook('lead.criado',{...lead,formId:f.id})}catch(err){}if(!preview&&f.metaPixelId){try{window.fbq&&window.fbq('track','Lead')}catch(err){}}}
   }
   window.gxlOpen=id=>{const f=forms().find(x=>x.id===id);if(!f)return;gxlCloseMenu();showPublicForm(f,true)};
   function openPublicForm(){const q=new URLSearchParams(location.search),slug=q.get('gex_form');if(!slug)return;const f=forms().find(x=>x.slug===slug&&(x.active||q.get('gex_preview')==='1'));if(f)showPublicForm(f,false)}
