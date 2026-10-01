@@ -20240,59 +20240,69 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
 <!-- Prefere um botao/link em vez de incorporar o formulario? Use este endereco direto: -->
 <!-- ${url} -->`;
   }
-  function gxlWebhookSnippet(f){
-    const fields=(f.fields||[]).filter(x=>x && x.name);
-    const names=fields.length?fields.map(x=>x.name):['nome_completo','whatsapp','email'];
-    const destructure=names.join(', ');
-    const answersBody=names.map(n=>`        ${n}`).join(',\n');
-    const exampleCall=names.map(n=>`    ${n}: document.getElementById('${n}').value`).join(',\n');
-    return `// === Enviar lead do SEU formulario (que ja existe no site) para o GexFlow ===
-// Formulario de destino: "${(f.name||'').replace(/\*\//g,'')}"  |  Endpoint fixo, nao muda entre formularios.
-// Os nomes abaixo (${names.join(', ')}) sao os campos configurados nesse formulario especifico dentro do GexFlow.
-// Troque o conteudo da funcao de exemplo (getElementById) pelos ids/valores reais do SEU formulario.
-
-const GEX_WEBHOOK_URL = '${GEX_PUBLIC_FORM_API}';
-const GEX_FORM_SLUG = '${f.slug}';
-
-async function enviarLeadParaGexFlow({ ${destructure} }) {
-  const resposta = await fetch(GEX_WEBHOOK_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      slug: GEX_FORM_SLUG,
-      website: '', // NAO altere - campo anti-spam, sempre vazio
-      answers: {
-${answersBody}
-      },
-      utm: {
-        utm_source: '',
-        utm_medium: '',
-        utm_campaign: '',
-        utm_content: '',
-        utm_term: ''
-      }
-    })
-  });
-  const resultado = await resposta.json().catch(() => ({}));
-  if (!resposta.ok || !resultado.ok) {
-    throw new Error(resultado.error || 'Nao foi possivel enviar o formulario agora.');
+  function gxlFieldInputType(t){
+    return t==='email'?'email':t==='phone'?'tel':t==='number'?'number':t==='date'?'date':'text';
   }
-  return resultado; // { ok: true, leadId, message }
-}
-
-// Exemplo de uso no submit do SEU formulario (adapte os ids abaixo para os do seu HTML):
-//
-// document.getElementById('meu-formulario').addEventListener('submit', async (evento) => {
-//   evento.preventDefault();
-//   try {
-//     await enviarLeadParaGexFlow({
-${exampleCall}
-//     });
-//     alert('Recebemos seus dados, obrigado!');
-//   } catch (erro) {
-//     alert(erro.message);
-//   }
-// });`;
+  const gxlCloseScriptTag='</scr'+'ipt>';
+  function gxlHtmlFormSnippet(f){
+    const fields=(f.fields||[]).filter(x=>x&&x.name);
+    const useFields=fields.length?fields:[{name:'nome_completo',label:'Nome completo',type:'text',required:true,placeholder:'Seu nome'},{name:'whatsapp',label:'WhatsApp',type:'phone',required:true,placeholder:'(00) 00000-0000'},{name:'email',label:'E-mail',type:'email',required:false,placeholder:'voce@exemplo.com'}];
+    const formId='gex-form-'+(f.slug||'form').replace(/[^a-z0-9-]/g,'');
+    const title=esc(f.title||f.name||'Fale com a gente');
+    const submitText=esc((f.submitButtonText||'').trim()||'Enviar inscrição');
+    const fieldsHtmlBlock=useFields.map(fl=>{
+      const name=esc(fl.name),label=esc(fl.label||fl.name),ph=esc(fl.placeholder||''),req=fl.required?' required':'';
+      if(fl.type==='textarea')return `  <label style="display:block;margin-bottom:12px;font:600 12px/1.4 Arial,sans-serif;color:#334155">${label}${fl.required?' *':''}
+    <textarea name="${name}"${req} placeholder="${ph}" style="width:100%;min-height:80px;margin-top:4px;padding:10px;border:1px solid #CBD5E1;border-radius:8px;font:14px Arial,sans-serif;box-sizing:border-box"></textarea>
+  </label>`;
+      if(fl.type==='select')return `  <label style="display:block;margin-bottom:12px;font:600 12px/1.4 Arial,sans-serif;color:#334155">${label}${fl.required?' *':''}
+    <select name="${name}"${req} style="width:100%;height:42px;margin-top:4px;padding:0 10px;border:1px solid #CBD5E1;border-radius:8px;font:14px Arial,sans-serif;box-sizing:border-box"><option value="">Selecione</option>${(fl.options||[]).map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select>
+  </label>`;
+      return `  <label style="display:block;margin-bottom:12px;font:600 12px/1.4 Arial,sans-serif;color:#334155">${label}${fl.required?' *':''}
+    <input type="${gxlFieldInputType(fl.type)}" name="${name}"${req} placeholder="${ph}" style="width:100%;height:42px;margin-top:4px;padding:0 10px;border:1px solid #CBD5E1;border-radius:8px;font:14px Arial,sans-serif;box-sizing:border-box">
+  </label>`;
+    }).join('\n');
+    return `<!-- GexFlow - formulario pronto "${(f.name||'').replace(/-->/g,'')}" -->
+<!-- Cole este bloco inteiro onde o formulario deve aparecer no seu site. Ja vem funcionando, sem precisar editar nada. -->
+<form id="${formId}" style="max-width:420px;margin:0 auto;font-family:Arial,sans-serif">
+  <h3 style="margin:0 0 14px;font-size:18px;color:#0F172A">${title}</h3>
+${fieldsHtmlBlock}
+  <input type="text" name="website" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;opacity:0" aria-hidden="true">
+  <button type="submit" style="width:100%;height:46px;border:0;border-radius:10px;background:#4F46E5;color:#fff;font:700 14px Arial,sans-serif;cursor:pointer">${submitText}</button>
+  <p class="gex-form-msg" style="display:none;margin-top:12px;font:13px Arial,sans-serif;color:#059669"></p>
+  <p class="gex-form-err" style="display:none;margin-top:12px;font:13px Arial,sans-serif;color:#DC2626"></p>
+</form>
+<script>
+(function(){
+  var form=document.getElementById('${formId}');
+  if(!form)return;
+  var msg=form.querySelector('.gex-form-msg'),err=form.querySelector('.gex-form-err'),btn=form.querySelector('button[type="submit"]'),originalText=btn.textContent;
+  form.addEventListener('submit', function(evento){
+    evento.preventDefault();
+    var fd=new FormData(form),website=String(fd.get('website')||'');
+    fd.delete('website');
+    var answers={};
+    fd.forEach(function(value,key){ answers[key]=String(value); });
+    err.style.display='none';
+    btn.disabled=true; btn.textContent='Enviando...';
+    fetch('${GEX_PUBLIC_FORM_API}', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ slug:'${f.slug}', website:website, answers:answers, utm:{ utm_source:'', utm_medium:'', utm_campaign:'', utm_content:'', utm_term:'' } })
+    }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, body:j}; }); }).then(function(res){
+      if(!res.ok||!res.body.ok) throw new Error(res.body.error||'Nao foi possivel enviar agora.');
+      form.reset();
+      Array.prototype.forEach.call(form.querySelectorAll('input,select,textarea,button'), function(el){ el.style.display='none'; });
+      msg.textContent=res.body.message||'Recebemos seus dados, obrigado!';
+      msg.style.display='block';
+    }).catch(function(e){
+      err.textContent=e.message||'Erro ao enviar. Tente novamente.';
+      err.style.display='block';
+      btn.disabled=false; btn.textContent=originalText;
+    });
+  });
+})();
+${gxlCloseScriptTag}`;
   }
   let glCodeTab='embed';
   window.gxlCode=function(id){
@@ -20308,16 +20318,15 @@ ${exampleCall}
     document.body.appendChild(ov);
   };
   function gxlCodeModalHtml(f){
-    const embedCode=gxlEmbedSnippet(f),webhookCode=gxlWebhookSnippet(f);
-    const isEmbed=glCodeTab==='embed';
+    const htmlCode=gxlHtmlFormSnippet(f),embedCode=gxlEmbedSnippet(f);
+    const tabs=[['embed','Incorporar (iframe)',embedCode,'Cole este código na página do seu site onde o formulário deve aparecer. Ele carrega sozinho, com os mesmos campos e destino (funil/etapa) configurados aqui.'],['webhook','Webhook (meu form já existe)',htmlCode,'Já tem uma página pronta no site? Cole este bloco de HTML onde o formulário deve aparecer — ele já vem com os campos certos e o envio funcionando, sem precisar editar nada.']];
+    const active=tabs.find(t=>t[0]===glCodeTab)||tabs[0];
+    const tabBtns=tabs.map(t=>`<button onclick="gxlSwitchCodeTab('${t[0]}')" style="border:0;background:none;cursor:pointer;padding:8px 4px;font-size:12px;font-weight:800;color:${t[0]===active[0]?'#4F46E5':'#94A3B8'};border-bottom:2px solid ${t[0]===active[0]?'#4F46E5':'transparent'}">${t[1]}</button>`).join('');
     return `<div style="background:#fff;border-radius:16px;max-width:680px;width:100%;padding:24px;box-shadow:0 24px 70px rgba(0,0,0,.35)">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h3 style="font-size:16px">Código para o site - ${esc(f.name)}</h3><span style="cursor:pointer;font-size:20px;color:#94A3B8" onclick="document.getElementById('gl-code-ov').remove()">&times;</span></div>
-      <div style="display:flex;gap:6px;margin:14px 0 12px;border-bottom:1px solid #E2E8F0">
-        <button onclick="gxlSwitchCodeTab('embed')" style="border:0;background:none;cursor:pointer;padding:8px 4px;font-size:12.5px;font-weight:800;color:${isEmbed?'#4F46E5':'#94A3B8'};border-bottom:2px solid ${isEmbed?'#4F46E5':'transparent'}">Incorporar (iframe)</button>
-        <button onclick="gxlSwitchCodeTab('webhook')" style="border:0;background:none;cursor:pointer;padding:8px 4px;font-size:12.5px;font-weight:800;color:${isEmbed?'#94A3B8':'#4F46E5'};border-bottom:2px solid ${isEmbed?'transparent':'#4F46E5'}">Webhook (meu form já existe)</button>
-      </div>
-      <p style="font-size:12px;color:#64748B;margin-bottom:12px">${isEmbed?'Cole este código na página do seu site onde o formulário deve aparecer. Ele carrega sozinho, com os mesmos campos e destino (funil/etapa) configurados aqui.':'Já tem um formulário pronto no site? Use este código para enviar os dados dele direto para o GexFlow, sem precisar trocar o visual do seu formulário.'}</p>
-      <textarea readonly style="width:100%;height:280px;font-family:monospace;font-size:11px;border:1px solid #E2E8F0;border-radius:10px;padding:12px;background:#F8FAFC;box-sizing:border-box" id="gl-code-text">${esc(isEmbed?embedCode:webhookCode)}</textarea>
+      <div style="display:flex;gap:10px;margin:14px 0 12px;border-bottom:1px solid #E2E8F0;flex-wrap:wrap">${tabBtns}</div>
+      <p style="font-size:12px;color:#64748B;margin-bottom:12px">${active[3]}</p>
+      <textarea readonly style="width:100%;height:280px;font-family:monospace;font-size:11px;border:1px solid #E2E8F0;border-radius:10px;padding:12px;background:#F8FAFC;box-sizing:border-box" id="gl-code-text">${esc(active[2])}</textarea>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="gl-btn" onclick="document.getElementById('gl-code-ov').remove()">Fechar</button><button class="gl-btn primary" onclick="gxlCopyFormCode()">📋 Copiar código</button></div>
     </div>`;
   }
