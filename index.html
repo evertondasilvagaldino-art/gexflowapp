@@ -5891,19 +5891,34 @@ async function cfgWebhookKeyUpdate(payload,successMsg){
   }
 }
 
-function cfgWebhookFunnelOptions(selectedId){
+// Lista de funis visível pra esse usuário (fundador vê todos; parceiro só os
+// seus) — centralizada aqui porque o <select> do funil e o das etapas
+// precisam concordar sobre qual funil está "selecionado de verdade": quando
+// nenhum destino foi salvo ainda, o navegador escolhe sozinho a primeira
+// <option> do funil, mas se a gente montasse as etapas com base no
+// defaultFunnelId (vazio nesse caso) o combo de etapas ficava em branco —
+// era exatamente esse o bug: funil aparecia selecionado, etapas vazias.
+function cfgWebhookVisibleFunnels(){
   try{
     ensureDefaultCommercialFunnel();
     const all=getCommercialFunnels().filter(f=>!f.isArchived);
-    const visible=typeof getVisibleCommercialFunnels==='function'?getVisibleCommercialFunnels(all):all;
-    return visible.map(f=>`<option value="${escAttr(f.id)}" ${f.id===selectedId?'selected':''}>${escHtml(f.name)}</option>`).join('');
-  }catch(e){return ''}
+    return typeof getVisibleCommercialFunnels==='function'?getVisibleCommercialFunnels(all):all;
+  }catch(e){return []}
+}
+function cfgWebhookResolveFunnelId(wantedId){
+  const funnels=cfgWebhookVisibleFunnels();
+  if(wantedId&&funnels.some(f=>f.id===wantedId))return wantedId;
+  return funnels[0]?.id||'';
+}
+function cfgWebhookFunnelOptions(selectedId){
+  return cfgWebhookVisibleFunnels().map(f=>`<option value="${escAttr(f.id)}" ${f.id===selectedId?'selected':''}>${escHtml(f.name)}</option>`).join('');
 }
 function cfgWebhookStageOptions(funnelId,selectedStageId){
   try{
-    const f=getCommercialFunnels().find(x=>x.id===funnelId);
+    const f=cfgWebhookVisibleFunnels().find(x=>x.id===funnelId)||getCommercialFunnels().find(x=>x.id===funnelId);
     const stages=(f?.stages||[]).slice().sort((a,b)=>(a.order||0)-(b.order||0));
-    return stages.map(s=>`<option value="${escAttr(s.id)}" data-name="${escAttr(s.name)}" ${s.id===selectedStageId?'selected':''}>${escHtml(s.name)}</option>`).join('');
+    const resolvedStageId=selectedStageId&&stages.some(s=>s.id===selectedStageId)?selectedStageId:(stages[0]?.id||'');
+    return stages.map(s=>`<option value="${escAttr(s.id)}" data-name="${escAttr(s.name)}" ${s.id===resolvedStageId?'selected':''}>${escHtml(s.name)}</option>`).join('');
   }catch(e){return ''}
 }
 
@@ -5934,7 +5949,7 @@ function cfgWebhookPanelHtml(){
   if(cfgWhkState.error&&!cfgWhkState.key){
     return `<div class="cfg-panel"><div class="cfg-panel-head"><div><div class="cfg-panel-title">Webhook de entrada</div><div class="cfg-panel-sub" style="color:#DC2626">${escHtml(cfgWhkState.error)}</div></div></div><button class="cfg-btn" onclick="cfgWebhookKeyBoot()">Tentar de novo</button></div>`;
   }
-  const k=cfgWhkState.key||{},key=k.apiKey||'',funnelId=k.defaultFunnelId||'';
+  const k=cfgWhkState.key||{},key=k.apiKey||'',funnelId=cfgWebhookResolveFunnelId(k.defaultFunnelId||'');
   return `
     <div class="cfg-panel">
       <div class="cfg-panel-head"><div><div class="cfg-panel-title">Webhook de entrada</div><div class="cfg-panel-sub">Use esta URL e esta chave para receber leads de fora do GexFlow (Make, Zapier, sistema próprio). A chave é pessoal — se você é parceiro, é só sua, separada da do fundador, cada uma com seu próprio destino.</div></div></div>
