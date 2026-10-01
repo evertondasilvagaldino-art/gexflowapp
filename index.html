@@ -2984,9 +2984,6 @@ const ROLE_PERMS = {
     // conecta o Facebook DELE, o painel mostra só a conta de anúncios dele,
     // nunca dados da empresa ou de outro parceiro — então não é uma tela de
     // nível empresa como pareceria à primeira vista.
-    // Fica de fora só "API": aquela aba é só uma vitrine que redireciona pra
-    // Configurações > Webhook & API, tela de infra da empresa que este
-    // papel não tem acesso mesmo (config_webhook_api).
     // Igual às Automações, o parceiro só vê/edita/exclui os PRÓPRIOS
     // formulários e botões de WhatsApp — nunca os de outro parceiro nem os
     // da empresa (forms()/widgets() dentro do script de Gerar Leads filtram
@@ -2994,6 +2991,15 @@ const ROLE_PERMS = {
     gerar_leads_whatsapp:{view:true,create:true,edit:true,delete:true},
     gerar_leads_formularios:{view:true,create:true,edit:true,delete:true},
     gerar_leads_meta:{view:true,edit:true},
+    // "API" (vitrine dentro de Gerar Leads que leva pra Configurações >
+    // Webhook & API) e config_webhook_api liberados: desde que a chave de
+    // webhook de entrada virou pessoal (uma linha por usuário na tabela
+    // gex_webhook_keys, com funil/etapa de destino próprios), o parceiro
+    // também precisa conseguir abrir essa tela — só que repairConfiguracoesMenuVisibility()
+    // e getAllowedConfigTabs() já filtram pra ele ver SÓ a aba "Webhook & API"
+    // dentro de Configurações, nunca Pagamentos/Dados da Empresa/Usuários.
+    gerar_leads_api:{view:true},
+    config_webhook_api:{view:true,edit:true},
     perfil:{view:true,edit:true},
   },
   // Papel mais enxuto que existe: sub-usuário criado por um Gex Parceiro
