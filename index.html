@@ -5423,15 +5423,10 @@ function isExternalPartnerRole(role){
   return r==='Gex Parceiro'||r==='Operador de Funil';
 }
 
-// Notificação de "negócio ganho": Fundador/Adm Gerente e qualquer papel
-// interno (Colaborador, CS/Atendimento etc.) continuam recebendo o aviso
-// pro time interno inteiro (comportamento de sempre, via GMAIL da empresa —
-// send-notification-email). Só um Gex Parceiro (ou Operador de Funil dele)
-// NÃO dispara mais esse e-mail pro time interno da GEX — em vez disso,
-// manda só pra CAIXA DE E-MAIL QUE ELE MESMO configurou em Integrações >
-// Conexão de e-mail (SMTP), e só se ele já tiver configurado uma. Sem
-// configuração, não manda e-mail nenhum (nunca cai de volta pro e-mail
-// interno da empresa).
+// Notificação de "negócio ganho". Mesmo princípio do lead novo: Gex
+// Parceiro fica 100% INDEPENDENTE do e-mail central (só a caixa SMTP
+// própria dele, se configurada) — Fundador/Adm Gerente/Colaborador/
+// CS-Atendimento usam sempre o aviso central de sempre.
 function notifyDealWon(lead){
   try{
     if(typeof isSalesManagerView!=='function'||isSalesManagerView()||!isExternalPartnerRole(sessionUser?.permissao||sessionUser?.cargo)){
@@ -5500,14 +5495,18 @@ function resolveLeadOwnerForNotification(lead){
   }
 }
 
-// Notificação de "lead novo": mesmo princípio do negócio ganho. Fundador/
-// Adm Gerente e leads sem dono identificável (funil compartilhado)
-// continuam avisando o time interno da GEX (comportamento de sempre, via
-// send-notification-email). Um lead que pertence a um Gex Parceiro (ou
-// outro papel abaixo de Fundador/Adm Gerente) não dispara mais esse
-// e-mail interno — em vez disso, avisa só a CAIXA DE E-MAIL que o próprio
-// dono configurou em Integrações > Conexão de e-mail (SMTP), e só se ele
-// já tiver configurado uma. Sem configuração, não manda e-mail nenhum.
+// Notificação de "lead novo". A caixa CENTRAL da GEX (send-notification-email,
+// que avisa o time interno inteiro) SEMPRE recebe o aviso, não importa quem
+// seja o dono do lead — a pedido explícito do Everton, pra nunca ficar sem
+// saber que um lead novo chegou em QUALQUER funil, interno ou de parceiro.
+// Além disso, quando o dono é um Gex Parceiro (ou Operador de Funil dele)
+// com a própria caixa de e-mail (SMTP) conectada em Integrações, manda
+// IMPORTANTE: o Gex Parceiro continua 100% INDEPENDENTE do e-mail central —
+// a pedido explícito do Everton, não mexer nisso. Dono interno (Fundador,
+// Adm Gerente, Colaborador, CS/Atendimento) = só o aviso central de sempre.
+// Dono Gex Parceiro (ou Operador de Funil dele) = só a caixa SMTP própria
+// que ele configurou em Integrações, nunca o e-mail central — sem SMTP
+// configurado, não manda e-mail nenhum (não cai de volta pro central).
 function notifyLeadCreated(lead){
   try{
     const {ownerId,isManager}=resolveLeadOwnerForNotification(lead);
