@@ -5407,17 +5407,34 @@ async function notifySelfEmail(to,subject,text,ownerId){
   }
 }
 
-// Notificação de "negócio ganho": Fundador/Adm Gerente continuam recebendo
-// o aviso pro time interno inteiro (comportamento de sempre, via GMAIL da
-// empresa — send-notification-email). Quem NÃO tem visão gerencial (ex.:
-// Gex Parceiro) NÃO dispara mais esse e-mail pro time interno da GEX — em
-// vez disso, manda só pra CAIXA DE E-MAIL QUE ELE MESMO configurou em
-// Integrações > Conexão de e-mail (SMTP), e só se ele já tiver configurado
-// uma. Sem configuração, não manda e-mail nenhum (nunca cai de volta pro
-// e-mail interno da empresa).
+// Só Gex Parceiro e o sub-usuário dele (Operador de Funil) têm uma caixa de
+// e-mail PRÓPRIA (SMTP) pra receber avisos fora do e-mail interno da GEX —
+// são "clientes" da plataforma, de fora da empresa. Qualquer outro papel
+// (Fundador, Adm Gerente, Colaborador, CS/Atendimento) é time INTERNO e
+// sempre deve continuar recebendo o aviso por e-mail de sempre (pro time
+// inteiro, via send-notification-email) — mesmo sendo esse quem NÃO é
+// Fundador/Adm Gerente (isSalesManagerView()==false). Antes dessa função
+// existir, o código tratava "não é Fundador/Adm Gerente" como sinônimo de
+// "é Gex Parceiro", então um lead/negócio de um Colaborador comum (que não
+// tem e nunca vai configurar SMTP próprio) simplesmente não disparava
+// e-mail nenhum.
+function isExternalPartnerRole(role){
+  const r=resolveRole(role||'Colaborador');
+  return r==='Gex Parceiro'||r==='Operador de Funil';
+}
+
+// Notificação de "negócio ganho": Fundador/Adm Gerente e qualquer papel
+// interno (Colaborador, CS/Atendimento etc.) continuam recebendo o aviso
+// pro time interno inteiro (comportamento de sempre, via GMAIL da empresa —
+// send-notification-email). Só um Gex Parceiro (ou Operador de Funil dele)
+// NÃO dispara mais esse e-mail pro time interno da GEX — em vez disso,
+// manda só pra CAIXA DE E-MAIL QUE ELE MESMO configurou em Integrações >
+// Conexão de e-mail (SMTP), e só se ele já tiver configurado uma. Sem
+// configuração, não manda e-mail nenhum (nunca cai de volta pro e-mail
+// interno da empresa).
 function notifyDealWon(lead){
   try{
-    if(typeof isSalesManagerView!=='function'||isSalesManagerView()){
+    if(typeof isSalesManagerView!=='function'||isSalesManagerView()||!isExternalPartnerRole(sessionUser?.permissao||sessionUser?.cargo)){
       notifyEmailEvent('negocio.ganho',lead);
       return;
     }
@@ -5472,7 +5489,11 @@ function resolveLeadOwnerForNotification(lead){
       (ownerEmail&&normalizeLoginEmail(x.email||'')===ownerEmail)
     );
     const role=resolveRole(u?.permissao||u?.cargo||'Colaborador');
-    const isManager=['Fundador','Adm Gerente'].includes(role);
+    // "isManager" aqui não significa Fundador/Adm Gerente — significa "usa o
+    // e-mail interno da empresa" (ver isExternalPartnerRole acima). Um
+    // Colaborador/CS não é gerente, mas também não é Gex Parceiro, então
+    // continua recebendo o aviso interno de sempre.
+    const isManager=!isExternalPartnerRole(role);
     return {ownerId:ownerId||u?.id||'',isManager};
   }catch(e){
     return {ownerId:'',isManager:true}; // na dúvida, mantém o comportamento de sempre (aviso interno)
