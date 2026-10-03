@@ -18938,13 +18938,25 @@ ${gxlCloseScriptTag}`;
   // aqui devolve o usuário inteiro em vez de só {ownerId,isManager}.
   function getLeadOwnerFullUser(lead){
     try{
-      const ownerId=(typeof getLeadOwnerId==='function'?getLeadOwnerId(lead):'')||'';
-      const ownerEmail=(typeof getLeadOwnerEmail==='function'?normalizeLoginEmail(getLeadOwnerEmail(lead)):'')||'';
+      let ownerId=(typeof getLeadOwnerId==='function'?getLeadOwnerId(lead):'')||'';
+      let ownerEmail=(typeof getLeadOwnerEmail==='function'?normalizeLoginEmail(getLeadOwnerEmail(lead)):'')||'';
       // Além de id/email, também tenta por NOME (mesmo fallback que
       // resolveLeadOwnerFromForm/isLeadOwnedByUser já usam em outros lugares
       // do sistema) — cobre o caso de um lead antigo/importado que só tem
       // responsavelNome salvo, sem o id vinculado corretamente.
       const ownerName=(typeof getLeadOwnerName==='function'?getLeadOwnerName(lead):'')||'';
+      // Lead "Sem responsável" (card do Pipeline mostra isso quando ninguém
+      // foi atribuído explicitamente) — mesma regra já usada no aviso de
+      // "lead novo" por e-mail (resolveLeadOwnerForNotification): herda o
+      // responsável do FUNIL em que o lead está (quem criou aquele funil),
+      // em vez de simplesmente desistir de achar alguém pra avisar.
+      if(!ownerId&&!ownerEmail&&!ownerName&&lead?.funnelId){
+        const funnel=(typeof getCommercialFunnels==='function'?getCommercialFunnels():[]).find(f=>f.id===lead.funnelId);
+        if(funnel){
+          ownerId=String(funnel.createdBy||'');
+          ownerEmail=normalizeLoginEmail(funnel.createdByEmail||'');
+        }
+      }
       if(!ownerId&&!ownerEmail&&!ownerName)return null;
       const users=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[])||[];
       return users.find(x=>
