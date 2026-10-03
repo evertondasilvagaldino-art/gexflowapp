@@ -13573,9 +13573,23 @@ function migrateOldOpportunitiesToDefaultFunnel(){
   leads.forEach(l=>{
     let funnel=funnels.find(f=>f.id===l.funnelId&&!f.isArchived);
     if(!funnel){
-      funnel=defaultFunnel;
-      l.funnelId=defaultFunnel.id;
-      changed=true;
+      // IMPORTANTE (bug real corrigido): antes, quando o funil do lead "não
+      // aparecia" na lista local de funis, essa função assumia que o funil
+      // tinha sido excluído e já MOVIA o lead pro Funil Principal na hora,
+      // gravando isso direto na nuvem. O problema é que essa checagem roda
+      // bem cedo — às vezes ANTES da lista completa de funis (de outros
+      // usuários/parceiros/colaboradores) terminar de sincronizar do
+      // Supabase, principalmente logo depois de trocar de conta. Nesse
+      // instante, um funil de outra pessoa que só ainda não tinha chegado
+      // local parecia "apagado", e leads reais (ex.: do funil da Beatriz)
+      // eram empurrados pro Funil Principal sem ninguém pedir, perdendo a
+      // organização por funil. Sem um jeito confiável de diferenciar "ainda
+      // não carregou" de "foi excluído de verdade", o mais seguro é NUNCA
+      // mais mexer sozinho nesse caso: o lead fica com o funnelId que já
+      // tinha, intacto, até a tela certa conseguir resolvê-lo — mesmo que
+      // isso signifique que um funil raríssimo realmente excluído fique com
+      // leads "órfãos" até alguém mover esses leads manualmente.
+      return;
     }
 
     let stage=(funnel.stages||[]).find(s=>s.id===l.stageId);
