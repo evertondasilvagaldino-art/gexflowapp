@@ -7130,10 +7130,44 @@ function formProjeto(d){
   <div class="form-group"><label class="form-label">Descrição</label><textarea class="form-input" id="f-desc">${d?.desc||''}</textarea></div>`;
 }
 
+// CORREÇÃO (03/10/2026, a pedido do Everton): "Produtos" era uma única lista
+// GLOBAL (coleção 'produtos_comercial'), compartilhada entre TODO MUNDO —
+// Fundador, cada Gex Parceiro e os sub-usuários dele. Fundador e Parceiro
+// vendem produtos diferentes, então editar a lista num lugar bagunçava a
+// lista de todo mundo. Agora cada "conta" tem sua própria lista isolada:
+// Fundador/Adm Gerente/Colaborador (empresa) usam o escopo "" (vazio); cada
+// Gex Parceiro usa o escopo = o próprio id (todos os sub-usuários dele —
+// Operador de Funil — compartilham essa mesma lista, já que trabalham pro
+// mesmo Parceiro); ninguém enxerga nem herda a lista de outra conta.
+function gexGetProductsScopeKey(){
+  try{
+    const role=(typeof resolveRole==='function')?resolveRole(sessionUser?.permissao||sessionUser?.cargo||'Colaborador'):'Colaborador';
+    if(role==='Gex Parceiro')return String(sessionUser?.id||'');
+    if(role==='Operador de Funil'){
+      const usuarios=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[])||[];
+      const me=usuarios.find(u=>String(u.id)===String(sessionUser?.id||''));
+      return String(me?.parentPartnerId||me?.parent_partner_id||sessionUser?.parentPartnerId||sessionUser?.parent_partner_id||'');
+    }
+    return '';
+  }catch(e){return ''}
+}
+// Lê a coleção inteira (todas as contas) e normaliza pro formato novo
+// {name,scope}. Compatibilidade: um item salvo ANTES dessa separação era só
+// uma string solta — sempre pertencia à lista da empresa (Fundador),
+// interpretado aqui como escopo "" sem precisar reescrever nada que já
+// estava salvo.
+function _gexProdutosRawNormalizado(){
+  const raw=DB.get('produtos_comercial')||[];
+  return raw.map(p=>typeof p==='string'?{name:p,scope:''}:(p&&p.name?{name:String(p.name),scope:String(p.scope||'')}:null)).filter(Boolean);
+}
 function getProdutos(){
-  return DB.get('produtos_comercial').length
-    ? DB.get('produtos_comercial')
-    : ['Gestão de Tráfego','Social Media','Criação de Sites','Identidade Visual','Assessoria de Imprensa','Consultoria de Marketing','Produção de Conteúdo','SEO','Email Marketing','Outros'];
+  const scope=gexGetProductsScopeKey();
+  const doEscopo=_gexProdutosRawNormalizado().filter(p=>String(p.scope||'')===scope).map(p=>p.name);
+  if(doEscopo.length)return doEscopo;
+  // Conta ainda sem lista própria cadastrada — começa com a lista padrão,
+  // só como ponto de partida pra essa conta editar a dela; não é
+  // compartilhada com ninguém a partir do primeiro "Adicionar"/"Salvar".
+  return [...PRODUTOS_DEFAULT];
 }
 
 function formLead(d){
@@ -14478,37 +14512,49 @@ function renderProdutoList(){
     </div>`).join('');
 }
 
+// As 4 funções abaixo sempre leem a coleção INTEIRA (todas as contas) e só
+// alteram os itens do escopo (conta) de quem está logado agora — os produtos
+// de outras contas (outros Parceiros, a empresa) nunca são tocados.
 function addProduto(){
   const inp=document.getElementById('new-produto-input');
   const name=inp.value.trim();
   if(!name){toast('Digite o nome do produto','#EF4444');return;}
-  const prods=getProdutos();
-  if(prods.includes(name)){toast('Produto já existe','#EF4444');return;}
-  prods.push(name);
-  DB.set('produtos_comercial',prods);
+  const scope=gexGetProductsScopeKey();
+  const todos=_gexProdutosRawNormalizado();
+  if(todos.some(p=>String(p.scope||'')===scope&&p.name===name)){toast('Produto já existe','#EF4444');return;}
+  todos.push({name,scope});
+  DB.set('produtos_comercial',todos);
   inp.value='';
   renderProdutoList();
   toast('Produto adicionado ✓','#10B981');
 }
 
 function removeProduto(i){
-  const prods=getProdutos();
-  prods.splice(i,1);
-  DB.set('produtos_comercial',prods);
+  const scope=gexGetProductsScopeKey();
+  const todos=_gexProdutosRawNormalizado();
+  const doEscopo=todos.filter(p=>String(p.scope||'')===scope);
+  const alvo=doEscopo[i];
+  if(!alvo)return;
+  const restante=todos.filter(p=>!(String(p.scope||'')===scope&&p.name===alvo.name));
+  DB.set('produtos_comercial',restante);
   renderProdutoList();
 }
 
 function saveProdutos(){
   const inputs=document.querySelectorAll('#produto-list .stage-name-input');
-  const prods=[...inputs].map(el=>el.value.trim()).filter(Boolean);
-  if(!prods.length){toast('Adicione ao menos um produto','#EF4444');return;}
-  DB.set('produtos_comercial',prods);
+  const nomes=[...inputs].map(el=>el.value.trim()).filter(Boolean);
+  if(!nomes.length){toast('Adicione ao menos um produto','#EF4444');return;}
+  const scope=gexGetProductsScopeKey();
+  const outrasContas=_gexProdutosRawNormalizado().filter(p=>String(p.scope||'')!==scope);
+  DB.set('produtos_comercial',[...outrasContas,...nomes.map(name=>({name,scope}))]);
   closeProdutosModal();
   toast('Produtos salvos ✓','#10B981');
 }
 
 function resetProdutos(){
-  DB.set('produtos_comercial',[...PRODUTOS_DEFAULT]);
+  const scope=gexGetProductsScopeKey();
+  const outrasContas=_gexProdutosRawNormalizado().filter(p=>String(p.scope||'')!==scope);
+  DB.set('produtos_comercial',[...outrasContas,...PRODUTOS_DEFAULT.map(name=>({name,scope}))]);
   renderProdutoList();
   toast('Lista restaurada','#7C3AED');
 }
