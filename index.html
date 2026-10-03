@@ -8857,6 +8857,13 @@ function getVisibleSalesUsersForMetrics(leads){
         (ownerNameNorm&&normalizeSalesName(u.nome||u.name||'')===ownerNameNorm)
       );
       if(ownerUser){
+        // Usuário encontrado mas INATIVO (ex.: duplicata que o Fundador tentou
+        // excluir e marcou como inativa, mesmo que a exclusão definitiva no
+        // Supabase tenha falhado) nunca deve virar uma linha sintética aqui —
+        // sem essa checagem, um usuário inativo com leads antigos/duplicados
+        // reaparecia na Performance Comercial ao lado do usuário ativo de
+        // mesmo nome, com os mesmos números.
+        if(String(ownerUser.status||'Ativo').toLowerCase()==='inativo')return;
         const ownerRole=resolveRole(ownerUser.permissao||ownerUser.cargo||'');
         if(ownerRole==='Gex Parceiro'||ownerRole==='Operador de Funil')return;
       }
@@ -10394,6 +10401,20 @@ async function excluirUsuarioPermanente(id){
   const nomeConfirma=target.nome||target.email||'este usuário';
   const ok=confirm(`Excluir "${nomeConfirma}" definitivamente?\n\nIsso apaga o login dele no Supabase (nunca mais vai conseguir entrar com esse e-mail) e remove o cadastro do GexFlow. NÃO tem como desfazer.\n\nSe quiser só bloquear o acesso podendo reverter depois, cancele e use "Desativar".`);
   if(!ok)return;
+
+  // Registro "fantasma": não tem supabaseId nem id em formato UUID de verdade
+  // (sobrou de um import/adoção antigo, nunca chegou a existir no Supabase
+  // Auth). Chamar a Edge Function pra esse caso sempre falha com "usuário
+  // não encontrado" — porque não tem o que apagar lá. Nesses casos só remove
+  // do cadastro local mesmo, sem tentar o Supabase.
+  const authId=target.supabaseId||(isUuidLike(target.id)?target.id:'');
+  if(!authId){
+    DB.remove('usuarios',id);
+    renderUsuarios();
+    toast('Usuário excluído do GexFlow (não tinha login no Supabase para apagar) ✓','#10B981');
+    return;
+  }
+
   if(!supabaseClient){toast('Sem conexão com o Supabase para excluir a conta.','#EF4444');return}
   try{
     const {data:sessionData}=await supabaseClient.auth.getSession();
@@ -10402,11 +10423,24 @@ async function excluirUsuarioPermanente(id){
     const res=await fetch(getSupabaseFunctionUrl('users-delete'),{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':`Bearer ${token}`},
-      body:JSON.stringify({userId:target.supabaseId||target.id})
+      body:JSON.stringify({userId:authId})
     }).catch(err=>{throw new Error(err?.message||'Não consegui falar com o Supabase.')});
     let payload={};
     try{payload=await res.json();}catch(e){}
+    // Se o Supabase responde dizendo que esse usuário não existe (mais)
+    // no Auth — por exemplo um registro duplicado cujo id de login já foi
+    // removido antes, ou nunca existiu de fato — não adianta ficar travado
+    // pra sempre "não foi possível excluir": o objetivo (sumir essa conta
+    // do GexFlow) ainda é alcançável removendo só o cadastro local.
+    const msg=String(payload?.message||payload?.error||'').toLowerCase();
+    const notFound=res.status===404||msg.includes('not found')||msg.includes('não encontrado')||msg.includes('nao encontrado')||msg.includes('user_not_found');
     if(!res.ok||payload.ok===false){
+      if(notFound){
+        DB.remove('usuarios',id);
+        renderUsuarios();
+        toast('Usuário já não existia no Supabase — removido do GexFlow ✓','#10B981');
+        return;
+      }
       toast(payload.message||'Não foi possível excluir o usuário.','#EF4444');
       return;
     }
