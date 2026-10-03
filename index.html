@@ -13341,7 +13341,21 @@ function gexBeatrizReimportCore(){
     // (createdBy/assignedFunnelId do cadastro de usuário) é frágil: o id
     // gravado no funil pode estar em formato diferente do id atual do
     // cadastro dela.
-    let funilDela=funnels.find(f=>!f.isArchived&&normalizeSalesName(f.name||'').includes('beatriz'));
+    // IMPORTANTE: pode existir mais de um funil chamado "Funil de BEATRIZ"
+    // (sobra do bug antigo de duplicação — a limpeza automática desses
+    // duplicados foi desativada nesta mesma sessão por ter se mostrado
+    // perigosa com dados reais). Se houver mais de um candidato, prioriza
+    // o que está sendo exibido AGORA na tela (getActiveFunnelId) — senão a
+    // correção pode escrever num funil "fantasma" diferente do que a
+    // pessoa está olhando, exatamente o que aconteceu antes.
+    const candidatosBeatriz=funnels.filter(f=>!f.isArchived&&normalizeSalesName(f.name||'').includes('beatriz'));
+    let funilDela=null;
+    if(candidatosBeatriz.length){
+      let activeId='';
+      try{activeId=typeof getActiveFunnelId==='function'?getActiveFunnelId():'';}catch(e){}
+      funilDela=candidatosBeatriz.find(f=>String(f.id)===String(activeId))
+        ||candidatosBeatriz.slice().sort((a,b)=>new Date(b.updatedAt||0)-new Date(a.updatedAt||0))[0];
+    }
     let beatriz=usuarios.find(u=>normalizeSalesName(u.nome||'').includes('beatriz'));
     if(!beatriz&&funilDela){
       beatriz=usuarios.find(u=>
@@ -13360,6 +13374,23 @@ function gexBeatrizReimportCore(){
     if(!funilDela)return {ok:false,motivo:'funil_nao_encontrado',detalhe:`beatrizId="${beatrizId}". Funis não-arquivados existentes: ${funnels.filter(f=>!f.isArchived).map(f=>f.name).join(', ')||'(nenhum)'}.`};
     const stages=(funilDela.stages||[]).slice().sort((a,b)=>(a.order||0)-(b.order||0));
     if(!stages.length)return {ok:false,motivo:'sem_etapas',detalhe:`Funil "${funilDela.name}" encontrado mas sem etapas.`};
+    // Se havia mais de um "Funil de BEATRIZ", qualquer lead que uma correção
+    // ANTERIOR tenha escrito no(s) outro(s) funil(is) duplicado(s) é
+    // realinhado agora pro funil que realmente está em uso (o escolhido
+    // acima) — sem isso, os leads ficavam "perdidos" num funil fantasma que
+    // ninguém olha.
+    let realinhados=0;
+    if(candidatosBeatriz.length>1){
+      const outrosIds=new Set(candidatosBeatriz.filter(f=>String(f.id)!==String(funilDela.id)).map(f=>String(f.id)));
+      if(outrosIds.size){
+        (DB.get('leads')||[]).forEach(l=>{
+          if(outrosIds.has(String(l.funnelId||''))){
+            DB.update('leads',l.id,{funnelId:funilDela.id});
+            realinhados++;
+          }
+        });
+      }
+    }
     // Mapeamento explícito confirmado pelo Everton (a "etapa" do cadastro de
     // leads é só uma classificação resumida de 3 categorias — não tem como
     // bater o nome literal com a etapa real do funil da Beatriz):
@@ -13416,7 +13447,7 @@ function gexBeatrizReimportCore(){
         criados++;
       }
     });
-    return {ok:true,atualizados,criados,funilNome:funilDela.name};
+    return {ok:true,atualizados,criados,realinhados,funilId:funilDela.id,funilNome:funilDela.name};
   }catch(e){
     return {ok:false,motivo:'excecao',detalhe:String(e&&e.message||e)};
   }
@@ -13432,8 +13463,10 @@ function gexRunOneTimeBeatrizFix(){
     // desta sessão: nunca desistir de vez por causa de um timing ruim).
     if(!r.ok)return;
     localStorage.setItem('gex_fix_beatriz_reimport_2026_10_v9','1');
-    if(r.atualizados+r.criados>0){
-      try{toast(`Funil da Beatriz: ${r.atualizados} lead(s) corrigido(s) e ${r.criados} recriado(s), já nas etapas certas ✓`,'#10B981');}catch(e){}
+    if(r.atualizados+r.criados+r.realinhados>0){
+      const partes=[`${r.atualizados} corrigido(s)`,`${r.criados} recriado(s)`];
+      if(r.realinhados>0)partes.push(`${r.realinhados} realinhado(s) de um funil duplicado`);
+      try{toast(`Funil da Beatriz: ${partes.join(', ')}, já nas etapas certas ✓`,'#10B981');}catch(e){}
       try{if(typeof renderComercial==='function')setTimeout(renderComercial,300);}catch(e){}
     }
   }catch(e){console.warn('[GexFlow] Falha na reimportação dos leads da Beatriz:',e);}
@@ -13458,7 +13491,13 @@ function gexForceBeatrizReimport(){
     return;
   }
   localStorage.setItem('gex_fix_beatriz_reimport_2026_10_v9','1');
-  alert(`Pronto! Funil "${r.funilNome}":\n\n${r.atualizados} lead(s) já existentes corrigido(s)\n${r.criados} lead(s) recriado(s)\n\nJá estão nas etapas certas.`);
+  // Garante que a tela passa a mostrar exatamente o funil que recebeu os
+  // leads — sem isso, se houvesse mais de um "Funil de BEATRIZ", a pessoa
+  // podia continuar olhando pro funil errado mesmo depois da correção.
+  try{if(typeof setActiveFunnelId==='function')setActiveFunnelId(r.funilId);}catch(e){}
+  const realinhadoMsg=r.realinhados>0?`\n${r.realinhados} lead(s) realinhado(s) (estavam num funil "Funil de BEATRIZ" duplicado)`:'';
+  alert(`Pronto! Funil "${r.funilNome}" (id: ${r.funilId}):\n\n${r.atualizados} lead(s) já existentes corrigido(s)\n${r.criados} lead(s) recriado(s)${realinhadoMsg}\n\nJá estão nas etapas certas. A tela vai recarregar nesse funil agora.`);
+  try{if(typeof renderFunnelSelector==='function')renderFunnelSelector();}catch(e){}
   try{if(typeof renderComercial==='function')renderComercial();}catch(e){}
 }
 
