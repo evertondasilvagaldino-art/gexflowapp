@@ -13324,8 +13324,11 @@ function gexNormalizePhoneDigitsForMatch(raw){
 }
 function gexRunOneTimeBeatrizFix(){
   try{
-    if(typeof isSalesManagerView!=='function'||!isSalesManagerView())return;
-    if(localStorage.getItem('gex_fix_beatriz_reimport_2026_10_v6')==='1')return;
+    if(typeof isSalesManagerView!=='function'||!isSalesManagerView()){
+      try{console.debug('[GexFlow] Reimportação Beatriz: não roda porque a sessão atual não é Fundador/Adm Gerente.');}catch(e){}
+      return;
+    }
+    if(localStorage.getItem('gex_fix_beatriz_reimport_2026_10_v7')==='1')return;
     const usuarios=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[])||[];
     const funnels=(typeof getCommercialFunnels==='function'?getCommercialFunnels():[])||[];
     // IMPORTANTE: nenhum dos "não achei X" abaixo marca o marcador de
@@ -13339,13 +13342,31 @@ function gexRunOneTimeBeatrizFix(){
     // enquanto isso, continua tentando de novo a cada render/reload (custo
     // baixo — são só alguns `.find()`) até achar tudo e funcionar.
     if(usuarios.length<2||funnels.length<2)return;
-    const beatriz=usuarios.find(u=>normalizeSalesName(u.nome||'').includes('beatriz'));
+    // Procura o funil PRIMEIRO pelo nome visível ("Funil de BEATRIZ", como
+    // aparece na tela) — é o dado mais confiável que temos (confirmado pelas
+    // telas que o Everton mandou). Casar por id (createdBy/assignedFunnelId
+    // do cadastro de usuário) é frágil: o id gravado no funil pode estar em
+    // formato diferente do id atual do cadastro dela, e foi exatamente isso
+    // que impediu essa função de achar o funil nas tentativas anteriores,
+    // mesmo com o funil já restaurado e visível na tela.
+    let funilDela=funnels.find(f=>!f.isArchived&&normalizeSalesName(f.name||'').includes('beatriz'));
+    let beatriz=usuarios.find(u=>normalizeSalesName(u.nome||'').includes('beatriz'));
+    if(!beatriz&&funilDela){
+      // Sem cadastro de usuário batendo pelo nome — tenta achar pelo dono
+      // gravado no próprio funil (createdBy/createdByEmail).
+      beatriz=usuarios.find(u=>
+        (funilDela.createdBy&&(String(u.id||'')===String(funilDela.createdBy)||String(u.supabaseId||'')===String(funilDela.createdBy)))||
+        (funilDela.createdByEmail&&normalizeLoginEmail(u.email||'')===normalizeLoginEmail(funilDela.createdByEmail))
+      );
+    }
     if(!beatriz){console.warn('[GexFlow] Reimportação Beatriz: usuária "beatriz" não encontrada ainda.');return;}
     const beatrizId=String(beatriz.supabaseId||beatriz.id||'');
     const beatrizEmail=normalizeLoginEmail(beatriz.email||'');
     const beatrizNome=beatriz.nome||'Beatriz Viana';
-    let funilDela=funnels.find(f=>!f.isArchived&&String(f.createdBy||'')===beatrizId)
-      ||(beatriz.assignedFunnelId?funnels.find(f=>!f.isArchived&&String(f.id)===String(beatriz.assignedFunnelId)):null);
+    if(!funilDela){
+      funilDela=funnels.find(f=>!f.isArchived&&String(f.createdBy||'')===beatrizId)
+        ||(beatriz.assignedFunnelId?funnels.find(f=>!f.isArchived&&String(f.id)===String(beatriz.assignedFunnelId)):null);
+    }
     if(!funilDela){console.warn('[GexFlow] Reimportação Beatriz: funil dela não encontrado ainda (beatrizId='+beatrizId+').');return;}
     const stages=(funilDela.stages||[]).slice().sort((a,b)=>(a.order||0)-(b.order||0));
     if(!stages.length){console.warn('[GexFlow] Reimportação Beatriz: funil encontrado mas sem etapas ainda.');return;}
@@ -13405,7 +13426,7 @@ function gexRunOneTimeBeatrizFix(){
         criados++;
       }
     });
-    localStorage.setItem('gex_fix_beatriz_reimport_2026_10_v6','1');
+    localStorage.setItem('gex_fix_beatriz_reimport_2026_10_v7','1');
     if(atualizados+criados>0){
       try{toast(`Funil da Beatriz: ${atualizados} lead(s) corrigido(s) e ${criados} recriado(s), já nas etapas certas ✓`,'#10B981');}catch(e){}
       try{if(typeof renderComercial==='function')setTimeout(renderComercial,300);}catch(e){}
