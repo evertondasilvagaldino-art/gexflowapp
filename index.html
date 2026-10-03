@@ -18488,6 +18488,7 @@ ${gxlCloseScriptTag}`;
     if(r.gatilho==='lead_novo')return `Lead novo sem 1º contato há ${r.dias} dia(s)`;
     if(r.gatilho==='parado_etapa')return `Parado ${r.dias}+ dia(s) na etapa "${r.etapaName||'qualquer'}"`;
     if(r.gatilho==='entrou_etapa')return `Anexa observação ao chegar na etapa "${r.etapaName||'?'}"`;
+    if(r.gatilho==='avisar_responsavel_etapa')return `Avisa o responsável no WhatsApp ao chegar na etapa "${r.etapaName||'?'}"`;
     if(r.gatilho==='cadencia_etapa')return `Cadência de ${(r.steps||[]).length} e-mail(s) ao chegar na etapa "${r.etapaName||'?'}"`;
     if(r.gatilho==='cadencia_whatsapp_etapa')return `Cadência de ${(r.steps||[]).length} WhatsApp ao chegar na etapa "${r.etapaName||'?'}"`;
     return `Sem atividade há ${r.dias}+ dia(s)`;
@@ -18517,6 +18518,11 @@ ${gxlCloseScriptTag}`;
     {key:'anexar_desc_etapa',icon:'🏷️',canal:'sistema',nome:'Anexar observação ao chegar numa etapa',
       desc:'Quando o lead chega na etapa escolhida, o sistema anexa sozinho um texto padrão na descrição do lead — sem precisar clicar em nada, é feito na hora.',
       gatilho:'entrou_etapa',mensagem:'Lead qualificado automaticamente pela automação ao chegar nesta etapa do funil.',precisaConfigurar:true},
+    {key:'avisar_responsavel_etapa',icon:'🔔',canal:'whatsapp',nome:'Avisar responsável no WhatsApp',
+      desc:'Quando um lead chega na etapa escolhida, manda sozinho uma mensagem no WhatsApp PESSOAL do responsável por aquele lead (não do lead) — com nome, telefone, empresa e origem — pra ele saber na hora, sem precisar abrir o sistema. Precisa que o responsável tenha um telefone cadastrado no Perfil dele.',
+      gatilho:'avisar_responsavel_etapa',
+      mensagem:'🔔 Novo lead na etapa "{{etapa}}"!\nNome: {{nome_completo}}\nTelefone: {{telefone}}\nEmpresa: {{empresa}}\nOrigem: {{origem}}\n\nConfira no seu Pipeline.',
+      precisaConfigurar:true},
     {key:'cadencia_email_etapa',icon:'📧',canal:'email',nome:'Cadência de e-mails por etapa',
       desc:'Quando o lead chega na etapa escolhida, dispara uma sequência de e-mails em dias diferentes (ex.: dia 0, dia 2, dia 5) — cada um vira uma ação pronta pra enviar (ou enviada sozinha, se a conexão de e-mail estiver ativa). Dá pra trocar o canal pra WhatsApp na hora de configurar.',
       gatilho:'cadencia_etapa',steps:[{dias:0,assunto:'Bem-vindo!',mensagem:'Olá {{nome}}, tudo bem? Recebemos seu interesse e já vamos te ajudar por aqui.'},{dias:2,assunto:'Ficou alguma dúvida?',mensagem:'Olá {{nome}}, passando pra saber se ficou alguma dúvida sobre a nossa proposta.'}],precisaConfigurar:true},
@@ -18632,17 +18638,17 @@ ${gxlCloseScriptTag}`;
     if(autoCadenciaSteps===null||autoCadenciaSteps===undefined)autoCadenciaSteps=(old.steps&&old.steps.length?JSON.parse(JSON.stringify(old.steps)):[{dias:0,assunto:'',mensagem:''}]);
     const funnels=availFunnels(),active=typeof getActiveFunnel==='function'?getActiveFunnel():null;
     const funnel=funnels.find(f=>f.id===d.funilId)||active||funnels[0]||null,stages=funnel?.stages||[];
-    const gAtivEtapa=d.gatilho==='entrou_etapa',gCadenciaEmail=d.gatilho==='cadencia_etapa',gCadenciaWhats=d.gatilho==='cadencia_whatsapp_etapa',gCadencia=gCadenciaEmail||gCadenciaWhats,gComEtapa=d.gatilho==='parado_etapa'||gAtivEtapa||gCadencia;
-    const canalEfetivo=gCadenciaWhats?'whatsapp':gCadenciaEmail?'email':d.canal;
+    const gAtivEtapa=d.gatilho==='entrou_etapa',gCadenciaEmail=d.gatilho==='cadencia_etapa',gCadenciaWhats=d.gatilho==='cadencia_whatsapp_etapa',gCadencia=gCadenciaEmail||gCadenciaWhats,gAvisoResp=d.gatilho==='avisar_responsavel_etapa',gComEtapa=d.gatilho==='parado_etapa'||gAtivEtapa||gCadencia||gAvisoResp;
+    const canalEfetivo=gCadenciaWhats?'whatsapp':gCadenciaEmail?'email':gAvisoResp?'whatsapp':d.canal;
     const gComDias=d.gatilho==='sem_atividade'||d.gatilho==='lead_novo'||d.gatilho==='parado_etapa';
-    const gComMsgPadrao=d.gatilho==='sem_atividade'||d.gatilho==='lead_novo'||d.gatilho==='parado_etapa';
+    const gComMsgPadrao=d.gatilho==='sem_atividade'||d.gatilho==='lead_novo'||d.gatilho==='parado_etapa'||gAvisoResp;
     return `${head(autoEditId?'Configurar automação':'Automação personalizada','Configure o gatilho, o canal e o que o sistema vai preparar sozinho.')}
     <input type="hidden" id="auto-template-key" value="${esc(d.templateKey||'')}">
     <div class="gl-panel">
       <h3>Identidade</h3><p>Um nome interno pra você reconhecer essa automação no banco.</p>
       <label class="gl-field"><span>Nome da automação</span><input class="gl-input" id="auto-nome" value="${esc(d.nome)}" placeholder="Ex.: Follow-up leads frios"></label>
     </div>
-    <div class="gl-panel" id="auto-canal-panel" style="${gAtivEtapa||gCadencia?'display:none':''}">
+    <div class="gl-panel" id="auto-canal-panel" style="${gAtivEtapa||gCadencia||gAvisoResp?'display:none':''}">
       <h3>Canal</h3><p>Por onde a ação será preparada.</p>
       <div class="auto-seg" id="auto-canal-seg">
         <button type="button" class="${d.canal==='whatsapp'?'active whatsapp':''}" onclick="autoSetCanal('whatsapp')" id="auto-canal-whatsapp">💬 WhatsApp</button>
@@ -18658,6 +18664,7 @@ ${gxlCloseScriptTag}`;
           <option value="lead_novo" ${d.gatilho==='lead_novo'?'selected':''}>Lead novo sem 1º contato há X dias</option>
           <option value="parado_etapa" ${d.gatilho==='parado_etapa'?'selected':''}>Parado numa etapa do funil há X dias</option>
           <option value="entrou_etapa" ${gAtivEtapa?'selected':''}>Chegou numa etapa do funil (anexa observação na hora)</option>
+          <option value="avisar_responsavel_etapa" ${gAvisoResp?'selected':''}>Chegou numa etapa do funil (avisa o responsável no WhatsApp dele)</option>
           <option value="cadencia_etapa" ${gCadenciaEmail?'selected':''}>Chegou numa etapa do funil (dispara cadência de e-mails)</option>
           <option value="cadencia_whatsapp_etapa" ${gCadenciaWhats?'selected':''}>Chegou numa etapa do funil (dispara cadência de WhatsApp)</option>
         </select></label>
@@ -18673,13 +18680,14 @@ ${gxlCloseScriptTag}`;
       <p style="font-size:9.5px;color:#94A3B8;margin-top:10px">A checagem roda automaticamente enquanto alguém estiver com o sistema aberto (a cada poucos minutos), e também sempre que esta tela é aberta.</p>
     </div>
     <div class="gl-panel" id="auto-msg-panel" style="${gComMsgPadrao?'':'display:none'}">
-      <h3>Mensagem</h3><p>Use <code>{{nome}}</code> para o sistema colocar o primeiro nome do lead automaticamente.</p>
-      <div class="gl-grid" id="auto-assunto-wrap" style="${d.canal==='email'?'':'display:none'}">
+      <h3>Mensagem</h3><p id="auto-msg-hint">${gAvisoResp?'Essa mensagem vai pro WhatsApp do RESPONSÁVEL pelo lead (não pro lead). Use <code>{{nome_completo}}</code>, <code>{{telefone}}</code>, <code>{{empresa}}</code>, <code>{{origem}}</code> e <code>{{etapa}}</code> pra montar o aviso.':'Use <code>{{nome}}</code> para o sistema colocar o primeiro nome do lead automaticamente.'}</p>
+      <div class="gl-grid" id="auto-assunto-wrap" style="${d.canal==='email'&&!gAvisoResp?'':'display:none'}">
         <label class="gl-field full"><span>Assunto do e-mail</span><input class="gl-input" id="auto-assunto" value="${esc(d.assunto)}"></label>
       </div>
       <div class="gl-grid">
-        <label class="gl-field full"><span>${d.canal==='email'?'Corpo do e-mail':'Mensagem do WhatsApp'}</span><textarea class="gl-textarea" id="auto-mensagem" style="height:110px">${esc(d.mensagem)}</textarea></label>
+        <label class="gl-field full"><span>${d.canal==='email'&&!gAvisoResp?'Corpo do e-mail':'Mensagem do WhatsApp'}</span><textarea class="gl-textarea" id="auto-mensagem" style="height:110px">${esc(d.mensagem)}</textarea></label>
       </div>
+      <p id="auto-msg-footnote" style="font-size:9.5px;color:#94A3B8;margin-top:6px;${gAvisoResp?'':'display:none'}">Precisa que o responsável pelo lead tenha um telefone cadastrado em Perfil &gt; Dados pessoais, e que ALGUÉM da equipe esteja com o próprio WhatsApp conectado (Z-API) pra esse aviso sair sozinho — sem isso, ele fica pronto no Banco de Ações pra abrir com 1 clique.</p>
     </div>
     <div class="gl-panel" id="auto-anexo-panel" style="${gAtivEtapa?'':'display:none'}">
       <h3>Observação a anexar</h3><p>Esse texto é adicionado automaticamente na descrição do lead assim que ele chega na etapa escolhida. Use <code>{{nome}}</code> se quiser.</p>
@@ -18733,16 +18741,25 @@ ${gxlCloseScriptTag}`;
   window.autoRenderGatilhoFields=()=>{
     const g=document.getElementById('auto-gatilho')?.value;
     const gCadenciaEmail=g==='cadencia_etapa',gCadenciaWhats=g==='cadencia_whatsapp_etapa',gCadencia=gCadenciaEmail||gCadenciaWhats;
-    const comEtapa=g==='parado_etapa'||g==='entrou_etapa'||gCadencia;
+    const gAvisoResp=g==='avisar_responsavel_etapa';
+    const comEtapa=g==='parado_etapa'||g==='entrou_etapa'||gAvisoResp||gCadencia;
     const comDias=g==='sem_atividade'||g==='lead_novo'||g==='parado_etapa';
-    const comMsgPadrao=comDias;
+    const comMsgPadrao=comDias||gAvisoResp;
     const etapaWrap=document.getElementById('auto-etapa-wrap');if(etapaWrap)etapaWrap.style.display=comEtapa?'':'none';
     const hintEl=document.getElementById('auto-funil-hint');if(hintEl)hintEl.style.display=comEtapa?'none':'';
     const diasEl=document.getElementById('auto-dias-field');if(diasEl)diasEl.style.display=comDias?'':'none';
     const msgEl=document.getElementById('auto-msg-panel');if(msgEl)msgEl.style.display=comMsgPadrao?'':'none';
     const anexoEl=document.getElementById('auto-anexo-panel');if(anexoEl)anexoEl.style.display=g==='entrou_etapa'?'':'none';
     const cadEl=document.getElementById('auto-cadencia-panel');if(cadEl)cadEl.style.display=gCadencia?'':'none';
-    const canalPanel=document.getElementById('auto-canal-panel');if(canalPanel)canalPanel.style.display=(g==='entrou_etapa'||gCadencia)?'none':'';
+    const canalPanel=document.getElementById('auto-canal-panel');if(canalPanel)canalPanel.style.display=(g==='entrou_etapa'||gAvisoResp||gCadencia)?'none':'';
+    const msgHint=document.getElementById('auto-msg-hint');
+    if(msgHint)msgHint.innerHTML=gAvisoResp?'Essa mensagem vai pro WhatsApp do RESPONSÁVEL pelo lead (não pro lead). Use <code>{{nome_completo}}</code>, <code>{{telefone}}</code>, <code>{{empresa}}</code>, <code>{{origem}}</code> e <code>{{etapa}}</code> pra montar o aviso.':'Use <code>{{nome}}</code> para o sistema colocar o primeiro nome do lead automaticamente.';
+    const msgFootnote=document.getElementById('auto-msg-footnote');if(msgFootnote)msgFootnote.style.display=gAvisoResp?'':'none';
+    if(gAvisoResp){
+      const canalHidden=document.getElementById('auto-canal');if(canalHidden)canalHidden.value='whatsapp';
+      const assuntoWrap=document.getElementById('auto-assunto-wrap');if(assuntoWrap)assuntoWrap.style.display='none';
+      const msgLabel=document.querySelector('#auto-msg-panel .gl-field.full span');if(msgLabel)msgLabel.textContent='Mensagem do WhatsApp';
+    }
     if(gCadencia){
       const canalHidden=document.getElementById('auto-canal');
       if(canalHidden)canalHidden.value=gCadenciaWhats?'whatsapp':'email';
@@ -18784,7 +18801,7 @@ ${gxlCloseScriptTag}`;
     const nome=document.getElementById('auto-nome')?.value.trim();
     if(!nome){toast('Informe o nome da automação','#EF4444');return}
     const gatilho=document.getElementById('auto-gatilho')?.value||'sem_atividade';
-    const comEtapa=gatilho==='parado_etapa'||gatilho==='entrou_etapa'||gatilho==='cadencia_etapa'||gatilho==='cadencia_whatsapp_etapa';
+    const comEtapa=gatilho==='parado_etapa'||gatilho==='entrou_etapa'||gatilho==='avisar_responsavel_etapa'||gatilho==='cadencia_etapa'||gatilho==='cadencia_whatsapp_etapa';
     let funilId='',funilName='',etapaId='',etapaName='';
     if(comEtapa){
       const fSel=document.getElementById('auto-funnel'),sSel=document.getElementById('auto-stage');
@@ -18808,6 +18825,10 @@ ${gxlCloseScriptTag}`;
       const texto=document.getElementById('auto-anexo-texto')?.value.trim();
       if(!texto){toast('Escreva o texto que será anexado ao lead','#EF4444');return}
       obj={...base,canal:'sistema',dias:0,mensagem:texto,assunto:'',steps:[]};
+    }else if(gatilho==='avisar_responsavel_etapa'){
+      const mensagem=document.getElementById('auto-mensagem')?.value.trim();
+      if(!mensagem){toast('Escreva a mensagem que vai avisar o responsável','#EF4444');return}
+      obj={...base,canal:'whatsapp',dias:0,mensagem,assunto:'',steps:[]};
     }else if(gatilho==='cadencia_etapa'||gatilho==='cadencia_whatsapp_etapa'){
       const canalCad=gatilho==='cadencia_whatsapp_etapa'?'whatsapp':'email';
       const steps=(autoCadenciaSteps||[]).map(s=>({dias:Math.max(0,Number(s.dias)||0),assunto:canalCad==='email'?String(s.assunto||'').trim():'',mensagem:String(s.mensagem||'').trim()}));
@@ -18882,9 +18903,25 @@ ${gxlCloseScriptTag}`;
     });
     return max?new Date(max):null;
   }
-  function renderTpl(tpl,lead){
-    const primeiro=String(lead.nome||'').trim().split(' ')[0]||lead.nome||'';
-    return String(tpl||'').split('{{nome}}').join(primeiro);
+  function renderTpl(tpl,lead,extra){
+    const primeiro=String(lead?.nome||'').trim().split(' ')[0]||lead?.nome||'';
+    // {{nome}} continua sendo só o primeiro nome (comportamento de sempre,
+    // usado nas mensagens que vão PRO LEAD). As novas variáveis
+    // ({{nome_completo}}, {{telefone}}, {{empresa}}, {{origem}}, {{etapa}})
+    // foram adicionadas pra automações que avisam ALGUÉM DA EQUIPE sobre o
+    // lead (ex.: "Avisar responsável no WhatsApp") — se não usadas no texto,
+    // não mudam nada no comportamento antigo.
+    const vars={
+      nome:primeiro,
+      nome_completo:lead?.nome||lead?.empresa||'Lead',
+      telefone:lead?.telefone||lead?.whatsapp||'—',
+      empresa:lead?.empresa||'—',
+      origem:lead?.origem||'—',
+      ...(extra||{})
+    };
+    let out=String(tpl||'');
+    Object.keys(vars).forEach(k=>{out=out.split('{{'+k+'}}').join(String(vars[k]??''))});
+    return out;
   }
   function upsertLog(id,data){
     const cur=DB.get('automacao_log')||[];
@@ -18894,6 +18931,22 @@ ${gxlCloseScriptTag}`;
   function leadEmEtapa(lead,rule){
     if(!rule.etapaId)return false;
     return String(lead.stageId||'')===String(rule.etapaId) || lead.estagio===rule.etapaName;
+  }
+  // Acha o cadastro COMPLETO do responsável por um lead (precisa do telefone
+  // dele) — mesmo critério de busca por id/email já usado no aviso de
+  // "lead novo" por e-mail (ver resolveLeadOwnerForNotification), só que
+  // aqui devolve o usuário inteiro em vez de só {ownerId,isManager}.
+  function getLeadOwnerFullUser(lead){
+    try{
+      const ownerId=(typeof getLeadOwnerId==='function'?getLeadOwnerId(lead):'')||'';
+      const ownerEmail=(typeof getLeadOwnerEmail==='function'?normalizeLoginEmail(getLeadOwnerEmail(lead)):'')||'';
+      if(!ownerId&&!ownerEmail)return null;
+      const users=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[])||[];
+      return users.find(x=>
+        (ownerId&&(String(x.id)===ownerId||String(x.supabaseId||'')===ownerId))||
+        (ownerEmail&&normalizeLoginEmail(x.email||'')===ownerEmail)
+      )||null;
+    }catch(e){return null}
   }
   // Manda o e-mail de verdade pela mesma caixa de Gmail já configurada nos
   // Secrets do Supabase (função irmã da que já avisa a equipe quando um
@@ -18991,6 +19044,32 @@ ${gxlCloseScriptTag}`;
           upsertLog(logId,{ruleId:rule.id,leadId:lead.id,lastTriggeredAt:new Date().toISOString()});
           logMap[logId]={id:logId,ruleId:rule.id,leadId:lead.id};
           aplicadas++;
+        });
+        return;
+      }
+      // ── Chegou numa etapa → avisa o RESPONSÁVEL do lead no WhatsApp DELE
+      // (não no do lead) com os dados do lead (nome, telefone, empresa,
+      // origem). Mesma lógica de "uma vez só por lead" do anexar observação.
+      if(rule.gatilho==='avisar_responsavel_etapa'){
+        leads.forEach(lead=>{
+          if(!leadEmEtapa(lead,rule))return;
+          const logId=rule.id+'__'+lead.id;
+          if(logMap[logId])return; // já avisado sobre esse lead, uma vez só
+          const owner=getLeadOwnerFullUser(lead);
+          const ownerPhone=String(owner?.telefone||owner?.phone||owner?.whatsapp||'').trim();
+          const texto=renderTpl(rule.mensagem,lead,{etapa:rule.etapaName||'',responsavel:owner?.nome||''});
+          const task={
+            id:uid(),ruleId:rule.id,ruleName:rule.nome,canal:'whatsapp',
+            leadId:lead.id,leadNome:`${lead.nome||'Lead'} → aviso p/ ${owner?.nome||'responsável'}`,
+            leadTelefone:ownerPhone,leadEmail:'',
+            assunto:'',mensagem:texto,
+            status:'pendente',createdAt:new Date().toISOString()
+          };
+          DB.push('automacao_tasks',task);
+          if(ownerPhone)whatsappParaEnviar.push({taskId:task.id,phone:ownerPhone,message:texto});
+          upsertLog(logId,{ruleId:rule.id,leadId:lead.id,lastTriggeredAt:new Date().toISOString()});
+          logMap[logId]={id:logId,ruleId:rule.id,leadId:lead.id};
+          created++;
         });
         return;
       }
