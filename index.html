@@ -13948,13 +13948,47 @@ function getVisibleCommercialFunnels(funnels){
       // tudo recuperável no banco) — só mostra UM por dono nos seletores,
       // preferindo o que já está ativo na sessão de quem está olhando, senão
       // o que tiver mais leads, senão o mais recente.
+      // ACHADO #2 (03/10/2026): agrupar só pelo ID do createdBy não bastava
+      // quando as duas cópias têm IDs de dono DIFERENTES — por exemplo uma
+      // conta de usuário que já foi excluída de vez (o funil antigo dela
+      // continua no banco com o createdBy apontando pra um id que não existe
+      // mais em `usuarios`; isUserActiveById trata "não achei o cadastro"
+      // como ativo de propósito, por segurança, então esse funil "fantasma"
+      // continuava passando no filtro acima). "Funil de Beatriz" e "Funil de
+      // BEATRIZ" (maiúsculas) são o mesmo caso: nomes iguais ignorando
+      // caixa/acentos, donos diferentes. Por isso agrupa por uma CHAVE DE
+      // IDENTIDADE que prioriza o nome real do dono (quando o cadastro ainda
+      // existe) e cai pro nome do próprio funil normalizado como
+      // desempate/fallback — assim duas cópias do "funil da mesma pessoa"
+      // se juntam mesmo com createdBy diferentes.
+      const usuariosAtuais=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[]);
+      const donoAindaExiste=f=>{
+        if(!f.createdBy&&!f.createdByEmail)return false;
+        return usuariosAtuais.some(u=>
+          (f.createdBy&&(String(u.id)===String(f.createdBy)||String(u.supabaseId||'')===String(f.createdBy))) ||
+          (f.createdByEmail&&normalizeLoginEmail(u.email||'')===normalizeLoginEmail(f.createdByEmail))
+        );
+      };
+      const chaveIdentidade=f=>{
+        const u=usuariosAtuais.find(x=>
+          (f.createdBy&&(String(x.id)===String(f.createdBy)||String(x.supabaseId||'')===String(f.createdBy))) ||
+          (f.createdByEmail&&normalizeLoginEmail(x.email||'')===normalizeLoginEmail(f.createdByEmail))
+        );
+        if(u&&(u.nome||u.name))return 'nome:'+normalizeSalesName(u.nome||u.name);
+        return 'funilnome:'+normalizeSalesName(f.name||'');
+      };
       const porDono=new Map();
       visiveis.forEach(f=>{
         if(f.isDefault){porDono.set('__default__'+f.id,f);return}
-        const dono=String(f.createdBy||'');
+        const dono=f.createdBy||f.createdByEmail?chaveIdentidade(f):'';
         if(!dono){porDono.set('__sem_dono__'+f.id,f);return}
         const atual=porDono.get(dono);
         if(!atual){porDono.set(dono,f);return}
+        // Dono com cadastro real ainda existente sempre vence o "fantasma"
+        // (dono excluído/não encontrado), mesmo que o fantasma tenha mais
+        // leads ou seja mais recente — ele é a cópia certa a manter visível.
+        const fExiste=donoAindaExiste(f),atualExiste=donoAindaExiste(atual);
+        if(fExiste!==atualExiste){if(fExiste)porDono.set(dono,f);return}
         const ativoId=typeof getActiveFunnelId==='function'?getActiveFunnelId():'';
         if(f.id===ativoId){porDono.set(dono,f);return}
         if(atual.id===ativoId)return;
@@ -19273,7 +19307,7 @@ ${gxlCloseScriptTag}`;
         <div class="auto-rule-ico ${r.canal}">${r.canal==='email'?'✉️':r.canal==='sistema'?'🏷️':'💬'}</div>
         <div>
           <div class="auto-rule-name">${esc(r.nome)}<span class="auto-pill ${r.ativo!==false?'on':''}">${r.ativo!==false?'Ativa':'Desativada'}</span></div>
-          <div class="auto-rule-desc">${esc(gatilhoLabel(r))} → envia por <b>${r.canal==='email'?'e-mail':'WhatsApp'}</b>${r.funilName?` · Funil: ${esc(r.funilName)}`:''}</div>
+          <div class="auto-rule-desc">${esc(gatilhoLabel(r))} → envia por <b>${r.canal==='email'?'e-mail':'WhatsApp'}</b>${r.funilName?` · Funil: ${esc(r.funilName)}`:''}${r.canal==='whatsapp'&&(r.intervaloMinSeg||r.intervaloMaxSeg)?` · Intervalo: ${Number(r.intervaloMinSeg)||20}–${Number(r.intervaloMaxSeg)||40}s`:''}</div>
           <div class="auto-rule-meta">Criada em ${new Date(r.createdAt||Date.now()).toLocaleDateString('pt-BR')}</div>
         </div>
       </div>
@@ -19339,6 +19373,14 @@ ${gxlCloseScriptTag}`;
         <button type="button" class="${d.canal==='email'?'active email':''}" onclick="autoSetCanal('email')" id="auto-canal-email">✉️ E-mail</button>
       </div>
       <input type="hidden" id="auto-canal" value="${esc(canalEfetivo||'whatsapp')}">
+    </div>
+    <div class="gl-panel" id="auto-intervalo-panel" style="${canalEfetivo==='whatsapp'?'':'display:none'}">
+      <h3>⏱ Intervalo entre envios</h3><p>Pausa aleatória (dentro dessa faixa) entre uma mensagem de WhatsApp e a próxima — evita que o número pareça um robô disparando em sequência e ajuda a reduzir o risco de banimento. Vale pra qualquer momento em que mais de uma mensagem dessa automação for sair de uma vez (ex.: vários leads chegando na etapa ao mesmo tempo, ou os passos de uma cadência).</p>
+      <div class="gl-grid">
+        <label class="gl-field"><span>Mínimo (segundos)</span><input class="gl-input" id="auto-intervalo-min" type="number" min="5" max="600" value="${Number(d.intervaloMinSeg)||20}"></label>
+        <label class="gl-field"><span>Máximo (segundos)</span><input class="gl-input" id="auto-intervalo-max" type="number" min="5" max="600" value="${Number(d.intervaloMaxSeg)||40}"></label>
+      </div>
+      <p style="font-size:9.5px;color:#94A3B8;margin-top:6px">Recomendado: entre 20 e 60 segundos. Quanto mais mensagens por automação, maior o intervalo recomendado.</p>
     </div>
     <div class="gl-panel">
       <h3>Gatilho</h3><p>Quando o sistema deve agir sozinho.</p>
@@ -19415,6 +19457,8 @@ ${gxlCloseScriptTag}`;
     document.getElementById('auto-canal-whatsapp')?.classList.toggle('whatsapp',canal==='whatsapp');
     document.getElementById('auto-canal-email')?.classList.toggle('active',canal==='email');
     document.getElementById('auto-canal-email')?.classList.toggle('email',canal==='email');
+    const intervaloPanel=document.getElementById('auto-intervalo-panel');
+    if(intervaloPanel)intervaloPanel.style.display=canal==='whatsapp'?'':'none';
     const wrap=document.getElementById('auto-assunto-wrap');
     if(wrap)wrap.style.display=canal==='email'?'':'none';
     const label=document.querySelector('#auto-msg-panel .gl-field.full span');
@@ -19440,6 +19484,13 @@ ${gxlCloseScriptTag}`;
     const anexoEl=document.getElementById('auto-anexo-panel');if(anexoEl)anexoEl.style.display=g==='entrou_etapa'?'':'none';
     const cadEl=document.getElementById('auto-cadencia-panel');if(cadEl)cadEl.style.display=gCadencia?'':'none';
     const canalPanel=document.getElementById('auto-canal-panel');if(canalPanel)canalPanel.style.display=(g==='entrou_etapa'||gAvisoResp||gCadencia)?'none':'';
+    // Intervalo entre envios só faz sentido pra automação que manda WhatsApp:
+    // canal normal escolhido como WhatsApp, "avisar responsável" (sempre
+    // WhatsApp) ou cadência de WhatsApp — nunca pra e-mail ou pra "anexar
+    // observação" (que não envia nada).
+    const canalAtualParaIntervalo=gAvisoResp?'whatsapp':gCadencia?(gCadenciaWhats?'whatsapp':'email'):(document.getElementById('auto-canal')?.value||'whatsapp');
+    const intervaloPanel2=document.getElementById('auto-intervalo-panel');
+    if(intervaloPanel2)intervaloPanel2.style.display=(g!=='entrou_etapa'&&canalAtualParaIntervalo==='whatsapp')?'':'none';
     const msgHint=document.getElementById('auto-msg-hint');
     if(msgHint)msgHint.innerHTML=gAvisoResp?'Essa mensagem vai pro WhatsApp do RESPONSÁVEL pelo lead (não pro lead). Use <code>{{nome_completo}}</code>, <code>{{telefone}}</code>, <code>{{empresa}}</code>, <code>{{origem}}</code> e <code>{{etapa}}</code> pra montar o aviso.':'Use <code>{{nome}}</code> para o sistema colocar o primeiro nome do lead automaticamente.';
     const msgFootnote=document.getElementById('auto-msg-footnote');if(msgFootnote)msgFootnote.style.display=gAvisoResp?'':'none';
@@ -19503,8 +19554,15 @@ ${gxlCloseScriptTag}`;
       const fn=availFunnels().find(f=>f.id===fSel?.value);
       funilId=fn?.id||'';funilName=fn?.name||'';
     }
+    // Intervalo entre envios de WhatsApp (anti-banimento) — só é lido/gravado
+    // quando o painel existe na tela (automação com algum canal WhatsApp).
+    // min nunca pode ficar maior que max (usuário pode digitar fora de
+    // ordem); clamp em 5–600s por segurança.
+    let intervaloMinSeg=Math.min(600,Math.max(5,Number(document.getElementById('auto-intervalo-min')?.value)||20));
+    let intervaloMaxSeg=Math.min(600,Math.max(5,Number(document.getElementById('auto-intervalo-max')?.value)||40));
+    if(intervaloMinSeg>intervaloMaxSeg)[intervaloMinSeg,intervaloMaxSeg]=[intervaloMaxSeg,intervaloMinSeg];
     const base={
-      nome,gatilho,funilId,funilName,etapaId,etapaName,
+      nome,gatilho,funilId,funilName,etapaId,etapaName,intervaloMinSeg,intervaloMaxSeg,
       templateKey:document.getElementById('auto-template-key')?.value||'',
       ativo:document.getElementById('auto-ativo')?.checked!==false,
       updatedAt:new Date().toISOString()
@@ -19841,7 +19899,7 @@ ${gxlCloseScriptTag}`;
             const passouCooldown=!ultimaTentativa||(Date.now()-ultimaTentativa)>=15*60*1000;
             if(ownerPhone&&tentativas<3&&passouCooldown){
               DB.update('automacao_tasks',existente.id,{tentativasEnvio:tentativas+1,ultimaTentativaEnvioAt:new Date().toISOString()});
-              whatsappParaEnviar.push({taskId:existente.id,phone:ownerPhone,message:texto});
+              whatsappParaEnviar.push({taskId:existente.id,phone:ownerPhone,message:texto,ruleId:rule.id});
             }
             return;
           }
@@ -19853,7 +19911,7 @@ ${gxlCloseScriptTag}`;
             status:'pendente',createdAt:new Date().toISOString()
           };
           DB.push('automacao_tasks',task);
-          if(ownerPhone)whatsappParaEnviar.push({taskId:task.id,phone:ownerPhone,message:texto});
+          if(ownerPhone)whatsappParaEnviar.push({taskId:task.id,phone:ownerPhone,message:texto,ruleId:rule.id});
           created++;
         });
         return;
@@ -19886,7 +19944,7 @@ ${gxlCloseScriptTag}`;
             };
             DB.push('automacao_tasks',task);
             if(canalCad==='email' && lead.email)emailsParaEnviar.push({taskId:task.id,to:lead.email,toName:lead.nome||'',subject:task.assunto,text:task.mensagem});
-            if(canalCad==='whatsapp' && task.leadTelefone)whatsappParaEnviar.push({taskId:task.id,phone:task.leadTelefone,message:task.mensagem});
+            if(canalCad==='whatsapp' && task.leadTelefone)whatsappParaEnviar.push({taskId:task.id,phone:task.leadTelefone,message:task.mensagem,ruleId:rule.id});
             upsertLog(stepId,{ruleId:rule.id,leadId:lead.id,step:i,lastTriggeredAt:new Date().toISOString()});
             logMap[stepId]={id:stepId,ruleId:rule.id,leadId:lead.id,step:i};
             created++;
@@ -19925,7 +19983,7 @@ ${gxlCloseScriptTag}`;
         };
         DB.push('automacao_tasks',task);
         if(rule.canal==='email' && lead.email)emailsParaEnviar.push({taskId:task.id,to:lead.email,toName:lead.nome||'',subject:task.assunto||task.ruleName,text:task.mensagem});
-        if(rule.canal==='whatsapp' && task.leadTelefone)whatsappParaEnviar.push({taskId:task.id,phone:task.leadTelefone,message:task.mensagem});
+        if(rule.canal==='whatsapp' && task.leadTelefone)whatsappParaEnviar.push({taskId:task.id,phone:task.leadTelefone,message:task.mensagem,ruleId:rule.id});
         upsertLog(logId,{ruleId:rule.id,leadId:lead.id,lastRefISO:refISO,lastTriggeredAt:new Date().toISOString()});
         logMap[logId]={id:logId,ruleId:rule.id,leadId:lead.id,lastRefISO:refISO,lastTriggeredAt:new Date().toISOString()};
         created++;
@@ -19938,7 +19996,22 @@ ${gxlCloseScriptTag}`;
         if(r&&r.ok){DB.update('automacao_tasks',em.taskId,{status:'feita',doneAt:new Date().toISOString(),enviadoAuto:true});enviados++}
       }catch(e){/* fica pendente — clique manual de "Abrir e-mail" continua funcionando */}
     }
-    for(const wm of whatsappParaEnviar){
+    // Intervalo aleatório entre um WhatsApp e o próximo (configurado por
+    // automação, em "⏱ Intervalo entre envios") — manda um de cada vez com
+    // uma pausa humana no meio, em vez de disparar tudo em sequência rápida,
+    // o que é um padrão clássico de detecção de robô/spam no WhatsApp e
+    // aumenta risco de banimento do número conectado. Não atrasa o primeiro
+    // envio da varredura.
+    const gexSleep=ms=>new Promise(res=>setTimeout(res,ms));
+    for(let i=0;i<whatsappParaEnviar.length;i++){
+      const wm=whatsappParaEnviar[i];
+      if(i>0){
+        const rule=rs.find(r=>r.id===wm.ruleId);
+        const min=Math.max(1,Number(rule?.intervaloMinSeg)||20);
+        const max=Math.max(min,Number(rule?.intervaloMaxSeg)||40);
+        const esperaMs=Math.round((min+Math.random()*(max-min))*1000);
+        await gexSleep(esperaMs);
+      }
       try{
         const r=await sendAutomationWhatsapp(wm);
         if(r&&r.ok){DB.update('automacao_tasks',wm.taskId,{status:'feita',doneAt:new Date().toISOString(),enviadoAuto:true});whatsappEnviados++}
