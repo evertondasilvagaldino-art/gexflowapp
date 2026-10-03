@@ -13270,58 +13270,91 @@ function ensureDefaultCommercialFunnel(){
   return funnels;
 }
 
-// ═══ CORREÇÃO ÚNICA (03/10/2026): leads da Beatriz empurrados pro Funil
-// Principal pelo bug de corrida do migrateOldOpportunitiesToDefaultFunnel ═══
-// Devolve ao funil da Beatriz todo lead cujo RESPONSÁVEL é ela, mas que hoje
-// está (por causa do bug) em outro funil. A etapa exata de antes do bug NÃO
-// tem como ser recuperada — o sistema não guarda histórico de etapa por
-// lead — então cada lead corrigido volta: pra etapa de Ganho/Perdido do
-// funil dela, se o negócio já estava fechado com esse status; senão, pra 1ª
-// etapa do funil dela. Cada lead mexido recebe uma nota em Atividades
-// avisando disso, pra conferência manual só da ETAPA (funil e responsável já
-// ficam certos sozinhos). Roda no máximo 1 vez (marcador em localStorage) e
-// só pra quem tem visão gerencial (Fundador/Adm Gerente), e só depois que
-// usuários e funis realmente carregaram (evita repetir o MESMO tipo de erro
-// de corrida que causou o problema original).
+// ═══ CORREÇÃO (03/10/2026): reimporta os leads da Beatriz com a ETAPA
+// ORIGINAL, usando a planilha "Banco de Leads" que o Everton exportou do
+// cadastro de leads (fonte oficial, com a etapa de cada um antes do bug) ═══
+// O bug de corrida do migrateOldOpportunitiesToDefaultFunnel (já corrigido)
+// chegou a empurrar leads da Beatriz pro Funil Principal, e uma primeira
+// tentativa de correção automática (sem saber a etapa original) chutou "1ª
+// etapa" pra quem não estava Ganho/Perdido — chute que essa reimportação
+// agora substitui pelo dado real. Pra cada lead da planilha: procura um lead
+// já existente (por telefone ou e-mail, não importa em qual funil ele esteja
+// hoje) e CORRIGE funil/etapa/responsável nele; se não achar nenhum (ex.: foi
+// perdido de vez), CRIA um novo lead já no lugar certo. Roda no máximo 1 vez
+// (marcador em localStorage) e só pra quem tem visão gerencial.
+const GEX_BEATRIZ_REIMPORT_DATA = JSON.parse('[{"nome":"Rafael Melo Burgos","empresa":"","email":"rafaelmelo129@gmail.com","telefone":"21981072269","etapa":"Prospecção","origem":"Formulário: Curso Gestão de tráfego Pago presencial","produto":"","obs":"","data":"2026-10-03"},{"nome":"PEDRO/ CORRETORA IMOBILIARIA","empresa":"","email":"pedrohcn@gmail.com","telefone":"(31) 9395-0733","etapa":"Fechamento","origem":"Indicação","produto":"Implementação de Tráfego Pago","obs":"","data":"2026-10-01"},{"nome":"LETICIA MARINS - EXPERT CO-PRODUÇÃO","empresa":"","email":"","telefone":"(21) 98747-5873","etapa":"Fechamento","origem":"Indicação","produto":"Co-produção","obs":"","data":"2026-10-01"},{"nome":"RODOLFO / VIP CAR","empresa":"","email":"oficinareisdosautomoveis23s@gmail.com","telefone":"(21) 98004-6492","etapa":"Fechamento","origem":"Meta Ads","produto":"Estruturação Estratégica Gex","obs":"","data":"2026-10-01"},{"nome":"NATHALIA","empresa":"RECANTO DO BACALHAU","email":"","telefone":"(21) 98339-5677","etapa":"Fechamento","origem":"Indicação","produto":"Gex Start + Social Media","obs":"","data":"2026-10-01"},{"nome":"Rogério  - LEAD FORMAÇÃO GEX","empresa":"","email":"","telefone":"rogerio.marins2025@gmail.com","etapa":"Fechamento","origem":"Formulário do site","produto":"Formação Presencial Gestor de Tráfego","obs":"","data":"2026-10-01"},{"nome":"Wellington Teixeira Marinho  - LEAD FORMAÇÃO GEX","empresa":"","email":"wellmarinhodg@gmail.com","telefone":"(21) 99668-6105","etapa":"Prospecção","origem":"Formulário do site","produto":"","obs":"","data":"2026-10-01"},{"nome":"Jose Silva - LEAD FORMAÇÃO GEX","empresa":"","email":"","telefone":"(21) 96585-2900","etapa":"Prospecção","origem":"Formulário do site","produto":"","obs":"","data":"2026-10-01"},{"nome":"Rhomullo - LEAD FORMAÇÃO GEX","empresa":"","email":"contatorhomullo@gmail.com","telefone":"(21) 96603-2344","etapa":"Prospecção","origem":"Formulário do site","produto":"","obs":"","data":"2026-10-01"},{"nome":"Alexandre Januário Barbosa  - LEAD FORMAÇÃO GEX","empresa":"","email":"alexandrejanuario64@gmail.com","telefone":"(21) 98905-1708","etapa":"Prospecção","origem":"Formulário do site","produto":"","obs":"","data":"2026-10-01"},{"nome":"Loren - LEAD FORMAÇÃO GEX","empresa":"","email":"ascibras.loren@gmail.coma","telefone":"(21) 96975-0531","etapa":"Prospecção","origem":"Formulário do site","produto":"","obs":"","data":"2026-10-01"},{"nome":"Robson  de Oliveira - LEAD FORMAÇÃO GEX","empresa":"","email":"robsonempdigital@gmail.com","telefone":"(21) 97658-6668","etapa":"Prospecção","origem":"Formulário do site","produto":"","obs":"","data":"2026-10-01"},{"nome":"Gilberto dias - LEAD FORMAÇÃO GEX","empresa":"","email":"gilbertomarcosconsultor@gmail.com","telefone":"(21) 96812-4141","etapa":"Prospecção","origem":"Formulário do site","produto":"","obs":"","data":"2026-10-01"},{"nome":"Leonardo Raposo - LEAD FORMAÇÃO GEX","empresa":"","email":"leoraposoderesende@gmail.com","telefone":"(21) 99597-2836","etapa":"Prospecção","origem":"Formulário do site","produto":"","obs":"","data":"2026-10-01"},{"nome":"Lirton Mayal  - LEAD FORMAÇÃO GEX","empresa":"","email":"lirtonmayal@yahoo.com.br","telefone":"(22) 99986-5568","etapa":"Prospecção","origem":"Formulário do site","produto":"","obs":"","data":"2026-10-01"},{"nome":"Anderson Assumpção varela - LEAD FORMAÇÃO GEX","empresa":"","email":"angudovarelaoficial@gmail.com","telefone":"(21) 96016-5417","etapa":"Prospecção","origem":"Formulário do site","produto":"","obs":"","data":"2026-10-01"},{"nome":"Fabrício stutz  - LEAD FORMAÇÃO GEX","empresa":"","email":"cavalcantedasilvafabriciostutz@gmail.com","telefone":"(21) 98417-1665","etapa":"Prospecção","origem":"Formulário do site","produto":"","obs":"","data":"2026-10-01"},{"nome":"Fernanda Azevedo da silva - LEAD FORMAÇÃO GEX","empresa":"","email":"pointbeergourmet@gmail.com","telefone":"(21) 99160-5307","etapa":"Prospecção","origem":"Prospecção ativa","produto":"","obs":"","data":"2026-10-01"},{"nome":"Tiago Rocha Dutra  - LEAD FORMAÇÃO GEX","empresa":"","email":"tiago.darochadutra@gmail.com","telefone":"(21) 99068-9168","etapa":"Prospecção","origem":"Prospecção ativa","produto":"","obs":"","data":"2026-10-01"},{"nome":"John Falcão  - LEAD FORMAÇÃO GEX","empresa":"","email":"wenerjohn@gmail.com","telefone":"(21) 99785-5048","etapa":"Prospecção","origem":"Prospecção ativa","produto":"","obs":"","data":"2026-10-01"},{"nome":"Leonardo M  - LEAD FORMAÇÃO GEX","empresa":"","email":"maragaleonardo@gmail.com","telefone":"(21) 97396-5964","etapa":"Prospecção","origem":"Prospecção ativa","produto":"","obs":"","data":"2026-10-01"},{"nome":"Rodrigo  - LEAD FORMAÇÃO GEX","empresa":"","email":"","telefone":"(21) 97499-5162","etapa":"Prospecção","origem":"Prospecção ativa","produto":"","obs":"","data":"2026-10-01"},{"nome":"Erica da Silva  - LEAD FORMAÇÃO GEX","empresa":"","email":"ericabarros540@gmail.com","telefone":"(21) 99412-7145","etapa":"Prospecção","origem":"Prospecção ativa","produto":"","obs":"","data":"2026-10-01"},{"nome":"Yago  - LEAD FORMAÇÃO GEX","empresa":"","email":"yagogomes354@gmail.com","telefone":"(21) 97734-4109","etapa":"Prospecção","origem":"Prospecção ativa","produto":"","obs":"","data":"2026-10-01"},{"nome":"José Patrocínio  - LEAD FORMAÇÃO GEX","empresa":"","email":"jpatrociniosilva57@gmail.com","telefone":"(21) 97203-8760","etapa":"Prospecção","origem":"Prospecção ativa","produto":"","obs":"","data":"2026-10-01"},{"nome":"MICHAEL WILLIAM","empresa":"OUTLET","email":"","telefone":"(21) 96959-7509","etapa":"Prospecção","origem":"Indicação","produto":"Consultoria de Marketing","obs":"","data":"2026-10-01"},{"nome":"PAULO","empresa":"PIZZARIA ESFIRARIA RAVENNA","email":"","telefone":"(21) 98536-1685","etapa":"Fechamento","origem":"Indicação","produto":"Implementação de Tráfego Pago","obs":"","data":"2026-10-01"},{"nome":"CLEYVERTON","empresa":"FALCONES TRINDADE","email":"Cleyvertonpfs@hotmail.com","telefone":"(21) 96482-5329","etapa":"Prospecção","origem":"Indicação","produto":"","obs":"","data":"2026-10-01"},{"nome":"RENAN","empresa":"BIKE CICLO","email":"","telefone":"(21) 96444-5531","etapa":"Prospecção","origem":"Indicação","produto":"Estruturação Estratégica + Gex Start","obs":"Recomendação \\n\\nEstruturação estratégica Gex\\nR$ 2.497\\n\\nGex Start  R$13.824\\n\\nR$ 1.152 projeto de 12 meses","data":"2026-10-01"},{"nome":"JOÃO","empresa":"DEPOSITO DE COLCHÕES ORTOBOM","email":"","telefone":"21970871725","etapa":"Prospecção","origem":"WhatsApp","produto":"Gestão de Tráfego","obs":"15 anos de loja, atua sozinho, FAT 60K","data":"2026-09-24"},{"nome":"solange almeida da silva","empresa":"","email":"solangealmeida.silva.300582@gmail.com","telefone":"+5522995611444","etapa":"Perdido","origem":"Meta Ads (Formulário Instantâneo)","produto":"","obs":"• Já investiu em tráfego pago? ⬇️: nunca_fiz_anúncios\\n\\n• Instagram da sua empresa ⬇️: não e empresa sou eu acreditando em mim Solange Almeida da Silva\\n\\n• Você tem quantos pessoas na equipe?: de_01_a_05\\n\\n• Você está disposto a fazer uma reunião conosco para entendermos os desafios do seu negócio e indicarmos o melhor caminho para alcançar seus objetivos?: sim","data":"2026-09-24"},{"nome":"Erika de freitas da silva  Thomaz","empresa":"","email":"Erikathfreitas@gmail.com","telefone":"+553182211132","etapa":"Perdido","origem":"Meta Ads (Formulário Instantâneo)","produto":"","obs":"• Você está disposto a fazer uma reunião conosco para entendermos os desafios do seu negócio e indicarmos o melhor caminho para alcançar seus objetivos?: não\\n\\n• Já investiu em tráfego pago? ⬇️: nunca_fiz_anúncios\\n\\n• Instagram da sua empresa ⬇️: Maré espaço gastronômico\\n\\n• Você tem quantos pessoas na equipe?: de_05_a_10","data":"2026-09-24"},{"nome":"Luiz","empresa":"Luiz","email":"","telefone":"+55 (21) 98133-4106","etapa":"Prospecção","origem":"Ads","produto":"","obs":"Loja material de construção","data":"2026-09-23"},{"nome":"Mixing Assessoria Contábil","empresa":"Mixing Assessoria Contábil","email":"","telefone":"+5521988983494","etapa":"Prospecção","origem":"Whatsapp","produto":"","obs":"","data":"2026-09-23"},{"nome":"CINTHIA PEDROSA - Tem Salgadinho","empresa":"CINTHIA PEDROSA - Tem Salgadinho","email":"","telefone":"+5521997489275","etapa":"Prospecção","origem":"Whatsapp","produto":"","obs":"","data":"2026-09-23"},{"nome":"Carla Priscilla","empresa":"Carla Priscilla","email":"","telefone":"+5521992579460","etapa":"Prospecção","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"Michele Delfim - Armazém 3M","empresa":"Michele Delfim - Armazém 3M","email":"","telefone":"+5521996336901","etapa":"Prospecção","origem":"Ads","produto":"","obs":"Abriu em março<br />50k fat<br />10 funcionarios","data":"2026-09-23"},{"nome":"JEAN/ MR LIMA BARBER SHOP","empresa":"JEAN/ MR LIMA BARBER SHOP","email":"","telefone":"+5555219756072","etapa":"Prospecção","origem":"Indicação","produto":"","obs":"","data":"2026-09-23"},{"nome":"Jean Santana - Forno Santana","empresa":"Jean Santana - Forno Santana","email":"","telefone":"+5521976682863","etapa":"Prospecção","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"Arlete Soares Costa Lead Formulario Meta","empresa":"Arlete Soares Costa Lead Formulario Meta","email":"","telefone":"+553799970080","etapa":"Perdido","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"Kerollen / Grupo Alfredo Backer de Ensino","empresa":"Kerollen / Grupo Alfredo Backer de Ensino","email":"","telefone":"+5521993939336","etapa":"Prospecção","origem":"Whatsapp","produto":"","obs":"","data":"2026-09-23"},{"nome":"Lucas Vieira","empresa":"Lucas Vieira","email":"","telefone":"+552120852125","etapa":"Perdido","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"Rodney - LEAD FORMAÇÃO GEX","empresa":"Rodney - LEAD FORMAÇÃO GEX","email":"","telefone":"+5521990877226","etapa":"Prospecção","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"Amaro Fagundes Lead Formulario Meta","empresa":"Amaro Fagundes Lead Formulario Meta","email":"","telefone":"+5533999221894","etapa":"Prospecção","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"João Victor | SaaS, IA & Estrategista Lead Formulario Meta","empresa":"João Victor | SaaS, IA & Estrategista Lead Formulario Meta","email":"","telefone":"+5581986019997","etapa":"Perdido","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"Thais","empresa":"Thais","email":"","telefone":"","etapa":"Perdido","origem":"Importação Excel","produto":"","obs":"","data":"2026-09-23"},{"nome":"Sofia Lara Lead Formulario Meta","empresa":"Sofia Lara Lead Formulario Meta","email":"","telefone":"+5599985155052","etapa":"Perdido","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"RAMON","empresa":"RAMON","email":"","telefone":"+5521986377599","etapa":"Prospecção","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"AMANDA","empresa":"AMANDA","email":"","telefone":"+5521966243924","etapa":"Prospecção","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"KETHELEN","empresa":"KETHELEN","email":"","telefone":"+5521965797857","etapa":"Perdido","origem":"Importação Excel","produto":"","obs":"","data":"2026-09-23"},{"nome":"Álisson Júnior","empresa":"Álisson Júnior","email":"","telefone":"+5562999506547","etapa":"Prospecção","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"Vanderlei Nunes Lead Formulario Meta","empresa":"Vanderlei Nunes Lead Formulario Meta","email":"","telefone":"+5511942408583","etapa":"Prospecção","origem":"Ads","produto":"Gestão de Tráfego","obs":"","data":"2026-09-23"},{"nome":"MARLOS / CORRETOR","empresa":"MARLOS / CORRETOR","email":"","telefone":"+5511963702103","etapa":"Prospecção","origem":"Indicação","produto":"","obs":"","data":"2026-09-23"},{"nome":"Leonardo Raposo - LEAD FORMAÇÃO GEX","empresa":"Leonardo Raposo - LEAD FORMAÇÃO GEX","email":"","telefone":"+5521995972836","etapa":"Prospecção","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"GRACE GAYET PLANOS DE SAUDE","empresa":"GRACE GAYET PLANOS DE SAUDE","email":"","telefone":"+5521969097701","etapa":"Prospecção","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"Rafael Correa Gomes Lead Formulario Meta","empresa":"Rafael Correa Gomes Lead Formulario Meta","email":"","telefone":"+5521966948990","etapa":"Perdido","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"Natália Lead Formulario Meta","empresa":"Natália Lead Formulario Meta","email":"","telefone":"+5531992289116","etapa":"Perdido","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"jarleno 244@ Lead Formulario Meta","empresa":"jarleno 244@ Lead Formulario Meta","email":"","telefone":"+5589994134493","etapa":"Perdido","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"Joana Santiago Lead Formulario Meta","empresa":"Joana Santiago Lead Formulario Meta","email":"","telefone":"+5541987489888","etapa":"Prospecção","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"Patrícia da Silva Vieira  - LEAD FORMAÇÃO GEX","empresa":"Patrícia da Silva Vieira  - LEAD FORMAÇÃO GEX","email":"","telefone":"+5521992628392","etapa":"Prospecção","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"Camilla Guimarães Carvalho  - LEAD FORMAÇÃO GEX","empresa":"Camilla Guimarães Carvalho  - LEAD FORMAÇÃO GEX","email":"","telefone":"+5521991711892","etapa":"Perdido","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"Anderson Silva  - LEAD FORMAÇÃO GEX","empresa":"Anderson Silva  - LEAD FORMAÇÃO GEX","email":"","telefone":"+5521991544811","etapa":"Prospecção","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"fariaafonso40@gmail.com - LEAD FORMAÇÃO GEX","empresa":"fariaafonso40@gmail.com - LEAD FORMAÇÃO GEX","email":"","telefone":"+5521995794067","etapa":"Prospecção","origem":"Ads","produto":"","obs":"","data":"2026-09-23"},{"nome":"José Fernando  - LEAD FORMAÇÃO GEX","empresa":"José Fernando  - LEAD FORMAÇÃO GEX","email":"","telefone":"+5592984134326","etapa":"Prospecção","origem":"Ads","produto":"","obs":"","data":"2026-09-23"}]');
+function gexNormalizePhoneDigitsForMatch(raw){
+  const d=String(raw||'').replace(/\D/g,'');
+  return d.slice(-8); // últimos 8 dígitos — tolera DDI/DDD formatados de jeitos diferentes
+}
 function gexRunOneTimeBeatrizFix(){
   try{
     if(typeof isSalesManagerView!=='function'||!isSalesManagerView())return;
-    if(localStorage.getItem('gex_fix_beatriz_pipeline_2026_10')==='1')return;
+    if(localStorage.getItem('gex_fix_beatriz_reimport_2026_10_v2')==='1')return;
     const usuarios=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[])||[];
     const funnels=(typeof getCommercialFunnels==='function'?getCommercialFunnels():[])||[];
     if(usuarios.length<2||funnels.length<2)return; // ainda não carregou de verdade — tenta de novo no próximo load, sem marcar como feito
     const beatriz=usuarios.find(u=>normalizeSalesName(u.nome||'').includes('beatriz'));
-    if(!beatriz){localStorage.setItem('gex_fix_beatriz_pipeline_2026_10','1');return;} // ninguém com esse nome — nada a fazer
+    if(!beatriz){localStorage.setItem('gex_fix_beatriz_reimport_2026_10_v2','1');return;}
     const beatrizId=String(beatriz.supabaseId||beatriz.id||'');
     const beatrizEmail=normalizeLoginEmail(beatriz.email||'');
+    const beatrizNome=beatriz.nome||'Beatriz Viana';
     let funilDela=funnels.find(f=>!f.isArchived&&String(f.createdBy||'')===beatrizId)
       ||(beatriz.assignedFunnelId?funnels.find(f=>!f.isArchived&&String(f.id)===String(beatriz.assignedFunnelId)):null);
-    if(!funilDela){localStorage.setItem('gex_fix_beatriz_pipeline_2026_10','1');return;} // não achou o funil dela — não arrisca adivinhar
+    if(!funilDela){localStorage.setItem('gex_fix_beatriz_reimport_2026_10_v2','1');return;}
     const stages=(funilDela.stages||[]).slice().sort((a,b)=>(a.order||0)-(b.order||0));
-    const stageWon=stages.find(s=>s.isWon),stageLost=stages.find(s=>s.isLost),stageFirst=stages.find(s=>!s.isWon&&!s.isLost)||stages[0];
-    if(!stageFirst){localStorage.setItem('gex_fix_beatriz_pipeline_2026_10','1');return;}
+    if(!stages.length){localStorage.setItem('gex_fix_beatriz_reimport_2026_10_v2','1');return;}
+    function mapEtapa(label){
+      const norm=normalizeSalesName(label||'');
+      let s=stages.find(st=>normalizeSalesName(st.name||'')===norm);
+      if(s)return s;
+      if(norm.includes('perd'))return stages.find(st=>st.isLost)||stages[stages.length-1];
+      if(norm.includes('fecham')||norm.includes('ganh'))return stages.find(st=>st.isWon)||stages.find(st=>normalizeSalesName(st.name||'').includes('fecham'))||stages[stages.length-1];
+      if(norm.includes('prospec'))return stages.find(st=>!st.isWon&&!st.isLost)||stages[0];
+      return stages[0];
+    }
     const leads=DB.get('leads')||[];
-    let fixed=0;
+    const porTelefone={},porEmail={};
     leads.forEach(l=>{
-      const ownerId=String((typeof getLeadOwnerId==='function'?getLeadOwnerId(l):'')||'');
-      const ownerEmail=normalizeLoginEmail((typeof getLeadOwnerEmail==='function'?getLeadOwnerEmail(l):'')||'');
-      const ownerName=normalizeSalesName((typeof getLeadOwnerName==='function'?getLeadOwnerName(l):'')||'');
-      const isBeatrizLead=(beatrizId&&ownerId===beatrizId)||(beatrizEmail&&ownerEmail===beatrizEmail)||(ownerName&&beatriz.nome&&ownerName===normalizeSalesName(beatriz.nome));
-      if(!isBeatrizLead)return;
-      if(String(l.funnelId||'')===String(funilDela.id))return; // já está no funil certo
-      let novaEtapa=stageFirst;
-      if(l.dealStatus==='Ganho'&&stageWon)novaEtapa=stageWon;
-      else if(l.dealStatus==='Perdido'&&stageLost)novaEtapa=stageLost;
-      DB.update('leads',l.id,{funnelId:funilDela.id,stageId:novaEtapa.id,estagio:novaEtapa.name});
-      try{DB.push('atividades',{id:uid(),leadId:l.id,tipo:'Sistema',ico:'🛠️',texto:`Lead devolvido automaticamente ao funil "${funilDela.name}" (estava no Funil Principal por causa de um bug de sincronização já corrigido). A etapa de antes do bug não pôde ser recuperada — foi definida como "${novaEtapa.name}". Confira se é a etapa correta.`,data:new Date().toLocaleString('pt-BR'),usuario:'Sistema'});}catch(e){}
-      fixed++;
+      const tel=gexNormalizePhoneDigitsForMatch(l.telefone||l.whatsapp||'');
+      if(tel&&tel.length>=8)porTelefone[tel]=l;
+      const em=normalizeLoginEmail(l.email||'');
+      if(em)porEmail[em]=l;
     });
-    localStorage.setItem('gex_fix_beatriz_pipeline_2026_10','1');
-    if(fixed>0){
-      try{toast(`${fixed} lead(s) da Beatriz devolvidos ao funil dela — confira a etapa de cada um ✓`,'#10B981');}catch(e){}
+    let atualizados=0,criados=0;
+    GEX_BEATRIZ_REIMPORT_DATA.forEach(row=>{
+      let telefoneRaw=row.telefone||'',emailRaw=row.email||'';
+      // A planilha tem pelo menos 1 linha com o e-mail digitado por engano na
+      // coluna de telefone — corrige na hora em vez de tentar casar um
+      // telefone que na real é um e-mail.
+      if(!emailRaw&&telefoneRaw.includes('@')){emailRaw=telefoneRaw;telefoneRaw='';}
+      const telNorm=gexNormalizePhoneDigitsForMatch(telefoneRaw);
+      const emailNorm=normalizeLoginEmail(emailRaw);
+      const existente=(telNorm&&telNorm.length>=8&&porTelefone[telNorm])||(emailNorm&&porEmail[emailNorm])||null;
+      const etapa=mapEtapa(row.etapa);
+      const dataIso=row.data||new Date().toISOString().slice(0,10);
+      const dealStatus=etapa.isWon?'Ganho':etapa.isLost?'Perdido':'Em andamento';
+      const camposDono={responsavelId:beatrizId,responsavelNome:beatrizNome,responsavelEmail:beatrizEmail,ownerId:beatrizId,ownerName:beatrizNome,ownerEmail:beatrizEmail,vendedorId:beatrizId,vendedorNome:beatrizNome,vendedorEmail:beatrizEmail,assignedToId:beatrizId,assignedTo:beatrizNome,assignedToEmail:beatrizEmail};
+      if(existente){
+        const upd={funnelId:funilDela.id,stageId:etapa.id,estagio:etapa.name,dealStatus,...camposDono};
+        if(!existente.empresa&&row.empresa)upd.empresa=row.empresa;
+        if(!existente.origem&&row.origem)upd.origem=row.origem;
+        if(!existente.telefone&&telefoneRaw)upd.telefone=telefoneRaw;
+        if(!existente.email&&emailRaw)upd.email=emailRaw;
+        DB.update('leads',existente.id,upd);
+        atualizados++;
+      }else{
+        const novo={id:uid(),nome:row.nome||'Lead',empresa:row.empresa||'',email:emailRaw,telefone:telefoneRaw,origem:row.origem||'Reimportação',desc:row.obs||'',produto:row.produto||'',estagio:etapa.name,stageId:etapa.id,funnelId:funilDela.id,dealStatus,data:new Date(dataIso+'T12:00:00').toLocaleDateString('pt-BR'),dataInicio:dataIso,createdAt:new Date(dataIso+'T12:00:00').toISOString(),...camposDono};
+        DB.push('leads',novo);
+        criados++;
+      }
+    });
+    localStorage.setItem('gex_fix_beatriz_reimport_2026_10_v2','1');
+    if(atualizados+criados>0){
+      try{toast(`Funil da Beatriz: ${atualizados} lead(s) corrigido(s) e ${criados} recriado(s), já nas etapas certas ✓`,'#10B981');}catch(e){}
       try{if(typeof renderComercial==='function')setTimeout(renderComercial,300);}catch(e){}
     }
-  }catch(e){console.warn('[GexFlow] Falha na correção única dos leads da Beatriz:',e);}
+  }catch(e){console.warn('[GexFlow] Falha na reimportação dos leads da Beatriz:',e);}
 }
 
 // Consolida cópias DUPLICADAS de verdade (mesmo dono E mesmo nome
