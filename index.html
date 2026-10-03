@@ -4032,8 +4032,48 @@ async function gexCloudSoftDelete(collection,ids){
   if(error)throw error;
   return true;
 }
+// ═══ CORREÇÃO (03/10/2026): "excluir" um registro (funil, lead, etc.) é
+// INSTANTÂNEO localmente, mas o apagar de verdade na nuvem só acontece
+// depois, em segundo plano (gexQueueCloud, sem ninguém esperar terminar). Se
+// a pessoa atualizar a página logo em seguida — ANTES desse pedido chegar no
+// servidor —, o carregamento inicial (initGexCloudDataSync) busca da nuvem
+// os dados que AINDA não foram marcados como apagados lá, e o merge por id
+// (gexMergeById) via "não existe local, existe na nuvem → adiciona" acaba
+// RESSUSCITANDO o registro que a pessoa já tinha excluído (foi exatamente o
+// que aconteceu: um Gex Parceiro arquivou e excluiu um funil, e ele voltou
+// pra lista de arquivados depois de recarregar). Pra evitar isso sem
+// precisar travar a tela esperando a nuvem confirmar toda exclusão, guarda
+// uma "lápide" local (por navegador, com validade de 24h) de todo id
+// excluído: o carregamento inicial ignora qualquer linha da nuvem cujo id
+// esteja na lápide, mesmo que a nuvem ainda não tenha processado o apagar.
+function gexTombstoneKey(collection){return `gx2_tombstone__${collection}`;}
+function gexAddTombstones(collection,ids){
+  try{
+    const list=(Array.isArray(ids)?ids:[ids]).filter(Boolean).map(String);
+    if(!list.length)return;
+    const key=gexTombstoneKey(collection);
+    const now=Date.now();
+    let existing=[];
+    try{existing=JSON.parse(localStorage.getItem(key)||'[]');}catch(e){existing=[];}
+    const already=new Set(existing.map(t=>t.id));
+    list.forEach(id=>{if(!already.has(id)){existing.push({id,at:now});already.add(id);}});
+    // Nunca cresce pra sempre: depois de 24h a lápide expira (a nuvem já
+    // deve ter processado o apagar bem antes disso).
+    existing=existing.filter(t=>now-t.at<24*60*60*1000);
+    localStorage.setItem(key,JSON.stringify(existing));
+  }catch(e){}
+}
+function gexGetTombstoneIds(collection){
+  try{
+    const key=gexTombstoneKey(collection);
+    const now=Date.now();
+    let existing=[];
+    try{existing=JSON.parse(localStorage.getItem(key)||'[]');}catch(e){existing=[];}
+    existing=existing.filter(t=>now-t.at<24*60*60*1000);
+    return new Set(existing.map(t=>String(t.id)));
+  }catch(e){return new Set();}
+}
 function gexCloudSyncCollection(collection,next,previous=[]){
-  if(!gexCanCloudSync())return;
   const nextArr = Array.isArray(next)?next:[];
   const prevArr = Array.isArray(previous)?previous:[];
   const nextIds = new Set(nextArr.map(x=>x&&x.id).filter(Boolean).map(String));
@@ -4041,6 +4081,11 @@ function gexCloudSyncCollection(collection,next,previous=[]){
     .map(x=>x&&x.id)
     .filter(id=>id && !nextIds.has(String(id)))
     .map(String);
+  // Grava a lápide JÁ, de forma síncrona, antes mesmo de saber se dá pra
+  // sincronizar com a nuvem agora — é exatamente o instante em que o id some
+  // do local, então é o único momento garantido de capturar isso.
+  if(removedIds.length)gexAddTombstones(collection,removedIds);
+  if(!gexCanCloudSync())return;
   gexQueueCloud(async()=>{
     await gexCloudUpsertMany(collection,nextArr);
     if(removedIds.length)await gexCloudSoftDelete(collection,removedIds);
@@ -4052,6 +4097,7 @@ function gexCloudSyncOne(collection,item){
   gexQueueCloud(()=>gexCloudUpsertMany(collection,[item]));
 }
 function gexCloudRemoveOne(collection,id){
+  if(id)gexAddTombstones(collection,[id]);
   if(!gexCanCloudSync() || !id)return;
   gexQueueCloud(()=>gexCloudSoftDelete(collection,id));
 }
@@ -4284,7 +4330,14 @@ async function initGexCloudDataSync(isRetry){
     // 2) Aplica coleções principais preservando dados locais ainda não enviados.
     GEX_DB_COLLECTIONS.forEach(collection=>{
       const local=gexReadLocalCollection(collection);
-      const merged=gexMergeById(local,byCollection[collection]||[]);
+      // Ignora qualquer linha da nuvem cujo id a gente mesmo excluiu
+      // localmente há pouco (lápide — ver gexAddTombstones) — sem isso, se o
+      // apagar na nuvem ainda não tiver sido processado nesse exato
+      // instante, essa linha "ainda não apagada" vinda da nuvem ressuscitava
+      // o registro que a pessoa tinha acabado de excluir.
+      const tomb=typeof gexGetTombstoneIds==='function'?gexGetTombstoneIds(collection):new Set();
+      const cloudRows=tomb.size?(byCollection[collection]||[]).filter(row=>!tomb.has(String(row.record_id))):(byCollection[collection]||[]);
+      const merged=gexMergeById(local,cloudRows);
       gexWriteLocalCollection(collection,merged);
     });
 
@@ -17682,7 +17735,20 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   // Meta Ads usa a mesma chave por usuário de metaAdsStorageKey() (definida
   // no script principal) — assim connection()/saveConnection() batem com o
   // que syncGxiConnectionState() grava depois de um login OAuth.
-  const _connKey=provider=>provider==='meta_ads'&&typeof metaAdsStorageKey==='function'?metaAdsStorageKey():provider;
+  // CORREÇÃO (03/10/2026, a pedido do Everton): Meta Ads, Z-API, SMTP e
+  // Conversões já eram isolados por usuário (uma linha por conta, chave
+  // "<algo>__<id do usuário>"). Google Ads (e o futuro WhatsApp Oficial)
+  // ficaram de fora dessa regra — usavam o nome do provider puro como chave,
+  // ou seja, era um ÚNICO slot compartilhado pelo sistema inteiro: o
+  // Fundador e CADA Gex Parceiro "disputavam" a mesma conexão de Google Ads,
+  // em vez de cada um ter a sua. Agora todo provider (menos o meta_ads, que
+  // já tinha seu próprio helper) usa a mesma convenção de isolamento por
+  // usuário.
+  const _connKey=provider=>{
+    if(provider==='meta_ads'&&typeof metaAdsStorageKey==='function')return metaAdsStorageKey();
+    const myId=(typeof sessionUser!=='undefined'&&sessionUser?.id)||'sem_login';
+    return `${provider}__${myId}`;
+  };
   const connection=id=>getConnections().find(x=>x.provider===_connKey(id))||{provider:id,status:'disconnected',assets:{}};
   function saveConnection(provider,data){const key=_connKey(provider);const all=getConnections(),i=all.findIndex(x=>x.provider===key),next={...(i>=0?all[i]:{id:uid(),provider:key}),...data,updatedAt:new Date().toISOString()};if(i>=0)all[i]=next;else all.push(next);DB.set('integration_connections',all);return next}
   function event(type,detail,status='success',extra={}){DB.push('tracking_events',{id:uid(),type,detail,status,createdAt:new Date().toISOString(),...extra})}
