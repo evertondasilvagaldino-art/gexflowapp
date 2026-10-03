@@ -6928,7 +6928,7 @@ async function saveModal(type,id=''){
       const oldProjeto=id?DB.find('projetos',id):null;
       if(id&&!projectAccessGuard(oldProjeto,'editar este projeto'))return;
       const ownerPick=resolveProjectResponsibleFromForm(oldProjeto);
-      const obj={nome:v('f-nome'),cliente:v('f-cliente'),status:v('f-status')||'A fazer',prazo:v('f-prazo'),desc:v('f-desc'),score:parseInt(v('f-score'))||0,resultado:parseInt(v('f-resultado'))||0,prioridade:v('f-prioridade')||'Normal',formato:v('f-formato'),objetivoPost:v('f-objetivo'),dataVeiculacao:v('f-data-veiculacao'),dataPostagem:v('f-data-postagem'),...projectOwnerFieldsFromPick(ownerPick)};
+      const obj={nome:v('f-nome'),cliente:v('f-cliente'),squad:v('f-squad')||'',status:v('f-status')||'A fazer',prazo:v('f-prazo'),desc:v('f-desc'),score:parseInt(v('f-score'))||0,resultado:parseInt(v('f-resultado'))||0,prioridade:v('f-prioridade')||'Normal',formato:v('f-formato'),objetivoPost:v('f-objetivo'),dataVeiculacao:v('f-data-veiculacao'),dataPostagem:v('f-data-postagem'),...projectOwnerFieldsFromPick(ownerPick)};
       if(!obj.nome){toast('Nome obrigatório','#EF4444');return}
       if(id)DB.update('projetos',id,obj);else DB.push('projetos',{id:uid(),...obj,createdById:sessionUser?.id||'',createdByEmail:sessionUser?.email||'',createdBy:sessionUser?.nome||''});
       closeModal();renderProjetos();renderInicio();toast(id?'Projeto atualizado ✓':'Projeto criado ✓','#10B981');
@@ -7196,11 +7196,25 @@ function formProjeto(d){
   const setSelect=()=>{if(cliAtual){const sel=document.getElementById('f-cliente');if(sel){for(let o of sel.options)if(o.value===cliAtual){o.selected=true;break}}}};
   setTimeout(setSelect,0);
   const statusAtual=d?.status||'A fazer';
+  // Squad do projeto: por padrão ele herda o(s) squad(s) cadastrado(s) no
+  // cliente vinculado, mas o usuário pode escolher direto aqui pra não
+  // depender disso (ex: projeto sem cliente, ou que deve ficar num squad
+  // diferente do squad do cliente). Se aberto de dentro de uma pasta de
+  // squad específica (Gestão de Entregas → squad X → Novo Projeto), já vem
+  // pré-selecionado com esse squad.
+  const squadsCadastradas=DB.get('squads')||[];
+  const squadPreSelecionado=d?.squad||(typeof projFolderView!=='undefined'&&projFolderView&&projFolderView!==SEM_SQUAD_KEY?projFolderView:'');
+  const squadOptsProjeto=squadsCadastradas.map(s=>`<option value="${s.nome.replace(/"/g,'&quot;')}" ${squadPreSelecionado===s.nome?'selected':''}>${s.nome}</option>`).join('');
   return `<div class="form-group"><label class="form-label">Nome do Projeto *</label><input class="form-input" id="f-nome" value="${d?.nome||''}"></div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Cliente</label><select class="form-input" id="f-cliente"><option value="">Selecionar...</option>${clis}</select></div>
     <div class="form-group"><label class="form-label">Status</label>
       <select class="form-input" id="f-status">${STATUS_ENTREGA.map(s=>`<option ${statusAtual===s?'selected':''}>${s}</option>`).join('')}</select></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">📁 Squad</label>
+      <select class="form-input" id="f-squad"><option value="">— Baseado no cliente —</option>${squadOptsProjeto}</select>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Deixe em "Baseado no cliente" para herdar o squad do cliente selecionado, ou escolha um squad específico pra este projeto.</div></div>
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">🎬 Formato</label>
@@ -11489,11 +11503,16 @@ function clienteSquads(c){
   return (c.squad&&c.squad!=='—')?[c.squad]:[];
 }
 
-// Squads aos quais um projeto pertence: herdados dos squads cadastrados no
-// cliente vinculado ao projeto (campo "Squads responsáveis" do cadastro de
-// Cliente) — um projeto de um cliente em vários squads aparece em todos.
-// Sem cliente, ou cliente sem squad definido, cai na pasta "Sem squad".
+// Squads aos quais um projeto pertence. Prioridade: (1) squad escolhido
+// diretamente no cadastro do projeto (campo "Squad" do formulário) — assim
+// dá pra decidir na hora de criar, sem depender do cliente; (2) na ausência
+// disso (projetos antigos, ou quando o campo fica em "Baseado no cliente"),
+// herda os squads cadastrados no cliente vinculado (campo "Squads
+// responsáveis" do cadastro de Cliente) — um projeto de um cliente em vários
+// squads aparece em todos. Sem projeto.squad e sem cliente/squad do cliente,
+// cai na pasta "Sem squad".
 function projectSquads(p){
+  if(p?.squad&&p.squad!=='—')return[p.squad];
   const cli=(DB.get('clientes')||[]).find(c=>c.nome===p.cliente);
   return clienteSquads(cli);
 }
