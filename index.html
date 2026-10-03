@@ -18940,11 +18940,17 @@ ${gxlCloseScriptTag}`;
     try{
       const ownerId=(typeof getLeadOwnerId==='function'?getLeadOwnerId(lead):'')||'';
       const ownerEmail=(typeof getLeadOwnerEmail==='function'?normalizeLoginEmail(getLeadOwnerEmail(lead)):'')||'';
-      if(!ownerId&&!ownerEmail)return null;
+      // Além de id/email, também tenta por NOME (mesmo fallback que
+      // resolveLeadOwnerFromForm/isLeadOwnedByUser já usam em outros lugares
+      // do sistema) — cobre o caso de um lead antigo/importado que só tem
+      // responsavelNome salvo, sem o id vinculado corretamente.
+      const ownerName=(typeof getLeadOwnerName==='function'?getLeadOwnerName(lead):'')||'';
+      if(!ownerId&&!ownerEmail&&!ownerName)return null;
       const users=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[])||[];
       return users.find(x=>
         (ownerId&&(String(x.id)===ownerId||String(x.supabaseId||'')===ownerId))||
-        (ownerEmail&&normalizeLoginEmail(x.email||'')===ownerEmail)
+        (ownerEmail&&normalizeLoginEmail(x.email||'')===ownerEmail)||
+        (ownerName&&typeof normalizeSalesName==='function'&&normalizeSalesName(x.nome||x.email||'')===normalizeSalesName(ownerName))
       )||null;
     }catch(e){return null}
   }
@@ -19064,15 +19070,31 @@ ${gxlCloseScriptTag}`;
       }
       // ── Chegou numa etapa → avisa o RESPONSÁVEL do lead no WhatsApp DELE
       // (não no do lead) com os dados do lead (nome, telefone, empresa,
-      // origem). Mesma lógica de "uma vez só por lead" do anexar observação.
+      // origem). Diferente das outras automações por etapa: aqui NÃO usamos
+      // o logMap "uma vez só" — em vez disso, olhamos direto a ação já
+      // criada (automacao_tasks) pra esse lead+regra. Enquanto ela continuar
+      // "pendente" (ex.: responsável sem telefone, ou Z-API fora do ar no
+      // momento), o motor RECALCULA o telefone/mensagem do zero a cada
+      // varredura e tenta enviar de novo — assim, assim que o responsável
+      // cadastrar o telefone ou a conexão voltar, o aviso sai sozinho no
+      // próximo ciclo, sem precisar recriar o lead. Uma vez "feita" ou
+      // "ignorada" (decisão do usuário), nunca mais mexe nela.
       if(rule.gatilho==='avisar_responsavel_etapa'){
+        const tasksAtuais=DB.get('automacao_tasks')||[];
         leads.forEach(lead=>{
           if(!leadEmEtapa(lead,rule))return;
-          const logId=rule.id+'__'+lead.id;
-          if(logMap[logId])return; // já avisado sobre esse lead, uma vez só
           const owner=getLeadOwnerFullUser(lead);
           const ownerPhone=normalizeZapiPhone(owner?.telefone||owner?.phone||owner?.whatsapp||'');
           const texto=renderTpl(rule.mensagem,lead,{etapa:rule.etapaName||'',responsavel:owner?.nome||''});
+          const existente=tasksAtuais.find(t=>t.ruleId===rule.id&&t.leadId===lead.id);
+          if(existente){
+            if(existente.status!=='pendente')return; // já foi feita ou ignorada — não mexe mais
+            // Atualiza com os dados mais recentes (o responsável pode ter
+            // acabado de cadastrar o telefone) antes de tentar de novo.
+            DB.update('automacao_tasks',existente.id,{leadTelefone:ownerPhone,mensagem:texto,leadNome:`${lead.nome||'Lead'} → aviso p/ ${owner?.nome||'responsável'}`});
+            if(ownerPhone)whatsappParaEnviar.push({taskId:existente.id,phone:ownerPhone,message:texto});
+            return;
+          }
           const task={
             id:uid(),ruleId:rule.id,ruleName:rule.nome,canal:'whatsapp',
             leadId:lead.id,leadNome:`${lead.nome||'Lead'} → aviso p/ ${owner?.nome||'responsável'}`,
@@ -19082,8 +19104,6 @@ ${gxlCloseScriptTag}`;
           };
           DB.push('automacao_tasks',task);
           if(ownerPhone)whatsappParaEnviar.push({taskId:task.id,phone:ownerPhone,message:texto});
-          upsertLog(logId,{ruleId:rule.id,leadId:lead.id,lastTriggeredAt:new Date().toISOString()});
-          logMap[logId]={id:logId,ruleId:rule.id,leadId:lead.id};
           created++;
         });
         return;
