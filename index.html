@@ -9733,10 +9733,19 @@ function renderComercial(){
     else pipeInfo.textContent=`→ Ano ${pipelineFilter.ano}`;
   }
 
-  const total=funnelLeads.reduce((a,l)=>a+(+l.valor||0),0);
   const wonStage=stages.find(s=>s.isWon)||stages.find(s=>String(s.name).toLowerCase().includes('fecha'))||stages[stages.length-1];
   const wonLeads=wonStage?funnelLeads.filter(l=>l.stageId===wonStage.id||l.estagio===wonStage.name||l.dealStatus==='Ganho'):[];
   const fechados=wonLeads.reduce((a,l)=>a+(+l.valor||0),0);
+  // "Pipeline Total" e "Leads Ativos" devem refletir só negócios em aberto
+  // (sem contar os já GANHOS, que têm card próprio, nem os PERDIDOS/Fora
+  // ICP), senão o número infla e não bate com a tabela de vendedores.
+  const funnelLeadsAtivos=funnelLeads.filter(l=>{
+    let ganho=false,perdido=false;
+    try{ganho=isWonOpportunity(l)}catch(e){ganho=normalizeSalesName(l.dealStatus||l.status).includes('ganh')}
+    try{perdido=isLostOpportunityLocal(l)}catch(e){perdido=false}
+    return !ganho&&!perdido;
+  });
+  const total=funnelLeadsAtivos.reduce((a,l)=>a+(+l.valor||0),0);
 
   const actEl=document.getElementById('comercial-header-actions');
   if(actEl){
@@ -9756,7 +9765,7 @@ function renderComercial(){
   if(comStats) comStats.innerHTML=`
     <div class="stat-card"><div class="stat-lbl">Pipeline Total</div><div class="stat-val" style="font-size:18px">${fmtBRL(total)}</div></div>
     <div class="stat-card"><div class="stat-lbl">${wonStage?wonStage.name:'Fechamento'}</div><div class="stat-val" style="font-size:18px;color:var(--green)">${fmtBRL(fechados)}</div></div>
-    <div class="stat-card"><div class="stat-lbl">Leads Ativos</div><div class="stat-val">${funnelLeads.length}</div></div>`;
+    <div class="stat-card"><div class="stat-lbl">Leads Ativos</div><div class="stat-val">${funnelLeadsAtivos.length}</div></div>`;
 
   // Alterna destaque dos botões Kanban/Lista e mostra só o container do modo ativo
   const btnKanban=document.getElementById('pipe-view-kanban');
