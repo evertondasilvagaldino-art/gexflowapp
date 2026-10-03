@@ -8155,6 +8155,22 @@ function renderInicio(){
   if(can('comercial','view')){
     if(pipeSection)pipeSection.style.display='';
     if(chartsGrid&&!can('financas','view'))chartsGrid.style.gridTemplateColumns='1fr';
+    // ACHADO (03/10/2026): este card mostra a DISTRIBUIÇÃO ATUAL do pipeline
+    // por etapa — ou seja, "onde estão os leads agora", não "quantos leads
+    // foram criados nesse mês/ano". Antes ele usava leadsPeriod (filtrado
+    // pela data de criação do lead, dataInicio/dataFechamento), então um
+    // lead antigo (ex.: reimportado de planilha, criado em 2024/2025) que
+    // ainda está ativo HOJE em alguma etapa simplesmente sumia do gráfico,
+    // mesmo escolhendo "Todos os meses" + o ano certo — porque a DATA DE
+    // CRIAÇÃO dele continuava fora do filtro, não importa qual período se
+    // selecionasse. Por isso о Everton via sempre 41 leads/25 em "Em
+    // Qualificação" aqui, contra os 70 leads/45 reais do funil da Beatriz.
+    // Esse tipo de card de "foto do pipeline agora" não deve depender da
+    // data de criação — só o filtro de período dos OUTROS cards (Receita,
+    // Negócios Ganhos, Ciclo médio etc., que são sobre atividade NO
+    // período) continua funcionando como antes.
+    const leadsPipelineAtual=excludePartnerFunnelLeads(leads);
+    const pipelineTotalAtual=leadsPipelineAtual.reduce((a,l)=>a+(parseFloat(l.valor)||0),0);
     // getStages() só devolve as etapas do funil ATIVO deste navegador — mas
     // agora cada vendedor/Colaborador tem o próprio funil, com nomes de
     // etapa diferentes entre si. Usar só getStages() aqui fazia esse
@@ -8162,19 +8178,14 @@ function renderInicio(){
     // ativo na sessão de quem estava olhando, sumindo com os leads de
     // qualquer outro funil interno cujas etapas tivessem nomes diferentes.
     // Agora junta as etapas do funil ativo com qualquer outro nome de etapa
-    // que realmente apareça nos leads do período, pra nenhum lead sumir do
-    // gráfico só por estar em outro funil.
+    // que realmente apareça nos leads, pra nenhum lead sumir do gráfico só
+    // por estar em outro funil.
     const estagiosAtivos=getStages();
-    const estagiosExtras=[...new Set(leadsPeriod.map(l=>l.estagio).filter(Boolean))].filter(e=>!estagiosAtivos.includes(e));
+    const estagiosExtras=[...new Set(leadsPipelineAtual.map(l=>l.estagio).filter(Boolean))].filter(e=>!estagiosAtivos.includes(e));
     const estagios=[...estagiosAtivos,...estagiosExtras];
-    document.getElementById('pipe-total-lbl').textContent=fmtBRL(pipelineTotal);
+    document.getElementById('pipe-total-lbl').textContent=fmtBRL(pipelineTotalAtual);
     const pipeColors=['#E0E0F0','#C4B5FD','#A78BFA','#8B5CF6','#7C3AED'];
-    // Usa leadsPeriod (já filtrado por dashFilter.mes/ano) em vez de "leads"
-    // puro — sem isso, o gráfico de barras por etapa nunca mudava ao trocar
-    // o filtro de mês/ano (ficava sempre com a contagem de TODOS os leads,
-    // enquanto o valor total do pipeline e os cards de estatística logo
-    // abaixo já respeitavam o período corretamente).
-    const pipeCounts=estagios.map(est=>leadsPeriod.filter(l=>l.estagio===est).length);
+    const pipeCounts=estagios.map(est=>leadsPipelineAtual.filter(l=>l.estagio===est).length);
     const pipeMaxV=Math.max(1,...pipeCounts);
     document.getElementById('pipe-mini-chart').innerHTML=estagios.map((est,i)=>{
       const qtd=pipeCounts[i];
@@ -8188,8 +8199,8 @@ function renderInicio(){
       </div>`;
     }).join('');
     document.getElementById('pipe-stats-mini').innerHTML=`
-      <div class="stat-card" style="padding:14px"><div class="stat-lbl" style="margin-bottom:6px">Leads no período</div><div class="stat-val" style="font-size:22px">${leadsPeriod.length}</div></div>
-      <div class="stat-card" style="padding:14px"><div class="stat-lbl" style="margin-bottom:6px">Tx. conversão est.</div><div class="stat-val" style="font-size:22px;color:var(--green)">${leadsPeriod.length?Math.round((leadsPeriod.filter(l=>l.dealStatus==='Ganho').length/leadsPeriod.length)*100):0}%</div></div>`;
+      <div class="stat-card" style="padding:14px"><div class="stat-lbl" style="margin-bottom:6px">Leads ativos agora</div><div class="stat-val" style="font-size:22px">${leadsPipelineAtual.length}</div></div>
+      <div class="stat-card" style="padding:14px"><div class="stat-lbl" style="margin-bottom:6px">Tx. conversão est.</div><div class="stat-val" style="font-size:22px;color:var(--green)">${leadsPipelineAtual.length?Math.round((leadsPipelineAtual.filter(l=>l.dealStatus==='Ganho').length/leadsPipelineAtual.length)*100):0}%</div></div>`;
   } else {
     if(pipeSection)pipeSection.style.display='none';
     if(!can('financas','view')&&chartsGrid)chartsGrid.style.display='none';
@@ -13927,7 +13938,35 @@ function getVisibleCommercialFunnels(funnels){
       // ou com o dono sem acesso ao Comercial, ele não aparece mais no dia
       // a dia (nada é apagado — continua recuperável em Arquivados/pelo
       // banco).
-      return list.filter(f=>f.isDefault||(f.createdBy&&isUserActiveById(f.createdBy,f.createdByEmail)&&funnelOwnerHasCommercialAccess(f.createdBy,f.createdByEmail)));
+      const visiveis=list.filter(f=>f.isDefault||(f.createdBy&&isUserActiveById(f.createdBy,f.createdByEmail)&&funnelOwnerHasCommercialAccess(f.createdBy,f.createdByEmail)));
+      // ACHADO (03/10/2026): quando sobra mais de um funil pessoal com o
+      // MESMO dono (ex.: "Funil de BEATRIZ" duplicado de um bug antigo que
+      // nunca foi limpo manualmente), os dois passavam no filtro acima e
+      // apareciam TODOS os seletores de funil (Pipeline, Automações,
+      // Relatório) como se fossem funis diferentes — confuso, e arriscado
+      // de escolher o errado numa automação. Nada é apagado aqui (continua
+      // tudo recuperável no banco) — só mostra UM por dono nos seletores,
+      // preferindo o que já está ativo na sessão de quem está olhando, senão
+      // o que tiver mais leads, senão o mais recente.
+      const porDono=new Map();
+      visiveis.forEach(f=>{
+        if(f.isDefault){porDono.set('__default__'+f.id,f);return}
+        const dono=String(f.createdBy||'');
+        if(!dono){porDono.set('__sem_dono__'+f.id,f);return}
+        const atual=porDono.get(dono);
+        if(!atual){porDono.set(dono,f);return}
+        const ativoId=typeof getActiveFunnelId==='function'?getActiveFunnelId():'';
+        if(f.id===ativoId){porDono.set(dono,f);return}
+        if(atual.id===ativoId)return;
+        const leadsAll=(typeof DB!=='undefined'?DB.get('leads')||[]:[]);
+        const leadsF=leadsAll.filter(l=>l.funnelId===f.id).length;
+        const leadsAtual=leadsAll.filter(l=>l.funnelId===atual.id).length;
+        if(leadsF!==leadsAtual){if(leadsF>leadsAtual)porDono.set(dono,f);return}
+        const updF=new Date(f.updatedAt||f.createdAt||0).getTime();
+        const updAtual=new Date(atual.updatedAt||atual.createdAt||0).getTime();
+        if(updF>updAtual)porDono.set(dono,f);
+      });
+      return Array.from(porDono.values());
     }
   }catch(e){return list}
   // "Operador de Funil" não é dono de nenhum funil — só pode ver o ÚNICO
@@ -19784,7 +19823,26 @@ ${gxlCloseScriptTag}`;
             // Atualiza com os dados mais recentes (o responsável pode ter
             // acabado de cadastrar o telefone) antes de tentar de novo.
             DB.update('automacao_tasks',existente.id,{leadTelefone:ownerPhone,mensagem:texto,leadNome:`${lead.nome||'Lead'} → aviso p/ ${owner?.nome||'responsável'}`});
-            if(ownerPhone)whatsappParaEnviar.push({taskId:existente.id,phone:ownerPhone,message:texto});
+            // ACHADO (03/10/2026): sem isso, toda vez que o motor rodava (a
+            // cada 5 minutos, ou toda vez que alguém abria a tela de
+            // Automações) e a ação continuava "pendente" — por exemplo
+            // porque o Z-API respondeu de um jeito que o sistema não
+            // reconheceu como sucesso, mesmo tendo entregue a mensagem de
+            // verdade — o WhatsApp era DISPARADO DE NOVO pro responsável,
+            // sem parar, até alguém marcar a ação como feita/ignorada na
+            // mão. Isso é exatamente o "disparo duplicado" relatado. Agora
+            // só tenta de novo depois de um intervalo mínimo (15 min) desde
+            // a última tentativa, e para de tentar sozinho depois de 3
+            // tentativas — a ação continua "pendente" pro clique manual de
+            // "Abrir WhatsApp", só pára de reenviar automaticamente sem
+            // parar.
+            const tentativas=Number(existente.tentativasEnvio||0);
+            const ultimaTentativa=existente.ultimaTentativaEnvioAt?new Date(existente.ultimaTentativaEnvioAt).getTime():0;
+            const passouCooldown=!ultimaTentativa||(Date.now()-ultimaTentativa)>=15*60*1000;
+            if(ownerPhone&&tentativas<3&&passouCooldown){
+              DB.update('automacao_tasks',existente.id,{tentativasEnvio:tentativas+1,ultimaTentativaEnvioAt:new Date().toISOString()});
+              whatsappParaEnviar.push({taskId:existente.id,phone:ownerPhone,message:texto});
+            }
             return;
           }
           const task={
