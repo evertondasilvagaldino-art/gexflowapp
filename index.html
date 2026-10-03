@@ -8183,7 +8183,21 @@ function renderInicio(){
     // Negócios Ganhos, Ciclo médio etc., que são sobre atividade NO
     // período) continua funcionando como antes.
     const leadsPipelineAtual=excludePartnerFunnelLeads(leads);
-    const pipelineTotalAtual=leadsPipelineAtual.reduce((a,l)=>a+(parseFloat(l.valor)||0),0);
+    // "Leads ativos agora" e o valor total do card devem contar só negócios
+    // ABERTOS (nem ganhos, nem perdidos/Fora ICP) — do jeito que estava,
+    // leadsPipelineAtual.length somava TODO lead do funil, incluindo os já
+    // ganhos e os descartados, inflando o total (por isso batia 70 aqui
+    // contra 46 "ativos" no card "Performance Comercial por Vendedor", que
+    // já descontava ganhos/perdidos certinho) e somando no valor total até
+    // o dinheiro de negócios que já fecharam. estagiosAtivos/estagiosExtras
+    // continuam usando leadsPipelineAtual (todas as etapas) pra manter as
+    // barras "GANHO"/"Fora ICP" aparecendo no gráfico por etapa.
+    const leadsPipelineAtivos=leadsPipelineAtual.filter(l=>{
+      try{if(isWonOpportunity(l))return false}catch(e){if(normalizeSalesName(l.dealStatus||l.status).includes('ganh'))return false}
+      try{if(isLostOpportunityLocal(l))return false}catch(e){}
+      return true;
+    });
+    const pipelineTotalAtual=leadsPipelineAtivos.reduce((a,l)=>a+(parseFloat(l.valor)||0),0);
     // getStages() só devolve as etapas do funil ATIVO deste navegador — mas
     // agora cada vendedor/Colaborador tem o próprio funil, com nomes de
     // etapa diferentes entre si. Usar só getStages() aqui fazia esse
@@ -8212,7 +8226,7 @@ function renderInicio(){
       </div>`;
     }).join('');
     document.getElementById('pipe-stats-mini').innerHTML=`
-      <div class="stat-card" style="padding:14px"><div class="stat-lbl" style="margin-bottom:6px">Leads ativos agora</div><div class="stat-val" style="font-size:22px">${leadsPipelineAtual.length}</div></div>
+      <div class="stat-card" style="padding:14px"><div class="stat-lbl" style="margin-bottom:6px">Leads ativos agora</div><div class="stat-val" style="font-size:22px">${leadsPipelineAtivos.length}</div></div>
       <div class="stat-card" style="padding:14px"><div class="stat-lbl" style="margin-bottom:6px">Tx. conversão est.</div><div class="stat-val" style="font-size:22px;color:var(--green)">${leadsPipelineAtual.length?Math.round((leadsPipelineAtual.filter(l=>l.dealStatus==='Ganho').length/leadsPipelineAtual.length)*100):0}%</div></div>`;
   } else {
     if(pipeSection)pipeSection.style.display='none';
@@ -8249,6 +8263,7 @@ function renderInicio(){
     :`<div class="empty"><div class="empty-txt">Sem parceiros ativos</div></div>`;
 
   renderSalesTeamHome();
+  renderTopProdutosHome();
 }
 
 
@@ -9178,15 +9193,25 @@ function getSalesTeamMetrics(period='todos'){
 
   const allLeads=(DB.get('leads')||[]).filter(l=>leadInSalesPeriod(l,period));
   const visibleLeads=getVisibleCommercialLeads(allLeads);
+  // "Ativos agora" e pipeline em aberto refletem o estado ATUAL dos leads
+  // (independente do filtro de período selecionado no dashboard), pra
+  // ficar sempre consistente com o card "Pipeline Comercial" da tela
+  // inicial. Já ganhos/valorGanho/conversão continuam respeitando o
+  // período escolhido, porque representam desempenho NO período.
+  const allLeadsAtuais=DB.get('leads')||[];
+  const visibleLeadsAtuais=getVisibleCommercialLeads(allLeadsAtuais);
   const users=getVisibleSalesUsersForMetrics(visibleLeads);
   const activities=DB.get('atividades')||[];
   const tasks=getCommercialTasks?getCommercialTasks():[];
 
   const rows=users.map(u=>{
     const userLeads=visibleLeads.filter(l=>isLeadOwnedByUser(l,u));
+    const userLeadsAtuais=visibleLeadsAtuais.filter(l=>isLeadOwnedByUser(l,u));
     const ganhos=userLeads.filter(l=>{try{return isWonOpportunity(l)}catch(e){return normalizeSalesName(l.dealStatus||l.status).includes('ganh')}});
     const perdidos=userLeads.filter(isLostOpportunityLocal);
-    const ativos=userLeads.filter(l=>!ganhos.includes(l)&&!perdidos.includes(l));
+    const ganhosAtuais=userLeadsAtuais.filter(l=>{try{return isWonOpportunity(l)}catch(e){return normalizeSalesName(l.dealStatus||l.status).includes('ganh')}});
+    const perdidosAtuais=userLeadsAtuais.filter(isLostOpportunityLocal);
+    const ativos=userLeadsAtuais.filter(l=>!ganhosAtuais.includes(l)&&!perdidosAtuais.includes(l));
     const valorGanho=ganhos.reduce((a,l)=>a+(+l.valor||0),0);
     const pipelineAtivo=ativos.reduce((a,l)=>a+(+l.valor||0),0);
     const ticket=ganhos.length?valorGanho/ganhos.length:0;
@@ -9209,7 +9234,7 @@ function getSalesTeamMetrics(period='todos'){
 
   // Para o Fundador/Gerente, mostra também carteira sem responsável para não perder controle.
   if(isSalesManagerView()){
-    const unassigned=getUnassignedCommercialLeads(allLeads);
+    const unassigned=getUnassignedCommercialLeads(allLeadsAtuais);
     if(unassigned.length){
       const ganhos=unassigned.filter(l=>{try{return isWonOpportunity(l)}catch(e){return normalizeSalesName(l.dealStatus||l.status).includes('ganh')}});
       const perdidos=unassigned.filter(isLostOpportunityLocal);
@@ -9308,6 +9333,66 @@ function renderSalesTeamHome(){
       <div class="sales-mini-kpi"><div class="sales-mini-lbl">Tarefas atrasadas</div><div class="sales-mini-val" style="color:${sum.atrasadas?'var(--red)':'var(--green)'}">${sum.atrasadas}</div><div class="sales-mini-sub">follow-ups pendentes</div></div>
     </div>
     ${renderSalesRows(rows,5)}
+  </div>`;
+}
+
+// ═══ PRODUTOS MAIS VENDIDOS (Início) ═══
+// Agrupa os negócios GANHOS (mesmo critério de "ganho" usado no card de
+// Performance Comercial por Vendedor) por produto/serviço (campo l.produto
+// do lead), somando quantidade e valor — pra responder "o que mais vende"
+// sem precisar abrir um relatório à parte. Respeita o mesmo filtro de
+// mês/ano (dashFilter) e a mesma visibilidade por papel dos outros cards.
+function getTopProdutosComercial(period='todos'){
+  const allLeads=(DB.get('leads')||[]).filter(l=>leadInSalesPeriod(l,period));
+  const visiveis=getVisibleCommercialLeads(allLeads);
+  const ganhos=visiveis.filter(l=>{try{return isWonOpportunity(l)}catch(e){return normalizeSalesName(l.dealStatus||l.status).includes('ganh')}});
+  const grupos={};
+  ganhos.forEach(l=>{
+    const nome=String(l.produto||'').trim()||'Sem produto definido';
+    if(!grupos[nome])grupos[nome]={nome,qtd:0,valor:0};
+    grupos[nome].qtd++;
+    grupos[nome].valor+=(+l.valor||0);
+  });
+  return Object.values(grupos).sort((a,b)=>b.valor-a.valor||b.qtd-a.qtd);
+}
+
+function renderTopProdutosHome(){
+  const page=document.getElementById('page-inicio');
+  if(!page||!can('comercial','view'))return;
+  let sec=document.getElementById('top-produtos-home-section');
+  if(!sec){
+    sec=document.createElement('div');
+    sec.id='top-produtos-home-section';
+    sec.className='sales-team-home';
+    const salesSec=document.getElementById('sales-team-home-section');
+    if(salesSec)salesSec.insertAdjacentElement('afterend',sec);
+    else page.appendChild(sec);
+  }
+  const period={...dashFilter};
+  const produtos=getTopProdutosComercial(period);
+  const max=Math.max(1,...produtos.map(p=>p.valor));
+  sec.innerHTML=`<div class="sales-team-card">
+    <div class="sales-team-head">
+      <div>
+        <div class="sales-team-title">📦 Produtos mais vendidos</div>
+        <div class="sales-team-sub">${salesPeriodLabel(period)} · negócios ganhos por produto/serviço</div>
+      </div>
+    </div>
+    ${produtos.length?`<div class="sales-rank-list">
+      <div class="sales-row header">
+        <div>#</div><div>Produto</div><div>Vendas</div><div class="hide-xs">Valor total</div>
+      </div>
+      ${produtos.slice(0,8).map((p,i)=>`
+        <div class="sales-row">
+          <div><span class="sales-badge ${i===0?'purple':'gray'}">${i+1}º</span></div>
+          <div class="sales-person"><div style="min-width:0"><div class="sales-name">${escHtml(p.nome)}</div></div></div>
+          <div><div class="sales-num">${p.qtd}</div><div class="sales-muted">negócio${p.qtd!==1?'s':''}</div></div>
+          <div class="hide-xs">
+            <div class="sales-num">${fmtBRL(p.valor)}</div>
+            <div class="sales-bar"><div class="sales-bar-fill" style="width:${Math.max(4,Math.round((p.valor/max)*100))}%"></div></div>
+          </div>
+        </div>`).join('')}
+    </div>`:`<div class="sales-team-empty">Nenhum negócio ganho com produto definido neste período.</div>`}
   </div>`;
 }
 
