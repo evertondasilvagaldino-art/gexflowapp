@@ -4320,7 +4320,7 @@ async function initGexCloudDataSync(isRetry){
         .eq('workspace_id',GEX_WORKSPACE_ID)
         .is('deleted_at',null)
         .not('collection','in',`(${GEX_LOG_COLLECTIONS.map(c=>`"${c}"`).join(',')})`)
-        .limit(10000);
+        .limit(100000);
       if(res.error)throw res.error;
       return res;
     });
