@@ -7284,7 +7284,7 @@ function formLead(d){
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Produto / Serviço</label>
-      <select class="form-input" id="f-produto">
+      <select class="form-input" id="f-produto" onchange="const w=document.getElementById('f-produto-custom-wrap');if(w)w.style.display=this.value==='__outro__'?'':'none';">
         <option value="">— Selecione —</option>
         ${prods.map(p=>`<option ${d?.produto===p?'selected':''}>${p}</option>`).join('')}
         <option value="__outro__" ${d?.produto&&!prods.includes(d.produto)?'selected':''}>+ Outro (digitar)</option>
@@ -7308,7 +7308,7 @@ function formLead(d){
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Origem do lead</label>
-      <select class="form-input" id="f-origem">
+      <select class="form-input" id="f-origem" onchange="const w=document.getElementById('f-origem-custom-wrap');if(w)w.style.display=this.value==='__outro__'?'':'none';">
         <option value="">— Selecione —</option>
         ${LEAD_ORIGENS.map(o=>`<option ${d?.origem===o?'selected':''}>${o}</option>`).join('')}
         <option value="__outro__" ${d?.origem&&!LEAD_ORIGENS.includes(d.origem)?'selected':''}>+ Outra (digitar)</option>
@@ -7318,17 +7318,7 @@ function formLead(d){
       <input class="form-input" id="f-origem-custom" placeholder="Ex.: Indicação de cliente" value="${d?.origem&&!LEAD_ORIGENS.includes(d.origem)?d.origem:''}">
     </div>
   </div>
-  <div class="form-group"><label class="form-label">Descrição / Observações</label><textarea class="form-input" id="f-desc" rows="2">${escHtml(humanizeLegacyLeadDesc(d?.desc||'',d?.origem||''))}</textarea></div>
-  <script>
-    document.getElementById('f-produto').addEventListener('change',function(){
-      const wrap=document.getElementById('f-produto-custom-wrap');
-      if(wrap) wrap.style.display=this.value==='__outro__'?'':'none';
-    });
-    document.getElementById('f-origem').addEventListener('change',function(){
-      const wrap=document.getElementById('f-origem-custom-wrap');
-      if(wrap) wrap.style.display=this.value==='__outro__'?'':'none';
-    });
-  <\/script>`;
+  <div class="form-group"><label class="form-label">Descrição / Observações</label><textarea class="form-input" id="f-desc" rows="2">${escHtml(humanizeLegacyLeadDesc(d?.desc||'',d?.origem||''))}</textarea></div>`;
 }
 const LEAD_ORIGENS=['Formulário do site','Meta Ads','Google Ads','Indicação','WhatsApp','Instagram','Site institucional','Prospecção ativa'];
 // Compartilhado entre o formulário de transação e o filtro de categoria em
