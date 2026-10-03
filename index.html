@@ -13325,20 +13325,30 @@ function gexNormalizePhoneDigitsForMatch(raw){
 function gexRunOneTimeBeatrizFix(){
   try{
     if(typeof isSalesManagerView!=='function'||!isSalesManagerView())return;
-    if(localStorage.getItem('gex_fix_beatriz_reimport_2026_10_v5')==='1')return;
+    if(localStorage.getItem('gex_fix_beatriz_reimport_2026_10_v6')==='1')return;
     const usuarios=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[])||[];
     const funnels=(typeof getCommercialFunnels==='function'?getCommercialFunnels():[])||[];
-    if(usuarios.length<2||funnels.length<2)return; // ainda não carregou de verdade — tenta de novo no próximo load, sem marcar como feito
+    // IMPORTANTE: nenhum dos "não achei X" abaixo marca o marcador de
+    // localStorage como concluído. Isso já causou o mesmo tipo de bug (uma
+    // vez em migrateOldOpportunitiesToDefaultFunnel, outra no dedupe de
+    // funis): se essa função roda ANTES dos dados reais terminarem de
+    // sincronizar da nuvem (usuários/funis ainda incompletos nesse
+    // instante), ela "desistia" e já marcava como feito pra sempre — e nunca
+    // mais tentava de novo, mesmo depois dos dados reais chegarem. Agora só
+    // marca como concluído quando realmente processa os leads lá embaixo;
+    // enquanto isso, continua tentando de novo a cada render/reload (custo
+    // baixo — são só alguns `.find()`) até achar tudo e funcionar.
+    if(usuarios.length<2||funnels.length<2)return;
     const beatriz=usuarios.find(u=>normalizeSalesName(u.nome||'').includes('beatriz'));
-    if(!beatriz){localStorage.setItem('gex_fix_beatriz_reimport_2026_10_v5','1');return;}
+    if(!beatriz){console.warn('[GexFlow] Reimportação Beatriz: usuária "beatriz" não encontrada ainda.');return;}
     const beatrizId=String(beatriz.supabaseId||beatriz.id||'');
     const beatrizEmail=normalizeLoginEmail(beatriz.email||'');
     const beatrizNome=beatriz.nome||'Beatriz Viana';
     let funilDela=funnels.find(f=>!f.isArchived&&String(f.createdBy||'')===beatrizId)
       ||(beatriz.assignedFunnelId?funnels.find(f=>!f.isArchived&&String(f.id)===String(beatriz.assignedFunnelId)):null);
-    if(!funilDela){localStorage.setItem('gex_fix_beatriz_reimport_2026_10_v5','1');return;}
+    if(!funilDela){console.warn('[GexFlow] Reimportação Beatriz: funil dela não encontrado ainda (beatrizId='+beatrizId+').');return;}
     const stages=(funilDela.stages||[]).slice().sort((a,b)=>(a.order||0)-(b.order||0));
-    if(!stages.length){localStorage.setItem('gex_fix_beatriz_reimport_2026_10_v5','1');return;}
+    if(!stages.length){console.warn('[GexFlow] Reimportação Beatriz: funil encontrado mas sem etapas ainda.');return;}
     // Mapeamento explícito confirmado pelo Everton (a "etapa" do cadastro de
     // leads é só uma classificação resumida de 3 categorias — não tem como
     // bater o nome literal com a etapa real do funil da Beatriz):
@@ -13395,7 +13405,7 @@ function gexRunOneTimeBeatrizFix(){
         criados++;
       }
     });
-    localStorage.setItem('gex_fix_beatriz_reimport_2026_10_v5','1');
+    localStorage.setItem('gex_fix_beatriz_reimport_2026_10_v6','1');
     if(atualizados+criados>0){
       try{toast(`Funil da Beatriz: ${atualizados} lead(s) corrigido(s) e ${criados} recriado(s), já nas etapas certas ✓`,'#10B981');}catch(e){}
       try{if(typeof renderComercial==='function')setTimeout(renderComercial,300);}catch(e){}
