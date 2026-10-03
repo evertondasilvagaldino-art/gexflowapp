@@ -14083,7 +14083,6 @@ function renderFunnelSelector(){
     ${canCreate&&active?`<button class="fbtn" onclick="duplicateCommercialFunnel('${active.id}')">⧉ Duplicar</button>`:''}
     ${canEdit&&active&&!active.isDefault?`<button class="fbtn fbtn-danger" onclick="confirmArchiveFunnel('${active.id}')">📦 Arquivar</button>`:''}
     ${canOpenArchived?`<button class="fbtn" onclick="openArchivedFunnelsModal()">🗂️ Arquivados ${getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length?`(${getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length})`:''}</button>`:''}
-    ${canManageAnyFunnel&&typeof gexCleanupDuplicateFunnels==='function'?`<button class="fbtn" onclick="gexCleanupDuplicateFunnels()">🧹 Limpar funis duplicados</button>`:''}
   </div>`;
 
   bar.innerHTML=selectHtml+ownerFilterHtml+btnsHtml;
