@@ -4392,7 +4392,14 @@ async function initGexCloudDataSync(isRetry){
 
     gexCloudReady=true;
     startGexRecordsRealtime();
-    if(typeof startGexAutomationEngine==='function')startGexAutomationEngine();
+    // DESLIGADO DE PROPÓSITO (03/10/2026): o motor de automações agora roda
+    // no SERVIDOR (Edge Function run-automations-cron, via pg_cron), de
+    // forma independente de qualquer navegador aberto. Manter este motor
+    // local ligado ao mesmo tempo faria as duas versões processarem a
+    // mesma automação e correr o risco de mandar a mensagem em duplicidade
+    // pro lead/responsável. Se um dia o motor do servidor for desativado,
+    // é só descomentar a linha abaixo pra voltar ao funcionamento antigo.
+    // if(typeof startGexAutomationEngine==='function')startGexAutomationEngine();
     rerenderActivePageAfterCloudSync();
     console.log('[GexCloudDB] ✅ Dados carregados/sincronizados com Supabase:',(data||[]).length,'registros');
     return true;
@@ -4466,8 +4473,14 @@ function startGexRecordsRealtime(){
         // sessão pra disparar isso sozinho).
         if(row.collection==='leads' && payload.eventType==='INSERT' && !row.deleted_at){
           playChime('lead');
-          const leadData={...(row.data||{}),id:String(row.record_id)};
-          notifyLeadCreated(leadData);
+          // DESLIGADO DE PROPÓSITO (03/10/2026): o aviso por e-mail de "lead
+          // novo" agora é mandado pelo SERVIDOR (run-automations-cron), que
+          // detecta o lead novo sozinho e notifica sem depender de ninguém
+          // com o navegador aberto. Manter esta chamada ligada mandaria o
+          // e-mail em DUPLICIDADE (uma vez daqui, outra do servidor) sempre
+          // que alguém estivesse com o CRM aberto no momento da criação.
+          // const leadData={...(row.data||{}),id:String(row.record_id)};
+          // notifyLeadCreated(leadData);
         }
         scheduleRerenderActivePageAfterCloudSync(140);
       })
@@ -6964,7 +6977,7 @@ async function saveModal(type,id=''){
         desc:v('f-desc')
       };
       if(!obj.nome){toast('Nome obrigatório','#EF4444');return}
-      if(id)DB.update('leads',id,obj);else{const l={id:uid(),...obj};DB.push('leads',l);fireWebhook('lead.criado',l);playChime('lead');notifyLeadCreated(l)}
+      if(id)DB.update('leads',id,obj);else{const l={id:uid(),...obj};DB.push('leads',l);fireWebhook('lead.criado',l);playChime('lead');/* notifyLeadCreated(l) — desligado (03/10/2026): agora é o servidor (run-automations-cron) que avisa por e-mail */}
       closeModal();renderComercial();if(currentDealId===id)renderDealDetail();toast(id?'Lead atualizado ✓':'Lead criado ✓','#10B981');
     },
     transacao(){
@@ -9572,7 +9585,7 @@ function salvarCadastroLeadRapido(){
   DB.push('leads',lead);
   fireWebhook('lead.criado',lead);
   if(typeof playChime==='function')playChime('lead');
-  if(typeof notifyLeadCreated==='function')notifyLeadCreated(lead);
+  // notifyLeadCreated(lead) — desligado (03/10/2026): agora é o servidor (run-automations-cron) que avisa por e-mail, sem depender do navegador.
   ['cl-nome','cl-tel','cl-email','cl-empresa','cl-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value=''});
   const prodSel=document.getElementById('cl-produto');if(prodSel)prodSel.value='';
   toast(`Lead adicionado na etapa "${firstStage?.name||'—'}" ✓`,'#10B981');
