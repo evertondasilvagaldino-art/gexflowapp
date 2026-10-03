@@ -13207,7 +13207,7 @@ function _normalizeFunnel(f,idx=0){
 // restaurar de novo não tem efeito colateral se já estiver restaurado).
 function gexRestoreWronglyArchivedFunnels(){
   try{
-    if(localStorage.getItem('gex_fix_archived_funnels_2026_10_v1')==='1')return;
+    if(localStorage.getItem('gex_fix_archived_funnels_2026_10_v2')==='1')return;
     let raw=[];
     try{raw=DB.get('commercial_funnels')}catch(e){raw=[]}
     if(!Array.isArray(raw)||!raw.length)return;
@@ -13222,7 +13222,7 @@ function gexRestoreWronglyArchivedFunnels(){
       if(emUso){restaurados++;return {...f,isArchived:false,updatedAt:new Date().toISOString()};}
       return f;
     });
-    localStorage.setItem('gex_fix_archived_funnels_2026_10_v1','1');
+    localStorage.setItem('gex_fix_archived_funnels_2026_10_v2','1');
     if(restaurados>0){
       DB.set('commercial_funnels',corrigidos);
       try{toast(`${restaurados} funil(is) restaurado(s) — tinham sido arquivados por engano`,'#10B981');}catch(e){}
@@ -13418,67 +13418,23 @@ function gexRunOneTimeBeatrizFix(){
 // recentemente atualizada. As demais ficam arquivadas — nada é apagado,
 // dá pra recuperar em "Arquivados" se precisar (ou reativar manualmente
 // mesmo sem serem duplicatas de nome).
+// DESATIVADO (03/10/2026): essa função rodava em TODO render tentando
+// "limpar" funis pessoais duplicados (sequela de um bug antigo de createdBy
+// sumindo) arquivando automaticamente quem ela achasse que era cópia
+// repetida. Na prática ela ficou arquivando — e, mesmo depois de restaurado
+// manualmente, voltando a arquivar de novo no render seguinte — o funil de
+// verdade da Beatriz, porque a heurística (nome+dono, "qual tem etapas
+// editadas", "qual foi atualizado por último", e um localStorage que na
+// verdade é por NAVEGADOR/usuário logado, não por dono do funil) não dá pra
+// confiar o bastante quando o que está em jogo é esconder os leads de
+// alguém de produção. Mesma decisão já tomada para
+// migrateOldOpportunitiesToDefaultFunnel: NUNCA arquivar automaticamente só
+// por suspeita de duplicata — isso agora é só um no-op, e qualquer limpeza
+// de funis duplicados de verdade deve ser feita manualmente, olhando cada
+// caso, pela tela de "Funis Arquivados" (arquivar/restaurar manual continua
+// funcionando normalmente, só o gatilho AUTOMÁTICO foi removido).
 function dedupePersonalCommercialFunnels(funnels){
-  try{
-    const groups={};
-    funnels.forEach(f=>{
-      if(f.isDefault||f.isArchived)return;
-      const owner=String(f.createdBy||'');
-      // Agrupa por dono+nome (órfãs sem dono agrupam só pelo nome) — dois
-      // funis do mesmo usuário com nomes DIFERENTES nunca caem no mesmo
-      // grupo, então nunca são tratados como duplicata um do outro.
-      const key=`${owner}||${f.name||''}`;
-      (groups[key]=groups[key]||[]).push(f);
-    });
-    // CORREÇÃO (03/10/2026): esse dedupe roda em TODO render e já arquivou
-    // por engano o funil de verdade da Beatriz, tratando-o como "duplicata"
-    // de outra cópia (sequela do bug antigo de createdBy sumindo). Nunca
-    // arquiva um funil que está realmente em uso: referenciado como
-    // assignedFunnelId de algum usuário (o funil que um Operador de Funil
-    // trabalha de verdade, mesmo não sendo o "dono"/createdBy dele), ou
-    // marcado como funil ativo (localStorage) de QUALQUER usuário — não só
-    // do dono, porque quem trabalha o funil pode ser um sub-usuário.
-    const protectedIds=new Set();
-    try{
-      const usuarios=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[])||[];
-      usuarios.forEach(u=>{if(u&&u.assignedFunnelId)protectedIds.add(String(u.assignedFunnelId));});
-    }catch(e){}
-    try{
-      for(let i=0;i<localStorage.length;i++){
-        const k=localStorage.key(i);
-        if(k&&k.indexOf('gx2_active_funnel__')===0){
-          const v=localStorage.getItem(k);
-          if(v)protectedIds.add(String(v));
-        }
-      }
-    }catch(e){}
-    const archiveIds=new Set();
-    let changed=false;
-    const defaultFunnel=funnels.find(f=>f.isDefault&&!f.isArchived);
-    const baseStageNames=(defaultFunnel?.stages||[]).map(s=>s.name).join('|');
-    Object.keys(groups).forEach(key=>{
-      const group=groups[key];
-      if(group.length<=1)return;
-      const owner=key.split('||')[0]||'';
-      let preferredId='';
-      if(owner){try{preferredId=localStorage.getItem(`gx2_active_funnel__${owner}`)||''}catch(e){}}
-      let keeper=preferredId?group.find(f=>f.id===preferredId):null;
-      if(!keeper){
-        const edited=group.filter(f=>(f.stages||[]).map(s=>s.name).join('|')!==baseStageNames);
-        keeper=(edited.length?edited:group).slice().sort((a,b)=>new Date(b.updatedAt||0)-new Date(a.updatedAt||0))[0];
-      }
-      // Se algum funil do grupo está protegido (em uso de verdade) e não foi
-      // o escolhido acima, o protegido vira o keeper — nunca arquiva quem
-      // está em uso, mesmo que a heurística de "mais editado/mais recente"
-      // tivesse escolhido outro.
-      const protegidoNoGrupo=group.find(f=>protectedIds.has(String(f.id)));
-      if(protegidoNoGrupo&&!protectedIds.has(String(keeper.id))) keeper=protegidoNoGrupo;
-      group.forEach(f=>{if(f.id!==keeper.id&&!protectedIds.has(String(f.id)))archiveIds.add(f.id)});
-      changed=true;
-    });
-    if(!changed)return funnels;
-    return funnels.map(f=>archiveIds.has(f.id)?{...f,isArchived:true,updatedAt:new Date().toISOString()}:f);
-  }catch(e){return funnels}
+  return funnels;
 }
 
 // Remove IDs duplicados que podem quebrar select/drag
