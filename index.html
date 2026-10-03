@@ -18948,6 +18948,21 @@ ${gxlCloseScriptTag}`;
       )||null;
     }catch(e){return null}
   }
+  // Telefone cadastrado à mão em Perfil (ex.: "(21) 97057-5312") normalmente
+  // NÃO tem o DDI (55) que o envio de WhatsApp via Z-API espera — diferente
+  // do telefone de um lead, que majoritariamente já chega com DDI (vindo de
+  // formulário/campanha). Sem esse ajuste, a automação "Avisar responsável"
+  // ficava sempre pendente mesmo com o Z-API conectado: a chamada ia com um
+  // número de 10-11 dígitos sem "55" na frente, que a Z-API rejeita. Mesma
+  // lógica já usada em dealNormalizePhone (espelho de WhatsApp no card do
+  // lead) — usada SÓ aqui, não mexe no telefone do lead usado pelas outras
+  // automações (que já funcionam).
+  function normalizeZapiPhone(raw){
+    const digits=String(raw||'').replace(/\D/g,'');
+    if(!digits)return digits;
+    if(!digits.startsWith('55')&&(digits.length===10||digits.length===11))return '55'+digits;
+    return digits;
+  }
   // Manda o e-mail de verdade pela mesma caixa de Gmail já configurada nos
   // Secrets do Supabase (função irmã da que já avisa a equipe quando um
   // lead chega). Se a função ainda não foi publicada, ou o Gmail não está
@@ -19056,7 +19071,7 @@ ${gxlCloseScriptTag}`;
           const logId=rule.id+'__'+lead.id;
           if(logMap[logId])return; // já avisado sobre esse lead, uma vez só
           const owner=getLeadOwnerFullUser(lead);
-          const ownerPhone=String(owner?.telefone||owner?.phone||owner?.whatsapp||'').trim();
+          const ownerPhone=normalizeZapiPhone(owner?.telefone||owner?.phone||owner?.whatsapp||'');
           const texto=renderTpl(rule.mensagem,lead,{etapa:rule.etapaName||'',responsavel:owner?.nome||''});
           const task={
             id:uid(),ruleId:rule.id,ruleName:rule.nome,canal:'whatsapp',
@@ -19157,6 +19172,7 @@ ${gxlCloseScriptTag}`;
       try{
         const r=await sendAutomationWhatsapp(wm);
         if(r&&r.ok){DB.update('automacao_tasks',wm.taskId,{status:'feita',doneAt:new Date().toISOString(),enviadoAuto:true});whatsappEnviados++}
+        else if(r)console.warn('[GexFlow] WhatsApp de automação não foi enviado automaticamente:',r); // diagnóstico — a ação continua pendente pro clique manual
       }catch(e){/* fica pendente — clique manual de "Abrir WhatsApp" continua funcionando */}
     }
     window.__gexAutoLastRun=Date.now();
