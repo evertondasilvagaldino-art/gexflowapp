@@ -14369,7 +14369,6 @@ function renderFunnelSelector(){
     ${canCreate&&active?`<button class="fbtn" onclick="duplicateCommercialFunnel('${active.id}')">⧉ Duplicar</button>`:''}
     ${canEdit&&active&&!active.isDefault?`<button class="fbtn fbtn-danger" onclick="confirmArchiveFunnel('${active.id}')">📦 Arquivar</button>`:''}
     ${canOpenArchived?`<button class="fbtn" onclick="openArchivedFunnelsModal()">🗂️ Arquivados ${getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length?`(${getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length})`:''}</button>`:''}
-    ${canManageAnyFunnel?`<button class="fbtn" title="Junta funis duplicados da mesma pessoa (ex.: criados por um bug antigo ou conta excluída), movendo os leads pro que ficar antes de remover o resto. Ação manual — só roda quando você clicar." onclick="if(confirm('Procurar e juntar funis duplicados da mesma pessoa?\\n\\nOs leads de cada duplicata são movidos pro funil que ficar ANTES de qualquer remoção — nenhum lead é apagado, só o funil vazio/repetido some.'))gexCleanupDuplicateFunnels()">🧹 Juntar funis duplicados</button>`:''}
   </div>`;
 
   bar.innerHTML=selectHtml+ownerFilterHtml+btnsHtml;
