@@ -18689,6 +18689,10 @@ ${gxlCloseScriptTag}`;
       </div>
       <p id="auto-msg-footnote" style="font-size:9.5px;color:#94A3B8;margin-top:6px;${gAvisoResp?'':'display:none'}">Precisa que o responsável pelo lead tenha um telefone cadastrado em Perfil &gt; Dados pessoais, e que ALGUÉM da equipe esteja com o próprio WhatsApp conectado (Z-API) pra esse aviso sair sozinho — sem isso, ele fica pronto no Banco de Ações pra abrir com 1 clique.</p>
     </div>
+    <div class="gl-panel" id="auto-default-owner-panel" style="${gAvisoResp?'':'display:none'}">
+      <h3>Responsável padrão</h3><p>Se o lead chegar nessa etapa SEM ninguém atribuído, o sistema já atribui automaticamente essa pessoa como responsável (ela passa a aparecer no card do Pipeline, entra na performance dela, e é pra ela que o aviso de WhatsApp vai) — em vez de precisar atribuir na mão toda vez.</p>
+      <div class="gl-grid"><label class="gl-field full"><span>Atribuir automaticamente para</span><select class="gl-select" id="auto-default-owner">${(()=>{const users=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[]).filter(u=>(u.status||'Ativo')==='Ativo');return `<option value="">Não atribuir — só avisar quem já é responsável</option>`+users.map(u=>{const uid2=String((typeof isUuidLike==='function'&&isUuidLike(u.supabaseId)&&u.supabaseId)||u.id||'');return `<option value="${esc(uid2)}" data-nome="${esc(u.nome||'')}" data-email="${esc(normalizeLoginEmail(u.email||''))}" ${d.responsavelPadraoId===uid2?'selected':''}>${esc(u.nome||u.email||'Usuário')} · ${esc(resolveRole(u.permissao||u.cargo||'Colaborador'))}</option>`}).join('')})()}</select></label></div>
+    </div>
     <div class="gl-panel" id="auto-anexo-panel" style="${gAtivEtapa?'':'display:none'}">
       <h3>Observação a anexar</h3><p>Esse texto é adicionado automaticamente na descrição do lead assim que ele chega na etapa escolhida. Use <code>{{nome}}</code> se quiser.</p>
       <div class="gl-grid"><label class="gl-field full"><span>Texto</span><textarea class="gl-textarea" id="auto-anexo-texto" style="height:90px">${esc(d.mensagem)}</textarea></label></div>
@@ -18755,6 +18759,7 @@ ${gxlCloseScriptTag}`;
     const msgHint=document.getElementById('auto-msg-hint');
     if(msgHint)msgHint.innerHTML=gAvisoResp?'Essa mensagem vai pro WhatsApp do RESPONSÁVEL pelo lead (não pro lead). Use <code>{{nome_completo}}</code>, <code>{{telefone}}</code>, <code>{{empresa}}</code>, <code>{{origem}}</code> e <code>{{etapa}}</code> pra montar o aviso.':'Use <code>{{nome}}</code> para o sistema colocar o primeiro nome do lead automaticamente.';
     const msgFootnote=document.getElementById('auto-msg-footnote');if(msgFootnote)msgFootnote.style.display=gAvisoResp?'':'none';
+    const defOwnerPanel=document.getElementById('auto-default-owner-panel');if(defOwnerPanel)defOwnerPanel.style.display=gAvisoResp?'':'none';
     if(gAvisoResp){
       const canalHidden=document.getElementById('auto-canal');if(canalHidden)canalHidden.value='whatsapp';
       const assuntoWrap=document.getElementById('auto-assunto-wrap');if(assuntoWrap)assuntoWrap.style.display='none';
@@ -18828,7 +18833,12 @@ ${gxlCloseScriptTag}`;
     }else if(gatilho==='avisar_responsavel_etapa'){
       const mensagem=document.getElementById('auto-mensagem')?.value.trim();
       if(!mensagem){toast('Escreva a mensagem que vai avisar o responsável','#EF4444');return}
-      obj={...base,canal:'whatsapp',dias:0,mensagem,assunto:'',steps:[]};
+      const defSel=document.getElementById('auto-default-owner');
+      const defOpt=defSel?.selectedOptions?.[0];
+      const responsavelPadraoId=defSel?.value||'';
+      const responsavelPadraoNome=responsavelPadraoId?(defOpt?.dataset.nome||''):'';
+      const responsavelPadraoEmail=responsavelPadraoId?(defOpt?.dataset.email||''):'';
+      obj={...base,canal:'whatsapp',dias:0,mensagem,assunto:'',steps:[],responsavelPadraoId,responsavelPadraoNome,responsavelPadraoEmail};
     }else if(gatilho==='cadencia_etapa'||gatilho==='cadencia_whatsapp_etapa'){
       const canalCad=gatilho==='cadencia_whatsapp_etapa'?'whatsapp':'email';
       const steps=(autoCadenciaSteps||[]).map(s=>({dias:Math.max(0,Number(s.dias)||0),assunto:canalCad==='email'?String(s.assunto||'').trim():'',mensagem:String(s.mensagem||'').trim()}));
@@ -19095,6 +19105,31 @@ ${gxlCloseScriptTag}`;
         const tasksAtuais=DB.get('automacao_tasks')||[];
         leads.forEach(lead=>{
           if(!leadEmEtapa(lead,rule))return;
+          // Responsável padrão: se o lead não tem NINGUÉM atribuído diretamente
+          // (ignora o fallback genérico "criador do funil"), e a regra tem um
+          // responsável padrão configurado, atribui essa pessoa de verdade no
+          // lead (uma única vez) — assim ela passa a aparecer no card do
+          // Pipeline, entra na performance dela, e recebe o aviso.
+          const temDono=!!((typeof getLeadOwnerId==='function'?getLeadOwnerId(lead):'')||(typeof getLeadOwnerEmail==='function'?getLeadOwnerEmail(lead):'')||(typeof getLeadOwnerName==='function'?getLeadOwnerName(lead):''));
+          if(!temDono&&rule.responsavelPadraoId){
+            const users=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[])||[];
+            const padrao=users.find(u=>String(u.supabaseId||u.id||'')===String(rule.responsavelPadraoId));
+            if(padrao){
+              const pid=String(padrao.supabaseId||padrao.id||'');
+              const pnome=padrao.nome||rule.responsavelPadraoNome||'';
+              const pemail=normalizeLoginEmail(padrao.email||rule.responsavelPadraoEmail||'');
+              DB.update('leads',lead.id,{
+                responsavelId:pid,responsavelNome:pnome,responsavelEmail:pemail,
+                ownerId:pid,ownerName:pnome,ownerEmail:pemail,
+                vendedorId:pid,vendedorNome:pnome,vendedorEmail:pemail,
+                assignedToId:pid,assignedTo:pnome,assignedToEmail:pemail
+              });
+              lead.responsavelId=pid;lead.responsavelNome=pnome;lead.responsavelEmail=pemail;
+              lead.ownerId=pid;lead.ownerName=pnome;lead.ownerEmail=pemail;
+              lead.vendedorId=pid;lead.vendedorNome=pnome;lead.vendedorEmail=pemail;
+              lead.assignedToId=pid;lead.assignedTo=pnome;lead.assignedToEmail=pemail;
+            }
+          }
           const owner=getLeadOwnerFullUser(lead);
           const ownerPhone=normalizeZapiPhone(owner?.telefone||owner?.phone||owner?.whatsapp||'');
           const texto=renderTpl(rule.mensagem,lead,{etapa:rule.etapaName||'',responsavel:owner?.nome||''});
