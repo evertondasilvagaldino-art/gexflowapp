@@ -13265,8 +13265,63 @@ function ensureDefaultCommercialFunnel(){
 
   if(changed) saveCommercialFunnels(funnels);
   migrateOldOpportunitiesToDefaultFunnel();
+  if(typeof gexRunOneTimeBeatrizFix==='function')gexRunOneTimeBeatrizFix();
   funnels=ensurePersonalCommercialFunnel(funnels);
   return funnels;
+}
+
+// ═══ CORREÇÃO ÚNICA (03/10/2026): leads da Beatriz empurrados pro Funil
+// Principal pelo bug de corrida do migrateOldOpportunitiesToDefaultFunnel ═══
+// Devolve ao funil da Beatriz todo lead cujo RESPONSÁVEL é ela, mas que hoje
+// está (por causa do bug) em outro funil. A etapa exata de antes do bug NÃO
+// tem como ser recuperada — o sistema não guarda histórico de etapa por
+// lead — então cada lead corrigido volta: pra etapa de Ganho/Perdido do
+// funil dela, se o negócio já estava fechado com esse status; senão, pra 1ª
+// etapa do funil dela. Cada lead mexido recebe uma nota em Atividades
+// avisando disso, pra conferência manual só da ETAPA (funil e responsável já
+// ficam certos sozinhos). Roda no máximo 1 vez (marcador em localStorage) e
+// só pra quem tem visão gerencial (Fundador/Adm Gerente), e só depois que
+// usuários e funis realmente carregaram (evita repetir o MESMO tipo de erro
+// de corrida que causou o problema original).
+function gexRunOneTimeBeatrizFix(){
+  try{
+    if(typeof isSalesManagerView!=='function'||!isSalesManagerView())return;
+    if(localStorage.getItem('gex_fix_beatriz_pipeline_2026_10')==='1')return;
+    const usuarios=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[])||[];
+    const funnels=(typeof getCommercialFunnels==='function'?getCommercialFunnels():[])||[];
+    if(usuarios.length<2||funnels.length<2)return; // ainda não carregou de verdade — tenta de novo no próximo load, sem marcar como feito
+    const beatriz=usuarios.find(u=>normalizeSalesName(u.nome||'').includes('beatriz'));
+    if(!beatriz){localStorage.setItem('gex_fix_beatriz_pipeline_2026_10','1');return;} // ninguém com esse nome — nada a fazer
+    const beatrizId=String(beatriz.supabaseId||beatriz.id||'');
+    const beatrizEmail=normalizeLoginEmail(beatriz.email||'');
+    let funilDela=funnels.find(f=>!f.isArchived&&String(f.createdBy||'')===beatrizId)
+      ||(beatriz.assignedFunnelId?funnels.find(f=>!f.isArchived&&String(f.id)===String(beatriz.assignedFunnelId)):null);
+    if(!funilDela){localStorage.setItem('gex_fix_beatriz_pipeline_2026_10','1');return;} // não achou o funil dela — não arrisca adivinhar
+    const stages=(funilDela.stages||[]).slice().sort((a,b)=>(a.order||0)-(b.order||0));
+    const stageWon=stages.find(s=>s.isWon),stageLost=stages.find(s=>s.isLost),stageFirst=stages.find(s=>!s.isWon&&!s.isLost)||stages[0];
+    if(!stageFirst){localStorage.setItem('gex_fix_beatriz_pipeline_2026_10','1');return;}
+    const leads=DB.get('leads')||[];
+    let fixed=0;
+    leads.forEach(l=>{
+      const ownerId=String((typeof getLeadOwnerId==='function'?getLeadOwnerId(l):'')||'');
+      const ownerEmail=normalizeLoginEmail((typeof getLeadOwnerEmail==='function'?getLeadOwnerEmail(l):'')||'');
+      const ownerName=normalizeSalesName((typeof getLeadOwnerName==='function'?getLeadOwnerName(l):'')||'');
+      const isBeatrizLead=(beatrizId&&ownerId===beatrizId)||(beatrizEmail&&ownerEmail===beatrizEmail)||(ownerName&&beatriz.nome&&ownerName===normalizeSalesName(beatriz.nome));
+      if(!isBeatrizLead)return;
+      if(String(l.funnelId||'')===String(funilDela.id))return; // já está no funil certo
+      let novaEtapa=stageFirst;
+      if(l.dealStatus==='Ganho'&&stageWon)novaEtapa=stageWon;
+      else if(l.dealStatus==='Perdido'&&stageLost)novaEtapa=stageLost;
+      DB.update('leads',l.id,{funnelId:funilDela.id,stageId:novaEtapa.id,estagio:novaEtapa.name});
+      try{DB.push('atividades',{id:uid(),leadId:l.id,tipo:'Sistema',ico:'🛠️',texto:`Lead devolvido automaticamente ao funil "${funilDela.name}" (estava no Funil Principal por causa de um bug de sincronização já corrigido). A etapa de antes do bug não pôde ser recuperada — foi definida como "${novaEtapa.name}". Confira se é a etapa correta.`,data:new Date().toLocaleString('pt-BR'),usuario:'Sistema'});}catch(e){}
+      fixed++;
+    });
+    localStorage.setItem('gex_fix_beatriz_pipeline_2026_10','1');
+    if(fixed>0){
+      try{toast(`${fixed} lead(s) da Beatriz devolvidos ao funil dela — confira a etapa de cada um ✓`,'#10B981');}catch(e){}
+      try{if(typeof renderComercial==='function')setTimeout(renderComercial,300);}catch(e){}
+    }
+  }catch(e){console.warn('[GexFlow] Falha na correção única dos leads da Beatriz:',e);}
 }
 
 // Consolida cópias DUPLICADAS de verdade (mesmo dono E mesmo nome
