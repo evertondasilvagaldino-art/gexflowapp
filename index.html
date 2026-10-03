@@ -3467,6 +3467,40 @@ function dedupeUsuariosList(list=[],opts={}){
     });
   }
 
+  // Segunda passada: duas entradas com o MESMO nome (ex.: "Beatriz Viana" e
+  // "BEATRIZ VIANA") não se agrupam na passada acima porque a chave usada lá
+  // é e-mail/supabaseId/id — então um registro "fantasma" sem e-mail próprio
+  // (sobra de um import ou adoção antiga) nunca batia com o e-mail do
+  // registro real e os dois continuavam duplicados pra sempre, inclusive
+  // depois de "excluir" um deles (o fantasma não tinha id de login nenhum
+  // pra excluir). Aqui, quando duas entradas têm o mesmo nome normalizado e
+  // uma delas é uma conta Supabase de verdade, descarta a outra — a menos
+  // que a outra também tenha um e-mail PRÓPRIO e diferente (nesse caso são
+  // duas pessoas diferentes só com o mesmo nome, não mexe).
+  if(typeof normalizeSalesName==='function'){
+    const byName=new Map();
+    out.forEach(u=>{
+      const n=normalizeSalesName(u.nome||u.name||'');
+      if(!n)return;
+      if(!byName.has(n))byName.set(n,[]);
+      byName.get(n).push(u);
+    });
+    const toDrop=new Set();
+    byName.forEach(group=>{
+      if(group.length<2)return;
+      const real=group.find(isSupabaseUsuario);
+      if(!real)return;
+      const realEmail=usuarioEmailKey(real);
+      group.forEach(u=>{
+        if(u===real||toDrop.has(u))return;
+        const ghostEmail=usuarioEmailKey(u);
+        if(ghostEmail&&realEmail&&ghostEmail!==realEmail)return;
+        toDrop.add(u);
+      });
+    });
+    if(toDrop.size)out=out.filter(u=>!toDrop.has(u));
+  }
+
   out.sort((a,b)=>{
     const ar=isFounderLikeRole(a.permissao||a.role||a.cargo)?0:1;
     const br=isFounderLikeRole(b.permissao||b.role||b.cargo)?0:1;
@@ -8121,7 +8155,18 @@ function renderInicio(){
   if(can('comercial','view')){
     if(pipeSection)pipeSection.style.display='';
     if(chartsGrid&&!can('financas','view'))chartsGrid.style.gridTemplateColumns='1fr';
-    const estagios=getStages();
+    // getStages() só devolve as etapas do funil ATIVO deste navegador — mas
+    // agora cada vendedor/Colaborador tem o próprio funil, com nomes de
+    // etapa diferentes entre si. Usar só getStages() aqui fazia esse
+    // gráfico da Início mostrar (e contar) só o funil que por acaso estava
+    // ativo na sessão de quem estava olhando, sumindo com os leads de
+    // qualquer outro funil interno cujas etapas tivessem nomes diferentes.
+    // Agora junta as etapas do funil ativo com qualquer outro nome de etapa
+    // que realmente apareça nos leads do período, pra nenhum lead sumir do
+    // gráfico só por estar em outro funil.
+    const estagiosAtivos=getStages();
+    const estagiosExtras=[...new Set(leadsPeriod.map(l=>l.estagio).filter(Boolean))].filter(e=>!estagiosAtivos.includes(e));
+    const estagios=[...estagiosAtivos,...estagiosExtras];
     document.getElementById('pipe-total-lbl').textContent=fmtBRL(pipelineTotal);
     const pipeColors=['#E0E0F0','#C4B5FD','#A78BFA','#8B5CF6','#7C3AED'];
     // Usa leadsPeriod (já filtrado por dashFilter.mes/ano) em vez de "leads"
