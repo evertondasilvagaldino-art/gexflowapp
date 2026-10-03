@@ -8287,7 +8287,14 @@ function hasTeamOwnerView(){
   return team.length>1;
 }
 
-function normalizeSalesName(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
+// Al\u00e9m de min\u00fasculas/acentos, colapsa QUALQUER sequ\u00eancia de espa\u00e7os (incluindo
+// espa\u00e7o n\u00e3o separ\u00e1vel \u00a0 e afins, comuns em nomes colados de planilha/
+// WhatsApp/Instagram) num espa\u00e7o \u00fanico \u2014 sem isso, "Beatriz Viana" (espa\u00e7o
+// normal) e "Beatriz\u00a0Viana" (espa\u00e7o n\u00e3o separ\u00e1vel, visualmente id\u00eantico)
+// eram tratados como nomes DIFERENTES em toda compara\u00e7\u00e3o que depende desta
+// fun\u00e7\u00e3o, e isso bastava pra gerar um respons\u00e1vel "fantasma" duplicado no
+// ranking de Performance Comercial mesmo quando o cadastro real j\u00e1 existia.
+function normalizeSalesName(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').toLowerCase().trim();}
 
 function roleHasCommercialAccess(role){
   const r=resolveRole(role||'Colaborador');
@@ -8911,6 +8918,18 @@ function getVisibleSalesUsersForMetrics(leads){
         if(String(ownerUser.status||'Ativo').toLowerCase()==='inativo')return;
         const ownerRole=resolveRole(ownerUser.permissao||ownerUser.cargo||'');
         if(ownerRole==='Gex Parceiro'||ownerRole==='Operador de Funil')return;
+        // ACHADO (03/10/2026): quando o lead só tem o NOME do responsável
+        // gravado (sem responsavelId, comum em leads reimportados de
+        // planilha) e esse nome bate com um usuário real e válido — esse
+        // usuário real JÁ está representado em `users` (via
+        // getVisibleSalesUsers/getCommercialTeamUsers). Sem este retorno, o
+        // código caía direto no push() abaixo e criava uma SEGUNDA entrada
+        // "fantasma" pro mesmo vendedor (com os mesmos leads contados de
+        // novo), só porque a chave desse lead (nome) não batia com a chave
+        // (id/supabaseId) já usada pro usuário real no `seen` inicial. Essa
+        // era a causa raiz do "Beatriz Viana" aparecer duas vezes na
+        // Performance Comercial mesmo depois de excluir a conta duplicada.
+        return;
       }
       seen.add(key);
       users.push({
