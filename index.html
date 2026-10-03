@@ -13322,52 +13322,34 @@ function gexNormalizePhoneDigitsForMatch(raw){
   const d=String(raw||'').replace(/\D/g,'');
   return d.slice(-8); // últimos 8 dígitos — tolera DDI/DDD formatados de jeitos diferentes
 }
-function gexRunOneTimeBeatrizFix(){
+// Lógica principal, compartilhada entre a versão automática (silenciosa, roda
+// uma vez sozinha) e a versão manual (botão "🔧 Corrigir leads da Beatriz",
+// pra quando a automática não conseguir por algum motivo de timing/ambiente
+// difícil de prever). Retorna sempre um objeto dizendo exatamente o que
+// aconteceu — nunca lança exceção pra fora.
+function gexBeatrizReimportCore(){
   try{
-    console.warn('[GexFlow] Reimportação Beatriz: função chamada.');
     if(typeof isSalesManagerView!=='function'||!isSalesManagerView()){
-      try{
-        const _papel=(typeof resolveRole==='function'&&typeof sessionUser!=='undefined')?resolveRole(sessionUser?.permissao||sessionUser?.cargo||''):'(indisponível)';
-        console.warn('[GexFlow] Reimportação Beatriz: NÃO roda — papel da sessão atual é "'+_papel+'" (precisa ser Fundador ou Adm Gerente).');
-      }catch(e){}
-      return;
-    }
-    console.warn('[GexFlow] Reimportação Beatriz: gate de permissão OK, verificando se já rodou...');
-    if(localStorage.getItem('gex_fix_beatriz_reimport_2026_10_v9')==='1'){
-      console.warn('[GexFlow] Reimportação Beatriz: já estava marcada como concluída nesse navegador (gex_fix_beatriz_reimport_2026_10_v9=1) — não vai rodar de novo.');
-      return;
+      const papel=(typeof resolveRole==='function'&&typeof sessionUser!=='undefined')?resolveRole(sessionUser?.permissao||sessionUser?.cargo||''):'(indisponível)';
+      return {ok:false,motivo:'sem_permissao',detalhe:`Papel da sessão atual é "${papel}" — precisa ser Fundador ou Adm Gerente.`};
     }
     const usuarios=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[])||[];
     const funnels=(typeof getCommercialFunnels==='function'?getCommercialFunnels():[])||[];
-    // IMPORTANTE: nenhum dos "não achei X" abaixo marca o marcador de
-    // localStorage como concluído. Isso já causou o mesmo tipo de bug (uma
-    // vez em migrateOldOpportunitiesToDefaultFunnel, outra no dedupe de
-    // funis): se essa função roda ANTES dos dados reais terminarem de
-    // sincronizar da nuvem (usuários/funis ainda incompletos nesse
-    // instante), ela "desistia" e já marcava como feito pra sempre — e nunca
-    // mais tentava de novo, mesmo depois dos dados reais chegarem. Agora só
-    // marca como concluído quando realmente processa os leads lá embaixo;
-    // enquanto isso, continua tentando de novo a cada render/reload (custo
-    // baixo — são só alguns `.find()`) até achar tudo e funcionar.
-    if(usuarios.length<2||funnels.length<2)return;
+    if(usuarios.length<2||funnels.length<2)return {ok:false,motivo:'dados_incompletos',detalhe:`usuarios=${usuarios.length}, funis=${funnels.length} — dados ainda não carregaram de verdade.`};
     // Procura o funil PRIMEIRO pelo nome visível ("Funil de BEATRIZ", como
-    // aparece na tela) — é o dado mais confiável que temos (confirmado pelas
-    // telas que o Everton mandou). Casar por id (createdBy/assignedFunnelId
-    // do cadastro de usuário) é frágil: o id gravado no funil pode estar em
-    // formato diferente do id atual do cadastro dela, e foi exatamente isso
-    // que impediu essa função de achar o funil nas tentativas anteriores,
-    // mesmo com o funil já restaurado e visível na tela.
+    // aparece na tela) — é o dado mais confiável que temos. Casar por id
+    // (createdBy/assignedFunnelId do cadastro de usuário) é frágil: o id
+    // gravado no funil pode estar em formato diferente do id atual do
+    // cadastro dela.
     let funilDela=funnels.find(f=>!f.isArchived&&normalizeSalesName(f.name||'').includes('beatriz'));
     let beatriz=usuarios.find(u=>normalizeSalesName(u.nome||'').includes('beatriz'));
     if(!beatriz&&funilDela){
-      // Sem cadastro de usuário batendo pelo nome — tenta achar pelo dono
-      // gravado no próprio funil (createdBy/createdByEmail).
       beatriz=usuarios.find(u=>
         (funilDela.createdBy&&(String(u.id||'')===String(funilDela.createdBy)||String(u.supabaseId||'')===String(funilDela.createdBy)))||
         (funilDela.createdByEmail&&normalizeLoginEmail(u.email||'')===normalizeLoginEmail(funilDela.createdByEmail))
       );
     }
-    if(!beatriz){console.warn('[GexFlow] Reimportação Beatriz: usuária "beatriz" não encontrada ainda.');return;}
+    if(!beatriz)return {ok:false,motivo:'usuaria_nao_encontrada',detalhe:`Nenhum usuário com "beatriz" no nome entre ${usuarios.length} cadastrados.`};
     const beatrizId=String(beatriz.supabaseId||beatriz.id||'');
     const beatrizEmail=normalizeLoginEmail(beatriz.email||'');
     const beatrizNome=beatriz.nome||'Beatriz Viana';
@@ -13375,9 +13357,9 @@ function gexRunOneTimeBeatrizFix(){
       funilDela=funnels.find(f=>!f.isArchived&&String(f.createdBy||'')===beatrizId)
         ||(beatriz.assignedFunnelId?funnels.find(f=>!f.isArchived&&String(f.id)===String(beatriz.assignedFunnelId)):null);
     }
-    if(!funilDela){console.warn('[GexFlow] Reimportação Beatriz: funil dela não encontrado ainda (beatrizId='+beatrizId+').');return;}
+    if(!funilDela)return {ok:false,motivo:'funil_nao_encontrado',detalhe:`beatrizId="${beatrizId}". Funis não-arquivados existentes: ${funnels.filter(f=>!f.isArchived).map(f=>f.name).join(', ')||'(nenhum)'}.`};
     const stages=(funilDela.stages||[]).slice().sort((a,b)=>(a.order||0)-(b.order||0));
-    if(!stages.length){console.warn('[GexFlow] Reimportação Beatriz: funil encontrado mas sem etapas ainda.');return;}
+    if(!stages.length)return {ok:false,motivo:'sem_etapas',detalhe:`Funil "${funilDela.name}" encontrado mas sem etapas.`};
     // Mapeamento explícito confirmado pelo Everton (a "etapa" do cadastro de
     // leads é só uma classificação resumida de 3 categorias — não tem como
     // bater o nome literal com a etapa real do funil da Beatriz):
@@ -13434,12 +13416,50 @@ function gexRunOneTimeBeatrizFix(){
         criados++;
       }
     });
+    return {ok:true,atualizados,criados,funilNome:funilDela.name};
+  }catch(e){
+    return {ok:false,motivo:'excecao',detalhe:String(e&&e.message||e)};
+  }
+}
+
+function gexRunOneTimeBeatrizFix(){
+  try{
+    if(localStorage.getItem('gex_fix_beatriz_reimport_2026_10_v9')==='1')return;
+    const r=gexBeatrizReimportCore();
+    // Só marca como concluído quando realmente processou os leads — "não
+    // achei X ainda" não marca nada, só tenta de novo no próximo
+    // render/reload (mesma decisão já tomada pros outros 2 bugs parecidos
+    // desta sessão: nunca desistir de vez por causa de um timing ruim).
+    if(!r.ok)return;
     localStorage.setItem('gex_fix_beatriz_reimport_2026_10_v9','1');
-    if(atualizados+criados>0){
-      try{toast(`Funil da Beatriz: ${atualizados} lead(s) corrigido(s) e ${criados} recriado(s), já nas etapas certas ✓`,'#10B981');}catch(e){}
+    if(r.atualizados+r.criados>0){
+      try{toast(`Funil da Beatriz: ${r.atualizados} lead(s) corrigido(s) e ${r.criados} recriado(s), já nas etapas certas ✓`,'#10B981');}catch(e){}
       try{if(typeof renderComercial==='function')setTimeout(renderComercial,300);}catch(e){}
     }
   }catch(e){console.warn('[GexFlow] Falha na reimportação dos leads da Beatriz:',e);}
+}
+
+// Botão manual "🔧 Corrigir leads da Beatriz" (tela Comercial, só pra
+// Fundador/Adm Gerente) — roda a MESMA lógica na hora, ignorando o
+// marcador de "já rodou uma vez", e mostra o resultado num alert (não dá
+// pra perder essa mensagem, ao contrário do toast ou do console).
+function gexForceBeatrizReimport(){
+  const r=gexBeatrizReimportCore();
+  if(!r.ok){
+    const motivos={
+      sem_permissao:'Sua sessão não tem permissão pra isso.',
+      dados_incompletos:'Os dados (usuários/funis) ainda não carregaram totalmente — espere a tela terminar de carregar e tente de novo.',
+      usuaria_nao_encontrada:'Não encontrei nenhum usuário com "Beatriz" no nome.',
+      funil_nao_encontrado:'Encontrei a Beatriz, mas não achei o funil dela.',
+      sem_etapas:'O funil da Beatriz foi encontrado, mas está sem etapas.',
+      excecao:'Deu um erro inesperado.'
+    };
+    alert('Não deu pra corrigir os leads da Beatriz.\n\nMotivo: '+(motivos[r.motivo]||r.motivo)+'\n\nDetalhe técnico: '+(r.detalhe||'(sem detalhe)'));
+    return;
+  }
+  localStorage.setItem('gex_fix_beatriz_reimport_2026_10_v9','1');
+  alert(`Pronto! Funil "${r.funilNome}":\n\n${r.atualizados} lead(s) já existentes corrigido(s)\n${r.criados} lead(s) recriado(s)\n\nJá estão nas etapas certas.`);
+  try{if(typeof renderComercial==='function')renderComercial();}catch(e){}
 }
 
 // Consolida cópias DUPLICADAS de verdade (mesmo dono E mesmo nome
@@ -13910,6 +13930,7 @@ function renderFunnelSelector(){
     ${canCreate&&active?`<button class="fbtn" onclick="duplicateCommercialFunnel('${active.id}')">⧉ Duplicar</button>`:''}
     ${canEdit&&active&&!active.isDefault?`<button class="fbtn fbtn-danger" onclick="confirmArchiveFunnel('${active.id}')">📦 Arquivar</button>`:''}
     ${canOpenArchived?`<button class="fbtn" onclick="openArchivedFunnelsModal()">🗂️ Arquivados ${getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length?`(${getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length})`:''}</button>`:''}
+    ${canManageAnyFunnel&&typeof gexForceBeatrizReimport==='function'?`<button class="fbtn" onclick="gexForceBeatrizReimport()">🔧 Corrigir leads da Beatriz</button>`:''}
   </div>`;
 
   bar.innerHTML=selectHtml+ownerFilterHtml+btnsHtml;
