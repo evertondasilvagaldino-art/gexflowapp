@@ -19766,13 +19766,26 @@ ${gxlCloseScriptTag}`;
   // lead chega). Se a função ainda não foi publicada, ou o Gmail não está
   // configurado, falha em silêncio — a ação fica pendente pro clique manual
   // de "Abrir e-mail" continuar funcionando como plano B.
-  async function sendAutomationEmail({to,toName,subject,text}){
+  // ACHADO (03/10/2026): send-automation-email e send-whatsapp-message SEMPRE
+  // aceitaram um "ownerId" explícito no corpo pra mandar pela conexão de
+  // OUTRA pessoa (não de quem está logado) — mas o GexFlow nunca mandava
+  // esse campo, então toda automação sempre caía no padrão da função
+  // (ownerId = quem está logado rodando o motor naquele instante). Resultado:
+  // se só o Fundador tinha e-mail/WhatsApp conectado, as automações só
+  // "funcionavam de verdade" quando era ELE quem estava com a aba aberta —
+  // com qualquer outra pessoa logada, a função respondia "nenhuma conexão
+  // configurada" e a ação ficava pendente pra sempre. Agora manda o ownerId
+  // certo (o dono de fato da automação/lead), então o envio funciona com
+  // QUALQUER pessoa logada no momento em que o motor roda — não só o
+  // Fundador. (O motor ainda precisa de alguém com o navegador aberto pra
+  // RODAR, já que ele é 100% client-side; isso é tratado à parte.)
+  async function sendAutomationEmail({to,toName,subject,text,ownerId}){
     try{
       const token=await getGexSupabaseToken();
       const res=await fetch(getSupabaseFunctionUrl('send-automation-email'),{
         method:'POST',
         headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
-        body:JSON.stringify({to,toName,subject,text})
+        body:JSON.stringify({to,toName,subject,text,ownerId:ownerId||''})
       });
       const j=await res.json().catch(()=>({}));
       return j;
@@ -19781,13 +19794,13 @@ ${gxlCloseScriptTag}`;
       return {ok:false,error:err.message||'Falha de conexão'};
     }
   }
-  async function sendAutomationWhatsapp({phone,message}){
+  async function sendAutomationWhatsapp({phone,message,ownerId}){
     try{
       const token=await getGexSupabaseToken();
       const res=await fetch(getSupabaseFunctionUrl('send-whatsapp-message'),{
         method:'POST',
         headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
-        body:JSON.stringify({phone,message})
+        body:JSON.stringify({phone,message,ownerId:ownerId||''})
       });
       const j=await res.json().catch(()=>({}));
       return j;
@@ -19927,7 +19940,7 @@ ${gxlCloseScriptTag}`;
             const passouCooldown=!ultimaTentativa||(Date.now()-ultimaTentativa)>=15*60*1000;
             if(ownerPhone&&tentativas<3&&passouCooldown){
               DB.update('automacao_tasks',existente.id,{tentativasEnvio:tentativas+1,ultimaTentativaEnvioAt:new Date().toISOString()});
-              whatsappParaEnviar.push({taskId:existente.id,phone:ownerPhone,message:texto,ruleId:rule.id});
+              whatsappParaEnviar.push({taskId:existente.id,phone:ownerPhone,message:texto,ruleId:rule.id,ownerId:rule.createdBy||''});
             }
             return;
           }
@@ -19939,7 +19952,7 @@ ${gxlCloseScriptTag}`;
             status:'pendente',createdAt:new Date().toISOString()
           };
           DB.push('automacao_tasks',task);
-          if(ownerPhone)whatsappParaEnviar.push({taskId:task.id,phone:ownerPhone,message:texto,ruleId:rule.id});
+          if(ownerPhone)whatsappParaEnviar.push({taskId:task.id,phone:ownerPhone,message:texto,ruleId:rule.id,ownerId:rule.createdBy||''});
           created++;
         });
         return;
@@ -19971,8 +19984,13 @@ ${gxlCloseScriptTag}`;
               status:'pendente',createdAt:new Date().toISOString()
             };
             DB.push('automacao_tasks',task);
-            if(canalCad==='email' && lead.email)emailsParaEnviar.push({taskId:task.id,to:lead.email,toName:lead.nome||'',subject:task.assunto,text:task.mensagem});
-            if(canalCad==='whatsapp' && task.leadTelefone)whatsappParaEnviar.push({taskId:task.id,phone:task.leadTelefone,message:task.mensagem,ruleId:rule.id});
+            // Mensagem vai PRO LEAD — manda pela conexão do responsável por
+            // ESSE lead (cada vendedor fala com seus próprios leads pelo
+            // próprio número/caixa de e-mail), caindo pra quem criou a
+            // automação só se o lead não tiver responsável definido.
+            const ownerIdCad=(typeof getLeadOwnerId==='function'?getLeadOwnerId(lead):'')||rule.createdBy||'';
+            if(canalCad==='email' && lead.email)emailsParaEnviar.push({taskId:task.id,to:lead.email,toName:lead.nome||'',subject:task.assunto,text:task.mensagem,ownerId:ownerIdCad});
+            if(canalCad==='whatsapp' && task.leadTelefone)whatsappParaEnviar.push({taskId:task.id,phone:task.leadTelefone,message:task.mensagem,ruleId:rule.id,ownerId:ownerIdCad});
             upsertLog(stepId,{ruleId:rule.id,leadId:lead.id,step:i,lastTriggeredAt:new Date().toISOString()});
             logMap[stepId]={id:stepId,ruleId:rule.id,leadId:lead.id,step:i};
             created++;
@@ -20010,8 +20028,9 @@ ${gxlCloseScriptTag}`;
           status:'pendente',createdAt:new Date().toISOString()
         };
         DB.push('automacao_tasks',task);
-        if(rule.canal==='email' && lead.email)emailsParaEnviar.push({taskId:task.id,to:lead.email,toName:lead.nome||'',subject:task.assunto||task.ruleName,text:task.mensagem});
-        if(rule.canal==='whatsapp' && task.leadTelefone)whatsappParaEnviar.push({taskId:task.id,phone:task.leadTelefone,message:task.mensagem,ruleId:rule.id});
+        const ownerIdPadrao=(typeof getLeadOwnerId==='function'?getLeadOwnerId(lead):'')||rule.createdBy||'';
+        if(rule.canal==='email' && lead.email)emailsParaEnviar.push({taskId:task.id,to:lead.email,toName:lead.nome||'',subject:task.assunto||task.ruleName,text:task.mensagem,ownerId:ownerIdPadrao});
+        if(rule.canal==='whatsapp' && task.leadTelefone)whatsappParaEnviar.push({taskId:task.id,phone:task.leadTelefone,message:task.mensagem,ruleId:rule.id,ownerId:ownerIdPadrao});
         upsertLog(logId,{ruleId:rule.id,leadId:lead.id,lastRefISO:refISO,lastTriggeredAt:new Date().toISOString()});
         logMap[logId]={id:logId,ruleId:rule.id,leadId:lead.id,lastRefISO:refISO,lastTriggeredAt:new Date().toISOString()};
         created++;
