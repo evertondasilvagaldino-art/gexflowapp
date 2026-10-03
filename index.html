@@ -13501,6 +13501,114 @@ function gexForceBeatrizReimport(){
   try{if(typeof renderComercial==='function')renderComercial();}catch(e){}
 }
 
+// Botão manual "🧹 Limpar funis duplicados" (tela Comercial, só pra
+// Fundador/Adm Gerente). Varredura GERAL (não só da Beatriz): acha grupos de
+// funis não-arquivados com o mesmo dono (createdBy) e o mesmo nome — ou, pra
+// órfãos sem dono, o mesmo nome entre si —, migra QUALQUER lead que esteja
+// nos duplicados "perdedores" pro funil escolhido como definitivo, e só
+// DEPOIS de garantir que nenhum lead ficou pra trás remove os duplicados de
+// vez da lista (o usuário pediu explicitamente pra apagar, não só arquivar).
+// Roda só quando chamada manualmente (nunca sozinha em background) — rodar
+// escondida foi exatamente o que causou o bug que arquivou o funil da
+// Beatriz sem ninguém mandar.
+function gexCleanupDuplicateFunnelsCore(){
+  try{
+    if(typeof isSalesManagerView!=='function'||!isSalesManagerView()){
+      return {ok:false,motivo:'sem_permissao',detalhe:'Precisa ser Fundador ou Adm Gerente.'};
+    }
+    const funnels=getCommercialFunnels();
+    const usuarios=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[])||[];
+    const leads=DB.get('leads')||[];
+
+    const leadCountPorFunil={};
+    leads.forEach(l=>{const fid=String(l.funnelId||'');if(fid)leadCountPorFunil[fid]=(leadCountPorFunil[fid]||0)+1;});
+
+    const assignedIds=new Set(usuarios.filter(u=>u&&u.assignedFunnelId).map(u=>String(u.assignedFunnelId)));
+    let activeIdsEmUso=new Set();
+    try{
+      for(let i=0;i<localStorage.length;i++){
+        const k=localStorage.key(i);
+        if(k&&k.indexOf('gx2_active_funnel__')===0){
+          const v=localStorage.getItem(k);
+          if(v)activeIdsEmUso.add(String(v));
+        }
+      }
+    }catch(e){}
+
+    // Agrupa só os funis ATIVOS (não-arquivados, não-padrão) — arquivados já
+    // estão fora de vista, e o padrão é único por definição.
+    const groups={};
+    funnels.forEach(f=>{
+      if(!f||f.isDefault||f.isArchived)return;
+      const key=`${String(f.createdBy||'')}||${normalizeSalesName(f.name||'')}`;
+      (groups[key]=groups[key]||[]).push(f);
+    });
+
+    const idsParaRemover=new Set();
+    const idsParaCanonico={}; // id do duplicado → id do canônico
+    let gruposComDuplicata=0;
+
+    Object.values(groups).forEach(group=>{
+      if(group.length<=1)return;
+      gruposComDuplicata++;
+      // Escolhe o canônico, nessa ordem de confiança:
+      // 1) é o funil ativo de alguém agora (localStorage) ou o funil que um
+      //    Operador de Funil realmente trabalha (assignedFunnelId);
+      // 2) tem mais leads de verdade apontando pra ele;
+      // 3) foi atualizado mais recentemente.
+      let canonico=group.find(f=>activeIdsEmUso.has(String(f.id))||assignedIds.has(String(f.id)));
+      if(!canonico){
+        canonico=group.slice().sort((a,b)=>{
+          const la=leadCountPorFunil[String(a.id)]||0, lb=leadCountPorFunil[String(b.id)]||0;
+          if(lb!==la)return lb-la;
+          return new Date(b.updatedAt||0)-new Date(a.updatedAt||0);
+        })[0];
+      }
+      group.forEach(f=>{
+        if(f.id!==canonico.id){idsParaRemover.add(f.id);idsParaCanonico[f.id]=canonico.id;}
+      });
+    });
+
+    if(!idsParaRemover.size){
+      return {ok:true,gruposComDuplicata:0,leadsMovidos:0,funisRemovidos:0,nomes:[]};
+    }
+
+    // Migra os leads ANTES de remover qualquer funil — nunca na ordem
+    // inversa.
+    let leadsMovidos=0;
+    leads.forEach(l=>{
+      const fid=String(l.funnelId||'');
+      if(idsParaCanonico[fid]){
+        DB.update('leads',l.id,{funnelId:idsParaCanonico[fid]});
+        leadsMovidos++;
+      }
+    });
+
+    const nomesRemovidos=funnels.filter(f=>idsParaRemover.has(f.id)).map(f=>f.name);
+    const restantes=funnels.filter(f=>!idsParaRemover.has(f.id));
+    saveCommercialFunnels(restantes);
+
+    return {ok:true,gruposComDuplicata,leadsMovidos,funisRemovidos:idsParaRemover.size,nomes:nomesRemovidos};
+  }catch(e){
+    return {ok:false,motivo:'excecao',detalhe:String(e&&e.message||e)};
+  }
+}
+
+function gexCleanupDuplicateFunnels(){
+  const r=gexCleanupDuplicateFunnelsCore();
+  if(!r.ok){
+    alert('Não deu pra limpar os funis duplicados.\n\nMotivo: '+(r.detalhe||r.motivo||'desconhecido'));
+    return;
+  }
+  if(!r.gruposComDuplicata){
+    alert('Nenhum funil duplicado encontrado — já está tudo em ordem.');
+    return;
+  }
+  alert(`Limpeza concluída:\n\n${r.gruposComDuplicata} grupo(s) de funis duplicados encontrado(s)\n${r.leadsMovidos} lead(s) realinhado(s) pro funil que ficou\n${r.funisRemovidos} funil(is) duplicado(s) removido(s):\n- ${r.nomes.join('\n- ')}`);
+  try{if(typeof renderFunnelSelector==='function')renderFunnelSelector();}catch(e){}
+  try{if(typeof renderComercial==='function')renderComercial();}catch(e){}
+}
+
 // Consolida cópias DUPLICADAS de verdade (mesmo dono E mesmo nome
 // idêntico, incluindo órfãs sem dono do mesmo nome) — sequela pontual do
 // bug em _normalizeFunnel (veja comentário ali) que fazia o sistema
@@ -13707,11 +13815,17 @@ function ensurePersonalCommercialFunnel(funnels){
       const baseStageNames=(base.stages||[]).map(s=>s.name).join('|');
       const edited=orphanCandidates.find(f=>(f.stages||[]).map(s=>s.name).join('|')!==baseStageNames);
       const adopt=edited||orphanCandidates[0];
-      const next=list.map(f=>f.id===adopt.id?{...f,createdBy:myId,createdByEmail:(typeof sessionUser!=='undefined'&&sessionUser?.email)||'',updatedAt:new Date().toISOString()}
-        // Duplicatas órfãs restantes (cópias frescas criadas sem querer pelo
-        // mesmo bug) ficam arquivadas — não perde nada, só some da lista
-        // ativa; dá pra recuperar em "Arquivados" se precisar.
-        :(orphanCandidates.some(o=>o.id===f.id)?{...f,isArchived:true,updatedAt:new Date().toISOString()}:f));
+      // DECISÃO (03/10/2026, a pedido do Everton): o sistema NUNCA arquiva
+      // funil nenhum sozinho, nem nesse caso de órfãos duplicados. Antes essa
+      // função arquivava automaticamente as cópias "sobrando" — e isso já
+      // causou (em mais de um lugar do código) leads de verdade sumindo do
+      // Pipeline sem ninguém mandar. Agora só adota (marca createdBy) no
+      // melhor candidato e PARA POR AÍ: as outras cópias órfãs continuam
+      // existindo, visíveis e intactas, até o próprio dono decidir arquivar
+      // ou excluir manualmente pela tela (botão "📦 Arquivar" ou a limpeza
+      // manual de duplicados). Arquivar é sempre uma decisão manual de quem
+      // é dono do funil — nunca automática.
+      const next=list.map(f=>f.id===adopt.id?{...f,createdBy:myId,createdByEmail:(typeof sessionUser!=='undefined'&&sessionUser?.email)||'',updatedAt:new Date().toISOString()}:f);
       saveCommercialFunnels(next);
       setActiveFunnelId(adopt.id);
       return next;
@@ -13969,7 +14083,7 @@ function renderFunnelSelector(){
     ${canCreate&&active?`<button class="fbtn" onclick="duplicateCommercialFunnel('${active.id}')">⧉ Duplicar</button>`:''}
     ${canEdit&&active&&!active.isDefault?`<button class="fbtn fbtn-danger" onclick="confirmArchiveFunnel('${active.id}')">📦 Arquivar</button>`:''}
     ${canOpenArchived?`<button class="fbtn" onclick="openArchivedFunnelsModal()">🗂️ Arquivados ${getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length?`(${getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length})`:''}</button>`:''}
-    ${canManageAnyFunnel&&typeof gexForceBeatrizReimport==='function'?`<button class="fbtn" onclick="gexForceBeatrizReimport()">🔧 Corrigir leads da Beatriz</button>`:''}
+    ${canManageAnyFunnel&&typeof gexCleanupDuplicateFunnels==='function'?`<button class="fbtn" onclick="gexCleanupDuplicateFunnels()">🧹 Limpar funis duplicados</button>`:''}
   </div>`;
 
   bar.innerHTML=selectHtml+ownerFilterHtml+btnsHtml;
