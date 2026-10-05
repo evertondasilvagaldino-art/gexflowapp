@@ -4057,6 +4057,36 @@ function gexRecordPayload(collection,item){
 }
 async function gexCloudUpsertMany(collection,items){
   if(!supabaseClient || !Array.isArray(items) || !items.length)return true;
+  // BLINDAGEM (05/10/2026) — funis nunca "ressuscitam" nem são regravados por
+  // quem não é dono. O cache local (localStorage) é por NAVEGADOR, não por
+  // usuário: ao logar um parceiro de teste no mesmo navegador do fundador, o
+  // cache antigo (com funis já apagados na nuvem) era enviado de volta com
+  // deleted_at=null e os funis apagados reapareciam. Agora, antes de gravar
+  // funis: (1) quem não tem visão gerencial só grava funis em que é o dono;
+  // (2) qualquer funil já APAGADO na nuvem é descartado do envio.
+  if(collection==='commercial_funnels'){
+    try{
+      const mgr=(typeof isSalesManagerView==='function')&&isSalesManagerView();
+      const myId=String((typeof sessionUser!=='undefined'&&sessionUser?.id)||'');
+      let lista=items.filter(x=>x&&typeof x==='object');
+      if(!mgr)lista=lista.filter(f=>myId&&String(f.createdBy||'')===myId);
+      const ids=lista.map(f=>String(f.id||'')).filter(Boolean);
+      if(ids.length){
+        const {data:delRows,error:delErr}=await supabaseClient
+          .from(GEX_CLOUD_TABLE).select('record_id')
+          .eq('workspace_id',GEX_WORKSPACE_ID).eq('collection','commercial_funnels')
+          .not('deleted_at','is',null).in('record_id',ids);
+        if(delErr){
+          // Sem conseguir confirmar o que está apagado, não arrisca regravar.
+          return true;
+        }
+        const apagados=new Set((delRows||[]).map(r=>String(r.record_id)));
+        lista=lista.filter(f=>!apagados.has(String(f.id)));
+      }
+      items=lista;
+      if(!items.length)return true;
+    }catch(e){return true;}
+  }
   const rows = items
     .filter(x=>x && typeof x==='object')
     .map(x=>gexRecordPayload(collection,x));
@@ -13444,7 +13474,7 @@ function saveCreator(id=''){
 //   Em renovação → contrato marcado como "Renovação" (negociando a renovação)
 //   Ativo        → contrato em dia, vencimento além dos 30 dias (ou sem data)
 //   Renovado     → contrato marcado como "Renovado"
-// Contratos "Encerrado" ficam fora da análise (só aparecem como contagem).
+// Contratos "Encerrado" e "Pendente" ficam fora da análise (só aparecem como contagem).
 const CONTRATO_JANELA_A_VENCER_DIAS=30;
 const CONTRATO_SITUACOES={
   vencido:  {label:'Vencido',      icon:'🔴',color:'#DC2626',bg:'#FEE2E2',ord:0,hint:'Passou da data de vencimento'},
@@ -13463,6 +13493,7 @@ function contratoDiasParaVencer(c){
 function contratoSituacao(c){
   const st=String(c?.status||'Ativo').trim().toLowerCase();
   if(st==='encerrado')return 'encerrado';
+  if(st==='pendente')return 'pendente';
   if(st==='renovado')return 'renovado';
   if(st.startsWith('renova'))return 'renovacao';
   const d=contratoDiasParaVencer(c);
@@ -13474,6 +13505,7 @@ function contratoSituacao(c){
 }
 function contratoSituacaoPill(key){
   const sit=CONTRATO_SITUACOES[key];
+  if(key==='pendente')return `<span class="badge" style="background:#FEF9C3;color:#A16207">Pendente</span>`;
   if(!sit)return `<span class="badge badge-gray">${key==='encerrado'?'Encerrado':escHtml(key||'—')}</span>`;
   return `<span class="badge" style="background:${sit.bg};color:${sit.color}">${sit.label}</span>`;
 }
@@ -13486,10 +13518,11 @@ function renderChurn(){
   const clientes=DB.get('clientes')||[];
   const cliById={};clientes.forEach(c=>{cliById[c.id]=c});
   const grupos={vencido:[],avencer:[],renovacao:[],ativo:[],renovado:[]};
-  let encerrados=0;
+  let encerrados=0,pendentes=0;
   contratos.forEach(ct=>{
     const k=contratoSituacao(ct);
     if(k==='encerrado'){encerrados++;return;}
+    if(k==='pendente'){pendentes++;return;}
     grupos[k].push(ct);
   });
   const ordenaPorVenc=(a,b)=>{
@@ -13554,7 +13587,7 @@ function renderChurn(){
     ${churnFiltro!=='todos'?`<div style="margin:-6px 0 12px;font-size:12px;color:var(--muted)">Mostrando só <b>${CONTRATO_SITUACOES[churnFiltro].label}</b>. <a href="#" onclick="setChurnFiltro('${churnFiltro}');return false">Ver todos</a></div>`:''}
     ${visiveis.map(tabela).join('')}
     ${churnFiltro==='todos'?semContratoCard:''}
-    ${encerrados?`<div style="font-size:11px;color:var(--muted);margin:4px 2px 18px">${encerrados} contrato(s) encerrado(s) não entram nesta análise.</div>`:''}`;
+    ${(encerrados||pendentes)?`<div style="font-size:11px;color:var(--muted);margin:4px 2px 18px">${[pendentes?`${pendentes} contrato(s) pendente(s)`:'',encerrados?`${encerrados} contrato(s) encerrado(s)`:''].filter(Boolean).join(' e ')} não entram nesta análise.</div>`:''}`;
 }
 
 // ═══ CONTRATOS ═══
@@ -14461,7 +14494,13 @@ function getVisibleCommercialFunnels(funnels){
       });
       return Array.from(porDono.values());
     }
-  }catch(e){return list}
+  }catch(e){
+    // Falha fechada: se algo der erro aqui, só quem tem visão gerencial
+    // continua vendo tudo; qualquer outro papel cai na regra restrita abaixo
+    // (antes devolvia a lista inteira da empresa — vazava funis de outros
+    // parceiros).
+    try{if(typeof isSalesManagerView==='function'&&isSalesManagerView())return list}catch(e2){}
+  }
   // "Operador de Funil" não é dono de nenhum funil — só pode ver o ÚNICO
   // funil ao qual foi designado quando o parceiro criou a conta dele
   // (sessionUser.assignedFunnelId), nunca os outros funis do mesmo parceiro.
@@ -14529,10 +14568,11 @@ function ensurePersonalCommercialFunnel(funnels){
     // exatamente 1 órfão sem dono no sistema inteiro, assume que é dele —
     // sem ambiguidade nesse caso. Com 2+ órfãos de nomes diferentes não dá
     // pra saber de quem é cada um só por aqui, então não arrisca adotar.
-    if(!orphanCandidates.length){
-      const anyOrphans=list.filter(f=>!f.isArchived&&!f.isDefault&&!String(f.createdBy||''));
-      if(anyOrphans.length===1) orphanCandidates=anyOrphans;
-    }
+    // CORREÇÃO (05/10/2026): REMOVIDO o "adota o único órfão do sistema,
+    // qualquer que seja o nome". Isso fazia um Gex Parceiro "roubar" o funil
+    // sem dono de OUTRA pessoa (e passar a vê-lo como se fosse dele). Agora só
+    // adota órfão cujo nome seja exatamente o esperado para ESTE usuário
+    // ("Funil de <primeiro nome>"); nunca por exclusão.
     if(orphanCandidates.length){
       // Prefere o órfão que já tem etapas diferentes do funil padrão atual
       // (sinal de que foi editado de verdade) — evita "adotar" uma cópia
@@ -15401,7 +15441,7 @@ function gxIoExport(kind){
     head=['Título','Cliente','Valor','Início','Vencimento','Status','Situação'];
     rows=data.map(c=>{
       const k=contratoSituacao(c);
-      return [c.titulo||'',cli[c.clienteId]||'',gxMoneyFmtSafe(c.valor),gxIoDateBR(c.inicio),gxIoDateBR(c.vencimento),c.status||'Ativo',k==='encerrado'?'Encerrado':(CONTRATO_SITUACOES[k]?.label||'')];
+      return [c.titulo||'',cli[c.clienteId]||'',gxMoneyFmtSafe(c.valor),gxIoDateBR(c.inicio),gxIoDateBR(c.vencimento),c.status||'Ativo',k==='encerrado'?'Encerrado':(k==='pendente'?'Pendente':(CONTRATO_SITUACOES[k]?.label||''))];
     });
     sheet='Contratos';base='gex-contratos';label='contrato(s)';
   }
