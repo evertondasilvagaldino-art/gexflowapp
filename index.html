@@ -2213,6 +2213,12 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
         <option value="2025">2025</option>
         <option value="2026">2026</option>
       </select>
+      <select class="dash-filter-sel" id="dash-funil" onchange="setDashFilter()" style="display:none" title="Ver só os dados de um funil">
+        <option value="">Todos os funis</option>
+      </select>
+      <select class="dash-filter-sel" id="dash-resp" onchange="setDashFilter()" style="display:none;max-width:260px" title="Ver só os dados de um responsável">
+        <option value="">Todos os responsáveis</option>
+      </select>
       <span style="font-size:12px;color:var(--muted);margin-left:4px" id="dash-filter-info"></span>
     </div>
     <!-- Métricas comerciais -->
@@ -2778,7 +2784,7 @@ let entregasFiltro = {busca:'',responsavel:'',formato:'',objetivo:'',prioridade:
 // Visão do board de entregas (dentro do cliente, squads de Conteúdo):
 // 'lista' = grupos por etapa em tabela (padrão); 'kanban' = colunas arrastáveis.
 let entregasViewMode = 'lista';
-let dashFilter = {mes: new Date().getMonth()+1, ano: new Date().getFullYear()};
+let dashFilter = {mes: new Date().getMonth()+1, ano: new Date().getFullYear(), funil:'', resp:''};
 // Filtro de período do Pipeline (Comercial) — independente do filtro do Início.
 // Começa em "Todos os meses / Todos os anos" pra não esconder leads de quem
 // ainda não filtrou nada (mesmo comportamento de antes desta função existir).
@@ -8177,7 +8183,40 @@ function deleteTask(id){
 function setDashFilter(){
   dashFilter.mes=parseInt(document.getElementById('dash-mes')?.value||0);
   dashFilter.ano=parseInt(document.getElementById('dash-ano')?.value||new Date().getFullYear());
+  dashFilter.funil=document.getElementById('dash-funil')?.value||'';
+  dashFilter.resp=document.getElementById('dash-resp')?.value||'';
   renderInicio();
+}
+
+// Filtro de Funil/Responsável da tela Início (só afeta as métricas
+// comerciais — Receita, Lucro, Clientes e Health Score são da empresa toda).
+function dashLeadMatchesSelection(l){
+  if(dashFilter.funil){
+    const f=(typeof getCommercialFunnels==='function'?getCommercialFunnels():[]).find(x=>String(x.id)===String(dashFilter.funil));
+    const ok=String(l.funnelId||'')===String(dashFilter.funil)||(f&&f.isDefault&&!l.funnelId);
+    if(!ok)return false;
+  }
+  if(dashFilter.resp&&!leadMatchesOwnerFilter(l,dashFilter.resp))return false;
+  return true;
+}
+function dashPopulateFunilResp(leads){
+  const selF=document.getElementById('dash-funil'),selR=document.getElementById('dash-resp');
+  if(!selF||!selR)return;
+  const podeFiltrar=(typeof hasTeamOwnerView==='function')?hasTeamOwnerView():true;
+  if(!podeFiltrar){selF.style.display='none';selR.style.display='none';dashFilter.funil='';dashFilter.resp='';return;}
+  selF.style.display='';selR.style.display='';
+  try{
+    const funis=getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&!f.isArchived));
+    selF.innerHTML='<option value="">Todos os funis</option>'+funis.map(f=>`<option value="${escAttr(f.id)}">${escHtml(f.name||'Funil sem nome')}</option>`).join('');
+    if(dashFilter.funil&&![...selF.options].some(o=>o.value===dashFilter.funil))selF.insertAdjacentHTML('beforeend',`<option value="${escAttr(dashFilter.funil)}">Funil selecionado</option>`);
+    selF.value=dashFilter.funil||'';
+  }catch(e){}
+  try{
+    const opts=getCommercialOwnerOptions(leads);
+    selR.innerHTML='<option value="">Todos os responsáveis</option>'+opts.map(o=>`<option value="${escAttr(o.value)}">${escHtml(o.label)}</option>`).join('');
+    if(dashFilter.resp&&![...selR.options].some(o=>o.value===dashFilter.resp))selR.insertAdjacentHTML('beforeend',`<option value="${escAttr(dashFilter.resp)}">${escHtml(getOwnerLabelFromFilterValue(dashFilter.resp))}</option>`);
+    selR.value=dashFilter.resp||'';
+  }catch(e){}
 }
 
 function txInPeriod(tx){
@@ -8231,17 +8270,24 @@ function renderInicio(){
   const filterLabel=dashFilter.mes
     ?`${MESES[dashFilter.mes]} / ${dashFilter.ano}`
     :`Ano ${dashFilter.ano}`;
-  const info=document.getElementById('dash-filter-info');
-  if(info)info.textContent='→ '+filterLabel;
-
   const cls=DB.get('clientes'),pros=DB.get('projetos'),mbs=DB.get('membros'),leads=DB.get('leads');
+  dashPopulateFunilResp(leads);
+  const dashSel=!!(dashFilter.funil||dashFilter.resp);
+  const selFunilTxt=dashFilter.funil?(document.getElementById('dash-funil')?.selectedOptions?.[0]?.textContent||''):'';
+  const selRespTxt=dashFilter.resp?(document.getElementById('dash-resp')?.selectedOptions?.[0]?.textContent||'').split(' · ')[0]:'';
+  const info=document.getElementById('dash-filter-info');
+  if(info)info.textContent='→ '+filterLabel+(dashSel?' · '+[selFunilTxt,selRespTxt].filter(Boolean).join(' · ')+' (Receita, Lucro, Clientes e Health são da empresa toda)':'');
   const txsAll=DB.get('transacoes');
   const txs=txsAll.filter(txInPeriod);   // transações do período
   // Números da Início (Negócios Ganhos, Pipeline Comercial etc.) são da
   // operação comercial INTERNA — negócios do funil separado de um Gex
   // Parceiro (ou do Operador de Funil dele) não entram aqui, exceto quando
   // é o próprio parceiro/operador vendo a própria tela.
-  const leadsPeriod=excludePartnerFunnelLeads(leads.filter(leadInPeriod));
+  // Com Funil/Responsável escolhido, mostra EXATAMENTE aquele recorte (inclusive
+  // funil de parceiro, já que foi uma escolha explícita) em vez do agrupado.
+  const leadsPeriod=dashSel
+    ?leads.filter(leadInPeriod).filter(dashLeadMatchesSelection)
+    :excludePartnerFunnelLeads(leads.filter(leadInPeriod));
 
   const receita=txs.filter(t=>t.tipo==='Receita').reduce((a,t)=>a+t.valor,0);
   const despesa=txs.filter(t=>t.tipo==='Despesa').reduce((a,t)=>a+t.valor,0);
@@ -8267,7 +8313,9 @@ function renderInicio(){
   // ── CAC (Custo de Aquisição de Cliente) ────────────────────────────────
   const adsSpend=txs.filter(t=>t.tipo==='Despesa'&&/ads|tráfego|marketing/i.test(t.cat||'')).reduce((a,t)=>a+t.valor,0);
   const novosClientes=leadsPeriod.filter(l=>l.dealStatus==='Ganho').length;
-  const cac=novosClientes>0?Math.round(adsSpend/novosClientes):null;
+  // Ads é gasto da empresa toda — dividir pelos ganhos de UM funil/pessoa
+  // daria um CAC enganoso; com filtro ativo o CAC não é calculado.
+  const cac=(!dashSel&&novosClientes>0)?Math.round(adsSpend/novosClientes):null;
 
   // Métricas comerciais (ciclo + CAC + ads)
   const metricsEl=document.getElementById('dash-metrics-row');
@@ -8284,13 +8332,13 @@ function renderInicio(){
         <div class="metric-accent" style="background:#F59E0B"></div>
         <div class="metric-label">💰 Invest. em Ads no período</div>
         <div class="metric-value">${fmtBRL(adsSpend)}</div>
-        <div class="metric-sub">Categoria "Ads / Tráfego Pago" nas transações · ${filterLabel}</div>
+        <div class="metric-sub">${dashSel?'Total da empresa (não separa por funil/responsável)':`Categoria "Ads / Tráfego Pago" nas transações · ${filterLabel}`}</div>
       </div>
       <div class="metric-card">
         <div class="metric-accent" style="background:#10B981"></div>
         <div class="metric-label">🎯 CAC — Custo por cliente</div>
         <div class="metric-value" style="color:${cac!==null&&cac>0?'var(--txt)':'var(--muted)'}">${cac!==null?fmtBRL(cac):'—'}</div>
-        <div class="metric-sub">${cac!==null?`Ads ÷ ${novosClientes} cliente${novosClientes!==1?'s':''} ganho${novosClientes!==1?'s':''}`:'Registre Ads e leads ganhos para calcular'}</div>
+        <div class="metric-sub">${dashSel?'CAC só no total geral (sem filtro de funil/responsável)':(cac!==null?`Ads ÷ ${novosClientes} cliente${novosClientes!==1?'s':''} ganho${novosClientes!==1?'s':''}`:'Registre Ads e leads ganhos para calcular')}</div>
       </div>`;
   } else if(metricsEl){
     metricsEl.style.display='none';
@@ -8366,7 +8414,7 @@ function renderInicio(){
     // data de criação — só o filtro de período dos OUTROS cards (Receita,
     // Negócios Ganhos, Ciclo médio etc., que são sobre atividade NO
     // período) continua funcionando como antes.
-    const leadsPipelineAtual=excludePartnerFunnelLeads(leads);
+    const leadsPipelineAtual=dashSel?leads.filter(dashLeadMatchesSelection):excludePartnerFunnelLeads(leads);
     // "Leads ativos agora" e o valor total do card devem contar só negócios
     // ABERTOS (nem ganhos, nem perdidos/Fora ICP) — do jeito que estava,
     // leadsPipelineAtual.length somava TODO lead do funil, incluindo os já
@@ -8391,7 +8439,11 @@ function renderInicio(){
     // Agora junta as etapas do funil ativo com qualquer outro nome de etapa
     // que realmente apareça nos leads, pra nenhum lead sumir do gráfico só
     // por estar em outro funil.
-    const estagiosAtivos=getStages();
+    let estagiosAtivos=getStages();
+    if(dashFilter.funil){
+      const fSel=(getCommercialFunnels()||[]).find(x=>String(x.id)===String(dashFilter.funil));
+      if(fSel&&Array.isArray(fSel.stages)&&fSel.stages.length)estagiosAtivos=fSel.stages.slice().sort((a,b)=>(a.order||0)-(b.order||0)).map(x=>x.name);
+    }
     const estagiosExtras=[...new Set(leadsPipelineAtual.map(l=>l.estagio).filter(Boolean))].filter(e=>!estagiosAtivos.includes(e));
     const estagios=[...estagiosAtivos,...estagiosExtras];
     document.getElementById('pipe-total-lbl').textContent=fmtBRL(pipelineTotalAtual);
