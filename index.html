@@ -6999,7 +6999,7 @@ async function saveModal(type,id=''){
         desc:v('f-desc')
       };
       if(!obj.nome){toast('Nome obrigatório','#EF4444');return}
-      if(id)DB.update('leads',id,obj);else{const l={id:uid(),...obj};DB.push('leads',l);fireWebhook('lead.criado',l);playChime('lead');/* notifyLeadCreated(l) — desligado (03/10/2026): agora é o servidor (run-automations-cron) que avisa por e-mail */}
+      if(id)DB.update('leads',id,obj);else{const l={id:uid(),createdAt:new Date().toISOString(),...obj};DB.push('leads',l);fireWebhook('lead.criado',l);playChime('lead');/* notifyLeadCreated(l) — desligado (03/10/2026): agora é o servidor (run-automations-cron) que avisa por e-mail */}
       closeModal();renderComercial();if(currentDealId===id)renderDealDetail();toast(id?'Lead atualizado ✓':'Lead criado ✓','#10B981');
     },
     transacao(){
@@ -8575,6 +8575,25 @@ function getLeadOwnerEmail(lead){
   return normalizeLoginEmail(lead.responsavelEmail||lead.ownerEmail||lead.vendedorEmail||lead.assignedToEmail||lead.createdByEmail||lead.userEmail||'');
 }
 
+// Data e hora em que o lead entrou (horário de Brasília), ex.: "05/10/2026 09:37".
+// Usa createdAt (instante exato gravado por Formulário, WhatsApp e leads novos).
+// Leads antigos criados à mão só têm a data (dataInicio) — mostra só a data.
+function leadEntradaLabel(l){
+  try{
+    const raw=l&&(l.createdAt||l.created_at);
+    const ms=raw?Date.parse(raw):NaN;
+    if(!isNaN(ms)){
+      const d=new Date(ms);
+      const data=d.toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'});
+      const hora=d.toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'});
+      return `${data} ${hora}`;
+    }
+    if(l&&l.dataInicio&&/^\d{4}-\d{2}-\d{2}/.test(l.dataInicio)){
+      return new Date(l.dataInicio.slice(0,10)+'T00:00:00').toLocaleDateString('pt-BR');
+    }
+  }catch(e){}
+  return '';
+}
 function getLeadOwnerName(lead){
   if(!lead)return '';
   const explicit=lead.responsavelNome||lead.ownerName||lead.vendedorNome||lead.assignedTo||lead.responsavel||lead.vendedor||lead.usuario||'';
@@ -9845,6 +9864,7 @@ function renderComercial(){
         </div>
         <div class="pcard-co">🏢 ${l.empresa||'—'}</div>
         <div class="pcard-co">👤 ${getLeadOwnerName(l)||'Sem responsável'}</div>
+        ${(()=>{const t=leadEntradaLabel(l);return t?`<div class="pcard-co" title="Data e hora em que o lead entrou">🕒 ${t}</div>`:''})()}
         <div class="pcard-footer">
           <span class="pcard-val">${fmtBRL(l.valor||0)}</span>
           <div class="pcard-actions">
