@@ -14187,6 +14187,14 @@ function ensurePersonalCommercialFunnel(funnels){
     if(typeof can==='function' && !can('comercial','view'))return list;
     const myId=String((typeof sessionUser!=='undefined'&&sessionUser?.id)||'');
     if(!myId)return list;
+    // CORREÇÃO (05/10/2026): enquanto a sincronização inicial com o Supabase
+    // não terminou, a lista local pode simplesmente ainda não conter o funil
+    // DESSE usuário (navegador/aparelho novo, cache limpo, aba anônima) —
+    // criar um "Funil de <nome>" nessa hora gerava um funil duplicado novo a
+    // cada login (ex.: "Funil de BEATRIZ" reaparecendo mesmo depois de
+    // apagado). Agora só decide criar depois que a nuvem terminou de carregar;
+    // rerenderActivePageAfterCloudSync() roda esta função de novo em seguida.
+    if(typeof supabaseClient!=='undefined'&&supabaseClient&&typeof gexCloudReady!=='undefined'&&!gexCloudReady)return list;
     const hasOwn=list.some(f=>!f.isArchived&&String(f.createdBy||'')===myId);
     if(hasOwn)return list;
     const base=list.find(f=>f.isDefault&&!f.isArchived)||list.find(f=>!f.isArchived);
