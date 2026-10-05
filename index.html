@@ -2266,7 +2266,7 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
   <!-- CHURN -->
   <div class="page" id="page-churn">
     <div class="page-header">
-      <div><div class="page-title">Análise de Churn</div><div class="page-sub">Monitoramento de risco de cancelamento dos clientes</div></div>
+      <div><div class="page-title">Análise de Churn</div><div class="page-sub">Saúde real do cliente pelo financeiro — vencimentos dos contratos</div></div>
     </div>
     <div id="churn-content"></div>
   </div>
@@ -7941,7 +7941,7 @@ function formContrato(d){
     <div class="form-group"><label class="form-label">Data de Vencimento</label><input class="form-input" id="f-cont-venc" type="date" value="${d?.vencimento||''}"></div>
   </div>
   <div class="form-group"><label class="form-label">Status</label>
-    <select class="form-input" id="f-cont-status"><option ${d?.status==='Ativo'?'selected':''}>Ativo</option><option ${d?.status==='Encerrado'?'selected':''}>Encerrado</option><option ${d?.status==='Renovação'?'selected':''}>Renovação</option><option ${d?.status==='Pendente'?'selected':''}>Pendente</option></select>
+    <select class="form-input" id="f-cont-status"><option ${d?.status==='Ativo'?'selected':''}>Ativo</option><option ${d?.status==='Encerrado'?'selected':''}>Encerrado</option><option ${d?.status==='Renovação'?'selected':''}>Renovação</option><option ${d?.status==='Renovado'?'selected':''}>Renovado</option><option ${d?.status==='Pendente'?'selected':''}>Pendente</option></select>
   </div>`;
 }
 
@@ -13347,43 +13347,124 @@ function saveCreator(id=''){
 }
 
 // ═══ CHURN ANALYSIS ═══
+// Análise de churn pelo FINANCEIRO: a saúde real do cliente vem dos contratos
+// (Clientes → Contratos), não do health score. Cinco situações:
+//   Vencido      → data de vencimento já passou (e o contrato não foi renovado)
+//   A vencer     → vence nos próximos 30 dias
+//   Em renovação → contrato marcado como "Renovação" (negociando a renovação)
+//   Ativo        → contrato em dia, vencimento além dos 30 dias (ou sem data)
+//   Renovado     → contrato marcado como "Renovado"
+// Contratos "Encerrado" ficam fora da análise (só aparecem como contagem).
+const CONTRATO_JANELA_A_VENCER_DIAS=30;
+const CONTRATO_SITUACOES={
+  vencido:  {label:'Vencido',      icon:'🔴',color:'#DC2626',bg:'#FEE2E2',ord:0,hint:'Passou da data de vencimento'},
+  avencer:  {label:'A vencer',     icon:'🟠',color:'#D97706',bg:'#FEF3C7',ord:1,hint:`Vence em até ${CONTRATO_JANELA_A_VENCER_DIAS} dias`},
+  renovacao:{label:'Em renovação', icon:'🔵',color:'#2563EB',bg:'#DBEAFE',ord:2,hint:'Renovação em negociação'},
+  ativo:    {label:'Ativo',        icon:'🟢',color:'#059669',bg:'#DCFCE7',ord:3,hint:'Contrato em dia'},
+  renovado: {label:'Renovado',     icon:'🟣',color:'#7C3AED',bg:'#EDE9FE',ord:4,hint:'Contrato já renovado'}
+};
+function contratoDiasParaVencer(c){
+  const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(c?.vencimento||''));
+  if(!m)return null;
+  const v=new Date(+m[1],+m[2]-1,+m[3]);
+  const h=new Date();h.setHours(0,0,0,0);
+  return Math.round((v-h)/86400000);
+}
+function contratoSituacao(c){
+  const st=String(c?.status||'Ativo').trim().toLowerCase();
+  if(st==='encerrado')return 'encerrado';
+  if(st==='renovado')return 'renovado';
+  if(st.startsWith('renova'))return 'renovacao';
+  const d=contratoDiasParaVencer(c);
+  if(d!==null){
+    if(d<0)return 'vencido';
+    if(d<=CONTRATO_JANELA_A_VENCER_DIAS)return 'avencer';
+  }
+  return 'ativo';
+}
+function contratoSituacaoPill(key){
+  const sit=CONTRATO_SITUACOES[key];
+  if(!sit)return `<span class="badge badge-gray">${key==='encerrado'?'Encerrado':escHtml(key||'—')}</span>`;
+  return `<span class="badge" style="background:${sit.bg};color:${sit.color}">${sit.label}</span>`;
+}
+let churnFiltro='todos';
+function setChurnFiltro(k){churnFiltro=(churnFiltro===k)?'todos':k;renderChurn();}
 function renderChurn(){
-  const clientes=DB.get('clientes').filter(c=>c.status==='Ativo'||c.status==='Lead');
   const cont=document.getElementById('churn-content');
   if(!cont)return;
-  const riskGroups={alto:[],medio:[],baixo:[]};
-  clientes.forEach(c=>{
-    const h=c.health||0;
-    if(h<40)riskGroups.alto.push(c);
-    else if(h<70)riskGroups.medio.push(c);
-    else riskGroups.baixo.push(c);
+  const contratos=(DB.get('contratos')||[]).filter(Boolean);
+  const clientes=DB.get('clientes')||[];
+  const cliById={};clientes.forEach(c=>{cliById[c.id]=c});
+  const grupos={vencido:[],avencer:[],renovacao:[],ativo:[],renovado:[]};
+  let encerrados=0;
+  contratos.forEach(ct=>{
+    const k=contratoSituacao(ct);
+    if(k==='encerrado'){encerrados++;return;}
+    grupos[k].push(ct);
   });
-  const riskCard=(title,color,icon,clts)=>`
-    <div class="card" style="margin-bottom:14px">
-      <div class="sec-hdr">
-        <div class="sec-ico">${icon}</div>
-        <div><div class="sec-title" style="color:${color}">${title}</div>
-        <div class="sec-sub">${clts.length} cliente(s)</div></div>
-      </div>
-      ${clts.length?`<div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th>Health Score</th><th>Status</th><th>LTV</th></tr></thead><tbody>
-        ${clts.map(c=>`<tr>
-          <td><div style="font-weight:600">${c.nome}</div><div style="font-size:11px;color:var(--muted)">${c.email||''}</div></td>
-          <td><div style="display:flex;align-items:center;gap:8px"><div style="width:80px;background:#F3F4F6;border-radius:4px;height:6px;overflow:hidden"><div style="width:${c.health||0}%;height:100%;background:${healthColor(c.health||0)};border-radius:4px"></div></div><span style="font-weight:700;color:${healthColor(c.health||0)}">${c.health||0}</span></div></td>
-          <td>${badge(c.status)}</td>
-          <td style="font-weight:600;color:var(--green)">${c.ltv||'—'}</td>
-        </tr>`).join('')}
-      </tbody></table></div>`
-      :`<div class="empty"><div class="empty-txt">Nenhum cliente nessa faixa</div></div>`}
+  const ordenaPorVenc=(a,b)=>{
+    const da=contratoDiasParaVencer(a),db=contratoDiasParaVencer(b);
+    return (da===null?1e9:da)-(db===null?1e9:db);
+  };
+  Object.values(grupos).forEach(arr=>arr.sort(ordenaPorVenc));
+  const nClientes=arr=>new Set(arr.map(x=>x.clienteId||('_'+x.id))).size;
+  // Clientes ativos que ainda não têm nenhum contrato cadastrado — sem
+  // contrato não dá pra medir a saúde financeira deles.
+  const comContrato=new Set(contratos.map(ct=>ct.clienteId).filter(Boolean));
+  const semContrato=clientes.filter(c=>c.status==='Ativo'&&!comContrato.has(c.id));
+  const keys=['vencido','avencer','renovacao','ativo','renovado'];
+  const statCards=keys.map(k=>{
+    const sit=CONTRATO_SITUACOES[k];
+    const sel=churnFiltro===k;
+    return `<div class="stat-card" style="cursor:pointer;${sel?`outline:2px solid ${sit.color};`:''}" onclick="setChurnFiltro('${k}')" title="Clique para ver só ${sit.label.toLowerCase()}">
+      <div class="stat-lbl" style="color:${sit.color}">${sit.icon} ${sit.label}</div>
+      <div class="stat-val" style="color:${sit.color}">${grupos[k].length}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">${nClientes(grupos[k])} cliente(s) · ${sit.hint}</div>
     </div>`;
+  }).join('');
+  const tabela=k=>{
+    const sit=CONTRATO_SITUACOES[k];
+    const arr=grupos[k];
+    return `<div class="card" style="margin-bottom:14px">
+      <div class="sec-hdr">
+        <div class="sec-ico">${sit.icon}</div>
+        <div><div class="sec-title" style="color:${sit.color}">${sit.label}</div>
+        <div class="sec-sub">${arr.length} contrato(s) · ${nClientes(arr)} cliente(s)</div></div>
+      </div>
+      ${arr.length?`<div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th>Contrato</th><th>Valor</th><th>Vencimento</th><th>Prazo</th><th>Health</th></tr></thead><tbody>
+        ${arr.map(ct=>{
+          const cli=cliById[ct.clienteId];
+          const d=contratoDiasParaVencer(ct);
+          const prazo=d===null?'<span style="color:var(--muted)">Sem data</span>':(d<0?`<b style="color:#DC2626">${-d} dia(s) vencido</b>`:(d===0?'<b style="color:#D97706">Vence hoje</b>':`${d} dia(s)`));
+          const venc=ct.vencimento?String(ct.vencimento).slice(0,10).split('-').reverse().join('/'):'—';
+          const h=cli?(cli.health||0):null;
+          return `<tr>
+            <td><div style="font-weight:600">${escHtml(cli?.nome||'— (sem cliente)')}</div><div style="font-size:11px;color:var(--muted)">${escHtml(cli?.email||'')}</div></td>
+            <td>${escHtml(ct.titulo||'—')}</td>
+            <td style="font-weight:600;color:var(--green)">${escHtml(ct.valor||'—')}</td>
+            <td style="color:var(--muted);font-size:12px">${venc}</td>
+            <td style="font-size:12px">${prazo}</td>
+            <td>${h===null?'—':`<span style="font-weight:700;color:${healthColor(h)}">${h}</span>`}</td>
+          </tr>`;
+        }).join('')}
+      </tbody></table></div>`
+      :`<div class="empty"><div class="empty-txt">Nenhum contrato nessa situação</div></div>`}
+    </div>`;
+  };
+  const semContratoCard=`<div class="card" style="margin-bottom:14px">
+      <div class="sec-hdr"><div class="sec-ico">⚠️</div>
+        <div><div class="sec-title">Clientes ativos sem contrato</div>
+        <div class="sec-sub">${semContrato.length} cliente(s) — sem contrato não dá pra medir a saúde financeira deles</div></div></div>
+      ${semContrato.length?`<div style="padding:4px 16px 14px;display:flex;flex-wrap:wrap;gap:6px">${semContrato.map(c=>`<span class="badge badge-gray" style="cursor:pointer" onclick="openModal('cliente','${c.id}')" title="Abrir cliente (use Enviar para contratos)">${escHtml(c.nome)}</span>`).join('')}</div>`
+      :`<div class="empty"><div class="empty-txt">Todos os clientes ativos têm contrato 🎉</div></div>`}
+    </div>`;
+  const visiveis=churnFiltro==='todos'?keys:[churnFiltro];
   cont.innerHTML=`
-    <div class="grid-3" style="margin-bottom:18px">
-      <div class="stat-card"><div class="stat-lbl" style="color:var(--red)">🔴 Alto Risco</div><div class="stat-val" style="color:var(--red)">${riskGroups.alto.length}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">Health &lt; 40</div></div>
-      <div class="stat-card"><div class="stat-lbl" style="color:var(--yellow)">🟡 Médio Risco</div><div class="stat-val" style="color:var(--yellow)">${riskGroups.medio.length}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">Health 40–69</div></div>
-      <div class="stat-card"><div class="stat-lbl" style="color:var(--green)">🟢 Baixo Risco</div><div class="stat-val" style="color:var(--green)">${riskGroups.baixo.length}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">Health ≥ 70</div></div>
-    </div>
-    ${riskCard('Alto Risco de Churn','var(--red)','🔴',riskGroups.alto)}
-    ${riskCard('Médio Risco de Churn','var(--yellow)','🟡',riskGroups.medio)}
-    ${riskCard('Baixo Risco de Churn','var(--green)','🟢',riskGroups.baixo)}`;
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:18px">${statCards}</div>
+    ${churnFiltro!=='todos'?`<div style="margin:-6px 0 12px;font-size:12px;color:var(--muted)">Mostrando só <b>${CONTRATO_SITUACOES[churnFiltro].label}</b>. <a href="#" onclick="setChurnFiltro('${churnFiltro}');return false">Ver todos</a></div>`:''}
+    ${visiveis.map(tabela).join('')}
+    ${churnFiltro==='todos'?semContratoCard:''}
+    ${encerrados?`<div style="font-size:11px;color:var(--muted);margin:4px 2px 18px">${encerrados} contrato(s) encerrado(s) não entram nesta análise.</div>`:''}`;
 }
 
 // ═══ CONTRATOS ═══
@@ -13409,7 +13490,7 @@ function renderContratos(){
       <td style="font-weight:600;color:var(--green)">${c.valor||'—'}</td>
       <td style="color:var(--muted);font-size:12px">${c.inicio||'—'}</td>
       <td style="color:var(--muted);font-size:12px">${c.vencimento||'—'}</td>
-      <td>${badge(c.status||'Ativo')}</td>
+      <td>${contratoSituacaoPill(contratoSituacao(c))}</td>
       <td><div style="display:flex;gap:6px">
         <button class="btn btn-ghost btn-sm" onclick="openModal('contrato','${c.id}')">✏️</button>
         <button class="btn btn-danger btn-sm" onclick="confirmDelete(()=>{DB.remove('contratos','${c.id}');renderContratos();toast('Removido','#EF4444')})">🗑️</button>
