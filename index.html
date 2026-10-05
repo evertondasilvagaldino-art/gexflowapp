@@ -4352,6 +4352,25 @@ async function initGexCloudDataSync(isRetry){
       }
     }
 
+    // CORREÇÃO (05/10/2026): funis excluídos reapareciam. O merge abaixo
+    // preserva "dados locais ainda não enviados", e cada gravação de funis
+    // reenvia a lista local INTEIRA com deleted_at=null — então um navegador
+    // (ex.: o da Beatriz) com uma cópia antiga de um funil já excluído
+    // ressuscitava ele pra todo mundo. Aqui busca só os IDs dos funis que a
+    // nuvem já marcou como apagados e tira essas cópias do cache local antes
+    // do merge. Só afeta funis já apagados na nuvem; se a consulta falhar,
+    // segue exatamente como antes.
+    let gexDeletedFunnelIds=new Set();
+    try{
+      const {data:delRows,error:delErr}=await supabaseClient
+        .from(GEX_CLOUD_TABLE)
+        .select('record_id')
+        .eq('workspace_id',GEX_WORKSPACE_ID)
+        .eq('collection','commercial_funnels')
+        .not('deleted_at','is',null);
+      if(!delErr&&Array.isArray(delRows))gexDeletedFunnelIds=new Set(delRows.map(r=>String(r.record_id)));
+    }catch(e){}
+
     gexApplyingCloudPayload=true;
 
     // 1) Aplica chaves de configuração/sistema.
@@ -4363,7 +4382,10 @@ async function initGexCloudDataSync(isRetry){
 
     // 2) Aplica coleções principais preservando dados locais ainda não enviados.
     GEX_DB_COLLECTIONS.forEach(collection=>{
-      const local=gexReadLocalCollection(collection);
+      let local=gexReadLocalCollection(collection);
+      if(collection==='commercial_funnels'&&gexDeletedFunnelIds.size){
+        local=local.filter(f=>!(f&&gexDeletedFunnelIds.has(String(f.id))));
+      }
       // Ignora qualquer linha da nuvem cujo id a gente mesmo excluiu
       // localmente há pouco (lápide — ver gexAddTombstones) — sem isso, se o
       // apagar na nuvem ainda não tiver sido processado nesse exato
