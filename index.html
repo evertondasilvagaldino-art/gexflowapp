@@ -8415,11 +8415,19 @@ function renderInicio(){
 
 
 function filterCli(f,el){cliFilter=f;document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderClientes()}
+// Ordem das tabelas: maior valor em R$ primeiro (quem não tem valor vai pro fim).
+function ordenaClientesPorValor(arr){
+  return arr.slice().sort((a,b)=>(contratoValorNum(b.ltv)-contratoValorNum(a.ltv))||String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR'));
+}
+function ordenaContratosPorValor(arr){
+  return arr.slice().sort((a,b)=>(contratoValorNum(b.valor)-contratoValorNum(a.valor))||String(a.titulo||'').localeCompare(String(b.titulo||''),'pt-BR'));
+}
 function renderClientes(){
   const q=(document.getElementById('cli-search')?.value||'').toLowerCase();
   let data=DB.get('clientes');
   if(cliFilter!=='todos') data=data.filter(c=>c.status===cliFilter);
   if(q) data=data.filter(c=>c.nome.toLowerCase().includes(q)||c.email?.toLowerCase().includes(q));
+  data=ordenaClientesPorValor(data);
   document.getElementById('cli-sub').textContent=data.length+' cliente(s)';
   const tbody=document.getElementById('cli-tbody');
   if(!data.length){tbody.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="empty-ico">👥</div><div class="empty-txt">Nenhum cliente</div></div></td></tr>`;return}
@@ -13597,9 +13605,10 @@ function renderContratos(){
     return;
   }
   const nomeCliente=id=>clientes.find(c=>c.id===id)?.nome||'—';
+  const contratosOrd=ordenaContratosPorValor(contratos);
   cont.innerHTML=contratosResumoHtml()+`<div class="card"><div class="tbl-wrap"><table><thead><tr>
     <th>Título</th><th>Cliente</th><th>Valor</th><th>Início</th><th>Vencimento</th><th>Status</th><th>Ações</th>
-  </tr></thead><tbody>${contratos.map(c=>{
+  </tr></thead><tbody>${contratosOrd.map(c=>{
     const hoje=new Date();const venc=new Date(c.vencimento||'');
     const diasVenc=Math.ceil((venc-hoje)/(1000*60*60*24));
     const alertVenc=diasVenc>=0&&diasVenc<=30;
@@ -15362,12 +15371,13 @@ function gxIoExport(kind){
     let data=DB.get('clientes')||[];
     if(typeof cliFilter!=='undefined'&&cliFilter!=='todos')data=data.filter(c=>c.status===cliFilter);
     if(q)data=data.filter(c=>(c.nome||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q));
+    data=ordenaClientesPorValor(data);
     if(!data.length){toast('Nenhum cliente pra exportar','#F59E0B');return}
     head=['Nome','Email','Telefone','Status','Squads','LTV','Período (meses)','MRR','Health Score','Descrição'];
     rows=data.map(c=>[c.nome||'',c.email||'',c.telefone||'',c.status||'',(typeof clienteSquads==='function'?clienteSquads(c):(c.squads||[])).filter(x=>x&&x!=='—').join('; '),c.ltv&&c.ltv!=='—'?c.ltv:'',c.periodoMeses||'',c.mrr||'',c.health||0,c.desc||'']);
     sheet='Clientes';base='gex-clientes';label='cliente(s)';
   }else{
-    const data=DB.get('contratos')||[];
+    const data=ordenaContratosPorValor(DB.get('contratos')||[]);
     if(!data.length){toast('Nenhum contrato pra exportar','#F59E0B');return}
     const cli={};(DB.get('clientes')||[]).forEach(c=>{cli[c.id]=c.nome});
     head=['Título','Cliente','Valor','Início','Vencimento','Status','Situação'];
