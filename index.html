@@ -2244,7 +2244,11 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
   <div class="page" id="page-clientes">
     <div class="page-header">
       <div><div class="page-title">Clientes</div><div class="page-sub" id="cli-sub">Gerencie sua base de clientes</div></div>
-      <button class="btn btn-primary" onclick="openModal('cliente')">+ Novo Cliente</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="gxIoExport('clientes')">⬇️ Exportar</button>
+        <button class="btn btn-ghost" onclick="gxIoOpenImport('clientes')">⬆️ Importar</button>
+        <button class="btn btn-primary" onclick="openModal('cliente')">+ Novo Cliente</button>
+      </div>
     </div>
     <div class="filters">
       <div class="filter-tabs">
@@ -2275,7 +2279,11 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
   <div class="page" id="page-contratos">
     <div class="page-header">
       <div><div class="page-title">Contratos</div><div class="page-sub">Gestão de contratos com clientes</div></div>
-      <button class="btn btn-primary" onclick="openModal('contrato')">+ Novo Contrato</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="gxIoExport('contratos')">⬇️ Exportar</button>
+        <button class="btn btn-ghost" onclick="gxIoOpenImport('contratos')">⬆️ Importar</button>
+        <button class="btn btn-primary" onclick="openModal('contrato')">+ Novo Contrato</button>
+      </div>
     </div>
     <div id="contratos-content"></div>
   </div>
@@ -7154,6 +7162,25 @@ async function saveModal(type,id=''){
 }
 
 // ═══ FORMS ═══
+// Máscara de dinheiro: coloca "R$", pontos de milhar e vírgula sozinho.
+// Só mexe em valor que seja número puro ("3000" -> "R$ 3.000,00"); texto livre
+// como "R$ 4.800/mês" é deixado exatamente como foi digitado.
+function gexMoneyFmt(raw,final){
+  const t=String(raw==null?'':raw).trim();
+  if(!t)return '';
+  if(!/^[R$\s\d.,]*$/i.test(t))return t;
+  const x=t.replace(/R\$|\s/gi,'');
+  if(!/\d/.test(x))return '';
+  const hasComma=x.includes(',');
+  let ip=hasComma?x.slice(0,x.indexOf(',')):x;
+  let dp=hasComma?x.slice(x.indexOf(',')+1).replace(/\D/g,'').slice(0,2):null;
+  ip=ip.replace(/\D/g,'').replace(/^0+(?=\d)/,'');
+  if(!ip)ip='0';
+  ip=ip.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  if(final)dp=(dp||'').padEnd(2,'0');
+  return 'R$ '+ip+(dp!==null?','+dp:'');
+}
+
 function formCliente(d,contexto='full'){
   if(contexto==='carteira')return formClienteCarteira(d);
   return `<div class="form-row">
@@ -7169,7 +7196,7 @@ function formCliente(d,contexto='full'){
     <div class="form-group"><label class="form-label">Squads responsáveis (Ctrl/Cmd+clique para vários)</label>
       <select class="form-input" id="f-squad" multiple size="3">${DB.get('squads').map(s=>`<option value="${s.nome}" ${clienteSquads(d).includes(s.nome)?'selected':''}>${s.nome}</option>`).join('')}</select>
     </div>
-    <div class="form-group"><label class="form-label">LTV</label><input class="form-input" id="f-ltv" placeholder="R$ 0,00" value="${d?.ltv||''}"></div>
+    <div class="form-group"><label class="form-label">LTV</label><input class="form-input" id="f-ltv" placeholder="R$ 0,00" inputmode="decimal" oninput="this.value=gexMoneyFmt(this.value,false)" onblur="this.value=gexMoneyFmt(this.value,true)" value="${gexMoneyFmt(d?.ltv==='—'?'':d?.ltv,true)}"></div>
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Health Score (0–100)</label><input class="form-input" id="f-health" type="number" min="0" max="100" value="${d?.health||0}"></div>
@@ -7934,7 +7961,7 @@ function formContrato(d){
   return `<div class="form-group"><label class="form-label">Título do Contrato *</label><input class="form-input" id="f-cont-titulo" value="${d?.titulo||''}"></div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Cliente</label><select class="form-input" id="f-cont-cliente"><option value="">Selecionar...</option>${clis}</select></div>
-    <div class="form-group"><label class="form-label">Valor</label><input class="form-input" id="f-cont-valor" placeholder="R$ 0,00" value="${d?.valor||''}"></div>
+    <div class="form-group"><label class="form-label">Valor</label><input class="form-input" id="f-cont-valor" placeholder="R$ 0,00" inputmode="decimal" oninput="this.value=gexMoneyFmt(this.value,false)" onblur="this.value=gexMoneyFmt(this.value,true)" value="${gexMoneyFmt(d?.valor,true)}"></div>
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Data de Início</label><input class="form-input" id="f-cont-inicio" type="date" value="${d?.inicio||''}"></div>
@@ -13441,7 +13468,7 @@ function renderChurn(){
           return `<tr>
             <td><div style="font-weight:600">${escHtml(cli?.nome||'— (sem cliente)')}</div><div style="font-size:11px;color:var(--muted)">${escHtml(cli?.email||'')}</div></td>
             <td>${escHtml(ct.titulo||'—')}</td>
-            <td style="font-weight:600;color:var(--green)">${escHtml(ct.valor||'—')}</td>
+            <td style="font-weight:600;color:var(--green)">${escHtml(gexMoneyFmt(ct.valor,true)||'—')}</td>
             <td style="color:var(--muted);font-size:12px">${venc}</td>
             <td style="font-size:12px">${prazo}</td>
             <td>${h===null?'—':`<span style="font-weight:700;color:${healthColor(h)}">${h}</span>`}</td>
@@ -13487,7 +13514,7 @@ function renderContratos(){
     return`<tr>
       <td><div style="font-weight:600">${c.titulo}</div>${alertVenc?`<div style="font-size:10px;color:var(--yellow)">⚠️ Vence em ${diasVenc} dias</div>`:''}</td>
       <td>${nomeCliente(c.clienteId)}</td>
-      <td style="font-weight:600;color:var(--green)">${c.valor||'—'}</td>
+      <td style="font-weight:600;color:var(--green)">${gexMoneyFmt(c.valor,true)||'—'}</td>
       <td style="color:var(--muted);font-size:12px">${c.inicio||'—'}</td>
       <td style="color:var(--muted);font-size:12px">${c.vencimento||'—'}</td>
       <td>${contratoSituacaoPill(contratoSituacao(c))}</td>
@@ -15158,6 +15185,255 @@ function gxExportLeadsXLSX(){
   XLSX.writeFile(wb,`gex-leads-${funnelSlug}-${new Date().toISOString().slice(0,10)}.xlsx`);
   toast(`${leads.length} lead(s) exportado(s) ✓`,'#10B981');
 }
+/* ── Exportar / Importar Clientes e Contratos (Excel .xlsx) ──
+   Mesma lógica do Pipeline: exporta o que está na tela (respeitando os
+   filtros), e a importação lê a planilha, mostra uma prévia e só grava depois
+   de confirmar. Registros que já existem são ignorados (sem duplicar). */
+const GX_IO_CLIENTES_MAP={
+  'nome':'nome','name':'nome','cliente':'nome','nome do cliente':'nome','nome completo':'nome',
+  'email':'email','e-mail':'email',
+  'telefone':'telefone','whatsapp':'telefone','phone':'telefone','celular':'telefone','telefone / whatsapp':'telefone',
+  'status':'status',
+  'squads':'squads','squad':'squads','squads responsaveis':'squads',
+  'ltv':'ltv','valor':'ltv','valor (r$)':'ltv',
+  'health score':'health','health':'health','saude':'health','health score (0-100)':'health',
+  'descricao':'desc','descricao / observacoes':'desc','observacoes':'desc','obs':'desc'
+};
+const GX_IO_CONTRATOS_MAP={
+  'titulo':'titulo','titulo do contrato':'titulo','contrato':'titulo',
+  'cliente':'cliente','nome do cliente':'cliente',
+  'valor':'valor','valor (r$)':'valor',
+  'inicio':'inicio','data de inicio':'inicio','data inicio':'inicio',
+  'vencimento':'vencimento','data de vencimento':'vencimento','data vencimento':'vencimento','venc':'vencimento',
+  'status':'status'
+};
+function gxIoCell(v){
+  if(v instanceof Date){
+    const d=new Date(v.getTime()+12*3600*1000);
+    return d;
+  }
+  return v===null||v===undefined?'':v;
+}
+function gxIoStr(v){
+  v=gxIoCell(v);
+  if(v instanceof Date)return v.toISOString().slice(0,10);
+  return String(v).trim();
+}
+function gxIoDate(v){
+  v=gxIoCell(v);
+  if(v instanceof Date)return v.toISOString().slice(0,10);
+  if(typeof v==='number'&&v>20000&&v<80000){
+    const d=new Date(Math.round((v-25569)*86400*1000));
+    return d.toISOString().slice(0,10);
+  }
+  const s=String(v).trim();
+  if(!s)return '';
+  if(/^\d{4}-\d{2}-\d{2}/.test(s))return s.slice(0,10);
+  const m=/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/.exec(s);
+  if(m){
+    let y=+m[3];if(y<100)y+=2000;
+    const mm=String(+m[2]).padStart(2,'0'),dd=String(+m[1]).padStart(2,'0');
+    return `${y}-${mm}-${dd}`;
+  }
+  return '';
+}
+function gxIoDateBR(iso){return iso?String(iso).slice(0,10).split('-').reverse().join('/'):''}
+function gxIoMoney(v){
+  v=gxIoCell(v);
+  if(typeof v==='number')return 'R$ '+v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  return gxMoneyFmtSafe(String(v));
+}
+function gxMoneyFmtSafe(s){
+  s=String(s||'').trim();
+  if(!s||s==='—')return '';
+  return typeof gexMoneyFmt==='function'?(gexMoneyFmt(s,true)||s):s;
+}
+function gxIoRows(rows,map){
+  if(!rows.length)return[];
+  const headers=rows[0].map(gxNormalizeHeader);
+  return rows.slice(1).map(r=>{
+    const rec={};
+    headers.forEach((h,i)=>{const k=map[h];if(k&&rec[k]===undefined)rec[k]=r[i];});
+    return rec;
+  });
+}
+function gxIoSave(wb,fileBase,count,label){
+  XLSX.writeFile(wb,`${fileBase}-${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast(`${count} ${label} exportado(s) ✓`,'#10B981');
+}
+function gxIoExport(kind){
+  if(typeof XLSX==='undefined'){toast('Biblioteca de Excel não carregou. Recarregue a página e tente novamente.','#EF4444');return}
+  let head,rows,sheet,base,label;
+  if(kind==='clientes'){
+    const q=(document.getElementById('cli-search')?.value||'').toLowerCase();
+    let data=DB.get('clientes')||[];
+    if(typeof cliFilter!=='undefined'&&cliFilter!=='todos')data=data.filter(c=>c.status===cliFilter);
+    if(q)data=data.filter(c=>(c.nome||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q));
+    if(!data.length){toast('Nenhum cliente pra exportar','#F59E0B');return}
+    head=['Nome','Email','Telefone','Status','Squads','LTV','Health Score','Descrição'];
+    rows=data.map(c=>[c.nome||'',c.email||'',c.telefone||'',c.status||'',(typeof clienteSquads==='function'?clienteSquads(c):(c.squads||[])).filter(x=>x&&x!=='—').join('; '),c.ltv&&c.ltv!=='—'?c.ltv:'',c.health||0,c.desc||'']);
+    sheet='Clientes';base='gex-clientes';label='cliente(s)';
+  }else{
+    const data=DB.get('contratos')||[];
+    if(!data.length){toast('Nenhum contrato pra exportar','#F59E0B');return}
+    const cli={};(DB.get('clientes')||[]).forEach(c=>{cli[c.id]=c.nome});
+    head=['Título','Cliente','Valor','Início','Vencimento','Status','Situação'];
+    rows=data.map(c=>{
+      const k=contratoSituacao(c);
+      return [c.titulo||'',cli[c.clienteId]||'',gxMoneyFmtSafe(c.valor),gxIoDateBR(c.inicio),gxIoDateBR(c.vencimento),c.status||'Ativo',k==='encerrado'?'Encerrado':(CONTRATO_SITUACOES[k]?.label||'')];
+    });
+    sheet='Contratos';base='gex-contratos';label='contrato(s)';
+  }
+  const ws=XLSX.utils.aoa_to_sheet([head,...rows]);
+  ws['!cols']=head.map(h=>({wch:Math.max(14,Math.min(34,String(h).length+6))}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,sheet);
+  gxIoSave(wb,base,rows.length,label);
+}
+let gxIoKind='';let gxIoParsed={novos:[],ignorados:0,avisos:[]};
+function gxIoEnsureModal(){
+  if(document.getElementById('gx-io-ov'))return;
+  const el=document.createElement('div');
+  el.className='overlay';el.id='gx-io-ov';
+  el.setAttribute('onclick','if(event.target===this)gxIoClose()');
+  el.innerHTML=`<div class="modal" onclick="event.stopPropagation()" style="max-width:640px">
+    <div class="modal-header"><div class="modal-title" id="gx-io-title"></div><button class="modal-close" onclick="gxIoClose()">✕</button></div>
+    <div class="modal-body">
+      <div id="gx-io-help" style="font-size:12px;color:var(--muted);margin-bottom:12px"></div>
+      <input type="file" id="gx-io-file" accept=".xlsx,.xls" class="form-input" style="padding:8px" onchange="gxIoHandleFile(this)">
+      <div id="gx-io-preview" style="margin-top:14px"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-ghost" onclick="gxIoClose()">Cancelar</button><button class="btn btn-primary" id="gx-io-confirm" onclick="gxIoConfirm()" disabled>Importar</button></div>
+  </div>`;
+  document.body.appendChild(el);
+}
+function gxIoClose(){document.getElementById('gx-io-ov')?.classList.remove('open')}
+function gxIoOpenImport(kind){
+  const mod=kind==='clientes'?'clientes':'contratos';
+  if(typeof can==='function'&&!can(mod,'create')){toast('Você não tem permissão para importar aqui','#EF4444');return}
+  gxIoEnsureModal();
+  gxIoKind=kind;gxIoParsed={novos:[],ignorados:0,avisos:[]};
+  document.getElementById('gx-io-title').textContent=kind==='clientes'?'⬆️ Importar Clientes (Excel)':'⬆️ Importar Contratos (Excel)';
+  document.getElementById('gx-io-help').innerHTML=kind==='clientes'
+    ?'Envie uma planilha .xlsx com seus clientes. A primeira linha deve ter os nomes das colunas — a ordem não importa, e você pode exportar os clientes atuais primeiro pra usar como modelo.<br><br>Colunas reconhecidas: <b>Nome</b> (obrigatório), Email, Telefone, Status, Squads (separe vários com ;), LTV, Health Score, Descrição. Clientes que já existem (mesmo nome) são ignorados, e a importação não envia ninguém para o Onboarding.'
+    :'Envie uma planilha .xlsx com seus contratos. A primeira linha deve ter os nomes das colunas — a ordem não importa, e você pode exportar os contratos atuais primeiro pra usar como modelo.<br><br>Colunas reconhecidas: <b>Título</b> (ou Cliente), Cliente (pelo nome, tem que já estar cadastrado), Valor, Início, Vencimento, Status. Contratos que já existem (mesmo cliente, título e vencimento) são ignorados.';
+  document.getElementById('gx-io-file').value='';
+  document.getElementById('gx-io-preview').innerHTML='';
+  document.getElementById('gx-io-confirm').disabled=true;
+  document.getElementById('gx-io-ov').classList.add('open');
+}
+const GX_IO_STATUS_CLI=['Aguardando','Ativo','Lead','Inativo'];
+const GX_IO_STATUS_CONT=['Ativo','Encerrado','Renovação','Renovado','Pendente'];
+function gxIoPickStatus(raw,list,def){
+  const n=gxNormalizeHeader(raw);
+  return list.find(x=>gxNormalizeHeader(x)===n)||def;
+}
+function gxIoBuild(kind,rows){
+  const out={novos:[],ignorados:0,avisos:[]};
+  if(kind==='clientes'){
+    const recs=gxIoRows(rows,GX_IO_CLIENTES_MAP);
+    const existentes=new Set((DB.get('clientes')||[]).map(c=>gxNormalizeHeader(c.nome)));
+    const vistos=new Set();
+    recs.forEach(r=>{
+      const nome=gxIoStr(r.nome);
+      if(!nome)return;
+      const key=gxNormalizeHeader(nome);
+      if(existentes.has(key)||vistos.has(key)){out.ignorados++;return;}
+      vistos.add(key);
+      const squadsAll=(DB.get('squads')||[]).map(s=>s.nome);
+      const squads=gxIoStr(r.squads).split(/[;,]/).map(x=>x.trim()).filter(Boolean);
+      const desconhecidas=squads.filter(sq=>!squadsAll.includes(sq));
+      if(desconhecidas.length)out.avisos.push(`${nome}: squad "${desconhecidas.join('", "')}" não existe (mantida mesmo assim)`);
+      const h=parseInt(gxIoStr(r.health));
+      out.novos.push({
+        id:uid(),nome,email:gxIoStr(r.email),telefone:gxIoStr(r.telefone),
+        status:gxIoPickStatus(gxIoStr(r.status),GX_IO_STATUS_CLI,'Aguardando'),
+        squad:squads[0]||'—',squads,
+        ltv:gxIoMoney(r.ltv)||'—',
+        health:isNaN(h)?0:Math.max(0,Math.min(100,h)),
+        desc:gxIoStr(r.desc),
+        contaStatus:'Integração',contaResultado:'',contaRelacionamento:'',contaResponsaveis:[],
+        linkDrive:'',linkMeta:'',linkGoogleAds:'',linkGmn:''
+      });
+    });
+  }else{
+    const recs=gxIoRows(rows,GX_IO_CONTRATOS_MAP);
+    const clientes=DB.get('clientes')||[];
+    const cliByName={};clientes.forEach(c=>{cliByName[gxNormalizeHeader(c.nome)]=c});
+    const existentes=new Set((DB.get('contratos')||[]).map(ct=>`${ct.clienteId||''}|${gxNormalizeHeader(ct.titulo)}|${ct.vencimento||''}`));
+    recs.forEach(r=>{
+      const cliNome=gxIoStr(r.cliente);
+      let titulo=gxIoStr(r.titulo);
+      if(!titulo&&cliNome)titulo=`Contrato - ${cliNome}`;
+      if(!titulo)return;
+      const cli=cliNome?cliByName[gxNormalizeHeader(cliNome)]:null;
+      if(cliNome&&!cli)out.avisos.push(`"${titulo}": cliente "${cliNome}" não encontrado — contrato entra sem cliente`);
+      const venc=gxIoDate(r.vencimento);
+      const key=`${cli?.id||''}|${gxNormalizeHeader(titulo)}|${venc}`;
+      if(existentes.has(key)){out.ignorados++;return;}
+      existentes.add(key);
+      out.novos.push({
+        id:uid(),titulo,clienteId:cli?.id||'',valor:gxIoMoney(r.valor),
+        inicio:gxIoDate(r.inicio),vencimento:venc,
+        status:gxIoPickStatus(gxIoStr(r.status),GX_IO_STATUS_CONT,'Ativo'),
+        origem:'Importação Excel',createdAt:new Date().toISOString()
+      });
+    });
+  }
+  return out;
+}
+function gxIoHandleFile(input){
+  const file=input.files&&input.files[0];
+  const preview=document.getElementById('gx-io-preview');
+  const btn=document.getElementById('gx-io-confirm');
+  gxIoParsed={novos:[],ignorados:0,avisos:[]};
+  btn.disabled=true;
+  if(!file){preview.innerHTML='';return}
+  if(typeof XLSX==='undefined'){preview.innerHTML=`<div class="gxi-warning">Biblioteca de Excel não carregou. Recarregue a página e tente novamente.</div>`;return}
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true});
+      const sheet=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(sheet,{header:1,defval:'',raw:true});
+      const res=gxIoBuild(gxIoKind,rows);
+      gxIoParsed=res;
+      const nome=gxIoKind==='clientes'?'cliente(s)':'contrato(s)';
+      if(!res.novos.length){
+        preview.innerHTML=`<div class="gxi-warning">${res.ignorados?`Todos os ${res.ignorados} registro(s) do arquivo já existem — nada novo pra importar.`:`Nenhum registro válido encontrado. Confira se a primeira linha tem os nomes das colunas e se a coluna ${gxIoKind==='clientes'?'"Nome"':'"Título" ou "Cliente"'} está preenchida.`}</div>`;
+        return;
+      }
+      const amostra=res.novos.slice(0,5).map(x=>gxIoKind==='clientes'
+        ?`<b>${escHtml(x.nome)}</b>${x.email?` • ${escHtml(x.email)}`:''}${x.status?` • ${escHtml(x.status)}`:''}${x.ltv&&x.ltv!=='—'?` • ${escHtml(x.ltv)}`:''}`
+        :`<b>${escHtml(x.titulo)}</b>${x.valor?` • ${escHtml(x.valor)}`:''}${x.vencimento?` • vence ${gxIoDateBR(x.vencimento)}`:''} • ${escHtml(x.status)}`);
+      preview.innerHTML=`<div style="font-size:12px;color:var(--txt);margin-bottom:8px"><b>${res.novos.length}</b> ${nome} novo(s) pra importar${res.ignorados?` • <span style="color:var(--muted)">${res.ignorados} já existente(s) ignorado(s)</span>`:''}. Prévia dos primeiros:</div>
+        <div style="max-height:200px;overflow:auto;border:1px solid var(--border);border-radius:10px">${amostra.map(a=>`<div style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px">${a}</div>`).join('')}</div>
+        ${res.avisos.length?`<div style="margin-top:10px;font-size:11px;color:#92400E;background:#FEF3C7;border-radius:8px;padding:8px 10px;max-height:110px;overflow:auto"><b>Avisos (${res.avisos.length}):</b><br>${res.avisos.slice(0,10).map(escHtml).join('<br>')}${res.avisos.length>10?'<br>…':''}</div>`:''}`;
+      btn.disabled=false;
+    }catch(err){
+      preview.innerHTML=`<div class="gxi-warning">Erro ao ler o arquivo: ${escHtml(err.message||String(err))}</div>`;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+function gxIoConfirm(){
+  const novos=gxIoParsed.novos||[];
+  if(!novos.length){toast('Nada pra importar','#EF4444');return}
+  if(gxIoKind==='clientes'){
+    DB.set('clientes',[...(DB.get('clientes')||[]),...novos]);
+    gxIoClose();
+    if(typeof renderClientes==='function')renderClientes();
+    if(typeof renderInicio==='function')try{renderInicio()}catch(e){}
+    toast(`${novos.length} cliente(s) importado(s) ✓`,'#10B981');
+  }else{
+    DB.set('contratos',[...(DB.get('contratos')||[]),...novos]);
+    gxIoClose();
+    if(typeof renderContratos==='function')renderContratos();
+    if(typeof renderChurn==='function')try{renderChurn()}catch(e){}
+    toast(`${novos.length} contrato(s) importado(s) ✓`,'#10B981');
+  }
+}
+
 let gxImportLeadsParsed=[];
 function openImportLeadsModal(){
   gxImportLeadsParsed=[];
