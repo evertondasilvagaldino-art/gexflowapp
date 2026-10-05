@@ -2251,7 +2251,6 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
         <button class="ftab active" onclick="filterCli('todos',this)">Todos</button>
         <button class="ftab" onclick="filterCli('Aguardando',this)">⏳ Aguardando</button>
         <button class="ftab" onclick="filterCli('Ativo',this)">Ativos</button>
-        <button class="ftab" onclick="filterCli('Lead',this)">Leads</button>
         <button class="ftab" onclick="filterCli('Inativo',this)">Inativos</button>
       </div>
       <input class="search-inline" id="cli-search" placeholder="Buscar cliente..." oninput="renderClientes()">
@@ -7176,7 +7175,36 @@ function formCliente(d,contexto='full'){
     <div class="form-group"><label class="form-label">Health Score (0–100)</label><input class="form-input" id="f-health" type="number" min="0" max="100" value="${d?.health||0}"></div>
     <div style="display:flex;flex-direction:column;justify-content:flex-end"><div style="font-size:13px;font-weight:700;color:${healthColor(d?.health||0)}">${d?.health||0} pts</div></div>
   </div>
-  <div class="form-group"><label class="form-label">Descrição / Observações</label><textarea class="form-input" id="f-desc" rows="3">${d?.desc||''}</textarea></div>`;
+  <div class="form-group"><label class="form-label">Descrição / Observações</label><textarea class="form-input" id="f-desc" rows="3">${d?.desc||''}</textarea></div>
+  ${(()=>{try{if(!d?.id||typeof can!=='function'||!can('contratos','view'))return '';}catch(e){return '';}return `<div class="form-group" style="margin-top:4px;padding-top:12px;border-top:1px dashed var(--border)"><button type="button" class="btn btn-ghost" onclick="enviarClienteParaContratos('${d.id}')">📄 Enviar para contratos</button><div style="font-size:10.5px;color:var(--muted);margin-top:5px">Cria um contrato com os dados deste cliente para o financeiro administrar em Clientes → Contratos. Salve antes as alterações que fez aqui.</div></div>`})()}`;
+}
+
+// Cria, em Contratos, um contrato já ligado a este cliente (o mesmo cadastro,
+// sem digitar de novo) pra o financeiro completar valor/datas/status.
+function enviarClienteParaContratos(clienteId){
+  const c=DB.find('clientes',clienteId);
+  if(!c){toast('Cliente não encontrado','#EF4444');return;}
+  const jaTem=(DB.get('contratos')||[]).filter(x=>x&&x.clienteId===clienteId);
+  if(jaTem.length){
+    const ok=confirm(`"${c.nome}" já tem ${jaTem.length} contrato(s) em Contratos.\n\nCriar mais um contrato para ele mesmo assim?\n\n(Cancelar abre a tela de Contratos sem criar outro.)`);
+    if(!ok){closeModal();navigateSub('contratos','clientes');return;}
+  }
+  const hoje=new Date().toISOString().slice(0,10);
+  DB.push('contratos',{
+    id:uid(),
+    titulo:`Contrato - ${c.nome}`,
+    clienteId:clienteId,
+    valor:c.ltv||'',
+    inicio:hoje,
+    vencimento:'',
+    status:'Ativo',
+    origem:'Enviado da ficha do cliente',
+    enviadoPor:(typeof sessionUser!=='undefined'&&(sessionUser?.nome||sessionUser?.email))||'',
+    createdAt:new Date().toISOString()
+  });
+  closeModal();
+  navigateSub('contratos','clientes');
+  toast(`Contrato de "${c.nome}" criado em Contratos ✓`,'#10B981');
 }
 
 // Versão enxuta do formulário de cliente, usada quando ele é aberto de
