@@ -2285,6 +2285,13 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
         <button class="btn btn-primary" onclick="openModal('contrato')">+ Novo Contrato</button>
       </div>
     </div>
+    <div style="margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="position:relative;width:100%;max-width:380px">
+        <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none"><circle cx="9" cy="9" r="6"/><path d="M14 14l4 4"/></svg>
+        <input class="search-inline" id="contr-search" type="search" autocomplete="off" placeholder="Pesquisar cliente ou contrato..." oninput="renderContratos()" style="width:100%;padding-left:36px;height:38px">
+      </div>
+      <span id="contr-search-count" style="font-size:12px;color:var(--muted)"></span>
+    </div>
     <div id="contratos-content"></div>
   </div>
 
@@ -13605,10 +13612,21 @@ function renderContratos(){
     return;
   }
   const nomeCliente=id=>clientes.find(c=>c.id===id)?.nome||'—';
-  const contratosOrd=ordenaContratosPorValor(contratos);
+  const qRaw=(document.getElementById('contr-search')?.value||'').trim();
+  const q=gxNormalizeHeader(qRaw);
+  let contratosOrd=ordenaContratosPorValor(contratos);
+  if(q){
+    contratosOrd=contratosOrd.filter(c=>{
+      const sit=contratoSituacao(c);
+      const alvo=[c.titulo,nomeCliente(c.clienteId),c.valor,gexMoneyFmt(c.valor,true),c.status,CONTRATO_SITUACOES[sit]?.label||sit,c.vencimento,c.inicio].map(x=>gxNormalizeHeader(x)).join(' | ');
+      return alvo.includes(q);
+    });
+  }
+  const cntEl=document.getElementById('contr-search-count');
+  if(cntEl)cntEl.textContent=q?`${contratosOrd.length} de ${contratos.length} contrato(s)`:'';
   cont.innerHTML=contratosResumoHtml()+`<div class="card"><div class="tbl-wrap"><table><thead><tr>
     <th>Título</th><th>Cliente</th><th>Valor</th><th>Início</th><th>Vencimento</th><th>Status</th><th>Ações</th>
-  </tr></thead><tbody>${contratosOrd.map(c=>{
+  </tr></thead><tbody>${contratosOrd.length?'':`<tr><td colspan="7"><div class="empty"><div class="empty-ico">🔍</div><div class="empty-txt">Nenhum contrato encontrado para "${escHtml(qRaw)}"</div></div></td></tr>`}${contratosOrd.map(c=>{
     const hoje=new Date();const venc=new Date(c.vencimento||'');
     const diasVenc=Math.ceil((venc-hoje)/(1000*60*60*24));
     const alertVenc=diasVenc>=0&&diasVenc<=30;
