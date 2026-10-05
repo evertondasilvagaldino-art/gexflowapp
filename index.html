@@ -6999,6 +6999,21 @@ async function saveModal(type,id=''){
         desc:v('f-desc')
       };
       if(!obj.nome){toast('Nome obrigatório','#EF4444');return}
+      // Hora de entrada: grava junto da data em createdAt (horário de Brasília).
+      // Só reescreve createdAt se a hora ou a data realmente mudaram, pra não
+      // apagar os segundos/instante exato original de quem não mexeu.
+      {
+        const horaIn=v('f-hora-entrada');
+        const dIni=obj.dataInicio;
+        if(/^\d{2}:\d{2}$/.test(horaIn)&&/^\d{4}-\d{2}-\d{2}$/.test(dIni||'')){
+          const oldLabel=oldLead?leadEntradaLabel(oldLead):'';
+          const oldHm=oldLabel.includes(' ')?oldLabel.split(' ')[1]:'';
+          if(!oldLead||!oldLead.createdAt||horaIn!==oldHm||dIni!==(oldLead.dataInicio||'')){
+            const ts=new Date(`${dIni}T${horaIn}:00-03:00`);
+            if(!isNaN(ts.getTime()))obj.createdAt=ts.toISOString();
+          }
+        }
+      }
       if(id)DB.update('leads',id,obj);else{const l={id:uid(),createdAt:new Date().toISOString(),...obj};DB.push('leads',l);fireWebhook('lead.criado',l);playChime('lead');/* notifyLeadCreated(l) — desligado (03/10/2026): agora é o servidor (run-automations-cron) que avisa por e-mail */}
       closeModal();renderComercial();if(currentDealId===id)renderDealDetail();toast(id?'Lead atualizado ✓':'Lead criado ✓','#10B981');
     },
@@ -7341,6 +7356,9 @@ function formLead(d){
   <div class="form-row">
     <div class="form-group"><label class="form-label">Data início <span style="font-size:10px;color:var(--muted)">(auto)</span></label><input class="form-input" id="f-data-inicio" type="date" value="${d?.dataInicio||new Date().toISOString().slice(0,10)}"></div>
     <div class="form-group"><label class="form-label">Previsão fechamento</label><input class="form-input" id="f-data-fecha" type="date" value="${d?.dataFechamento||''}"></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Hora de entrada <span style="font-size:10px;color:var(--muted)">(auto)</span></label><input class="form-input" id="f-hora-entrada" type="time" value="${(()=>{try{if(d){const t=leadEntradaLabel(d);return t&&t.includes(' ')?t.split(' ')[1]:''}return new Date().toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'})}catch(e){return ''}})()}"></div>
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Origem do lead</label>
