@@ -13495,17 +13495,61 @@ function renderChurn(){
 }
 
 // ═══ CONTRATOS ═══
+// Valor de contrato (texto livre, ex.: "R$ 3.000,00", "3000", "R$ 4.800/mês")
+// -> número. Pega o primeiro número do texto e entende o formato brasileiro.
+function contratoValorNum(raw){
+  const m=/\d[\d.,]*/.exec(String(raw==null?'':raw));
+  if(!m)return 0;
+  let t=m[0].replace(/[.,]+$/,'');
+  if(t.includes(','))t=t.replace(/\./g,'').replace(',','.');
+  else if(/^\d{1,3}(\.\d{3})+$/.test(t))t=t.replace(/\./g,'');
+  const n=parseFloat(t);
+  return isNaN(n)?0:n;
+}
+// MRR da agência = soma dos valores dos contratos vigentes (Ativo, A vencer,
+// Em renovação e Renovado — ficam de fora Vencido e Encerrado). Cada valor é
+// tratado como mensal. Ticket médio = MRR ÷ nº de clientes com contrato vigente.
+function contratosResumoMRR(){
+  const contratos=(DB.get('contratos')||[]).filter(Boolean);
+  const vigentes=contratos.filter(ct=>['ativo','avencer','renovacao','renovado'].includes(contratoSituacao(ct)));
+  const porCliente={};
+  let mrr=0;
+  vigentes.forEach(ct=>{
+    const v=contratoValorNum(ct.valor);
+    mrr+=v;
+    const k=ct.clienteId||('_'+ct.id);
+    porCliente[k]=(porCliente[k]||0)+v;
+  });
+  const nClientes=Object.keys(porCliente).length;
+  const semValor=vigentes.filter(ct=>!contratoValorNum(ct.valor)).length;
+  return {mrr,nClientes,nContratos:vigentes.length,ticket:nClientes?mrr/nClientes:0,semValor};
+}
+function contratosResumoHtml(){
+  const r=contratosResumoMRR();
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:18px">
+    <div class="stat-card">
+      <div class="stat-lbl">💰 MRR Agência</div>
+      <div class="stat-val" style="color:var(--green)">${fmtBRL(r.mrr)}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Soma dos ${r.nContratos} contrato(s) vigentes${r.semValor?` · ${r.semValor} sem valor`:''}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-lbl">🎯 Ticket Médio</div>
+      <div class="stat-val">${fmtBRL(r.ticket)}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">MRR ÷ ${r.nClientes} cliente(s) com contrato</div>
+    </div>
+  </div>`;
+}
 function renderContratos(){
   const contratos=DB.get('contratos');
   const clientes=DB.get('clientes');
   const cont=document.getElementById('contratos-content');
   if(!cont)return;
   if(!contratos.length){
-    cont.innerHTML=`<div class="card"><div class="empty"><div class="empty-ico">📄</div><div class="empty-txt">Nenhum contrato cadastrado</div></div></div>`;
+    cont.innerHTML=contratosResumoHtml()+`<div class="card"><div class="empty"><div class="empty-ico">📄</div><div class="empty-txt">Nenhum contrato cadastrado</div></div></div>`;
     return;
   }
   const nomeCliente=id=>clientes.find(c=>c.id===id)?.nome||'—';
-  cont.innerHTML=`<div class="card"><div class="tbl-wrap"><table><thead><tr>
+  cont.innerHTML=contratosResumoHtml()+`<div class="card"><div class="tbl-wrap"><table><thead><tr>
     <th>Título</th><th>Cliente</th><th>Valor</th><th>Início</th><th>Vencimento</th><th>Status</th><th>Ações</th>
   </tr></thead><tbody>${contratos.map(c=>{
     const hoje=new Date();const venc=new Date(c.vencimento||'');
