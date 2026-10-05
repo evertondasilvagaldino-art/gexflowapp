@@ -16098,7 +16098,7 @@ function setHistTab(tab){
 function renderDealDetail(){
   const l=DB.find('leads',currentDealId);
   if(!l) return;
-  document.getElementById('deal-title-name').textContent=l.nome+' – '+l.empresa;
+  document.getElementById('deal-title-name').textContent=(l.nome||'Lead')+(l.empresa?' – '+l.empresa:'');
   renderDealStatusBtns();
   renderDealBreadcrumb();
   renderDealMain();
@@ -16351,6 +16351,7 @@ function renderDealSidebar(){
       ${l.produto?`<div class="sb-field"><span class="sb-field-lbl">Produto / Serviço</span><span class="sb-field-val" style="color:var(--p1);font-weight:600">📦 ${l.produto}</span></div>`:''}
       <div class="sb-field"><span class="sb-field-lbl">Responsável</span><span class="sb-field-val">Everton Galdino</span></div>
       <div class="sb-field"><span class="sb-field-lbl">Data início</span><span class="sb-field-val">${l.dataInicio?new Date(l.dataInicio+'T00:00:00').toLocaleDateString('pt-BR'):(l.createdAt?new Date(l.createdAt).toLocaleDateString('pt-BR'):'—')}</span></div>
+      ${(()=>{const t=leadEntradaLabel(l);const hm=t&&t.includes(' ')?t.split(' ')[1]:'';return hm?`<div class="sb-field"><span class="sb-field-lbl">Hora de entrada</span><span class="sb-field-val">${hm}</span></div>`:''})()}
       <div class="sb-field"><span class="sb-field-lbl">Previsão fecha.</span><span class="sb-field-val">${l.dataFechamento||'—'}</span></div>
       <div class="sb-field"><span class="sb-field-lbl">Origem do lead</span><span class="sb-field-val">${escHtml(l.origem||'—')}</span></div>
       ${l.desc?`<div class="sb-field" style="flex-direction:column;align-items:flex-start;gap:4px"><span class="sb-field-lbl">Descrição</span><span style="font-size:12px;color:var(--muted);line-height:1.5;white-space:pre-wrap">${escHtml(humanizeLegacyLeadDesc(l.desc,l.origem||''))}</span></div>`:''}
