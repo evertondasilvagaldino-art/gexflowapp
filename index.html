@@ -6917,7 +6917,7 @@ async function saveModal(type,id=''){
       const squads=(squadEl&&squadEl.tagName==='SELECT'&&squadEl.multiple)
         ?[...squadEl.selectedOptions].map(o=>o.value).filter(Boolean)
         :(id?clienteSquads(existente):(squadEl?.value&&squadEl.value!=='—'?[squadEl.value]:[]));
-      const obj={nome:v('f-nome'),email:v('f-email'),telefone:v('f-tel'),status:v('f-status'),squad:squads[0]||'—',squads,ltv:v('f-ltv')||'—',health:parseInt(v('f-health'))||0,desc:v('f-desc'),
+      const obj={nome:v('f-nome'),email:v('f-email'),telefone:v('f-tel'),status:v('f-status'),squad:squads[0]||'—',squads,ltv:v('f-ltv')||'—',periodoMeses:(document.getElementById('f-periodo')?v('f-periodo'):(existente?.periodoMeses||'')),mrr:clienteMrrTexto(clienteMrrCalc(v('f-ltv'),(document.getElementById('f-periodo')?v('f-periodo'):(existente?.periodoMeses||''))))||'',health:parseInt(v('f-health'))||0,desc:v('f-desc'),
         contaStatus:temCamposCarteira?(v('f-conta-status')||'Integração'):(existente?.contaStatus||'Integração'),
         contaResultado:temCamposCarteira?v('f-conta-resultado'):(existente?.contaResultado||''),
         contaRelacionamento:temCamposCarteira?v('f-conta-relacionamento'):(existente?.contaRelacionamento||''),
@@ -7181,6 +7181,32 @@ function gexMoneyFmt(raw,final){
   return 'R$ '+ip+(dp!==null?','+dp:'');
 }
 
+// MRR do cliente = LTV (valor total do contrato) ÷ período em meses.
+function clienteMrrCalc(ltvRaw,periodo){
+  const meses=parseInt(periodo);
+  if(!meses||meses<1)return null;
+  const ltv=(typeof contratoValorNum==='function')?contratoValorNum(ltvRaw):0;
+  if(!ltv)return null;
+  return Math.round((ltv/meses)*100)/100;
+}
+function clienteMrrTexto(n){
+  return n==null?'':'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+// Recalcula o campo MRR na janela Editar Cliente quando LTV ou período mudam.
+function gexClienteMrrAtualiza(){
+  const out=document.getElementById('f-mrr');
+  if(!out)return;
+  const n=clienteMrrCalc(document.getElementById('f-ltv')?.value,document.getElementById('f-periodo')?.value);
+  out.value=clienteMrrTexto(n);
+}
+function gexAddMeses(dataIso,meses){
+  const [y,m,d]=dataIso.split('-').map(Number);
+  const alvo=new Date(y,m-1+meses,1);
+  const ultimo=new Date(alvo.getFullYear(),alvo.getMonth()+1,0).getDate();
+  alvo.setDate(Math.min(d,ultimo));
+  return `${alvo.getFullYear()}-${String(alvo.getMonth()+1).padStart(2,'0')}-${String(alvo.getDate()).padStart(2,'0')}`;
+}
+
 function formCliente(d,contexto='full'){
   if(contexto==='carteira')return formClienteCarteira(d);
   return `<div class="form-row">
@@ -7196,14 +7222,24 @@ function formCliente(d,contexto='full'){
     <div class="form-group"><label class="form-label">Squads responsáveis (Ctrl/Cmd+clique para vários)</label>
       <select class="form-input" id="f-squad" multiple size="3">${DB.get('squads').map(s=>`<option value="${s.nome}" ${clienteSquads(d).includes(s.nome)?'selected':''}>${s.nome}</option>`).join('')}</select>
     </div>
-    <div class="form-group"><label class="form-label">LTV</label><input class="form-input" id="f-ltv" placeholder="R$ 0,00" inputmode="decimal" oninput="this.value=gexMoneyFmt(this.value,false)" onblur="this.value=gexMoneyFmt(this.value,true)" value="${gexMoneyFmt(d?.ltv==='—'?'':d?.ltv,true)}"></div>
+    <div>
+      <div class="form-group"><label class="form-label">LTV</label><input class="form-input" id="f-ltv" placeholder="R$ 0,00" inputmode="decimal" oninput="this.value=gexMoneyFmt(this.value,false);gexClienteMrrAtualiza()" onblur="this.value=gexMoneyFmt(this.value,true);gexClienteMrrAtualiza()" value="${gexMoneyFmt(d?.ltv==='—'?'':d?.ltv,true)}"></div>
+      <div class="form-row" style="margin-top:8px">
+        <div class="form-group"><label class="form-label">Período</label>
+          <select class="form-input" id="f-periodo" onchange="gexClienteMrrAtualiza()">
+            <option value="">— Selecione —</option>
+            ${[1,3,6,12,24].map(n=>`<option value="${n}" ${String(d?.periodoMeses||'')===String(n)?'selected':''}>${n} ${n===1?'mês':'meses'}</option>`).join('')}
+          </select></div>
+        <div class="form-group"><label class="form-label">MRR <span style="font-size:10px;color:var(--muted)">(LTV ÷ período)</span></label><input class="form-input" id="f-mrr" readonly tabindex="-1" placeholder="R$ 0,00" style="background:var(--bg,#F6F5FB);font-weight:700;color:var(--green)" value="${gexMoneyFmt(clienteMrrCalc(d?.ltv,d?.periodoMeses)==null?'':String(clienteMrrCalc(d?.ltv,d?.periodoMeses)).replace('.',','),true)}"></div>
+      </div>
+    </div>
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Health Score (0–100)</label><input class="form-input" id="f-health" type="number" min="0" max="100" value="${d?.health||0}"></div>
     <div style="display:flex;flex-direction:column;justify-content:flex-end"><div style="font-size:13px;font-weight:700;color:${healthColor(d?.health||0)}">${d?.health||0} pts</div></div>
   </div>
   <div class="form-group"><label class="form-label">Descrição / Observações</label><textarea class="form-input" id="f-desc" rows="3">${d?.desc||''}</textarea></div>
-  ${(()=>{try{if(!d?.id||typeof can!=='function'||!can('contratos','view'))return '';}catch(e){return '';}return `<div class="form-group" style="margin-top:4px;padding-top:12px;border-top:1px dashed var(--border)"><button type="button" class="btn btn-ghost" onclick="enviarClienteParaContratos('${d.id}')">📄 Enviar para contratos</button><div style="font-size:10.5px;color:var(--muted);margin-top:5px">Cria um contrato com os dados deste cliente para o financeiro administrar em Clientes → Contratos. Salve antes as alterações que fez aqui.</div></div>`})()}`;
+  ${(()=>{try{if(!d?.id||typeof can!=='function'||!can('contratos','view'))return '';}catch(e){return '';}return `<div class="form-group" style="margin-top:4px;padding-top:12px;border-top:1px dashed var(--border)"><button type="button" class="btn btn-ghost" onclick="enviarClienteParaContratos('${d.id}')">📄 Enviar para contratos</button><div style="font-size:10.5px;color:var(--muted);margin-top:5px">Cria um contrato com o MRR calculado (LTV ÷ período) como valor mensal, começando hoje e vencendo ao fim do período. O financeiro administra em Clientes → Contratos.</div></div>`})()}`;
 }
 
 // Cria, em Contratos, um contrato já ligado a este cliente (o mesmo cadastro,
@@ -7211,27 +7247,39 @@ function formCliente(d,contexto='full'){
 function enviarClienteParaContratos(clienteId){
   const c=DB.find('clientes',clienteId);
   if(!c){toast('Cliente não encontrado','#EF4444');return;}
+  // Usa o que está na janela agora (LTV e período), senão o que está salvo.
+  const ltvAtual=document.getElementById('f-ltv')?.value||(c.ltv&&c.ltv!=='—'?c.ltv:'');
+  const periodo=document.getElementById('f-periodo')?.value||c.periodoMeses||'';
+  const mrr=clienteMrrCalc(ltvAtual,periodo);
+  if(!periodo){toast('Escolha o Período (1, 3, 6, 12 ou 24 meses) pra calcular o MRR antes de enviar','#F59E0B');return;}
+  if(mrr==null){toast('Preencha o LTV pra calcular o MRR antes de enviar','#F59E0B');return;}
   const jaTem=(DB.get('contratos')||[]).filter(x=>x&&x.clienteId===clienteId);
   if(jaTem.length){
     const ok=confirm(`"${c.nome}" já tem ${jaTem.length} contrato(s) em Contratos.\n\nCriar mais um contrato para ele mesmo assim?\n\n(Cancelar abre a tela de Contratos sem criar outro.)`);
     if(!ok){closeModal();navigateSub('contratos','clientes');return;}
   }
-  const hoje=new Date().toISOString().slice(0,10);
+  const meses=parseInt(periodo);
+  const hoje=new Date();
+  const inicio=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
+  // Guarda no cadastro do cliente também, pra ficar igual ao que foi enviado.
+  DB.update('clientes',clienteId,{ltv:gexMoneyFmt(ltvAtual,true)||c.ltv||'—',periodoMeses:String(meses),mrr:clienteMrrTexto(mrr)});
   DB.push('contratos',{
     id:uid(),
     titulo:`Contrato - ${c.nome}`,
     clienteId:clienteId,
-    valor:c.ltv||'',
-    inicio:hoje,
-    vencimento:'',
+    valor:clienteMrrTexto(mrr),
+    inicio,
+    vencimento:gexAddMeses(inicio,meses),
     status:'Ativo',
+    periodoMeses:String(meses),
+    ltvTotal:gexMoneyFmt(ltvAtual,true),
     origem:'Enviado da ficha do cliente',
     enviadoPor:(typeof sessionUser!=='undefined'&&(sessionUser?.nome||sessionUser?.email))||'',
     createdAt:new Date().toISOString()
   });
   closeModal();
   navigateSub('contratos','clientes');
-  toast(`Contrato de "${c.nome}" criado em Contratos ✓`,'#10B981');
+  toast(`Contrato de "${c.nome}" criado com MRR ${clienteMrrTexto(mrr)} ✓`,'#10B981');
 }
 
 // Versão enxuta do formulário de cliente, usada quando ele é aberto de
@@ -7255,7 +7303,7 @@ function formClienteCarteira(d){
     <input type="hidden" id="f-tel" value="${esc(d?.telefone)}">
     <input type="hidden" id="f-status" value="${esc(d?.status||'Aguardando')}">
     <input type="hidden" id="f-squad" value="${esc(d?.squad||'—')}">
-    <input type="hidden" id="f-ltv" value="${esc(d?.ltv)}">
+    <input type="hidden" id="f-ltv" value="${esc(d?.ltv)}"><input type="hidden" id="f-periodo" value="${esc(d?.periodoMeses||'')}">
     <input type="hidden" id="f-health" value="${d?.health||0}">
     <input type="hidden" id="f-desc" value="${esc(d?.desc)}">`;
   return `${cabecalho}${preservados}
@@ -15240,6 +15288,7 @@ const GX_IO_CLIENTES_MAP={
   'status':'status',
   'squads':'squads','squad':'squads','squads responsaveis':'squads',
   'ltv':'ltv','valor':'ltv','valor (r$)':'ltv',
+  'periodo':'periodo','periodo (meses)':'periodo','meses':'periodo',
   'health score':'health','health':'health','saude':'health','health score (0-100)':'health',
   'descricao':'desc','descricao / observacoes':'desc','observacoes':'desc','obs':'desc'
 };
@@ -15314,8 +15363,8 @@ function gxIoExport(kind){
     if(typeof cliFilter!=='undefined'&&cliFilter!=='todos')data=data.filter(c=>c.status===cliFilter);
     if(q)data=data.filter(c=>(c.nome||'').toLowerCase().includes(q)||(c.email||'').toLowerCase().includes(q));
     if(!data.length){toast('Nenhum cliente pra exportar','#F59E0B');return}
-    head=['Nome','Email','Telefone','Status','Squads','LTV','Health Score','Descrição'];
-    rows=data.map(c=>[c.nome||'',c.email||'',c.telefone||'',c.status||'',(typeof clienteSquads==='function'?clienteSquads(c):(c.squads||[])).filter(x=>x&&x!=='—').join('; '),c.ltv&&c.ltv!=='—'?c.ltv:'',c.health||0,c.desc||'']);
+    head=['Nome','Email','Telefone','Status','Squads','LTV','Período (meses)','MRR','Health Score','Descrição'];
+    rows=data.map(c=>[c.nome||'',c.email||'',c.telefone||'',c.status||'',(typeof clienteSquads==='function'?clienteSquads(c):(c.squads||[])).filter(x=>x&&x!=='—').join('; '),c.ltv&&c.ltv!=='—'?c.ltv:'',c.periodoMeses||'',c.mrr||'',c.health||0,c.desc||'']);
     sheet='Clientes';base='gex-clientes';label='cliente(s)';
   }else{
     const data=DB.get('contratos')||[];
@@ -15394,6 +15443,7 @@ function gxIoBuild(kind,rows){
         status:gxIoPickStatus(gxIoStr(r.status),GX_IO_STATUS_CLI,'Aguardando'),
         squad:squads[0]||'—',squads,
         ltv:gxIoMoney(r.ltv)||'—',
+        ...(()=>{const per=gxIoStr(r.periodo).replace(/\D/g,'');const pm=['1','3','6','12','24'].includes(per)?per:'';return {periodoMeses:pm,mrr:pm?clienteMrrTexto(clienteMrrCalc(gxIoMoney(r.ltv),pm)):''}})(),
         health:isNaN(h)?0:Math.max(0,Math.min(100,h)),
         desc:gxIoStr(r.desc),
         contaStatus:'Integração',contaResultado:'',contaRelacionamento:'',contaResponsaveis:[],
