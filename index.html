@@ -6159,7 +6159,9 @@ function cfgWebhookPanelHtml(){
       <div class="cfg-panel-head"><div><div class="cfg-panel-title">Webhook de entrada</div><div class="cfg-panel-sub">Use esta URL e esta chave para receber leads de fora do GexFlow (Make, Zapier, sistema próprio). A chave é pessoal — se você é parceiro, é só sua, separada da do fundador, cada uma com seu próprio destino.</div></div></div>
       <div class="cfg-copy-row"><code>${escHtml(url)}</code><button class="cfg-btn" onclick="copyTextSafe('${escAttr(url)}','URL')">Copiar URL</button></div>
       <div class="cfg-copy-row"><code>${escHtml(key)}</code><button class="cfg-btn" onclick="copyTextSafe('${escAttr(key)}','Chave')">Copiar chave</button></div>
-      <div class="cfg-note">Envie a chave no header <b>x-gex-key</b> ou no corpo JSON como <b>apiKey</b>.</div>
+      <div class="cfg-note">Envie a chave no header <b>x-gex-key</b>, no corpo JSON como <b>apiKey</b> ou direto na URL com <b>?key=</b>.</div>
+      <div class="cfg-copy-row" style="margin-top:8px"><code>${escHtml(url+'?key='+key)}</code><button class="cfg-btn primary" onclick="copyTextSafe('${escAttr(url+'?key='+key)}','URL com chave')">Copiar URL com chave</button></div>
+      <div class="cfg-note"><b>Para Eduzz, Hotmart, Kiwify e similares</b> (que não deixam configurar header nem campo extra): cole a <b>URL com chave</b> acima no campo "URL para envio de dados". Quem tiver essa URL consegue enviar leads — se vazar, use "Gerar nova chave".</div>
       <div class="cfg-actions" style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <button class="cfg-btn" onclick="cfgWebhookRegenerate()">🔄 Gerar nova chave</button>
         <label style="display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:#475569;margin-left:auto">
