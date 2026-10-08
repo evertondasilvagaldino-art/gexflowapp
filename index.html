@@ -3964,7 +3964,7 @@ const GEX_KV_EXCLUDED = new Set([
   // ainda enxergava essa chave e mandava o array inteiro de usuários — senha
   // digitada na edição incluída — pra tabela "kv" compartilhada no Supabase,
   // de onde qualquer outro dispositivo conectado também baixava de volta.
-  'gx2_session','gx2_seeded','gx2_tasks_seeded','gx2_cloud_backfilled_v1','gx2_usuarios'
+  'gx2_session','gx2_seeded','gx2_tasks_seeded','gx2_cloud_backfilled_v1','gx2_cloud_backfilled_v2','gx2_usuarios'
 ]);
 let gexCloudBooting = false;
 let gexCloudReady = false;
@@ -4170,8 +4170,22 @@ function gexCloudSyncCollection(collection,next,previous=[]){
   // do local, então é o único momento garantido de capturar isso.
   if(removedIds.length)gexAddTombstones(collection,removedIds);
   if(!gexCanCloudSync())return;
+  // Só envia o que é novo ou mudou em relação ao estado anterior (antes
+  // reenviava a lista inteira a cada alteração, e o realtime espalhava tudo
+  // pra todos os clientes). Sem "previous" confiável, mantém o envio total.
+  let toUpsert=nextArr;
+  if(prevArr.length){
+    const prevMap=new Map();
+    prevArr.forEach(x=>{if(x&&x.id)prevMap.set(String(x.id),x)});
+    toUpsert=nextArr.filter(x=>{
+      if(!x||!x.id)return true;
+      const o=prevMap.get(String(x.id));
+      if(!o)return true;
+      try{return JSON.stringify(o)!==JSON.stringify(x)}catch(e){return true}
+    });
+  }
   gexQueueCloud(async()=>{
-    await gexCloudUpsertMany(collection,nextArr);
+    if(toUpsert.length)await gexCloudUpsertMany(collection,toUpsert);
     if(removedIds.length)await gexCloudSoftDelete(collection,removedIds);
     return true;
   });
@@ -4454,12 +4468,46 @@ async function initGexCloudDataSync(isRetry){
 
     // 3) Primeiro acesso após atualização: envia para o Supabase o que já existia localmente,
     // sem apagar nada da nuvem. Isso evita perda de dados históricos.
-    if(localStorage.getItem('gx2_cloud_backfilled_v1')!=='1'){
+    // CORREÇÃO (08/10/2026) — consumo de egress do Supabase: antes, todo
+    // navegador sem a marca de backfill (aba anônima, navegador novo, login
+    // de teste) reenviava o banco INTEIRO, e o realtime repassava cada linha
+    // a todos os clientes conectados. Agora (marca v2) só sobe o que existe
+    // APENAS no local: não está na nuvem, não foi apagado na nuvem e não tem
+    // lápide local. Nada é apagado, e nada já apagado ressuscita.
+    if(localStorage.getItem('gx2_cloud_backfilled_v2')!=='1'){
+      const logSet2=new Set(GEX_LOG_COLLECTIONS);
+      let allOk=true;
       for(const collection of GEX_DB_COLLECTIONS){
-        const arr=gexReadLocalCollection(collection);
-        if(arr.length)await gexCloudUpsertMany(collection,arr);
+        if(logSet2.has(collection))continue;
+        try{
+          const arr=gexReadLocalCollection(collection);
+          if(!arr.length)continue;
+          const cloudIds=new Set((byCollection[collection]||[]).map(r=>String(r.record_id)));
+          const tomb=typeof gexGetTombstoneIds==='function'?gexGetTombstoneIds(collection):new Set();
+          let cand=arr.filter(x=>x&&x.id&&!cloudIds.has(String(x.id))&&!tomb.has(String(x.id)));
+          if(!cand.length)continue;
+          const deletedInCloud=new Set();
+          const ids=cand.map(x=>String(x.id));
+          for(let i=0;i<ids.length;i+=60){
+            const chunk=ids.slice(i,i+60);
+            const {data:dr,error:de}=await supabaseClient
+              .from(GEX_CLOUD_TABLE)
+              .select('record_id')
+              .eq('workspace_id',GEX_WORKSPACE_ID)
+              .eq('collection',collection)
+              .not('deleted_at','is',null)
+              .in('record_id',chunk);
+            if(de)throw de;
+            (dr||[]).forEach(r=>deletedInCloud.add(String(r.record_id)));
+          }
+          cand=cand.filter(x=>!deletedInCloud.has(String(x.id)));
+          if(cand.length)await gexCloudUpsertMany(collection,cand);
+        }catch(e){
+          allOk=false;
+          console.error('[GexCloudDB] backfill v2 falhou em',collection,e);
+        }
       }
-      localStorage.setItem('gx2_cloud_backfilled_v1','1');
+      if(allOk)localStorage.setItem('gx2_cloud_backfilled_v2','1');
     }
 
     gexCloudReady=true;
