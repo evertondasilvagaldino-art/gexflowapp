@@ -17026,16 +17026,46 @@ function renderDealSidebar(){
     <div class="sb-section">
       <div class="sb-sec-title">👤 Dados do contato</div>
       <div class="sb-field"><span class="sb-field-lbl">Nome</span><span class="sb-field-val">${l.nome}</span></div>
-      <div class="sb-field"><span class="sb-field-lbl">Empresa</span><span class="sb-field-val">${l.empresa||'—'}</span></div>
+      <div class="sb-field"><span class="sb-field-lbl">Empresa</span><span class="sb-field-val">${l.empresa||gxLeadFormCompany(l)||'—'}</span></div>
       <div class="sb-field"><span class="sb-field-lbl">Email</span><span class="sb-field-val">${l.email||'—'}</span></div>
       <div class="sb-field"><span class="sb-field-lbl">Telefone</span><span class="sb-field-val">${l.telefone||'—'}</span></div>
     </div>
+    ${gxLeadFormExtrasHtml(l)}
     <div class="sb-section">
       <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:12px" onclick="editCurrentDeal()">✏️ Editar dados do negócio</button>
       <button class="btn btn-danger" style="width:100%;justify-content:center;font-size:12px;margin-top:8px" onclick="confirmDelete(()=>{DB.remove('leads','${l.id}');closeDealDetail();renderComercial();toast('Lead removido','#EF4444')})">🗑️ Excluir negócio</button>
     </div>`;
   // Renderiza painel de lembretes após montar o sidebar
   renderCommercialReminders();
+}
+
+// Respostas de formulário (formData) que não têm campo próprio no lead —
+// empresa, instagram, faturamento etc. — apareciam só no banco e ficavam
+// invisíveis no card. Estes helpers só LEEM o que já está salvo no lead.
+const GX_FORM_STD_KEYS=new Set(['nome','nome_completo','name','email','telefone','whatsapp','phone','utm_source','utm_medium','utm_campaign','utm_content','utm_term']);
+function gxLeadFormCompany(l){
+  try{
+    const d=l&&l.formData;
+    if(!d||typeof d!=='object')return '';
+    const keys=['empresa','nome_da_sua_empresa','nome_empresa','company','razao_social'];
+    for(const k of keys){if(d[k]&&String(d[k]).trim())return escHtml(String(d[k]).trim())}
+    return '';
+  }catch(e){return ''}
+}
+function gxLeadFormExtrasHtml(l){
+  try{
+    const d=l&&l.formData;
+    if(!d||typeof d!=='object')return '';
+    const companyKeys=new Set(['empresa','nome_da_sua_empresa','nome_empresa','company','razao_social']);
+    const labels={};
+    try{(DB.get('lead_forms')||[]).forEach(f=>(f&&f.fields||[]).forEach(fl=>{if(fl&&fl.name&&!labels[fl.name])labels[fl.name]=fl.label||fl.name}))}catch(e){}
+    const rows=Object.keys(d).filter(k=>!GX_FORM_STD_KEYS.has(k)&&!companyKeys.has(k)&&String(d[k]??'').trim()!=='').map(k=>{
+      const lbl=labels[k]||String(k).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());
+      return `<div class="sb-field"><span class="sb-field-lbl">${escHtml(lbl)}</span><span class="sb-field-val">${escHtml(String(d[k]))}</span></div>`;
+    });
+    if(!rows.length)return '';
+    return `<div class="sb-section"><div class="sb-sec-title">📝 Respostas do formulário</div>${rows.join('')}</div>`;
+  }catch(e){return ''}
 }
 
 // ═══ LOGIN / SESSION ═══
