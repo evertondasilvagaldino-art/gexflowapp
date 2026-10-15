@@ -20353,7 +20353,7 @@ ${gxlCloseScriptTag}`;
     </div>
     <div class="gl-panel" id="auto-cadencia-panel" style="${gCadencia?'':'display:none'}">
       <h3 id="auto-cadencia-title">Sequência de ${gCadenciaWhats?'WhatsApp':'e-mails'}</h3><p>Cada etapa dispara sozinha quando o lead completa o número de dias configurado na etapa do funil. Use <code>{{nome}}</code> nos textos.</p>
-      <div id="auto-cadencia-steps">${cadenciaStepsHtml()}</div>
+      <div id="auto-cadencia-steps">${cadenciaStepsHtml(canalEfetivo)}</div>
       <button class="gl-btn sm" style="margin-top:8px" onclick="autoAddStep()" id="auto-cadencia-add-btn">＋ Adicionar ${gCadenciaWhats?'mensagem':'e-mail'} à sequência</button>
     </div>
     <div class="gl-panel">
@@ -20364,8 +20364,10 @@ ${gxlCloseScriptTag}`;
       <b style="color:var(--txt)">Como funciona hoje:</b> as automações de e-mail e WhatsApp são 100% automáticas quando a conexão correspondente estiver ativa em Configurações &gt; Integrações (e-mail via SMTP, WhatsApp via Z-API): a mensagem sai sozinha, sem precisar clicar em nada, e a ação já aparece marcada como enviada. Sem a conexão ativa, a mensagem fica pronta no Banco de Ações — um clique abre a conversa ou o e-mail já prontos, faltando só enviar. Já a automação de "anexar observação" é sempre 100% automática: ela mesma escreve na descrição do lead. O WhatsApp via Z-API é uma integração não oficial — veja o aviso de risco na aba Integrações antes de conectar.
     </div>`;
   }
-  function cadenciaStepsHtml(){
-    const canal=document.getElementById('auto-canal')?.value||'email',isEmail=canal==='email';
+  function cadenciaStepsHtml(canalInicial){
+    // Na 1ª montagem da tela o campo escondido #auto-canal ainda não existe — antes isso
+    // caía em 'email' e uma cadência de WhatsApp aparecia como "E-mail 1" / "Assunto".
+    const canal=canalInicial||document.getElementById('auto-canal')?.value||'email',isEmail=canal==='email';
     return autoCadenciaSteps.map((s,i)=>`<div class="auto-step-row" data-index="${i}">
       <div class="auto-step-head"><b>${isEmail?'E-mail':'Mensagem'} ${i+1}</b>${autoCadenciaSteps.length>1?`<button class="gl-btn sm danger" onclick="autoRemoveStep(${i})">Remover</button>`:''}</div>
       <div class="gl-grid">
