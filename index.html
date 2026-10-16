@@ -22670,7 +22670,6 @@ function topHtml(l,sq){
     <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="opMentions()" title="Comentários que marcaram você">🔔 Menções${pend?` <b style="color:#EF4444">(${pend})</b>`:''}</button>
       ${canManage()?`<button class="btn btn-ghost btn-sm" onclick="opConfigLista('${l.id}')">⚙️ Configurar lista</button>`:''}
-      ${canManage()?`<button class="btn btn-ghost btn-sm" onclick="opLegacy(true)" title="Voltar para a tela antiga de Gestão de Entregas">↩ Visão antiga</button>`:''}
       ${canManage()?`<button class="btn btn-ghost btn-sm" onclick="opAcessos()">👥 Acessos</button>`:''}
       ${podeEditar(l)?`<button class="btn btn-primary btn-sm" onclick="opNewTask('')">+ Tarefa</button>`:`<span class="op-chip" style="background:var(--bg);color:var(--muted)">👁 Somente visualização</span>`}
     </div>
