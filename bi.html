@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="pt-BR">
 <head>
@@ -163,7 +162,11 @@ async function load(){
   const u=API+'?t='+encodeURIComponent(TOKEN)+'&de='+de+'&ate='+ate+(S.funil?'&funil='+encodeURIComponent(S.funil):'');
   try{
     const r=await fetch(u,{signal:S.abort.signal,cache:'no-store'});
-    if(r.status===401){showState('Link inválido ou expirado','Peça um link novo para quem administra o GexFlow.');return}
+    if(r.status===401){
+      let b={};try{b=await r.json()}catch(e){}
+      if(b&&b.error&&/inv[aá]lido/i.test(b.error)){showState('Link inválido ou expirado','Peça um link novo para quem administra o GexFlow.');return}
+      showState('Acesso bloqueado pelo servidor','A função do BI está com "Verify JWT" ligado no Supabase. Quem administra o GexFlow precisa desligar essa opção.');return;
+    }
     if(!r.ok)throw new Error('http '+r.status);
     S.data=await r.json();
     render();
