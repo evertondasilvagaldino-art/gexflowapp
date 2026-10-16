@@ -8295,7 +8295,16 @@ function setPipelineView(mode){
 }
 function leadInPipelinePeriod(l){
   if(!pipelineFilter.mes&&!pipelineFilter.ano)return true; // "Todos" nos dois selects
-  const ref=l.dataInicio||l.dataFechamento||l.createdAt;
+  // Negócio ganho/perdido entra no período pela data de FECHAMENTO (igual ao BI e ao Início);
+  // os demais continuam pela data de início/criação.
+  let ref=l.dataInicio||l.dataFechamento||l.createdAt;
+  try{
+    if(typeof window.gxCloseKey==='function'){
+      let fechado=false;
+      try{fechado=isWonOpportunity(l)||isLostOpportunityLocal(l)}catch(e){}
+      if(fechado){const k=window.gxCloseKey(l);if(k)ref=k}
+    }
+  }catch(e){}
   if(!ref)return true;
   const d=new Date(String(ref).includes('T')?ref:ref+'T00:00:00');
   if(isNaN(d.getTime()))return true;
