@@ -23329,7 +23329,7 @@ const css=`
 #inicio-bi{display:none}
 body.gx-ini-novo #inicio-bi{display:block}
 body.gx-ini-novo #page-inicio>:not(.welcome-box):not(#dash-filter-bar):not(#inicio-bi){display:none!important}
-#gx-ini-toggle{display:inline-flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-left:auto}
+#gx-ini-toggle{display:inline-flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-left:8px}
 #gx-ini-toggle button{border:0;background:var(--card);color:var(--muted);font:600 12px Inter,sans-serif;padding:6px 12px;cursor:pointer}
 #gx-ini-toggle button.on{background:${BLUE};color:#fff}
 .gxb-grid{display:grid;gap:12px;margin-bottom:12px;min-width:0}
@@ -23411,6 +23411,9 @@ function paintToggle(mode){
   if(!isFounder()){tg.style.display='none';return}
   tg.style.display='';
   tg.innerHTML=`<button class="${mode==='novo'?'on':''}" onclick="gxIniSetMode('novo')">Novo</button><button class="${mode==='classico'?'on':''}" onclick="gxIniSetMode('classico')">Clássico</button>`;
+  let cb=document.getElementById('gx-ini-custbtn');
+  if(!cb){cb=document.createElement('button');cb.id='gx-ini-custbtn';cb.textContent='⚙ Personalizar';cb.onclick=()=>window.gxIniOpenCust();cb.style.cssText='border:1px solid var(--border);background:var(--card);color:var(--txt);border-radius:8px;font:600 12px Inter,sans-serif;padding:6px 12px;cursor:pointer;margin-left:auto';tg.insertAdjacentElement('beforebegin',cb)}
+  cb.style.display=mode==='novo'?'':'none';
 }
 
 const _wm=new WeakMap();
@@ -23471,6 +23474,54 @@ function taxasHtml(leadsP,label){
   const saidas=E.filter(e=>(lixo(e)||noshow(e))&&!e.ganho&&e.qtd).map(e=>`${E_(e.nome)} <b>${e.qtd}</b>`).join(' · ');
   return `<div class="gxb-card" style="margin-bottom:12px"><div class="gxb-h"><div><div class="gxb-t">Avanço entre etapas</div><div class="gxb-sub">${E_(f.name||'')} · ${E_(label)} · de cada 100 leads que chegam numa etapa, quantos seguem. Estimativa pela etapa atual.</div></div></div>${cards}${linhas}${saidas?`<div class="gxb-sub" style="margin-top:14px">Fora da sequência: ${saidas}</div>`:''}</div>`;
 }
+
+/* ── Personalizar: o usuário escolhe o que aparece (guardado neste navegador) ── */
+const CKEY='gxIniHide';
+function getHide(){try{const v=JSON.parse(localStorage.getItem(CKEY)||'[]');return Array.isArray(v)?v:[]}catch(e){return []}}
+function setHide(a){try{localStorage.setItem(CKEY,JSON.stringify(a))}catch(e){}}
+function itemsOf(box){
+  const out=[];
+  box.querySelectorAll('.gxb-kpis>.gxb-card').forEach(el=>{
+    const l=el.querySelector('.gxb-l');if(!l)return;
+    out.push({el,k:'i:'+l.textContent.split(' · ')[0].trim(),nome:l.textContent.split(' · ')[0].trim(),grupo:'Indicadores'});
+  });
+  Array.from(box.children).forEach(ch=>{
+    if(ch.classList.contains('gxb-kpis'))return;
+    const cards=ch.classList.contains('gxb-card')?[ch]:Array.from(ch.children).filter(c=>c.classList.contains('gxb-card'));
+    cards.forEach(el=>{
+      const t=el.querySelector('.gxb-t');if(!t)return;
+      out.push({el,k:'b:'+t.textContent.trim(),nome:t.textContent.trim(),grupo:'Gráficos e blocos'});
+    });
+  });
+  return out;
+}
+function applyCust(box){
+  const hide=new Set(getHide());
+  itemsOf(box).forEach(it=>{it.el.style.display=hide.has(it.k)?'none':''});
+  box.querySelectorAll('.gxb-grid').forEach(g=>{
+    const vis=Array.from(g.children).filter(c=>c.style.display!=='none');
+    g.style.display=vis.length?'':'none';
+    if(g.classList.contains('gxb-2')||g.classList.contains('gxb-2e')){g.style.gridTemplateColumns=vis.length===1?'minmax(0,1fr)':''}
+  });
+}
+window.gxIniOpenCust=function(){
+  const box=document.getElementById('inicio-bi');if(!box)return;
+  const hide=new Set(getHide());const its=itemsOf(box);
+  let ov=document.getElementById('gx-ini-cust');if(ov)ov.remove();
+  ov=document.createElement('div');ov.id='gx-ini-cust';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  const grp=g=>`<div style="font:700 11px Inter,sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px">${g}</div>`+its.filter(i=>i.grupo===g).map(i=>`<label style="display:flex;align-items:center;gap:10px;padding:7px 4px;cursor:pointer;font-size:14px"><input type="checkbox" data-k="${E(i.k)}" ${hide.has(i.k)?'':'checked'} style="width:16px;height:16px"> ${E(i.nome)}</label>`).join('');
+  ov.innerHTML=`<div style="background:var(--card);color:var(--txt);border-radius:14px;max-width:420px;width:100%;max-height:85vh;overflow:auto;padding:20px"><div style="font-size:16px;font-weight:700">Personalizar Início</div><div class="gxb-sub" style="margin-top:4px">Marque o que você quer ver. A escolha fica salva neste navegador.</div>${grp('Indicadores')}${grp('Gráficos e blocos')}<div style="display:flex;gap:8px;justify-content:space-between;margin-top:18px;flex-wrap:wrap"><button class="btn btn-ghost" id="gx-cu-all">Mostrar tudo</button><button class="btn btn-primary" id="gx-cu-ok">Pronto</button></div></div>`;
+  document.body.appendChild(ov);
+  const fecha=()=>ov.remove();
+  ov.addEventListener('click',e=>{if(e.target===ov)fecha()});
+  ov.querySelectorAll('input[data-k]').forEach(c=>c.addEventListener('change',()=>{
+    const h=new Set(getHide());if(c.checked)h.delete(c.dataset.k);else h.add(c.dataset.k);
+    setHide([...h]);applyCust(box);
+  }));
+  ov.querySelector('#gx-cu-all').onclick=()=>{setHide([]);applyCust(box);ov.querySelectorAll('input[data-k]').forEach(c=>c.checked=true)};
+  ov.querySelector('#gx-cu-ok').onclick=fecha;
+};
 function stColor(n,i){
   const t=String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   if(/ganh|won|fechad/.test(t))return '#1a9a55';
@@ -23612,6 +23663,7 @@ function renderInicioInner(){
     if(mode==='novo'&&box){
       const h=build();
       box.innerHTML=h;
+      try{applyCust(box)}catch(e){}
       document.body.classList.add('gx-ini-novo');
     }else{
       document.body.classList.remove('gx-ini-novo');
