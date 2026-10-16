@@ -240,6 +240,7 @@ async function load(){
       if(b&&b.error&&/inv[aá]lido/i.test(b.error)){if(TOKEN&&!LINK){try{localStorage.removeItem(LSK)}catch(e){};TOKEN='';pedirChave('Chave incorreta. Tente de novo.');return}showState('Link inválido ou expirado','Peça um link novo para quem administra o GexFlow.');return}
       showState('Acesso bloqueado pelo servidor','A função do BI está com "Verify JWT" ligado no Supabase. Quem administra o GexFlow precisa desligar essa opção.');return;
     }
+    if(r.status===503){showState('BI ainda não configurado','A chave (secret GEX_BI_TOKEN) no Supabase precisa ter 24 ou mais caracteres. Ajuste e faça Deploy da função de novo.');return}
     if(!r.ok)throw new Error('http '+r.status);
     S.data=await r.json();
     render();
