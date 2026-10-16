@@ -392,48 +392,42 @@ function drawFunnel(d){
 function drawTaxas(d){
   const el=$('taxas');if(!el)return;
   const f=(d.funis||[]).find(x=>x.id===S.funil)||(d.funis||[])[0];
-  if(!f||!f.etapas||!f.etapas.length){el.innerHTML='<h2>Taxas de conversão</h2><div class="state">Sem leads neste período</div>';return}
+  if(!f||!f.etapas||!f.etapas.length){el.innerHTML='<h2>Avanço entre etapas</h2><div class="state">Sem leads neste período</div>';return}
   const E=f.etapas;
   const lixo=e=>e.perdido||/follow|fora icp|perdid/i.test(e.nome||'');
-  // "chegou na etapa i" = está nela ou em alguma etapa seguinte (fora perdidos/follow). Ganho conta sempre.
-  const chegou=i=>E.reduce((a,e,j)=>a+((j>=i&&!lixo(e))||(e.ganho)?e.qtd:0),0);
-  const total=E.reduce((a,e)=>a+e.qtd,0);
-  const ganhos=E.filter(e=>e.ganho).reduce((a,e)=>a+e.qtd,0);
+  const noshow=e=>/no ?show/i.test(e.nome||'');
+  const chegou=i=>E.reduce((a,e,j)=>a+((j>=i&&!lixo(e))||e.ganho?e.qtd:0),0);
+  const cad=E.map((e,i)=>i).filter(i=>!lixo(E[i])&&!noshow(E[i]));
   const iAg=E.findIndex(e=>/agend/i.test(e.nome));
   const iPr=E.findIndex(e=>/proposta/i.test(e.nome));
-  const iQu=E.findIndex(e=>/qualific/i.test(e.nome));
+  const ganhos=E.filter(e=>e.ganho).reduce((a,e)=>a+e.qtd,0);
   const P=(a,b)=>b>0?pc(a/b*100):'—';
-  let cards='';
-  if(iAg>=0){
-    const ag=chegou(iAg);
-    const cd=(t,v,h)=>'<div class="card" style="padding:14px;margin:0"><div class="hint" style="margin:0 0 4px">'+t+'</div><div class="num" style="font-size:24px;font-weight:700">'+v+'</div><div class="hint" style="margin:6px 0 0">'+h+'</div></div>';
-    cards='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:6px 0 14px">'+
-      cd('Agendamento → Ganho',P(ganhos,ag),int(ganhos)+' ganho(s) de '+int(ag)+' que chegaram a "'+esc(E[iAg].nome)+'"')+
-      (iPr>=0?cd('Agendamento → Proposta',P(chegou(iPr),ag),int(chegou(iPr))+' de '+int(ag)+' agendados avançaram até "'+esc(E[iPr].nome)+'"'):'')+
-      (iQu>=0&&iQu!==iAg?cd('Agendamento → '+esc(E[iQu].nome),iQu>iAg?P(chegou(iQu),ag):P(ag,chegou(iQu)),iQu>iAg?int(chegou(iQu))+' de '+int(ag):'etapa anterior ao agendamento: '+int(ag)+' de '+int(chegou(iQu))+' passaram para o agendamento'):'')+
-      '</div>';
-  }
-  const baseAg=iAg>=0?chegou(iAg):0;
-  // cadeia linear de etapas (sem perdidos/follow/no show): taxa de avanço de cada etapa para a seguinte
-  const cad=E.map((e,i)=>i).filter(i=>!lixo(E[i])&&!/no ?show/i.test(E[i].nome||''));
-  const av={};let pior=-1,piorV=2;
+  const passos=[];let pior=-1,piorV=2;
   cad.forEach((i,k)=>{
     const j=cad[k+1];if(j===undefined)return;
     const base=chegou(i);if(!base)return;
-    const v=chegou(j)/base;av[i]={v,base,prox:E[j].nome,n:chegou(j)};
-    if(base>=5&&v<piorV){piorV=v;pior=i}
+    const v=chegou(j)/base;passos.push({de:E[i].nome,para:E[j].nome,v,n:chegou(j),base});
+    if(base>=5&&v<piorV){piorV=v;pior=passos.length-1}
   });
-  const rows=E.map((e,i)=>{
-    const nome=esc(e.nome);
-    if(lixo(e)&&!e.ganho)return '<tr><td>'+nome+'</td><td class="num">'+int(e.qtd)+' (saída)</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>';
-    if(/no ?show/i.test(e.nome||'')&&!e.ganho)return '<tr><td>'+nome+'</td><td class="num">'+int(e.qtd)+' (faltaram)</td><td class="num">—</td><td class="num">—</td><td class="num">—</td></tr>';
-    const c=chegou(i);const x=av[i];
-    const tx=x?(i===pior?'<span class="tag l">gargalo</span> ':'')+pc(x.v*100)+' <span class="hint" style="display:inline;margin:0">('+int(x.n)+' de '+int(x.base)+')</span>':'—';
-    return '<tr'+(i===pior?' style="background:rgba(214,69,51,.10)"':'')+'><td>'+nome+(e.ganho?' <span class="tag w">✓ ganho</span>':'')+'</td><td class="num">'+int(c)+'</td><td class="num">'+P(c,total)+'</td><td class="num">'+tx+'</td><td class="num">'+(iAg>=0&&i>=iAg?P(c,baseAg):'—')+'</td></tr>';
+  let cards='';
+  if(iAg>=0){
+    const ag=chegou(iAg);
+    const cd=(t,v,h)=>'<div class="card" style="padding:14px;margin:0"><div class="hint" style="margin:0 0 4px">'+t+'</div><div class="num" style="font-size:26px;font-weight:700">'+v+'</div><div class="hint" style="margin:6px 0 0">'+h+'</div></div>';
+    cards='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:6px 0 16px">'+
+      cd('Agendamento → Proposta',iPr>=0?P(chegou(iPr),ag):'—',iPr>=0?int(chegou(iPr))+' de '+int(ag)+' agendados':'')+
+      cd('Agendamento → Ganho',P(ganhos,ag),int(ganhos)+' de '+int(ag)+' agendados')+'</div>';
+  }
+  const linhas=passos.map((x,k)=>{
+    const ruim=k===pior;
+    return '<div style="display:grid;grid-template-columns:minmax(120px,1.3fr) 2fr 70px;gap:10px;align-items:center;margin:9px 0;font-size:13px">'+
+      '<div style="min-width:0"><b>'+esc(x.de)+'</b> <span class="hint" style="display:inline;margin:0">→ '+esc(x.para)+'</span></div>'+
+      '<div style="background:var(--track,rgba(127,127,127,.18));border-radius:6px;height:14px;overflow:hidden"><div style="width:'+Math.max(2,Math.round(x.v*100))+'%;height:100%;border-radius:6px;background:'+(ruim?'#d64533':'#3987e5')+'"></div></div>'+
+      '<div class="num" style="text-align:right;font-weight:700;color:'+(ruim?'#ff7b6b':'inherit')+'">'+pc(x.v*100)+'</div></div>'+
+      '<div class="hint" style="margin:-4px 0 0 0;font-size:11px">'+int(x.n)+' de '+int(x.base)+' avançaram'+(ruim?' · <b style="color:#ff7b6b">maior perda do funil</b>':'')+'</div>';
   }).join('');
-  const gt=pior>=0?'<div class="hint" style="margin-top:10px"><b>Onde o funil mais perde:</b> '+esc(E[pior].nome)+' → '+esc(av[pior].prox)+' (só '+pc(piorV*100)+' avançam).</div>':'';
-  el.innerHTML='<h2>Taxas de conversão por etapa</h2><div class="hint">Funil: <b>'+esc(f.nome)+'</b> · leads criados no período, pela etapa em que estão hoje. É uma estimativa: o histórico de etapas por onde cada lead passou não é guardado.</div>'+cards+
-    '<div class="scroll"><table class="tbl"><thead><tr><th>Etapa</th><th>Chegaram</th><th>% de todos os leads</th><th>Avançam para a próxima</th><th>% de quem agendou</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+gt;
+  const saidas=E.filter(e=>(lixo(e)||noshow(e))&&!e.ganho&&e.qtd).map(e=>esc(e.nome)+' <b>'+int(e.qtd)+'</b>').join(' · ');
+  el.innerHTML='<h2>Avanço entre etapas</h2><div class="hint">Funil <b>'+esc(f.nome)+'</b> · de cada 100 leads que chegam numa etapa, quantos seguem para a próxima. Estimativa pela etapa atual dos leads criados no período.</div>'+cards+
+    (linhas||'<div class="state">Sem dados suficientes</div>')+(saidas?'<div class="hint" style="margin-top:14px">Fora da sequência: '+saidas+'</div>':'');
 }
 
 /* ── tabelas ── */
