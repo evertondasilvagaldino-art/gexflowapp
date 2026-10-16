@@ -96,6 +96,14 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 @keyframes sk{to{background-position:-200% 0}}
 @media (prefers-reduced-motion:reduce){.skel{animation:none}}
 .foot{color:var(--muted);font-size:12px;margin-top:16px;line-height:1.6}
+.mdl{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
+.mdl.on{display:flex}
+.mdl-box{background:var(--surface);border:1px solid var(--line);border-radius:14px;width:min(720px,100%);max-height:88vh;overflow:auto;padding:18px 20px}
+.lk{display:grid;grid-template-columns:minmax(110px,1fr) minmax(0,2.4fr) auto;gap:8px;align-items:center;padding:10px 0;border-top:1px solid var(--grid)}
+.lk:first-of-type{border-top:0}
+.lk input{width:100%;background:var(--bg);color:var(--ink2);border:1px solid var(--line);border-radius:8px;padding:7px 9px;font:inherit;font-size:12px}
+.lk .ac{display:flex;gap:6px}
+@media(max-width:640px){.lk{grid-template-columns:1fr}}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 </style>
 </head>
@@ -104,7 +112,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
   <header>
     <div>
       <div class="brand"><div class="brand-ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 18 18" fill="none"><path d="M9 2L13 6H11V10H13L9 15L5 10H7V6H5L9 2Z" fill="#F59E0B"/></svg></div><div class="brand-txt">Gex<span>Flow</span></div></div>
-      <h1>BI de Vendas</h1>
+      <h1 id="h1">BI de Vendas</h1>
       <div class="sub" id="sub">Carregando…</div>
     </div>
     <div class="bar">
@@ -119,17 +127,24 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
       </div>
       <div class="custom" id="custom"><input type="date" id="de" aria-label="De"><span>até</span><input type="date" id="ate" aria-label="Até"><button class="btn" id="aplicar">Aplicar</button></div>
       <select id="funil" aria-label="Funil"><option value="">Todos os funis</option></select>
+      <button class="btn" id="links" style="display:none" title="Gerar link só de um funil, para o vendedor acompanhar">🔗 Links por funil</button>
       <button class="btn" id="refresh" title="Atualizar agora">↻ Atualizar</button>
     </div>
   </header>
   <main id="app"><div class="state"><div class="skel" style="width:40%;margin:0 auto 10px"></div><div class="skel" style="width:60%;margin:0 auto"></div></div></main>
 </div>
+<div class="mdl" id="mdl" role="dialog" aria-modal="true" aria-labelledby="mdl-t"><div class="mdl-box">
+  <div style="display:flex;align-items:flex-start;gap:10px"><div><h2 id="mdl-t" style="margin:0;font-size:16px">Links por funil</h2><div class="hint" style="font-size:12px;color:var(--muted);margin:2px 0 10px">Cada link mostra <b>só os números daquele funil</b>. Mande para o vendedor responsável. "Gerar novo" invalida o link anterior daquele funil.</div></div><button class="btn" id="mdl-x" style="margin-left:auto">Fechar</button></div>
+  <div id="mdl-b"><div class="skel" style="width:60%"></div></div>
+</div></div>
 
 <script>
 (function(){
 'use strict';
 const API='https://kghgmraezxcssipccodn.supabase.co/functions/v1/gex-bi-vendas';
-const TOKEN=new URLSearchParams(location.search).get('t')||'';
+const QS=new URLSearchParams(location.search);
+const TOKEN=QS.get('t')||'';
+const LINK=QS.get('l')||'';
 const S={p:'30',de:'',ate:'',funil:'',data:null,timer:null,abort:null};
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -155,11 +170,11 @@ function range(){
 function brDate(k){return k.slice(8,10)+'/'+k.slice(5,7)+'/'+k.slice(0,4)}
 
 async function load(){
-  if(!TOKEN){showState('Link incompleto','Peça o link do BI para quem administra o GexFlow.');return}
+  if(!TOKEN&&!LINK){showState('Link incompleto','Peça o link do BI para quem administra o GexFlow.');return}
   const [de,ate]=range();
   if(S.abort)S.abort.abort();
   S.abort=new AbortController();
-  const u=API+'?t='+encodeURIComponent(TOKEN)+'&de='+de+'&ate='+ate+(S.funil?'&funil='+encodeURIComponent(S.funil):'');
+  const u=API+'?'+(TOKEN?'t='+encodeURIComponent(TOKEN):'l='+encodeURIComponent(LINK))+'&de='+de+'&ate='+ate+(S.funil&&TOKEN?'&funil='+encodeURIComponent(S.funil):'');
   try{
     const r=await fetch(u,{signal:S.abort.signal,cache:'no-store'});
     if(r.status===401){
@@ -196,6 +211,7 @@ function render(){
   // controles
   const fs=$('funil');const keep=S.funil;
   fs.innerHTML='<option value="">Todos os funis</option>'+(d.funisDisponiveis||[]).map(f=>'<option value="'+esc(f.id)+'"'+(f.id===keep?' selected':'')+'>'+esc(f.nome)+'</option>').join('');
+  if(d.escopo){fs.style.display='none';$('h1').textContent='BI de Vendas · '+d.escopo.nome;document.title='BI de Vendas · '+d.escopo.nome}
   const g=new Date(d.geradoEm);
   $('sub').textContent=brDate(d.periodo.de)+' a '+brDate(d.periodo.ate)+' · atualizado às '+g.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
   const a=d.atual,b=d.anterior;
@@ -325,6 +341,37 @@ $('aplicar').addEventListener('click',()=>{S.de=$('de').value;S.ate=$('ate').val
 $('funil').addEventListener('change',e=>{S.funil=e.target.value;load()});
 $('refresh').addEventListener('click',load);
 let rz;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>Object.keys(charts).forEach(paint),150)});
+if(TOKEN)$('links').style.display='';
+/* ── links por funil (só com o link geral) ── */
+function urlDe(l){return location.origin+location.pathname+'?l='+encodeURIComponent(l)}
+async function apiAcao(q){const r=await fetch(API+'?t='+encodeURIComponent(TOKEN)+q,{cache:'no-store'});if(!r.ok)throw new Error('http '+r.status);return r.json()}
+async function abrirLinks(){
+  $('mdl').classList.add('on');$('mdl-b').innerHTML='<div class="skel" style="width:60%"></div>';
+  try{const j=await apiAcao('&acao=links');desenharLinks(j.links||[])}
+  catch(e){$('mdl-b').innerHTML='<div class="state">Não consegui carregar os funis.</div>'}
+}
+function desenharLinks(ls){
+  $('mdl-b').innerHTML=ls.length?ls.map(f=>'<div class="lk" data-id="'+esc(f.id)+'"><div><b>'+esc(f.nome)+'</b></div><input readonly value="'+esc(urlDe(f.l))+'" aria-label="Link do funil '+esc(f.nome)+'"><div class="ac"><button class="btn" data-a="cp">Copiar</button><button class="btn" data-a="nw">Gerar novo</button></div></div>').join(''):'<div class="state">Nenhum funil encontrado.</div>';
+  $('mdl-b').querySelectorAll('.lk').forEach(row=>{
+    const inp=row.querySelector('input'),cp=row.querySelector('[data-a=cp]'),nw=row.querySelector('[data-a=nw]');
+    inp.addEventListener('focus',()=>inp.select());
+    cp.addEventListener('click',async()=>{
+      try{await navigator.clipboard.writeText(inp.value)}catch(e){inp.select();document.execCommand('copy')}
+      cp.textContent='Copiado ✓';setTimeout(()=>cp.textContent='Copiar',1800);
+    });
+    let armed=false,t;
+    nw.addEventListener('click',async()=>{
+      if(!armed){armed=true;nw.textContent='Confirmar?';clearTimeout(t);t=setTimeout(()=>{armed=false;nw.textContent='Gerar novo'},4000);return}
+      armed=false;nw.textContent='Gerando…';
+      try{const j=await apiAcao('&acao=revogar&funil='+encodeURIComponent(row.dataset.id));inp.value=urlDe(j.l);nw.textContent='Novo link ✓';setTimeout(()=>nw.textContent='Gerar novo',2200)}
+      catch(e){nw.textContent='Erro';setTimeout(()=>nw.textContent='Gerar novo',2200)}
+    });
+  });
+}
+$('links').addEventListener('click',abrirLinks);
+$('mdl-x').addEventListener('click',()=>$('mdl').classList.remove('on'));
+$('mdl').addEventListener('click',e=>{if(e.target.id==='mdl')$('mdl').classList.remove('on')});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('mdl').classList.remove('on')});
 const hoje=new Date();$('de').value=ymd(addDays(hoje,-29));$('ate').value=ymd(hoje);
 load();
 S.timer=setInterval(()=>{if(!document.hidden)load()},5*60*1000);
