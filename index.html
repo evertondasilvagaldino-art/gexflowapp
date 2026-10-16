@@ -5467,9 +5467,12 @@ function dropLead(e,stageId,stageName){
   const wasAlreadyWon=previousLead?.dealStatus==='Ganho';
   const updates={estagio:stageName,stageId,funnelId:activeFunnel?.id||''};
   if(stage){
-    if(stage.isWon){updates.dealStatus='Ganho';updates.wonAt=new Date().toISOString();updates.closedAt=new Date().toISOString();}
-    else if(stage.isLost){updates.dealStatus='Perdido';updates.lostAt=new Date().toISOString();updates.closedAt=new Date().toISOString();}
-    else {updates.dealStatus='Em andamento';}
+    // Também grava a data de fechamento (como o outro caminho, syncDealStageAndStatus) — o BI e o
+    // Início contam venda por essa data. Se já era ganho, mantém a data original.
+    const hojeISO=new Date().toISOString().slice(0,10);
+    if(stage.isWon){updates.dealStatus='Ganho';updates.wonAt=new Date().toISOString();updates.closedAt=new Date().toISOString();if(!wasAlreadyWon||!previousLead?.dataFechamento)updates.dataFechamento=hojeISO;else{delete updates.wonAt;delete updates.closedAt}}
+    else if(stage.isLost){updates.dealStatus='Perdido';updates.lostAt=new Date().toISOString();updates.closedAt=new Date().toISOString();updates.dataFechamento=hojeISO;}
+    else {updates.dealStatus='Em andamento';if(previousLead&&(previousLead.dealStatus==='Ganho'||previousLead.dealStatus==='Perdido')){updates.dataFechamento='';updates.closedAt='';updates.wonAt='';updates.lostAt='';}}
   }
   const updatedLead=DB.update('leads',dragId,updates);
   if(typeof window.gexSendCRMConversion==='function') window.gexSendCRMConversion({lead:DB.find('leads',dragId),stageId,stageName,source:'pipeline'});
@@ -8339,9 +8342,23 @@ function renderInicio(){
   const churnRisk=cls.filter(c=>c.status==='Ativo'&&(c.health||0)<50);
   const pipelineTotal=leadsPeriod.reduce((a,l)=>a+(parseFloat(l.valor)||0),0);
   // Valor exibido no card da aba Início: somente negócios efetivamente ganhos
-  const negociosGanhosHome=leadsPeriod.filter(l=>{
+  let negociosGanhosHome=leadsPeriod.filter(l=>{
     try{return isWonOpportunity(l)}catch(e){return (l.dealStatus||l.status||l.estagio||'')==='Ganho'}
   });
+  // Igual ao BI: ganho entra no período pela data de FECHAMENTO.
+  try{
+    if(typeof window.gxCloseKey==='function'){
+      const baseG=dashSel?leads.filter(dashLeadMatchesSelection):excludePartnerFunnelLeads(leads);
+      negociosGanhosHome=baseG.filter(l=>{
+        let w;try{w=isWonOpportunity(l)}catch(e){w=false}
+        if(!w)return false;
+        const k=window.gxCloseKey(l);if(!k)return false;
+        const d=new Date(k+'T00:00:00');
+        if(dashFilter.mes&&(d.getMonth()+1)!==dashFilter.mes)return false;
+        return d.getFullYear()===dashFilter.ano;
+      });
+    }
+  }catch(e){}
   const negociosGanhosTotal=negociosGanhosHome.reduce((a,l)=>a+(parseFloat(l.valor)||0),0);
 
   // ── Ciclo médio de fechamento ───────────────────────────────────────────
@@ -23407,6 +23424,11 @@ function inP(ref,p){
   if(p.mes&&d.getMonth()+1!==p.mes)return false;return d.getFullYear()===p.ano;
 }
 
+function _dk(v){if(!v)return '';const t=String(v);return /^\d{4}-\d{2}-\d{2}/.test(t)?t.slice(0,10):(()=>{const d=new Date(t);return isNaN(d)?'':d.toISOString().slice(0,10)})()}
+// Data em que o negócio foi ganho/perdido — mesma regra do BI (sem data de fechamento, usa a última alteração).
+function closeKey(l){return _dk(l.dataFechamento||l.closedAt||(won(l)?l.wonAt:l.lostAt)||l._updatedAt||l.updatedAt||l.updated_at)}
+window.gxCloseKey=closeKey;
+function closedIn(l,p){return inP(closeKey(l),p)}
 function stColor(n,i){
   const t=String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   if(/ganh|won|fechad/.test(t))return '#1a9a55';
@@ -23427,20 +23449,23 @@ function build(){
   const recPrev=txsPrev.filter(t=>t.tipo==='Receita').reduce((a,t)=>a+(+t.valor||0),0);
   const lucroPrev=recPrev-txsPrev.filter(t=>t.tipo==='Despesa').reduce((a,t)=>a+(+t.valor||0),0);
   const leadsP=dashSel?leads.filter(leadInPeriod).filter(dashLeadMatchesSelection):excludePartnerFunnelLeads(leads.filter(leadInPeriod));
-  const ganhos=leadsP.filter(won);
-  const vGanho=ganhos.reduce((a,l)=>a+(parseFloat(l.valor)||0),0);
-  // período anterior (mesma base de leads / mesmo recorte)
+  // Vendas/perdas entram no período pela data de FECHAMENTO (igual ao BI).
   const baseAll=dashSel?leads.filter(dashLeadMatchesSelection):excludePartnerFunnelLeads(leads);
-  const leadsPrev=baseAll.filter(l=>inP(l.dataInicio||l.dataFechamento,pp));
-  const ganhosPrev=leadsPrev.filter(won);
+  const cur={mes:dashFilter.mes,ano:dashFilter.ano};
+  const ganhos=baseAll.filter(l=>won(l)&&closedIn(l,cur));
+  const perdidos=baseAll.filter(l=>lost(l)&&closedIn(l,cur));
+  const vGanho=ganhos.reduce((a,l)=>a+(parseFloat(l.valor)||0),0);
+  const ganhosPrev=baseAll.filter(l=>won(l)&&closedIn(l,pp));
+  const perdPrev=baseAll.filter(l=>lost(l)&&closedIn(l,pp));
   const vGanhoPrev=ganhosPrev.reduce((a,l)=>a+(parseFloat(l.valor)||0),0);
-  const conv=leadsP.length?Math.round(ganhos.length/leadsP.length*1000)/10:0;
-  const convPrev=leadsPrev.length?Math.round(ganhosPrev.length/leadsPrev.length*1000)/10:0;
+  const pc=(a,b)=>b>0?Math.round(a/b*1000)/10:0;
+  const conv=pc(ganhos.length,ganhos.length+perdidos.length);
+  const convPrev=pc(ganhosPrev.length,ganhosPrev.length+perdPrev.length);
   const ticket=ganhos.length?vGanho/ganhos.length:0;
-  const gc=leadsP.filter(l=>l.dealStatus==='Ganho'&&l.dataInicio&&l.dataFechamento);
-  const ciclo=gc.length?Math.round(gc.reduce((a,l)=>a+Math.max(0,Math.round((new Date(l.dataFechamento+'T00:00:00')-new Date(l.dataInicio+'T00:00:00'))/864e5)),0)/gc.length):null;
+  const gc=ganhos.filter(l=>_dk(l.dataInicio||l.createdAt)&&closeKey(l));
+  const ciclo=gc.length?Math.round(gc.reduce((a,l)=>a+Math.max(0,Math.round((new Date(closeKey(l)+'T00:00:00')-new Date(_dk(l.dataInicio||l.createdAt)+'T00:00:00'))/864e5)),0)/gc.length):null;
   const ads=txs.filter(t=>t.tipo==='Despesa'&&/ads|tráfego|marketing/i.test(t.cat||'')).reduce((a,t)=>a+(+t.valor||0),0);
-  const nGanho=leadsP.filter(l=>l.dealStatus==='Ganho').length;
+  const nGanho=ganhos.length;
   const cac=(!dashSel&&nGanho>0)?Math.round(ads/nGanho):null;
   const avgH=cls.length?Math.round(cls.reduce((a,c)=>a+(c.health||0),0)/cls.length):0;
   const risco=cls.filter(c=>c.status==='Ativo'&&(c.health||0)<50).length;
@@ -23454,7 +23479,7 @@ function build(){
   if(cF)k.push(`<div class="gxb-card"><div class="gxb-l">Lucro líquido</div><div class="gxb-v" style="color:${lucro<0?'#a52a1b':'inherit'}">${brl(lucro)}${delta(lucro,lucroPrev)}</div><div class="gxb-s">Receita − despesas do período</div></div>`);
   if(cC){
     k.push(`<div class="gxb-card"><div class="gxb-l">Negócios ganhos</div><div class="gxb-v">${brl(vGanho)}${delta(vGanho,vGanhoPrev)}</div><div class="gxb-s">${ganhos.length} venda${ganhos.length!==1?'s':''} · ticket ${brl(ticket)}</div></div>`);
-    k.push(`<div class="gxb-card"><div class="gxb-l">Conversão</div><div class="gxb-v">${String(conv).replace('.',',')}%${delta(conv,convPrev)}</div><div class="gxb-s">${ganhos.length} de ${leadsP.length} lead${leadsP.length!==1?'s':''}</div></div>`);
+    k.push(`<div class="gxb-card"><div class="gxb-l">Conversão (ganhos ÷ fechados)</div><div class="gxb-v">${String(conv).replace('.',',')}%${delta(conv,convPrev)}</div><div class="gxb-s">ganhos ÷ (ganhos + perdidos) · ${perdidos.length} perdido${perdidos.length!==1?'s':''}</div></div>`);
     k.push(`<div class="gxb-card"><div class="gxb-l">Ciclo médio</div><div class="gxb-v">${ciclo!==null?ciclo+' dias':'—'}</div><div class="gxb-s">${gc.length} fechado${gc.length!==1?'s':''} no período</div></div>`);
     k.push(`<div class="gxb-card"><div class="gxb-l">Invest. em Ads</div><div class="gxb-v">${brl(ads)}</div><div class="gxb-s">${dashSel?'Total da empresa':'Categoria Ads / Tráfego'}</div></div>`);
     k.push(`<div class="gxb-card"><div class="gxb-l">CAC</div><div class="gxb-v">${cac!==null?brl(cac):'—'}</div><div class="gxb-s">${dashSel?'Só no total geral':(cac!==null?`Ads ÷ ${nGanho} ganho${nGanho!==1?'s':''}`:'Sem dados')}</div></div>`);
@@ -23501,6 +23526,14 @@ function build(){
     const rows=Object.values(g).sort((a,b)=>b.n-a.n).slice(0,8);
     ori=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">Origem dos leads</div><div class="gxb-sub">${E(sub)}</div></div></div>${rows.length?`<div class="gxb-tw"><table class="gxb-tb"><thead><tr><th>Origem</th><th>Leads</th><th>Ganhos</th><th>Conv.</th><th>Valor</th></tr></thead><tbody>${rows.map(r=>`<tr><td title="${E(r.o)}">${E(r.o)}</td><td>${r.n}</td><td>${r.w}</td><td><span class="gxb-pill">${r.n?Math.round(r.w/r.n*100):0}%</span></td><td>${brl(r.v)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="gxb-empty">Sem leads no período.</div>'}</div>`;
     let srows=[];try{srows=getSalesTeamMetrics({...dashFilter})||[]}catch(e){}
+    try{
+      srows=srows.map(r=>{
+        if(!r.user||r.user.id==='__sem_responsavel')return r;
+        const g=ganhos.filter(l=>{try{return isLeadOwnedByUser(l,r.user)}catch(e){return false}});
+        const vg=g.reduce((a,l)=>a+(parseFloat(l.valor)||0),0);
+        return {...r,ganhos:g.length,valorGanho:vg,conv:r.leads?Math.round(g.length/r.leads*100):0};
+      }).sort((a,b)=>b.valorGanho-a.valorGanho||b.ganhos-a.ganhos||b.leads-a.leads);
+    }catch(e){}
     srows=srows.filter(r=>r.leads||r.ganhos||r.ativos).slice(0,8);
     let tit='Ranking de vendedores';try{if(!isSalesManagerView())tit='Minha performance'}catch(e){}
     rank=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">${tit}</div><div class="gxb-sub">${E(sub)}</div></div></div>${srows.length?`<div class="gxb-tw"><table class="gxb-tb"><thead><tr><th>Vendedor</th><th>Leads</th><th>Ganhos</th><th>Conv.</th><th>Vendido</th><th>Pipeline</th></tr></thead><tbody>${srows.map(r=>`<tr><td title="${E(r.user&&r.user.nome)}">${E(r.user&&r.user.nome||'—')}</td><td>${r.leads}</td><td>${r.ganhos}</td><td><span class="gxb-pill">${r.conv}%</span></td><td>${brl(r.valorGanho)}</td><td>${brl(r.pipelineAtivo)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="gxb-empty">Sem vendedores com movimento.</div>'}</div>`;
