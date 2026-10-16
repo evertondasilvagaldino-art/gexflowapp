@@ -2028,12 +2028,6 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
       <div class="nav-sub" data-sub="entregas" onclick="navigateSub('entregas','projetos')">
         <span class="nav-sub-ico">·</span>Gestão de entregas
       </div>
-      <div class="nav-sub" data-sub="tarefas" onclick="navigateSub('tarefas','projetos')">
-        <span class="nav-sub-ico">·</span>Tarefas
-      </div>
-      <div class="nav-sub" data-sub="agenda" onclick="navigateSub('agenda','projetos')">
-        <span class="nav-sub-ico">·</span>Agenda de projetos
-      </div>
       <div class="nav-sub" data-sub="esquemas" onclick="navigateSub('esquemas','projetos')">
         <span class="nav-sub-ico">·</span>Esquemas
       </div>
@@ -2841,8 +2835,6 @@ const PERMISSION_SECTIONS = [
   {id:'projetos', label:'Projetos', color:'#EC4899', tabs:[
     {id:'onboarding', label:'Onboarding', parent:'projetos'},
     {id:'entregas', label:'Gestão de entregas', parent:'projetos'},
-    {id:'tarefas', label:'Tarefas', parent:'projetos'},
-    {id:'agenda', label:'Agenda de projetos', parent:'projetos'},
     {id:'aprovacao', label:'Aprovação de conteúdo', parent:'projetos'},
     {id:'esquemas', label:'Esquemas', parent:'projetos'}
   ]},
@@ -4880,8 +4872,6 @@ function applyNavPermissions(){
       items:[
         {selector:'[data-sub="onboarding"]', mod:'onboarding'},
         {selector:'[data-sub="entregas"]', mod:'entregas'},
-        {selector:'[data-sub="tarefas"]', mod:'tarefas'},
-        {selector:'[data-sub="agenda"]', mod:'agenda'},
         {selector:'[data-sub="aprovacao"]', mod:'aprovacao'},
         {selector:'[data-sub="esquemas"]', mod:'esquemas'}
       ]
