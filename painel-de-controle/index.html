@@ -426,7 +426,7 @@ function drawTaxas(d){
       '<div class="hint" style="margin:-4px 0 0 0;font-size:11px">'+int(x.n)+' de '+int(x.base)+' avançaram'+(ruim?' · <b style="color:#ff7b6b">maior perda do funil</b>':'')+'</div>';
   }).join('');
   const saidas=E.filter(e=>(lixo(e)||noshow(e))&&!e.ganho&&e.qtd).map(e=>esc(e.nome)+' <b>'+int(e.qtd)+'</b>').join(' · ');
-  el.innerHTML='<h2>Avanço entre etapas</h2><div class="hint">Funil <b>'+esc(f.nome)+'</b> · de cada 100 leads que chegam numa etapa, quantos seguem para a próxima. Estimativa pela etapa atual dos leads criados no período.</div>'+cards+
+  el.innerHTML='<h2>Avanço entre etapas</h2><div class="hint"><b>'+esc(f.nome)+'</b> · de cada 100 leads que chegam numa etapa, quantos seguem para a próxima. Estimativa pela etapa atual dos leads criados no período.</div>'+cards+
     (linhas||'<div class="state">Sem dados suficientes</div>')+(saidas?'<div class="hint" style="margin-top:14px">Fora da sequência: '+saidas+'</div>':'');
 }
 
