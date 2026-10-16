@@ -22456,6 +22456,8 @@ function deleteGcalEventModal(eventId,monthKey){
 .op-sec{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:18px 0 8px;display:flex;align-items:center;gap:8px}
 .op-ck{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px}
 .op-ck-it{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px}
+.op-ckc{width:18px;height:18px;border-radius:50%;border:2px solid var(--light);display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0}
+.op-ckc.on{background:#10B981;border-color:#10B981}
 .op-ck-it.done .tx{text-decoration:line-through;color:var(--light)}
 .op-bar{height:5px;border-radius:5px;background:var(--border);overflow:hidden;margin:6px 0 8px}
 .op-bar>i{display:block;height:100%;background:var(--p2)}
@@ -22565,7 +22567,8 @@ function pickInitial(){
   const sqs=visibleSquads();
   if(!sqs.length){S.squadId=null;S.listaId=null;return}
   let sq=sqs.find(s=>s.id===S.squadId)||sqs[0];
-  S.squadId=sq.id;S.openSquads[sq.id]=true;
+  if(S.squadId!==sq.id&&S.squadId===null)S.openSquads[sq.id]=true;
+  S.squadId=sq.id;
   ensureDefaultList(sq);
   const ls=listasDoSquad(sq.id);
   if(!ls.find(l=>l.id===S.listaId))S.listaId=ls[0]?.id||null;
@@ -22753,7 +22756,7 @@ function kanbanHtml(l,ts){
 
 /* ═══ AÇÕES DE NAVEGAÇÃO ═══ */
 window.opSelSquad=function(id){
-  S.openSquads[id]=!S.openSquads[id]||S.squadId!==id;
+  S.openSquads[id]=!S.openSquads[id];
   S.squadId=id;
   const sq=squad(id);ensureDefaultList(sq);
   const ls=listasDoSquad(id);
@@ -22838,8 +22841,8 @@ function renderTask(keepScroll){
     return `<div class="op-ck">
       <div style="display:flex;align-items:center;gap:8px"><input class="form-input" style="flex:1;font-weight:700;padding:4px 8px;font-size:13px" value="${ea(c.nome)}" onchange="opCkRename('${c.id}',this.value)"><span style="font-size:11px;color:var(--muted)">${dn}/${tot}</span><button class="op-x" title="Remover checklist" onclick="opCkDel('${c.id}')">🗑</button></div>
       <div class="op-bar"><i style="width:${tot?Math.round(dn/tot*100):0}%"></i></div>
-      ${(c.itens||[]).map(i=>`<div class="op-ck-it ${i.feito?'done':''}"><input type="checkbox" ${i.feito?'checked':''} onchange="opCkToggle('${c.id}','${i.id}')"><span class="tx" style="flex:1">${esc(i.texto)}</span>${i.resp?`<span class="op-av" style="margin:0" title="${ea(personById(i.resp)?.nome||'')}">${esc(ini(personById(i.resp)?.nome))}</span>`:''}<button class="op-x" onclick="opCkItemDel('${c.id}','${i.id}')">✕</button></div>`).join('')}
-      <div style="display:flex;gap:6px;margin-top:6px"><input class="form-input" id="op-ckin-${c.id}" placeholder="Novo item…" style="padding:4px 8px;font-size:12.5px" onkeydown="if(event.key==='Enter')opCkAdd('${c.id}')"><button class="op-ghost" onclick="opCkAdd('${c.id}')">Adicionar</button></div>
+      ${(c.itens||[]).map(i=>`<div class="op-ck-it ${i.feito?'done':''}" style="cursor:pointer" onclick="opCkToggle('${c.id}','${i.id}')"><span class="op-ckc ${i.feito?'on':''}">${i.feito?'✓':''}</span><span class="tx" style="flex:1">${esc(i.texto)}</span>${i.resp?`<span class="op-av" style="margin:0" title="${ea(personById(i.resp)?.nome||'')}">${esc(ini(personById(i.resp)?.nome))}</span>`:''}<button class="op-x" onclick="event.stopPropagation();opCkItemDel('${c.id}','${i.id}')">✕</button></div>`).join('')}
+      <div style="display:flex;gap:6px;margin-top:6px"><input class="form-input" id="op-ckin-${c.id}" placeholder="Novo item… (Enter para adicionar)" style="padding:4px 8px;font-size:12.5px" onkeydown="if(event.key==='Enter')opCkAdd('${c.id}')"><button class="op-ghost" onclick="opCkAdd('${c.id}')">Adicionar</button></div>
     </div>`;}).join('');
   const anexos=(t.anexos||[]).map(a=>`<div class="op-att"><span>📎</span><a href="#" class="op-link" style="flex:1;overflow:hidden;text-overflow:ellipsis" onclick="opOpenAnexo('${a.id}');return false">${esc(a.nome)}</a><span style="font-size:11px;color:var(--light)">${esc(fmtSize(a.tamanho))}</span><button class="op-x" onclick="opDelAnexo('${a.id}')">✕</button></div>`).join('');
   const atv=(t.atividade||[]).map(a=>a.tipo==='comentario'
@@ -22850,7 +22853,7 @@ function renderTask(keepScroll){
       <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)"><span>${esc(squad(l.squadId)?.nome||'')} / ${esc(l.nome)}</span><span style="margin-left:auto"></span><button class="btn btn-ghost btn-sm" onclick="opDelTask('${t.id}')" title="Arquivar tarefa">🗄 Arquivar</button><button class="btn btn-ghost btn-sm" onclick="opCloseTask()">✕ Fechar</button></div>
       <input class="op-title" value="${ea(t.titulo)}" onchange="opSetTitulo('${t.id}',this.value)">
       <div class="op-props">
-        <div class="op-pr"><span>Status</span><select class="form-input" style="font-weight:800;color:#fff;background:${ea(st?.cor||'#999')};border-color:${ea(st?.cor||'#999')}" onchange="opSetStatus('${t.id}',this.value)">${(l.statuses||[]).map(s=>`<option value="${s.id}" ${s.id===st?.id?'selected':''} style="background:#fff;color:#111">${esc(s.nome)}</option>`).join('')}</select></div>
+        <div class="op-pr"><span>Status</span><div style="display:flex;gap:6px"><select class="form-input" style="font-weight:800;color:#fff;background:${ea(st?.cor||'#999')};border-color:${ea(st?.cor||'#999')}" onchange="opSetStatus('${t.id}',this.value)">${(l.statuses||[]).map(s=>`<option value="${s.id}" ${s.id===st?.id?'selected':''} style="background:#fff;color:#111">${esc(s.nome)}</option>`).join('')}</select><button class="btn btn-ghost btn-sm" title="Concluir tarefa (move para o status final)" onclick="opConcluir('${t.id}')">${st?.concluido?'✅':'✓'}</button></div></div>
         <div class="op-pr"><span>Responsáveis</span><div>${respSel}<select class="form-input" style="margin-top:4px" onchange="opToggleResp('${t.id}',this.value);this.value=''"><option value="">+ adicionar…</option>${ps.filter(p=>!(t.resp||[]).map(String).includes(String(p.id))).map(p=>`<option value="${ea(p.id)}">${esc(p.nome)}</option>`).join('')}</select></div></div>
         <div class="op-pr"><span>Início</span><input type="date" class="form-input" value="${ea(t.inicio||'')}" onchange="opSetData('${t.id}','inicio',this.value)"></div>
         <div class="op-pr"><span>Vencimento</span><input type="date" class="form-input" value="${ea(t.venc||'')}" onchange="opSetData('${t.id}','venc',this.value)"></div>
@@ -22893,6 +22896,7 @@ function campoInput(t,c){
 
 /* ── edição das propriedades (cada uma grava + registra no histórico) ── */
 window.opSetTitulo=function(id,v){v=v.trim();const t=tarefa(id);if(!v||!t||v===t.titulo){renderTask();return}upd(id,{titulo:v},`renomeou de "${t.titulo}" para "${v}"`);renderTask();renderOpBg()};
+window.opConcluir=function(id){const t=tarefa(id),l=lista(t?.listaId);const f=(l?.statuses||[]).find(s=>s.concluido);if(!f){toast('Marque um status como "final" em Configurar lista.','#F59E0B');return}opMoveTo(id,f.id);renderTask()};
 window.opSetStatus=function(id,sid){opMoveTo(id,sid);renderTask()};
 window.opSetData=function(id,k,v){upd(id,{[k]:v},`definiu ${k==='venc'?'o vencimento':'o início'} como ${v?fmtData(v):'vazio'}`);renderTask();renderOpBg()};
 window.opSetPrio=function(id,v){upd(id,{prioridade:v},`definiu a prioridade como ${v||'vazio'}`);renderTask();renderOpBg()};
