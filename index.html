@@ -3955,7 +3955,8 @@ const GEX_DB_COLLECTIONS = [
   'com_tasks','esquemas','commercial_funnels','produtos_comercial',
   'tracking_links','integration_events','integration_connections','manual_trackings','tracking_events',
   'conversion_settings','conversion_events','lead_forms','lead_form_submissions','leadgen_settings',
-  'whatsapp_widgets','automacoes','automacao_tasks','automacao_log','email_smtp_settings','zapi_settings'
+  'whatsapp_widgets','automacoes','automacao_tasks','automacao_log','email_smtp_settings','zapi_settings',
+  'op_listas','op_tarefas'
 ];
 const GEX_KV_EXCLUDED = new Set([
   // gx2_usuarios: mesmo "usuarios" já sendo excluído da sincronização por
@@ -22386,6 +22387,787 @@ function deleteGcalEventModal(eventId,monthKey){
     }
   });
 }
+</script>
+
+<style id="gex-operacional-style">
+.op-wrap{display:grid;grid-template-columns:250px minmax(0,1fr);gap:16px;align-items:start}
+@media(max-width:900px){.op-wrap{grid-template-columns:1fr}}
+.op-side{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;position:sticky;top:8px;max-height:calc(100vh - 40px);overflow:auto}
+.op-side h4{margin:0 0 8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.op-sq{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--txt)}
+.op-sq:hover{background:var(--bg)}
+.op-sq .dot{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.op-sq .cnt{margin-left:auto;font-size:11px;color:var(--light);font-weight:500}
+.op-li{display:flex;align-items:center;gap:8px;padding:6px 8px 6px 26px;border-radius:8px;cursor:pointer;font-size:12.5px;color:var(--muted)}
+.op-li:hover{background:var(--bg)}
+.op-li.on{background:var(--p-light);color:var(--p2);font-weight:700}
+.op-li .cnt{margin-left:auto;font-size:11px;color:var(--light)}
+.op-add{font-size:12px;color:var(--p2);cursor:pointer;padding:5px 8px 5px 26px;border-radius:8px}
+.op-add:hover{background:var(--bg)}
+.op-top{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px}
+.op-top .ttl{font-size:18px;font-weight:800;color:var(--txt)}
+.op-bc{font-size:12px;color:var(--muted);margin-bottom:4px}
+.op-tabs{display:flex;gap:2px;background:var(--bg);border-radius:9px;padding:3px}
+.op-tabs button{border:0;background:transparent;padding:5px 12px;border-radius:7px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer}
+.op-tabs button.on{background:var(--card);color:var(--p2);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.op-filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px}
+.op-filters .form-input{padding:5px 9px;font-size:12px;width:auto}
+.op-grp{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden}
+.op-grp-h{display:flex;align-items:center;gap:8px;padding:10px 14px;cursor:pointer;user-select:none}
+.op-pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;color:#fff}
+.op-scroll{overflow-x:auto}
+.op-row{display:grid;gap:10px;align-items:center;padding:8px 14px;border-top:1px solid var(--border);font-size:12.5px;cursor:pointer;min-width:max-content}
+.op-row:hover{background:var(--bg)}
+.op-row.hd{cursor:default;font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--light);font-weight:700;background:transparent;padding-top:4px;padding-bottom:4px;border-top:0}
+.op-row.hd:hover{background:transparent}
+.op-name{font-weight:700;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.op-av{display:inline-flex;width:24px;height:24px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:9px;font-weight:800;align-items:center;justify-content:center;border:2px solid var(--card);margin-left:-7px}
+.op-av:first-child{margin-left:0}
+.op-chip{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700}
+.op-link{color:var(--p2);text-decoration:none;font-size:11.5px;white-space:nowrap}
+.op-kan{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(250px,1fr);gap:12px;overflow-x:auto;padding-bottom:8px;align-items:start}
+.op-kol{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:10px;min-height:120px}
+.op-kol.over{outline:2px dashed var(--p2)}
+.op-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
+.op-card:hover{border-color:var(--p2)}
+.op-card .t{font-size:13px;font-weight:700;margin-bottom:6px;color:var(--txt)}
+.op-card .m{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:11px;color:var(--muted)}
+.op-ov{position:fixed;inset:0;background:rgba(15,10,35,.45);z-index:9000;display:none;justify-content:flex-end}
+.op-ov.open{display:flex}
+.op-drawer{width:min(1080px,100%);height:100%;background:var(--card);display:grid;grid-template-columns:minmax(0,1fr) 340px;box-shadow:-8px 0 30px rgba(0,0,0,.25)}
+@media(max-width:860px){.op-drawer{grid-template-columns:1fr;overflow:auto}}
+.op-main{padding:22px 26px;overflow:auto}
+.op-act{border-left:1px solid var(--border);background:var(--bg);display:flex;flex-direction:column;min-height:0}
+@media(max-width:860px){.op-act{border-left:0;border-top:1px solid var(--border)}}
+.op-act-list{flex:1;overflow:auto;padding:14px}
+.op-act-it{font-size:11.5px;color:var(--muted);padding:6px 0;border-bottom:1px dashed var(--border)}
+.op-cm{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 11px;margin:8px 0;font-size:12.5px}
+.op-cm b{font-size:12px;color:var(--txt)}
+.op-cm .d{font-size:10.5px;color:var(--light);margin-left:6px}
+.op-mn{color:var(--p2);font-weight:700;background:var(--p-light);border-radius:4px;padding:0 3px}
+.op-cmbox{padding:10px;border-top:1px solid var(--border);position:relative;background:var(--card)}
+.op-title{width:100%;border:0;font-size:24px;font-weight:800;color:var(--txt);background:transparent;padding:4px 0;outline:none}
+.op-title:focus{border-bottom:2px solid var(--p2)}
+.op-props{display:grid;grid-template-columns:1fr 1fr;gap:10px 22px;margin:14px 0 18px}
+@media(max-width:560px){.op-props{grid-template-columns:1fr}}
+.op-pr{display:grid;grid-template-columns:110px 1fr;align-items:center;gap:8px;font-size:12.5px}
+.op-pr>span{color:var(--muted)}
+.op-pr .form-input{padding:5px 8px;font-size:12.5px}
+.op-sec{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:18px 0 8px;display:flex;align-items:center;gap:8px}
+.op-ck{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.op-ck-it{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px}
+.op-ck-it.done .tx{text-decoration:line-through;color:var(--light)}
+.op-bar{height:5px;border-radius:5px;background:var(--border);overflow:hidden;margin:6px 0 8px}
+.op-bar>i{display:block;height:100%;background:var(--p2)}
+.op-x{background:none;border:0;color:var(--light);cursor:pointer;font-size:13px;padding:2px 5px}
+.op-x:hover{color:#EF4444}
+.op-ghost{border:1px dashed var(--border);background:transparent;color:var(--muted);border-radius:8px;padding:6px 12px;font-size:12px;cursor:pointer}
+.op-ghost:hover{border-color:var(--p2);color:var(--p2)}
+.op-md{position:fixed;inset:0;background:rgba(15,10,35,.5);z-index:9100;display:none;align-items:center;justify-content:center;padding:16px}
+.op-md.open{display:flex}
+.op-md-box{background:var(--card);border-radius:14px;width:min(720px,100%);max-height:90vh;overflow:auto;padding:20px 22px}
+.op-mnbox{position:absolute;left:10px;right:10px;bottom:100%;background:var(--card);border:1px solid var(--border);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.18);max-height:190px;overflow:auto;display:none;z-index:5}
+.op-mnbox div{padding:7px 12px;font-size:12.5px;cursor:pointer}
+.op-mnbox div:hover{background:var(--p-light)}
+.op-att{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:12.5px;background:var(--bg)}
+</style>
+<div class="op-ov" id="op-ov" onclick="if(event.target===this)opCloseTask()"></div>
+<div class="op-md" id="op-md" onclick="if(event.target===this)opCloseModal()"><div class="op-md-box" id="op-md-box"></div></div>
+<script id="gex-operacional-script">
+(function(){
+'use strict';
+
+/* ═══ OPERACIONAL — gestão de entregas no estilo ClickUp ═══
+   Squad → Lista → Tarefa (card). Coleções novas e independentes do módulo
+   antigo: op_listas (estrutura: status e campos de cada lista) e op_tarefas
+   (cards). Nada do que já existia é alterado ou apagado. */
+
+const PRIORIDADES={Urgente:'#EF4444',Alta:'#F59E0B',Normal:'#3B82F6',Baixa:'#9CA3AF'};
+const TIPOS_CAMPO={texto:'Texto',numero:'Número',data:'Data',link:'Link',select:'Lista de opções',checkbox:'Caixa de seleção'};
+const CORES=['#06B6D4','#F59E0B','#3B82F6','#EF4444','#D946EF','#10B981','#7C3AED','#EC4899','#84CC16','#F97316','#6B7280'];
+const MAX_ANEXO=10*1024*1024;
+const BUCKET='op-anexos';
+
+const S={squadId:null,listaId:null,view:'lista',busca:'',resp:'',prio:'',collapsed:{},taskId:null,legacy:false,drag:null,openSquads:{}};
+const esc=v=>escHtml(v);
+const ea=v=>escAttr(v);
+const nid=()=>uid();
+
+/* ── identidade / permissões ── */
+function me(){return {id:String(sessionUser?.id||sessionUser?.email||''),nome:sessionUser?.nome||sessionUser?.name||'Usuário'}}
+function meKeys(){try{return currentProjectUserKeys()}catch(e){return []}}
+function personIsMe(p){
+  const ks=meKeys();
+  return [p.id,p.email,p.nome].map(_normTaskIdentity).filter(Boolean).some(k=>ks.includes(k));
+}
+function canManage(){
+  if(isProjectFounderView())return true;
+  const r=_normTaskIdentity(sessionUser?.permissao||sessionUser?.cargo||'');
+  return /gerente|head|admin/.test(r);
+}
+function people(){return getProjectPeople()}
+function personById(id){return people().find(p=>String(p.id)===String(id))}
+function mySquadNames(){
+  const ks=meKeys();
+  const out=new Set();
+  (DB.get('membros')||[]).forEach(m=>{
+    const mk=[m.id,m.email,m.nome].map(_normTaskIdentity).filter(Boolean);
+    if(mk.some(k=>ks.includes(k))){
+      if(m.squad)out.add(String(m.squad).trim().toLowerCase());
+      if(Array.isArray(m.squads))m.squads.forEach(s=>out.add(String(s).trim().toLowerCase()));
+    }
+  });
+  return out;
+}
+function visibleSquads(){
+  const all=DB.get('squads')||[];
+  if(isProjectFounderView())return all;
+  const mine=mySquadNames();
+  const viaTask=new Set();
+  const listas=DB.get('op_listas')||[];
+  (DB.get('op_tarefas')||[]).forEach(t=>{if((t.resp||[]).some(id=>{const p=personById(id);return p&&personIsMe(p)})){const l=listas.find(x=>x.id===t.listaId);if(l)viaTask.add(l.squadId)}});
+  return all.filter(s=>mine.has(String(s.nome||'').trim().toLowerCase())||viaTask.has(s.id));
+}
+function listasDoSquad(sid){return (DB.get('op_listas')||[]).filter(l=>l.squadId===sid&&!l.arquivada).sort((a,b)=>(a.ordem||0)-(b.ordem||0))}
+function tarefasDaLista(lid){return (DB.get('op_tarefas')||[]).filter(t=>t.listaId===lid&&!t.arquivada)}
+function lista(id){return (DB.get('op_listas')||[]).find(l=>l.id===id)}
+function tarefa(id){return (DB.get('op_tarefas')||[]).find(t=>t.id===id)}
+function squad(id){return (DB.get('squads')||[]).find(s=>s.id===id)}
+
+/* ── modelos padrão ── */
+function defaultListaModel(sq){
+  const traf=sq?.tipo==='trafego';
+  const mk=(nome,cor,concluido)=>({id:nid(),nome,cor,concluido:!!concluido});
+  if(traf){
+    const st=CONTA_STATUS_ORDEM.map(n=>mk(n,CONTA_STATUS_COR[n],n==='Saiu da Carteira'));
+    const sel=(nome,ops,cores)=>({id:nid(),nome,tipo:'select',opcoes:ops.map(o=>({id:nid(),nome:o,cor:cores[o]||'#9CA3AF'}))});
+    const lk=n=>({id:nid(),nome:n,tipo:'link',opcoes:[]});
+    return {nome:'Carteira Clientes',statuses:st,campos:[sel('Relacionamento',CONTA_RELACIONAMENTO_OPCOES,CONTA_RELACIONAMENTO_COR),sel('Resultado',CONTA_RESULTADO_OPCOES,CONTA_RESULTADO_COR),lk('Drive'),lk('GMN'),lk('Google Ads'),lk('Meta')]};
+  }
+  const st=STATUS_ENTREGA_KANBAN.map(n=>mk(n,STATUS_ENTREGA_COR[n],n==='Postado'));
+  return {nome:'Entregas',statuses:st,campos:[
+    {id:nid(),nome:'Formato',tipo:'select',opcoes:FORMATO_OPCOES.map(o=>({id:nid(),nome:o,cor:'#7C3AED'}))},
+    {id:nid(),nome:'Objetivo',tipo:'select',opcoes:OBJETIVO_OPCOES.map(o=>({id:nid(),nome:o,cor:OBJETIVO_COR[o]||'#9CA3AF'}))},
+    {id:nid(),nome:'Link',tipo:'link',opcoes:[]}]};
+}
+function ensureDefaultList(sq){
+  if(!sq||!canManage())return null;
+  if(listasDoSquad(sq.id).length)return null;
+  const id='op_lista_'+sq.id; // id fixo: dois acessos simultâneos não duplicam
+  if(lista(id))return null;
+  const m=defaultListaModel(sq);
+  DB.push('op_listas',{id,squadId:sq.id,ordem:1,...m,criadoEm:new Date().toISOString()});
+  return id;
+}
+
+/* ── seleção inicial ── */
+function pickInitial(){
+  const sqs=visibleSquads();
+  if(!sqs.length){S.squadId=null;S.listaId=null;return}
+  let sq=sqs.find(s=>s.id===S.squadId)||sqs[0];
+  S.squadId=sq.id;S.openSquads[sq.id]=true;
+  ensureDefaultList(sq);
+  const ls=listasDoSquad(sq.id);
+  if(!ls.find(l=>l.id===S.listaId))S.listaId=ls[0]?.id||null;
+}
+
+/* ── util ── */
+function fmtData(d){if(!d)return '';const x=new Date(d+'T00:00:00');return isNaN(x)?'':x.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}
+function hoje(){const d=new Date();return d.toISOString().slice(0,10)}
+function ini(n){return String(n||'?').trim().split(/\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase()}
+function avs(ids){
+  const ps=(ids||[]).map(personById).filter(Boolean);
+  if(!ps.length)return '<span style="color:var(--light)">—</span>';
+  return ps.map(p=>`<span class="op-av" title="${ea(p.nome)}">${esc(ini(p.nome))}</span>`).join('');
+}
+function hostOf(u){try{return new URL(/^https?:\/\//i.test(u)?u:'https://'+u).hostname.replace(/^www\./,'')}catch(e){return String(u).slice(0,22)}}
+function safeUrl(u){u=String(u||'').trim();return /^https?:\/\//i.test(u)?u:'https://'+u}
+function statusOf(l,t){return (l.statuses||[]).find(s=>s.id===t.statusId)||(l.statuses||[])[0]}
+function pill(s){return `<span class="op-pill" style="background:${ea(s.cor)}">${esc(s.nome)}</span>`}
+function ckProg(t){let a=0,b=0;(t.checklists||[]).forEach(c=>(c.itens||[]).forEach(i=>{b++;if(i.feito)a++}));return {a,b}}
+function nComentarios(t){return (t.atividade||[]).filter(x=>x.tipo==='comentario').length}
+
+function logEntry(texto,tipo){return {id:nid(),tipo:tipo||'log',texto,autor:me().nome,autorId:me().id,data:new Date().toISOString()}}
+function upd(id,patch,logText){
+  const t=tarefa(id);if(!t)return null;
+  const data={...patch};
+  if(logText)data.atividade=[...(t.atividade||[]),logEntry(logText)];
+  return DB.update('op_tarefas',id,data);
+}
+
+/* ═══ RENDER PRINCIPAL ═══ */
+const legacyRender=window.renderEntregas;
+window.renderEntregas=function(){
+  if(S.legacy&&typeof legacyRender==='function'){
+    legacyRender();
+    const c=document.getElementById('proj-content');
+    if(c)c.insertAdjacentHTML('afterbegin','<div style="margin-bottom:10px"><button class="btn btn-primary btn-sm" onclick="opLegacy(false)">✨ Voltar para o novo Operacional</button></div>');
+    return;
+  }
+  renderOp();
+};
+
+function sidebarHtml(){
+  const sqs=visibleSquads();
+  const manage=canManage();
+  const body=sqs.map(sq=>{
+    const ls=listasDoSquad(sq.id);
+    const open=S.openSquads[sq.id];
+    const total=ls.reduce((n,l)=>n+tarefasDaLista(l.id).length,0);
+    return `<div>
+      <div class="op-sq" onclick="opSelSquad('${sq.id}')"><span style="font-size:10px;color:var(--light)">${open?'▾':'▸'}</span><span class="dot" style="background:${ea(sq.cor||'#9CA3AF')}"></span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(sq.nome)}</span><span class="cnt">${total}</span></div>
+      ${open?ls.map(l=>`<div class="op-li ${l.id===S.listaId?'on':''}" onclick="opSelLista('${sq.id}','${l.id}')">☰ <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.nome)}</span><span class="cnt">${tarefasDaLista(l.id).length}</span></div>`).join(''):''}
+      ${open&&manage?`<div class="op-add" onclick="opNewLista('${sq.id}')">+ Nova lista</div>`:''}
+    </div>`;
+  }).join('');
+  return `<div class="op-side"><h4>Operacional</h4>${body||'<div style="font-size:12px;color:var(--light);padding:8px">Nenhum squad disponível para você ainda.</div>'}
+    ${manage?`<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px"><div class="op-add" style="padding-left:8px" onclick="openSquadMgr()">⚙️ Gerenciar squads</div></div>`:''}</div>`;
+}
+
+function mentionsPending(){
+  let n=0;
+  (DB.get('op_tarefas')||[]).forEach(t=>(t.atividade||[]).forEach(a=>{
+    if(a.tipo==='comentario'&&(a.mencoes||[]).some(id=>{const p=personById(id);return p&&personIsMe(p)})&&!(a.lidoPor||[]).includes(me().id))n++;
+  }));
+  return n;
+}
+
+function renderOp(){
+  const box=document.getElementById('proj-content');if(!box)return;
+  pickInitial();
+  const l=lista(S.listaId);
+  const sq=squad(S.squadId);
+  let main='';
+  if(!l){
+    main=`<div class="card" style="padding:40px;text-align:center;color:var(--muted)">${sq?(canManage()?'Este squad ainda não tem lista. Use "+ Nova lista" na lateral.':'Este squad ainda não tem listas. Peça a um gerente para criar.'):'Você ainda não está em nenhum squad. Peça a um gerente para te incluir.'}</div>`;
+  }else{
+    main=topHtml(l,sq)+filtersHtml(l)+bodyHtml(l);
+  }
+  box.innerHTML=`<div class="op-wrap">${sidebarHtml()}<div style="min-width:0">${main}</div></div>`;
+}
+
+function topHtml(l,sq){
+  const pend=mentionsPending();
+  return `<div class="op-bc">${esc(sq?.nome||'')} / ${esc(l.nome)}</div>
+  <div class="op-top">
+    <div class="ttl">${esc(l.nome)}</div>
+    <div class="op-tabs">
+      ${[['lista','Lista'],['quadro','Quadro'],['tabela','Tabela']].map(([k,n])=>`<button class="${S.view===k?'on':''}" onclick="opView('${k}')">${n}</button>`).join('')}
+    </div>
+    <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" onclick="opMentions()" title="Comentários que marcaram você">🔔 Menções${pend?` <b style="color:#EF4444">(${pend})</b>`:''}</button>
+      ${canManage()?`<button class="btn btn-ghost btn-sm" onclick="opConfigLista('${l.id}')">⚙️ Configurar lista</button>`:''}
+      <button class="btn btn-ghost btn-sm" onclick="opLegacy(true)" title="Voltar para a tela antiga de Gestão de Entregas">↩ Visão antiga</button>
+      <button class="btn btn-primary btn-sm" onclick="opNewTask('')">+ Tarefa</button>
+    </div>
+  </div>`;
+}
+
+function filtersHtml(l){
+  const ps=people();
+  return `<div class="op-filters">
+    <input class="form-input" placeholder="🔎 Buscar..." value="${ea(S.busca)}" style="min-width:170px" oninput="opBusca(this.value)">
+    <select class="form-input" onchange="opF('resp',this.value)"><option value="">Responsável (todos)</option>${ps.map(p=>`<option value="${ea(p.id)}" ${S.resp===String(p.id)?'selected':''}>${esc(p.nome)}</option>`).join('')}</select>
+    <select class="form-input" onchange="opF('prio',this.value)"><option value="">Prioridade (todas)</option>${Object.keys(PRIORIDADES).map(p=>`<option ${S.prio===p?'selected':''}>${p}</option>`).join('')}</select>
+    ${(S.busca||S.resp||S.prio)?`<button class="btn btn-ghost btn-sm" onclick="opClearF()">✕ Limpar</button>`:''}
+  </div>`;
+}
+
+function filtered(l){
+  const q=S.busca.trim().toLowerCase();
+  return tarefasDaLista(l.id).filter(t=>{
+    if(q&&!String(t.titulo||'').toLowerCase().includes(q))return false;
+    if(S.resp&&!(t.resp||[]).map(String).includes(S.resp))return false;
+    if(S.prio&&t.prioridade!==S.prio)return false;
+    return true;
+  }).sort((a,b)=>(a.ordem||0)-(b.ordem||0));
+}
+
+function bodyHtml(l){
+  const ts=filtered(l);
+  if(S.view==='quadro')return `<div id="op-body">${kanbanHtml(l,ts)}</div>`;
+  if(S.view==='tabela')return `<div id="op-body">${tableHtml(l,ts)}</div>`;
+  return `<div id="op-body">${groupsHtml(l,ts)}</div>`;
+}
+
+function cols(l){return `minmax(230px,2.2fr) 110px 100px 90px${(l.campos||[]).map(()=>' minmax(120px,1fr)').join('')}`}
+function headRow(l){
+  return `<div class="op-row hd" style="grid-template-columns:${cols(l)}"><div>Nome</div><div>Responsável</div><div>Vencimento</div><div>Prioridade</div>${(l.campos||[]).map(c=>`<div>${esc(c.nome)}</div>`).join('')}</div>`;
+}
+function cellHtml(l,t,c){
+  const v=(t.campos||{})[c.id];
+  if(c.tipo==='select'){
+    const op=(c.opcoes||[]).find(o=>o.id===v);
+    return `<div onclick="event.stopPropagation()"><select class="form-input" style="padding:3px 6px;font-size:11px;font-weight:700;width:auto;max-width:130px;${op?`color:${ea(op.cor)};background:${ea(op.cor)}18;border-color:${ea(op.cor)}55`:''}" onchange="opSetCampo('${t.id}','${c.id}',this.value)"><option value="">—</option>${(c.opcoes||[]).map(o=>`<option value="${o.id}" ${o.id===v?'selected':''}>${esc(o.nome)}</option>`).join('')}</select></div>`;
+  }
+  if(!v&&v!==0&&v!==false)return '<span style="color:var(--light)">—</span>';
+  if(c.tipo==='link')return `<a class="op-link" href="${ea(safeUrl(v))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 ${esc(hostOf(v))}</a>`;
+  if(c.tipo==='data')return esc(fmtData(v));
+  if(c.tipo==='checkbox')return v?'✅':'—';
+  return `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${esc(v)}</span>`;
+}
+function rowHtml(l,t,showSt){
+  const atrasada=t.venc&&t.venc<hoje()&&!statusOf(l,t)?.concluido;
+  const pr=t.prioridade;
+  const p=ckProg(t);
+  return `<div class="op-row" style="grid-template-columns:${cols(l)}" onclick="opOpenTask('${t.id}')">
+    <div class="op-name" title="${ea(t.titulo)}">${showSt?pill(statusOf(l,t)||{nome:'—',cor:'#999'})+' ':''}${esc(t.titulo||'Sem título')}${p.b?` <span style="font-weight:500;color:var(--light);font-size:11px">☑ ${p.a}/${p.b}</span>`:''}${nComentarios(t)?` <span style="font-weight:500;color:var(--light);font-size:11px">💬 ${nComentarios(t)}</span>`:''}</div>
+    <div style="display:flex">${avs(t.resp)}</div>
+    <div style="${atrasada?'color:#EF4444;font-weight:700':''}">${t.venc?esc(fmtData(t.venc)):'<span style="color:var(--light)">—</span>'}</div>
+    <div>${pr?`<span class="op-chip" style="background:${PRIORIDADES[pr]}22;color:${PRIORIDADES[pr]}">${esc(pr)}</span>`:'<span style="color:var(--light)">—</span>'}</div>
+    ${(l.campos||[]).map(c=>`<div>${cellHtml(l,t,c)}</div>`).join('')}
+  </div>`;
+}
+
+function groupsHtml(l,ts){
+  return (l.statuses||[]).map(s=>{
+    const items=ts.filter(t=>statusOf(l,t)?.id===s.id);
+    const key=l.id+':'+s.id;
+    const closed=S.collapsed[key];
+    return `<div class="op-grp">
+      <div class="op-grp-h" onclick="opToggle('${key}')"><span style="font-size:10px;color:var(--light)">${closed?'▸':'▾'}</span>${pill(s)}<span style="font-size:12px;color:var(--muted)">${items.length}</span>
+        <button class="op-x" style="margin-left:auto;color:var(--p2);font-weight:700" onclick="event.stopPropagation();opNewTask('${s.id}')" title="Adicionar tarefa neste status">+ Tarefa</button></div>
+      ${closed?'':`<div class="op-scroll">${items.length?headRow(l)+items.map(t=>rowHtml(l,t)).join(''):'<div style="padding:10px 16px;font-size:12px;color:var(--light);border-top:1px solid var(--border)">Nenhuma tarefa neste status</div>'}</div>`}
+    </div>`;
+  }).join('');
+}
+function tableHtml(l,ts){
+  return `<div class="op-grp"><div class="op-scroll">${headRow(l)}${ts.map(t=>rowHtml(l,t,true)).join('')||'<div style="padding:16px;color:var(--light);font-size:12px">Nenhuma tarefa</div>'}</div></div>`;
+}
+function kanbanHtml(l,ts){
+  return `<div class="op-kan">${(l.statuses||[]).map(s=>{
+    const items=ts.filter(t=>statusOf(l,t)?.id===s.id);
+    return `<div class="op-kol" ondragover="event.preventDefault()" ondragenter="this.classList.add('over')" ondragleave="this.classList.remove('over')" ondrop="opDrop(event,'${s.id}')">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">${pill(s)}<span style="font-size:12px;color:var(--muted)">${items.length}</span></div>
+      ${items.map(t=>{
+        const p=ckProg(t);
+        const sel=(l.campos||[]).filter(c=>c.tipo==='select'&&(t.campos||{})[c.id]).map(c=>{const o=(c.opcoes||[]).find(x=>x.id===t.campos[c.id]);return o?`<span class="op-chip" style="background:${ea(o.cor)}22;color:${ea(o.cor)}">${esc(o.nome)}</span>`:''}).join('');
+        return `<div class="op-card" draggable="true" ondragstart="opDragStart(event,'${t.id}')" onclick="opOpenTask('${t.id}')">
+          <div class="t">${esc(t.titulo||'Sem título')}</div>
+          <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">${sel}</div>
+          <div class="m"><span style="display:flex">${avs(t.resp)}</span>${t.venc?`<span style="${t.venc<hoje()&&!s.concluido?'color:#EF4444;font-weight:700':''}">📅 ${esc(fmtData(t.venc))}</span>`:''}${p.b?`<span>☑ ${p.a}/${p.b}</span>`:''}${nComentarios(t)?`<span>💬 ${nComentarios(t)}</span>`:''}</div>
+        </div>`;}).join('')}
+      <button class="op-ghost" style="width:100%" onclick="opNewTask('${s.id}')">+ Adicionar</button>
+    </div>`;}).join('')}</div>`;
+}
+
+/* ═══ AÇÕES DE NAVEGAÇÃO ═══ */
+window.opSelSquad=function(id){
+  S.openSquads[id]=!S.openSquads[id]||S.squadId!==id;
+  S.squadId=id;
+  const sq=squad(id);ensureDefaultList(sq);
+  const ls=listasDoSquad(id);
+  if(!ls.find(l=>l.id===S.listaId))S.listaId=ls[0]?.id||null;
+  renderOp();
+};
+window.opSelLista=function(sid,lid){S.squadId=sid;S.listaId=lid;S.busca='';S.resp='';S.prio='';renderOp()};
+window.opView=function(v){S.view=v;renderOp()};
+window.opToggle=function(k){S.collapsed[k]=!S.collapsed[k];renderOp()};
+window.opF=function(k,v){S[k]=v;renderOp()};
+window.opClearF=function(){S.busca='';S.resp='';S.prio='';renderOp()};
+window.opBusca=function(v){
+  S.busca=v;
+  const l=lista(S.listaId);const b=document.getElementById('op-body');
+  if(l&&b)b.outerHTML=bodyHtml(l);
+};
+window.opLegacy=function(on){S.legacy=!!on;window.renderEntregas()};
+
+/* ═══ DRAG & DROP (quadro) ═══ */
+window.opDragStart=function(e,id){S.drag=id;e.dataTransfer.effectAllowed='move'};
+window.opDrop=function(e,statusId){
+  e.preventDefault();e.currentTarget.classList.remove('over');
+  const id=S.drag;S.drag=null;if(!id)return;
+  opMoveTo(id,statusId);
+};
+function opMoveTo(id,statusId){
+  const t=tarefa(id);const l=lista(t?.listaId);if(!t||!l)return;
+  const old=statusOf(l,t),nw=(l.statuses||[]).find(s=>s.id===statusId);
+  if(!nw||old?.id===nw.id)return;
+  upd(id,{statusId,ordem:Date.now()},`mudou o status de "${old?.nome||'—'}" para "${nw.nome}"`);
+  renderOp();
+}
+
+/* ═══ CRIAR TAREFA ═══ */
+window.opNewTask=function(statusId){
+  const l=lista(S.listaId);if(!l)return;
+  const nome=prompt('Nome da tarefa / cliente:');
+  if(!nome||!nome.trim())return;
+  const st=(l.statuses||[]).find(s=>s.id===statusId)||l.statuses[0];
+  const t={id:nid(),listaId:l.id,titulo:nome.trim(),statusId:st?.id,resp:[],inicio:'',venc:'',prioridade:'',etiquetas:[],descricao:'',campos:{},checklists:[],anexos:[],
+    atividade:[logEntry('criou esta tarefa')],criadoPor:me().nome,criadoEm:new Date().toISOString(),ordem:Date.now()};
+  DB.push('op_tarefas',t);
+  renderOp();
+  opOpenTask(t.id);
+};
+
+/* ═══ PAINEL DA TAREFA ═══ */
+window.opOpenTask=function(id){
+  S.taskId=id;
+  markMentionsRead(id);
+  renderTask();
+  document.getElementById('op-ov').classList.add('open');
+};
+window.opCloseTask=function(){
+  S.taskId=null;
+  document.getElementById('op-ov').classList.remove('open');
+  document.getElementById('op-ov').innerHTML='';
+  renderOp();
+};
+function markMentionsRead(id){
+  const t=tarefa(id);if(!t)return;
+  let ch=false;
+  const at=(t.atividade||[]).map(a=>{
+    if(a.tipo==='comentario'&&(a.mencoes||[]).some(pid=>{const p=personById(pid);return p&&personIsMe(p)})&&!(a.lidoPor||[]).includes(me().id)){ch=true;return {...a,lidoPor:[...(a.lidoPor||[]),me().id]}}
+    return a;
+  });
+  if(ch)DB.update('op_tarefas',id,{atividade:at});
+}
+
+function renderTask(keepScroll){
+  const t=tarefa(S.taskId);const ov=document.getElementById('op-ov');
+  if(!t){ov.innerHTML='';return}
+  const l=lista(t.listaId);if(!l){ov.innerHTML='';return}
+  const prevMain=ov.querySelector('.op-main');const prevAct=ov.querySelector('.op-act-list');
+  const sm=prevMain?prevMain.scrollTop:0,sa=prevAct?prevAct.scrollTop:0;
+  const st=statusOf(l,t);
+  const ps=people();
+  const respSel=(t.resp||[]).map(id=>{const p=personById(id);return p?`<span class="op-chip" style="background:var(--p-light);color:var(--p2)">${esc(p.nome)} <span style="cursor:pointer" onclick="opToggleResp('${t.id}','${ea(p.id)}')">✕</span></span>`:''}).join(' ');
+  const campos=(l.campos||[]).map(c=>`<div class="op-pr" style="grid-template-columns:150px 1fr"><span>${esc(c.nome)}</span><div>${campoInput(t,c)}</div></div>`).join('');
+  const ckHtml=(t.checklists||[]).map(c=>{
+    const tot=(c.itens||[]).length,dn=(c.itens||[]).filter(i=>i.feito).length;
+    return `<div class="op-ck">
+      <div style="display:flex;align-items:center;gap:8px"><input class="form-input" style="flex:1;font-weight:700;padding:4px 8px;font-size:13px" value="${ea(c.nome)}" onchange="opCkRename('${c.id}',this.value)"><span style="font-size:11px;color:var(--muted)">${dn}/${tot}</span><button class="op-x" title="Remover checklist" onclick="opCkDel('${c.id}')">🗑</button></div>
+      <div class="op-bar"><i style="width:${tot?Math.round(dn/tot*100):0}%"></i></div>
+      ${(c.itens||[]).map(i=>`<div class="op-ck-it ${i.feito?'done':''}"><input type="checkbox" ${i.feito?'checked':''} onchange="opCkToggle('${c.id}','${i.id}')"><span class="tx" style="flex:1">${esc(i.texto)}</span>${i.resp?`<span class="op-av" style="margin:0" title="${ea(personById(i.resp)?.nome||'')}">${esc(ini(personById(i.resp)?.nome))}</span>`:''}<button class="op-x" onclick="opCkItemDel('${c.id}','${i.id}')">✕</button></div>`).join('')}
+      <div style="display:flex;gap:6px;margin-top:6px"><input class="form-input" id="op-ckin-${c.id}" placeholder="Novo item…" style="padding:4px 8px;font-size:12.5px" onkeydown="if(event.key==='Enter')opCkAdd('${c.id}')"><button class="op-ghost" onclick="opCkAdd('${c.id}')">Adicionar</button></div>
+    </div>`;}).join('');
+  const anexos=(t.anexos||[]).map(a=>`<div class="op-att"><span>📎</span><a href="#" class="op-link" style="flex:1;overflow:hidden;text-overflow:ellipsis" onclick="opOpenAnexo('${a.id}');return false">${esc(a.nome)}</a><span style="font-size:11px;color:var(--light)">${esc(fmtSize(a.tamanho))}</span><button class="op-x" onclick="opDelAnexo('${a.id}')">✕</button></div>`).join('');
+  const atv=(t.atividade||[]).map(a=>a.tipo==='comentario'
+    ?`<div class="op-cm"><b>${esc(a.autor)}</b><span class="d">${esc(new Date(a.data).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}))}</span><div style="margin-top:4px;white-space:pre-wrap">${mentionHtml(a.texto)}</div></div>`
+    :`<div class="op-act-it"><b style="color:var(--txt)">${esc(a.autor)}</b> ${esc(a.texto)} <span style="color:var(--light)">· ${esc(new Date(a.data).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}))}</span></div>`).join('');
+  ov.innerHTML=`<div class="op-drawer">
+    <div class="op-main">
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)"><span>${esc(squad(l.squadId)?.nome||'')} / ${esc(l.nome)}</span><span style="margin-left:auto"></span><button class="btn btn-ghost btn-sm" onclick="opDelTask('${t.id}')" title="Arquivar tarefa">🗄 Arquivar</button><button class="btn btn-ghost btn-sm" onclick="opCloseTask()">✕ Fechar</button></div>
+      <input class="op-title" value="${ea(t.titulo)}" onchange="opSetTitulo('${t.id}',this.value)">
+      <div class="op-props">
+        <div class="op-pr"><span>Status</span><select class="form-input" style="font-weight:800;color:#fff;background:${ea(st?.cor||'#999')};border-color:${ea(st?.cor||'#999')}" onchange="opSetStatus('${t.id}',this.value)">${(l.statuses||[]).map(s=>`<option value="${s.id}" ${s.id===st?.id?'selected':''} style="background:#fff;color:#111">${esc(s.nome)}</option>`).join('')}</select></div>
+        <div class="op-pr"><span>Responsáveis</span><div>${respSel}<select class="form-input" style="margin-top:4px" onchange="opToggleResp('${t.id}',this.value);this.value=''"><option value="">+ adicionar…</option>${ps.filter(p=>!(t.resp||[]).map(String).includes(String(p.id))).map(p=>`<option value="${ea(p.id)}">${esc(p.nome)}</option>`).join('')}</select></div></div>
+        <div class="op-pr"><span>Início</span><input type="date" class="form-input" value="${ea(t.inicio||'')}" onchange="opSetData('${t.id}','inicio',this.value)"></div>
+        <div class="op-pr"><span>Vencimento</span><input type="date" class="form-input" value="${ea(t.venc||'')}" onchange="opSetData('${t.id}','venc',this.value)"></div>
+        <div class="op-pr"><span>Prioridade</span><select class="form-input" onchange="opSetPrio('${t.id}',this.value)"><option value="">—</option>${Object.keys(PRIORIDADES).map(p=>`<option ${t.prioridade===p?'selected':''}>${p}</option>`).join('')}</select></div>
+        <div class="op-pr"><span>Etiquetas</span><input class="form-input" placeholder="separe por vírgula" value="${ea((t.etiquetas||[]).join(', '))}" onchange="opSetEtq('${t.id}',this.value)"></div>
+      </div>
+      <div class="op-sec">Descrição</div>
+      <textarea class="form-input" rows="3" style="width:100%;font-size:13px" placeholder="Escreva uma descrição…" onchange="opSetDesc('${t.id}',this.value)">${esc(t.descricao||'')}</textarea>
+      ${(l.campos||[]).length?`<div class="op-sec">Campos</div><div style="display:grid;gap:8px">${campos}</div>`:''}
+      <div class="op-sec">Checklists <button class="op-ghost" onclick="opCkNew()">+ Criar checklist</button></div>
+      ${ckHtml||'<div style="font-size:12px;color:var(--light)">Nenhum checklist ainda.</div>'}
+      <div class="op-sec">Anexos <label class="op-ghost" style="cursor:pointer">+ Anexar arquivo<input type="file" multiple style="display:none" onchange="opUpload(this)"></label></div>
+      ${anexos||'<div style="font-size:12px;color:var(--light)">Nenhum arquivo anexado.</div>'}
+    </div>
+    <div class="op-act">
+      <div style="padding:14px 14px 0;font-weight:800;font-size:13px">Atividade</div>
+      <div class="op-act-list" id="op-act-list">${atv}</div>
+      <div class="op-cmbox"><div class="op-mnbox" id="op-mnbox"></div>
+        <textarea class="form-input" id="op-cm-in" rows="2" style="width:100%;font-size:12.5px" placeholder="Escreva um comentário… use @ para marcar alguém" oninput="opMentionInput(this)" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey))opAddComment()"></textarea>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px"><span style="font-size:10.5px;color:var(--light)">Ctrl+Enter envia</span><button class="btn btn-primary btn-sm" onclick="opAddComment()">Comentar</button></div>
+      </div>
+    </div>
+  </div>`;
+  const m=ov.querySelector('.op-main'),a=ov.querySelector('.op-act-list');
+  if(m)m.scrollTop=sm;
+  if(a)a.scrollTop=keepScroll===false?a.scrollHeight:(sa||a.scrollHeight);
+}
+function fmtSize(b){b=Number(b)||0;return b>1048576?(b/1048576).toFixed(1)+' MB':Math.max(1,Math.round(b/1024))+' KB'}
+
+function campoInput(t,c){
+  const v=(t.campos||{})[c.id];
+  const id=`'${t.id}','${c.id}'`;
+  if(c.tipo==='select')return `<select class="form-input" onchange="opSetCampo(${id},this.value)"><option value="">—</option>${(c.opcoes||[]).map(o=>`<option value="${o.id}" ${o.id===v?'selected':''}>${esc(o.nome)}</option>`).join('')}</select>`;
+  if(c.tipo==='checkbox')return `<input type="checkbox" ${v?'checked':''} onchange="opSetCampo(${id},this.checked)">`;
+  if(c.tipo==='data')return `<input type="date" class="form-input" value="${ea(v||'')}" onchange="opSetCampo(${id},this.value)">`;
+  if(c.tipo==='numero')return `<input type="number" class="form-input" value="${ea(v??'')}" onchange="opSetCampo(${id},this.value)">`;
+  const link=c.tipo==='link'&&v?` <a class="op-link" href="${ea(safeUrl(v))}" target="_blank" rel="noopener">abrir ↗</a>`:'';
+  return `<div style="display:flex;gap:8px;align-items:center"><input class="form-input" style="flex:1" placeholder="${c.tipo==='link'?'https://…':''}" value="${ea(v||'')}" onchange="opSetCampo(${id},this.value)">${link}</div>`;
+}
+
+/* ── edição das propriedades (cada uma grava + registra no histórico) ── */
+window.opSetTitulo=function(id,v){v=v.trim();const t=tarefa(id);if(!v||!t||v===t.titulo){renderTask();return}upd(id,{titulo:v},`renomeou de "${t.titulo}" para "${v}"`);renderTask();renderOpBg()};
+window.opSetStatus=function(id,sid){opMoveTo(id,sid);renderTask()};
+window.opSetData=function(id,k,v){upd(id,{[k]:v},`definiu ${k==='venc'?'o vencimento':'o início'} como ${v?fmtData(v):'vazio'}`);renderTask();renderOpBg()};
+window.opSetPrio=function(id,v){upd(id,{prioridade:v},`definiu a prioridade como ${v||'vazio'}`);renderTask();renderOpBg()};
+window.opSetEtq=function(id,v){const e=v.split(',').map(x=>x.trim()).filter(Boolean);upd(id,{etiquetas:e},`atualizou as etiquetas`);renderTask()};
+window.opSetDesc=function(id,v){upd(id,{descricao:v},`atualizou a descrição`);renderTask()};
+window.opToggleResp=function(id,pid){
+  if(!pid)return;const t=tarefa(id);const cur=(t.resp||[]).map(String);
+  const has=cur.includes(String(pid));
+  const next=has?cur.filter(x=>x!==String(pid)):[...cur,String(pid)];
+  const nome=personById(pid)?.nome||'';
+  upd(id,{resp:next},has?`removeu ${nome} dos responsáveis`:`adicionou ${nome} como responsável`);
+  renderTask();renderOpBg();
+};
+window.opSetCampo=function(id,cid,v){
+  const t=tarefa(id);const l=lista(t.listaId);const c=(l.campos||[]).find(x=>x.id===cid);if(!c)return;
+  const campos={...(t.campos||{}),[cid]:v};
+  let show=v;
+  if(c.tipo==='select')show=(c.opcoes||[]).find(o=>o.id===v)?.nome||'vazio';
+  else if(c.tipo==='checkbox')show=v?'marcado':'desmarcado';
+  else if(!v)show='vazio';
+  upd(id,{campos},`definiu ${c.nome} como ${show}`);
+  if(S.taskId===id)renderTask();
+  renderOpBg();
+};
+function renderOpBg(){if(document.getElementById('op-ov').classList.contains('open')){const l=lista(S.listaId);const b=document.getElementById('op-body');if(l&&b)b.outerHTML=bodyHtml(l)}else renderOp()}
+window.opDelTask=function(id){
+  if(!confirm('Arquivar esta tarefa? Ela some das telas, mas os dados continuam salvos.'))return;
+  DB.update('op_tarefas',id,{arquivada:true});
+  opCloseTask();
+};
+
+/* ── checklists ── */
+window.opCkNew=function(){
+  const nome=prompt('Nome do checklist:','Checklist');if(!nome)return;
+  const t=tarefa(S.taskId);
+  upd(t.id,{checklists:[...(t.checklists||[]),{id:nid(),nome:nome.trim(),itens:[]}]},`criou o checklist "${nome.trim()}"`);
+  renderTask();
+};
+function ckMut(cid,fn,log){
+  const t=tarefa(S.taskId);
+  const cks=(t.checklists||[]).map(c=>c.id===cid?fn({...c,itens:[...(c.itens||[])]}):c).filter(Boolean);
+  upd(t.id,{checklists:cks},log);
+}
+window.opCkRename=function(cid,v){if(!v.trim())return;ckMut(cid,c=>({...c,nome:v.trim()}));};
+window.opCkDel=function(cid){if(!confirm('Remover este checklist?'))return;ckMut(cid,()=>null,'removeu um checklist');renderTask()};
+window.opCkAdd=function(cid){
+  const inp=document.getElementById('op-ckin-'+cid);const v=(inp?.value||'').trim();if(!v)return;
+  ckMut(cid,c=>({...c,itens:[...c.itens,{id:nid(),texto:v,feito:false,resp:''}]}),`adicionou o item "${v}"`);
+  renderTask();
+  document.getElementById('op-ckin-'+cid)?.focus();
+};
+window.opCkToggle=function(cid,iid){
+  let txt='',now=false;
+  ckMut(cid,c=>({...c,itens:c.itens.map(i=>{if(i.id===iid){now=!i.feito;txt=i.texto;return {...i,feito:now}}return i})}),'');
+  upd(S.taskId,{},`${now?'concluiu':'reabriu'} o item "${txt}"`);
+  renderTask();renderOpBg();
+};
+window.opCkItemDel=function(cid,iid){ckMut(cid,c=>({...c,itens:c.itens.filter(i=>i.id!==iid)}),'removeu um item de checklist');renderTask()};
+
+/* ── anexos (Supabase Storage, bucket privado "op-anexos") ── */
+function sb(){return (typeof supabaseClient!=='undefined')?supabaseClient:null}
+window.opUpload=async function(inp){
+  const files=[...(inp.files||[])];inp.value='';
+  if(!files.length)return;
+  const c=sb();
+  if(!c){toast('Upload indisponível neste ambiente (só funciona no sistema publicado).','#EF4444');return}
+  for(const f of files){
+    if(f.size>MAX_ANEXO){toast(`"${f.name}" passa de 10 MB.`,'#EF4444');continue}
+    const t=tarefa(S.taskId);if(!t)return;
+    const safe=f.name.replace(/[^\w.\-]+/g,'_');
+    const path=`${GEX_WORKSPACE_ID}/${t.id}/${nid()}_${safe}`;
+    toast(`Enviando ${f.name}…`,'#7C3AED');
+    const {error}=await c.storage.from(BUCKET).upload(path,f,{contentType:f.type||'application/octet-stream',upsert:false});
+    if(error){console.warn('[Operacional] upload:',error);toast('Falha ao enviar. Confirme se o bucket "op-anexos" foi criado no Supabase.','#EF4444');continue}
+    const cur=tarefa(S.taskId);
+    upd(cur.id,{anexos:[...(cur.anexos||[]),{id:nid(),nome:f.name,tipo:f.type,tamanho:f.size,path,data:new Date().toISOString(),autor:me().nome}]},`anexou "${f.name}"`);
+    renderTask();
+  }
+  toast('Anexo salvo ✓','#10B981');
+};
+window.opOpenAnexo=async function(aid){
+  const t=tarefa(S.taskId);const a=(t?.anexos||[]).find(x=>x.id===aid);const c=sb();
+  if(!a||!c)return;
+  const {data,error}=await c.storage.from(BUCKET).createSignedUrl(a.path,300);
+  if(error||!data?.signedUrl){toast('Não consegui abrir o arquivo.','#EF4444');return}
+  window.open(data.signedUrl,'_blank','noopener');
+};
+window.opDelAnexo=async function(aid){
+  if(!confirm('Remover este anexo?'))return;
+  const t=tarefa(S.taskId);const a=(t?.anexos||[]).find(x=>x.id===aid);if(!a)return;
+  const c=sb();
+  if(c){try{await c.storage.from(BUCKET).remove([a.path])}catch(e){console.warn(e)}}
+  upd(t.id,{anexos:t.anexos.filter(x=>x.id!==aid)},`removeu o anexo "${a.nome}"`);
+  renderTask();
+};
+
+/* ── comentários e @menções ── */
+function mentionHtml(txt){
+  let h=esc(txt);
+  people().slice().sort((a,b)=>b.nome.length-a.nome.length).forEach(p=>{
+    const n=esc('@'+p.nome);
+    if(h.toLowerCase().includes(n.toLowerCase())){
+      const re=new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');
+      h=h.replace(re,m=>`<span class="op-mn">${m}</span>`);
+    }
+  });
+  return h;
+}
+function mentionsIn(txt){
+  const low=String(txt).toLowerCase();
+  return people().filter(p=>p.nome&&low.includes('@'+p.nome.toLowerCase())).map(p=>String(p.id));
+}
+window.opMentionInput=function(el){
+  const box=document.getElementById('op-mnbox');if(!box)return;
+  const pos=el.selectionStart;const before=el.value.slice(0,pos);
+  const m=before.match(/@([^\s@]*)$/);
+  if(!m){box.style.display='none';return}
+  const q=m[1].toLowerCase();
+  const list=people().filter(p=>p.nome.toLowerCase().includes(q)).slice(0,6);
+  if(!list.length){box.style.display='none';return}
+  box.innerHTML=list.map(p=>`<div onmousedown="event.preventDefault();opPickMention('${ea(p.id)}')">${esc(p.nome)}${p.cargo?` <span style="color:var(--light);font-size:11px">· ${esc(p.cargo)}</span>`:''}</div>`).join('');
+  box.style.display='block';
+};
+window.opPickMention=function(pid){
+  const el=document.getElementById('op-cm-in');const p=personById(pid);if(!el||!p)return;
+  const pos=el.selectionStart;const before=el.value.slice(0,pos).replace(/@([^\s@]*)$/,'@'+p.nome+' ');
+  el.value=before+el.value.slice(pos);
+  el.focus();el.selectionStart=el.selectionEnd=before.length;
+  document.getElementById('op-mnbox').style.display='none';
+};
+window.opAddComment=function(){
+  const el=document.getElementById('op-cm-in');const txt=(el?.value||'').trim();if(!txt)return;
+  const t=tarefa(S.taskId);if(!t)return;
+  const men=mentionsIn(txt);
+  const e={...logEntry(txt,'comentario'),mencoes:men,lidoPor:[me().id]};
+  DB.update('op_tarefas',t.id,{atividade:[...(t.atividade||[]),e]});
+  if(men.length)toast(`Marcou ${men.map(id=>personById(id)?.nome).filter(Boolean).join(', ')} ✓`,'#10B981');
+  renderTask(false);
+  renderOpBg();
+};
+window.opMentions=function(){
+  const out=[];
+  (DB.get('op_tarefas')||[]).forEach(t=>(t.atividade||[]).forEach(a=>{
+    if(a.tipo==='comentario'&&(a.mencoes||[]).some(id=>{const p=personById(id);return p&&personIsMe(p)}))out.push({t,a});
+  }));
+  out.sort((x,y)=>String(y.a.data).localeCompare(String(x.a.data)));
+  openModal2(`<div style="display:flex;align-items:center;margin-bottom:12px"><h3 style="margin:0;font-size:16px">🔔 Menções para você</h3><button class="op-x" style="margin-left:auto" onclick="opCloseModal()">✕</button></div>
+   ${out.length?out.slice(0,60).map(({t,a})=>`<div class="op-cm" style="cursor:pointer" onclick="opCloseModal();opGoTask('${t.id}')"><b>${esc(a.autor)}</b> em <b>${esc(t.titulo)}</b><span class="d">${esc(new Date(a.data).toLocaleString('pt-BR'))}</span>${(a.lidoPor||[]).includes(me().id)?'':' <span style="color:#EF4444;font-weight:800;font-size:11px">● nova</span>'}<div style="margin-top:4px">${mentionHtml(a.texto)}</div></div>`).join(''):'<div style="color:var(--light);padding:16px;text-align:center">Ninguém marcou você ainda.</div>'}`);
+};
+window.opGoTask=function(id){
+  const t=tarefa(id);const l=lista(t?.listaId);if(!l)return;
+  S.squadId=l.squadId;S.listaId=l.id;S.openSquads[l.squadId]=true;renderOp();opOpenTask(id);
+};
+
+/* ═══ MODAL GENÉRICO ═══ */
+function openModal2(html){document.getElementById('op-md-box').innerHTML=html;document.getElementById('op-md').classList.add('open')}
+window.opCloseModal=function(){document.getElementById('op-md').classList.remove('open');document.getElementById('op-md-box').innerHTML=''};
+
+/* ═══ LISTAS: criar / configurar (status e campos personalizados) ═══ */
+window.opNewLista=function(sid){
+  if(!canManage())return;
+  const nome=prompt('Nome da nova lista (ex.: Carteira Clientes):');if(!nome||!nome.trim())return;
+  const sq=squad(sid);const base=defaultListaModel(sq);
+  const ordem=(listasDoSquad(sid).slice(-1)[0]?.ordem||0)+1;
+  const l={id:nid(),squadId:sid,ordem,nome:nome.trim(),statuses:base.statuses,campos:base.campos,criadoEm:new Date().toISOString()};
+  DB.push('op_listas',l);
+  S.squadId=sid;S.listaId=l.id;S.openSquads[sid]=true;renderOp();
+  toast('Lista criada ✓ — ajuste status e campos em "Configurar lista".','#10B981');
+};
+
+let CFG=null; // rascunho da configuração aberta
+window.opConfigLista=function(lid){
+  if(!canManage())return;
+  const l=lista(lid);if(!l)return;
+  CFG=JSON.parse(JSON.stringify({id:l.id,nome:l.nome,statuses:l.statuses||[],campos:l.campos||[]}));
+  renderCfg();
+};
+function renderCfg(){
+  const l=lista(CFG.id);
+  const usados=sid=>tarefasDaLista(CFG.id).filter(t=>(t.statusId||CFG.statuses[0]?.id)===sid).length;
+  openModal2(`<div style="display:flex;align-items:center;margin-bottom:12px"><h3 style="margin:0;font-size:16px">⚙️ Configurar lista</h3><button class="op-x" style="margin-left:auto" onclick="opCloseModal()">✕</button></div>
+   <label class="form-label">Nome da lista</label><input class="form-input" value="${ea(CFG.nome)}" oninput="CFG_set('nome',this.value)">
+   <div class="op-sec">Status (colunas)</div>
+   ${CFG.statuses.map((s,i)=>`<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+     <input type="color" value="${ea(s.cor)}" onchange="CFG_st(${i},'cor',this.value)" style="width:34px;height:30px;border:0;background:none;cursor:pointer">
+     <input class="form-input" style="flex:1;padding:5px 8px" value="${ea(s.nome)}" onchange="CFG_st(${i},'nome',this.value)">
+     <label style="font-size:11px;color:var(--muted);display:flex;gap:4px;align-items:center" title="Tarefas neste status não ficam 'atrasadas'"><input type="checkbox" ${s.concluido?'checked':''} onchange="CFG_st(${i},'concluido',this.checked)">final</label>
+     <button class="op-x" onclick="CFG_mv('statuses',${i},-1)">↑</button><button class="op-x" onclick="CFG_mv('statuses',${i},1)">↓</button>
+     <button class="op-x" title="${usados(s.id)?'Há tarefas neste status':'Remover'}" onclick="CFG_delSt(${i})">🗑</button></div>`).join('')}
+   <button class="op-ghost" onclick="CFG_addSt()">+ Novo status</button>
+   <div class="op-sec">Campos personalizados</div>
+   ${CFG.campos.map((c,i)=>`<div style="border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin-bottom:8px">
+     <div style="display:flex;gap:6px;align-items:center">
+       <input class="form-input" style="flex:1;padding:5px 8px" value="${ea(c.nome)}" onchange="CFG_cp(${i},'nome',this.value)">
+       <select class="form-input" style="width:auto;padding:5px 8px" onchange="CFG_cp(${i},'tipo',this.value);renderCfgPub()">${Object.entries(TIPOS_CAMPO).map(([k,n])=>`<option value="${k}" ${c.tipo===k?'selected':''}>${n}</option>`).join('')}</select>
+       <button class="op-x" onclick="CFG_mv('campos',${i},-1)">↑</button><button class="op-x" onclick="CFG_mv('campos',${i},1)">↓</button>
+       <button class="op-x" onclick="CFG_delCp(${i})">🗑</button></div>
+     ${c.tipo==='select'?`<div style="margin-top:6px;padding-left:4px">${(c.opcoes||[]).map((o,j)=>`<div style="display:flex;gap:6px;align-items:center;margin-bottom:4px"><input type="color" value="${ea(o.cor)}" onchange="CFG_op(${i},${j},'cor',this.value)" style="width:28px;height:26px;border:0;background:none"><input class="form-input" style="flex:1;padding:3px 8px;font-size:12px" value="${ea(o.nome)}" onchange="CFG_op(${i},${j},'nome',this.value)"><button class="op-x" onclick="CFG_delOp(${i},${j})">✕</button></div>`).join('')}<button class="op-ghost" onclick="CFG_addOp(${i})">+ opção</button></div>`:''}
+   </div>`).join('')}
+   <button class="op-ghost" onclick="CFG_addCp()">+ Novo campo</button>
+   <div class="op-sec">Importar</div>
+   <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Traz os clientes que já estão neste squad (e o status, resultado, relacionamento e links da Carteira antiga) como tarefas desta lista. Não apaga nem altera nada do módulo antigo e não duplica clientes já importados.</div>
+   <button class="op-ghost" onclick="opImportClientes()">⬇ Importar clientes do squad</button>
+   <div style="display:flex;gap:8px;justify-content:space-between;margin-top:20px;border-top:1px solid var(--border);padding-top:14px">
+     <button class="btn btn-ghost" style="color:#EF4444" onclick="opArchiveLista()">🗄 Arquivar lista</button>
+     <div style="display:flex;gap:8px"><button class="btn btn-ghost" onclick="opCloseModal()">Cancelar</button><button class="btn btn-primary" onclick="opSaveCfg()">Salvar</button></div>
+   </div>`);
+}
+window.renderCfgPub=renderCfg;
+window.CFG_set=(k,v)=>{CFG[k]=v};
+window.CFG_st=(i,k,v)=>{CFG.statuses[i][k]=v};
+window.CFG_cp=(i,k,v)=>{CFG.campos[i][k]=v;if(k==='tipo'&&v==='select'&&!(CFG.campos[i].opcoes||[]).length)CFG.campos[i].opcoes=[{id:nid(),nome:'Opção 1',cor:'#7C3AED'}]};
+window.CFG_op=(i,j,k,v)=>{CFG.campos[i].opcoes[j][k]=v};
+window.CFG_addOp=i=>{(CFG.campos[i].opcoes=CFG.campos[i].opcoes||[]).push({id:nid(),nome:'Nova opção',cor:CORES[CFG.campos[i].opcoes.length%CORES.length]});renderCfg()};
+window.CFG_delOp=(i,j)=>{CFG.campos[i].opcoes.splice(j,1);renderCfg()};
+window.CFG_addSt=()=>{CFG.statuses.push({id:nid(),nome:'Novo status',cor:CORES[CFG.statuses.length%CORES.length],concluido:false});renderCfg()};
+window.CFG_addCp=()=>{CFG.campos.push({id:nid(),nome:'Novo campo',tipo:'texto',opcoes:[]});renderCfg()};
+window.CFG_mv=(k,i,d)=>{const a=CFG[k],j=i+d;if(j<0||j>=a.length)return;[a[i],a[j]]=[a[j],a[i]];renderCfg()};
+window.CFG_delSt=i=>{
+  const s=CFG.statuses[i];
+  if(CFG.statuses.length<=1){toast('A lista precisa de pelo menos um status.','#EF4444');return}
+  const n=tarefasDaLista(CFG.id).filter(t=>(t.statusId||CFG.statuses[0]?.id)===s.id).length;
+  if(n){toast(`Há ${n} tarefa(s) em "${s.nome}". Mova-as para outro status antes de remover.`,'#F59E0B');return}
+  CFG.statuses.splice(i,1);renderCfg();
+};
+window.CFG_delCp=i=>{if(!confirm('Remover este campo? Os valores já preenchidos deixam de aparecer (continuam salvos nas tarefas).'))return;CFG.campos.splice(i,1);renderCfg()};
+window.opSaveCfg=function(){
+  if(!CFG.nome.trim()){toast('Dê um nome à lista.','#EF4444');return}
+  if(CFG.statuses.some(s=>!String(s.nome).trim())){toast('Todo status precisa de nome.','#EF4444');return}
+  DB.update('op_listas',CFG.id,{nome:CFG.nome.trim(),statuses:CFG.statuses,campos:CFG.campos.filter(c=>String(c.nome).trim())});
+  opCloseModal();renderOp();toast('Lista atualizada ✓','#10B981');
+};
+window.opArchiveLista=function(){
+  if(!confirm('Arquivar esta lista? Ela e suas tarefas somem das telas, mas continuam salvas.'))return;
+  DB.update('op_listas',CFG.id,{arquivada:true});
+  S.listaId=null;opCloseModal();renderOp();
+};
+window.opImportClientes=function(){
+  const l=lista(CFG.id);const sq=squad(l.squadId);if(!l||!sq)return;
+  // usa a estrutura salva agora (status/campos já gravados), então grava o rascunho antes
+  DB.update('op_listas',CFG.id,{nome:CFG.nome.trim()||l.nome,statuses:CFG.statuses,campos:CFG.campos});
+  const L=lista(CFG.id);
+  const clientes=(DB.get('clientes')||[]).filter(c=>clienteSquads(c).includes(sq.nome));
+  const existentes=new Set((DB.get('op_tarefas')||[]).filter(t=>t.listaId===L.id).map(t=>String(t.clienteId)));
+  const stByNome=n=>(L.statuses||[]).find(s=>String(s.nome).trim().toLowerCase()===String(n||'').trim().toLowerCase());
+  const cpByNome=n=>(L.campos||[]).find(c=>String(c.nome).trim().toLowerCase()===n.toLowerCase());
+  const optId=(c,v)=>c?.opcoes?.find(o=>String(o.nome).toLowerCase()===String(v||'').toLowerCase())?.id||'';
+  let n=0;
+  clientes.forEach((c,i)=>{
+    if(existentes.has(String(c.id)))return;
+    const st=stByNome(c.contaStatus||'Integração')||L.statuses[0];
+    const campos={};
+    const set=(nome,val)=>{const cp=cpByNome(nome);if(cp&&val)campos[cp.id]=cp.tipo==='select'?optId(cp,val):val};
+    set('Relacionamento',c.contaRelacionamento);set('Resultado',c.contaResultado);
+    set('Drive',c.linkDrive);set('Meta',c.linkMeta);set('Google Ads',c.linkGoogleAds);set('GMN',c.linkGmn);
+    const resp=(c.contaResponsaveis||[]).map(String);
+    const atv=[logEntry('importou este cliente da Carteira antiga')];
+    (c.comentarios||[]).forEach(cm=>atv.push({id:nid(),tipo:'comentario',texto:cm.texto,autor:cm.autor||'Usuário',autorId:'',data:cm.data||new Date().toISOString(),mencoes:[],lidoPor:[me().id]}));
+    DB.push('op_tarefas',{id:nid(),listaId:L.id,clienteId:c.id,titulo:c.nome,statusId:st.id,resp,inicio:'',venc:'',prioridade:'',etiquetas:[],descricao:'',campos,checklists:[],anexos:[],atividade:atv,criadoPor:me().nome,criadoEm:new Date().toISOString(),ordem:Date.now()+i});
+    n++;
+  });
+  opCloseModal();renderOp();
+  toast(n?`${n} cliente(s) importado(s) ✓`:'Nenhum cliente novo para importar.',n?'#10B981':'#F59E0B');
+};
+
+/* atualiza o selo de menções sem redesenhar tudo */
+setInterval(()=>{
+  try{
+    if(S.legacy||currentProjView!=='entregas'||!document.getElementById('op-body')||document.getElementById('op-ov').classList.contains('open')||document.getElementById('op-md').classList.contains('open'))return;
+    const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;
+    renderOp();
+  }catch(e){}
+},45000);
+
+})();
 </script>
 
 </body>
