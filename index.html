@@ -3948,7 +3948,7 @@ const GEX_DB_COLLECTIONS = [
   'tracking_links','integration_events','integration_connections','manual_trackings','tracking_events',
   'conversion_settings','conversion_events','lead_forms','lead_form_submissions','leadgen_settings',
   'whatsapp_widgets','automacoes','automacao_tasks','automacao_log','email_smtp_settings','zapi_settings',
-  'op_listas','op_tarefas'
+  'op_listas','op_tarefas','op_acessos'
 ];
 const GEX_KV_EXCLUDED = new Set([
   // gx2_usuarios: mesmo "usuarios" já sendo excluído da sincronização por
@@ -22483,6 +22483,7 @@ const BUCKET='op-anexos';
 const S={squadId:null,listaId:null,view:'lista',busca:'',resp:'',prio:'',collapsed:{},taskId:null,legacy:false,drag:null,openSquads:{}};
 const esc=v=>escHtml(v);
 const ea=v=>escAttr(v);
+const jsq=v=>escHtml(JSON.stringify(String(v)));
 const nid=()=>uid();
 
 /* ── identidade / permissões ── */
@@ -22492,12 +22493,33 @@ function personIsMe(p){
   const ks=meKeys();
   return [p.id,p.email,p.nome].map(_normTaskIdentity).filter(Boolean).some(k=>ks.includes(k));
 }
-function canManage(){
-  if(isProjectFounderView())return true;
-  const r=_normTaskIdentity(sessionUser?.permissao||sessionUser?.cargo||'');
-  return /gerente|head|admin/.test(r);
+function canManage(){return isProjectFounderView()}
+/* Acessos: o fundador libera squad inteiro ou lista específica para cada pessoa,
+   com nível "ver" (só visualiza) ou "editar". Quem não é fundador só enxerga o
+   que foi liberado aqui. */
+function grantsMe(){
+  return col('op_acessos').filter(g=>{
+    const p=personById(g.userId);
+    return (p&&personIsMe(p))||String(g.userId)===me().id;
+  });
 }
-function people(){return getProjectPeople()}
+function nivelLista(l){
+  if(!l)return null;
+  if(isProjectFounderView())return 'editar';
+  let n=null;
+  grantsMe().forEach(g=>{
+    if(g.squadId!==l.squadId)return;
+    if(g.listaId&&g.listaId!==l.id)return;
+    if(g.nivel==='editar')n='editar';else if(!n)n='ver';
+  });
+  return n;
+}
+function podeEditar(l){return nivelLista(l)==='editar'}
+function guardEdit(l){if(podeEditar(l))return true;toast('Você tem acesso somente para visualizar.','#F59E0B');return false}
+let RC=null; // cache válido só enquanto uma tela está sendo desenhada
+function withCache(fn){const prev=RC;RC=prev||{};try{return fn()}finally{RC=prev}}
+function col(k){if(RC){return RC[k]||(RC[k]=DB.get(k)||[])}return DB.get(k)||[]}
+function people(){if(RC)return RC.__people||(RC.__people=getProjectPeople());return getProjectPeople()}
 function personById(id){return people().find(p=>String(p.id)===String(id))}
 function mySquadNames(){
   const ks=meKeys();
@@ -22514,17 +22536,15 @@ function mySquadNames(){
 function visibleSquads(){
   const all=DB.get('squads')||[];
   if(isProjectFounderView())return all;
-  const mine=mySquadNames();
-  const viaTask=new Set();
-  const listas=DB.get('op_listas')||[];
-  (DB.get('op_tarefas')||[]).forEach(t=>{if((t.resp||[]).some(id=>{const p=personById(id);return p&&personIsMe(p)})){const l=listas.find(x=>x.id===t.listaId);if(l)viaTask.add(l.squadId)}});
-  return all.filter(s=>mine.has(String(s.nome||'').trim().toLowerCase())||viaTask.has(s.id));
+  const ids=new Set(grantsMe().map(g=>g.squadId));
+  return all.filter(s=>ids.has(s.id));
 }
-function listasDoSquad(sid){return (DB.get('op_listas')||[]).filter(l=>l.squadId===sid&&!l.arquivada).sort((a,b)=>(a.ordem||0)-(b.ordem||0))}
-function tarefasDaLista(lid){return (DB.get('op_tarefas')||[]).filter(t=>t.listaId===lid&&!t.arquivada)}
-function lista(id){return (DB.get('op_listas')||[]).find(l=>l.id===id)}
-function tarefa(id){return (DB.get('op_tarefas')||[]).find(t=>t.id===id)}
-function squad(id){return (DB.get('squads')||[]).find(s=>s.id===id)}
+function listasVisiveis(sid){return listasDoSquad(sid).filter(l=>nivelLista(l))}
+function listasDoSquad(sid){return col('op_listas').filter(l=>l.squadId===sid&&!l.arquivada).sort((a,b)=>(a.ordem||0)-(b.ordem||0))}
+function tarefasDaLista(lid){return col('op_tarefas').filter(t=>t.listaId===lid&&!t.arquivada)}
+function lista(id){return col('op_listas').find(l=>l.id===id)}
+function tarefa(id){return col('op_tarefas').find(t=>t.id===id)}
+function squad(id){return col('squads').find(s=>s.id===id)}
 
 /* ── modelos padrão ── */
 function defaultListaModel(sq){
@@ -22544,11 +22564,15 @@ function defaultListaModel(sq){
 }
 function ensureDefaultList(sq){
   if(!sq||!canManage())return null;
+  if(sq.opListaCriada)return null; // já teve lista: se foi excluída, não recria sozinho
   if(listasDoSquad(sq.id).length)return null;
   const id='op_lista_'+sq.id; // id fixo: dois acessos simultâneos não duplicam
   if(lista(id))return null;
   const m=defaultListaModel(sq);
   DB.push('op_listas',{id,squadId:sq.id,ordem:1,...m,criadoEm:new Date().toISOString()});
+  if(RC)delete RC.op_listas;
+  DB.update('squads',sq.id,{opListaCriada:true});
+  if(RC)delete RC.squads;
   return id;
 }
 
@@ -22560,13 +22584,13 @@ function pickInitial(){
   if(S.squadId!==sq.id&&S.squadId===null)S.openSquads[sq.id]=true;
   S.squadId=sq.id;
   ensureDefaultList(sq);
-  const ls=listasDoSquad(sq.id);
+  const ls=listasVisiveis(sq.id);
   if(!ls.find(l=>l.id===S.listaId))S.listaId=ls[0]?.id||null;
 }
 
 /* ── util ── */
 function fmtData(d){if(!d)return '';const x=new Date(d+'T00:00:00');return isNaN(x)?'':x.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}
-function hoje(){const d=new Date();return d.toISOString().slice(0,10)}
+function hoje(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function ini(n){return String(n||'?').trim().split(/\s+/).map(x=>x[0]).slice(0,2).join('').toUpperCase()}
 function avs(ids){
   const ps=(ids||[]).map(personById).filter(Boolean);
@@ -22580,11 +22604,20 @@ function pill(s){return `<span class="op-pill" style="background:${ea(s.cor)}">$
 function ckProg(t){let a=0,b=0;(t.checklists||[]).forEach(c=>(c.itens||[]).forEach(i=>{b++;if(i.feito)a++}));return {a,b}}
 function nComentarios(t){return (t.atividade||[]).filter(x=>x.tipo==='comentario').length}
 
+const MAX_ATIV=100;       // entradas por tarefa (mais antigas saem primeiro)
+const MAX_LOG_TXT=240, MAX_COM_TXT=2000;
+function capAtiv(arr){
+  arr=arr.map(a=>a.tipo==='comentario'?a:{...a,texto:String(a.texto||'').slice(0,MAX_LOG_TXT)});
+  if(arr.length<=MAX_ATIV)return arr;
+  // mantém a 1ª entrada ("criou esta tarefa") + as mais recentes
+  return [arr[0],...arr.slice(arr.length-(MAX_ATIV-1))];
+}
 function logEntry(texto,tipo){return {id:nid(),tipo:tipo||'log',texto,autor:me().nome,autorId:me().id,data:new Date().toISOString()}}
 function upd(id,patch,logText){
   const t=tarefa(id);if(!t)return null;
+  if(!guardEdit(lista(t.listaId)))return null;
   const data={...patch};
-  if(logText)data.atividade=[...(t.atividade||[]),logEntry(logText)];
+  if(logText)data.atividade=capAtiv([...(t.atividade||[]),logEntry(logText)]);
   return DB.update('op_tarefas',id,data);
 }
 
@@ -22604,7 +22637,7 @@ function sidebarHtml(){
   const sqs=visibleSquads();
   const manage=canManage();
   const body=sqs.map(sq=>{
-    const ls=listasDoSquad(sq.id);
+    const ls=listasVisiveis(sq.id);
     const open=S.openSquads[sq.id];
     const total=ls.reduce((n,l)=>n+tarefasDaLista(l.id).length,0);
     return `<div>
@@ -22619,13 +22652,14 @@ function sidebarHtml(){
 
 function mentionsPending(){
   let n=0;
-  (DB.get('op_tarefas')||[]).forEach(t=>(t.atividade||[]).forEach(a=>{
+  col('op_tarefas').filter(t=>nivelLista(lista(t.listaId))).forEach(t=>(t.atividade||[]).forEach(a=>{
     if(a.tipo==='comentario'&&(a.mencoes||[]).some(id=>{const p=personById(id);return p&&personIsMe(p)})&&!(a.lidoPor||[]).includes(me().id))n++;
   }));
   return n;
 }
 
-function renderOp(){
+function renderOp(){return withCache(renderOpInner)}
+function renderOpInner(){
   const box=document.getElementById('proj-content');if(!box)return;
   pickInitial();
   const l=lista(S.listaId);
@@ -22650,8 +22684,9 @@ function topHtml(l,sq){
     <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="opMentions()" title="Comentários que marcaram você">🔔 Menções${pend?` <b style="color:#EF4444">(${pend})</b>`:''}</button>
       ${canManage()?`<button class="btn btn-ghost btn-sm" onclick="opConfigLista('${l.id}')">⚙️ Configurar lista</button>`:''}
-      <button class="btn btn-ghost btn-sm" onclick="opLegacy(true)" title="Voltar para a tela antiga de Gestão de Entregas">↩ Visão antiga</button>
-      <button class="btn btn-primary btn-sm" onclick="opNewTask('')">+ Tarefa</button>
+      ${canManage()?`<button class="btn btn-ghost btn-sm" onclick="opLegacy(true)" title="Voltar para a tela antiga de Gestão de Entregas">↩ Visão antiga</button>`:''}
+      ${canManage()?`<button class="btn btn-ghost btn-sm" onclick="opAcessos()">👥 Acessos</button>`:''}
+      ${podeEditar(l)?`<button class="btn btn-primary btn-sm" onclick="opNewTask('')">+ Tarefa</button>`:`<span class="op-chip" style="background:var(--bg);color:var(--muted)">👁 Somente visualização</span>`}
     </div>
   </div>`;
 }
@@ -22683,15 +22718,15 @@ function bodyHtml(l){
   return `<div id="op-body">${groupsHtml(l,ts)}</div>`;
 }
 
-function cols(l){return `minmax(230px,2.2fr) 110px 100px 90px${(l.campos||[]).map(()=>' minmax(120px,1fr)').join('')}`}
+function cols(l){return `minmax(230px,2.2fr) 110px 100px 90px${(l.campos||[]).map(()=>' minmax(120px,1fr)').join('')} 34px`}
 function headRow(l){
-  return `<div class="op-row hd" style="grid-template-columns:${cols(l)}"><div>Nome</div><div>Responsável</div><div>Vencimento</div><div>Prioridade</div>${(l.campos||[]).map(c=>`<div>${esc(c.nome)}</div>`).join('')}</div>`;
+  return `<div class="op-row hd" style="grid-template-columns:${cols(l)}"><div>Nome</div><div>Responsável</div><div>Vencimento</div><div>Prioridade</div>${(l.campos||[]).map(c=>`<div>${esc(c.nome)}</div>`).join('')}<div></div></div>`;
 }
 function cellHtml(l,t,c){
   const v=(t.campos||{})[c.id];
   if(c.tipo==='select'){
     const op=(c.opcoes||[]).find(o=>o.id===v);
-    return `<div onclick="event.stopPropagation()"><select class="form-input" style="padding:3px 6px;font-size:11px;font-weight:700;width:auto;max-width:130px;${op?`color:${ea(op.cor)};background:${ea(op.cor)}18;border-color:${ea(op.cor)}55`:''}" onchange="opSetCampo('${t.id}','${c.id}',this.value)"><option value="">—</option>${(c.opcoes||[]).map(o=>`<option value="${o.id}" ${o.id===v?'selected':''}>${esc(o.nome)}</option>`).join('')}</select></div>`;
+    return `<div onclick="event.stopPropagation()"><select class="form-input" ${podeEditar(l)?'':'disabled'} style="padding:3px 6px;font-size:11px;font-weight:700;width:auto;max-width:130px;${op?`color:${ea(op.cor)};background:${ea(op.cor)}18;border-color:${ea(op.cor)}55`:''}" onchange="opSetCampo('${t.id}','${c.id}',this.value)"><option value="">—</option>${(c.opcoes||[]).map(o=>`<option value="${o.id}" ${o.id===v?'selected':''}>${esc(o.nome)}</option>`).join('')}</select></div>`;
   }
   if(!v&&v!==0&&v!==false)return '<span style="color:var(--light)">—</span>';
   if(c.tipo==='link')return `<a class="op-link" href="${ea(safeUrl(v))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 ${esc(hostOf(v))}</a>`;
@@ -22709,6 +22744,7 @@ function rowHtml(l,t,showSt){
     <div style="${atrasada?'color:#EF4444;font-weight:700':''}">${t.venc?esc(fmtData(t.venc)):'<span style="color:var(--light)">—</span>'}</div>
     <div>${pr?`<span class="op-chip" style="background:${PRIORIDADES[pr]}22;color:${PRIORIDADES[pr]}">${esc(pr)}</span>`:'<span style="color:var(--light)">—</span>'}</div>
     ${(l.campos||[]).map(c=>`<div>${cellHtml(l,t,c)}</div>`).join('')}
+    <div>${podeEditar(l)?`<button class="op-x" title="Excluir tarefa" onclick="event.stopPropagation();opExcluirTask('${t.id}')">🗑</button>`:''}</div>
   </div>`;
 }
 
@@ -22719,7 +22755,7 @@ function groupsHtml(l,ts){
     const closed=S.collapsed[key];
     return `<div class="op-grp">
       <div class="op-grp-h" onclick="opToggle('${key}')"><span style="font-size:10px;color:var(--light)">${closed?'▸':'▾'}</span>${pill(s)}<span style="font-size:12px;color:var(--muted)">${items.length}</span>
-        <button class="op-x" style="margin-left:auto;color:var(--p2);font-weight:700" onclick="event.stopPropagation();opNewTask('${s.id}')" title="Adicionar tarefa neste status">+ Tarefa</button></div>
+        ${podeEditar(l)?`<button class="op-x" style="margin-left:auto;color:var(--p2);font-weight:700" onclick="event.stopPropagation();opNewTask('${s.id}')" title="Adicionar tarefa neste status">+ Tarefa</button>`:''}</div>
       ${closed?'':`<div class="op-scroll">${items.length?headRow(l)+items.map(t=>rowHtml(l,t)).join(''):'<div style="padding:10px 16px;font-size:12px;color:var(--light);border-top:1px solid var(--border)">Nenhuma tarefa neste status</div>'}</div>`}
     </div>`;
   }).join('');
@@ -22735,12 +22771,12 @@ function kanbanHtml(l,ts){
       ${items.map(t=>{
         const p=ckProg(t);
         const sel=(l.campos||[]).filter(c=>c.tipo==='select'&&(t.campos||{})[c.id]).map(c=>{const o=(c.opcoes||[]).find(x=>x.id===t.campos[c.id]);return o?`<span class="op-chip" style="background:${ea(o.cor)}22;color:${ea(o.cor)}">${esc(o.nome)}</span>`:''}).join('');
-        return `<div class="op-card" draggable="true" ondragstart="opDragStart(event,'${t.id}')" onclick="opOpenTask('${t.id}')">
+        return `<div class="op-card" draggable="${podeEditar(l)}" ondragstart="opDragStart(event,'${t.id}')" onclick="opOpenTask('${t.id}')">
           <div class="t">${esc(t.titulo||'Sem título')}</div>
           <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">${sel}</div>
           <div class="m"><span style="display:flex">${avs(t.resp)}</span>${t.venc?`<span style="${t.venc<hoje()&&!s.concluido?'color:#EF4444;font-weight:700':''}">📅 ${esc(fmtData(t.venc))}</span>`:''}${p.b?`<span>☑ ${p.a}/${p.b}</span>`:''}${nComentarios(t)?`<span>💬 ${nComentarios(t)}</span>`:''}</div>
         </div>`;}).join('')}
-      <button class="op-ghost" style="width:100%" onclick="opNewTask('${s.id}')">+ Adicionar</button>
+      ${podeEditar(l)?`<button class="op-ghost" style="width:100%" onclick="opNewTask('${s.id}')">+ Adicionar</button>`:''}
     </div>`;}).join('')}</div>`;
 }
 
@@ -22749,7 +22785,7 @@ window.opSelSquad=function(id){
   S.openSquads[id]=!S.openSquads[id];
   S.squadId=id;
   const sq=squad(id);ensureDefaultList(sq);
-  const ls=listasDoSquad(id);
+  const ls=listasVisiveis(id);
   if(!ls.find(l=>l.id===S.listaId))S.listaId=ls[0]?.id||null;
   renderOp();
 };
@@ -22761,7 +22797,7 @@ window.opClearF=function(){S.busca='';S.resp='';S.prio='';renderOp()};
 window.opBusca=function(v){
   S.busca=v;
   const l=lista(S.listaId);const b=document.getElementById('op-body');
-  if(l&&b)b.outerHTML=bodyHtml(l);
+  if(l&&b)withCache(()=>{b.outerHTML=bodyHtml(l)});
 };
 window.opLegacy=function(on){S.legacy=!!on;window.renderEntregas()};
 
@@ -22774,6 +22810,7 @@ window.opDrop=function(e,statusId){
 };
 function opMoveTo(id,statusId){
   const t=tarefa(id);const l=lista(t?.listaId);if(!t||!l)return;
+  if(!guardEdit(l))return;
   const old=statusOf(l,t),nw=(l.statuses||[]).find(s=>s.id===statusId);
   if(!nw||old?.id===nw.id)return;
   upd(id,{statusId,ordem:Date.now()},`mudou o status de "${old?.nome||'—'}" para "${nw.nome}"`);
@@ -22782,7 +22819,7 @@ function opMoveTo(id,statusId){
 
 /* ═══ CRIAR TAREFA ═══ */
 window.opNewTask=function(statusId){
-  const l=lista(S.listaId);if(!l)return;
+  const l=lista(S.listaId);if(!l||!guardEdit(l))return;
   const nome=prompt('Nome da tarefa / cliente:');
   if(!nome||!nome.trim())return;
   const st=(l.statuses||[]).find(s=>s.id===statusId)||l.statuses[0];
@@ -22795,6 +22832,7 @@ window.opNewTask=function(statusId){
 
 /* ═══ PAINEL DA TAREFA ═══ */
 window.opOpenTask=function(id){
+  if(!nivelLista(lista(tarefa(id)?.listaId)))return;
   S.taskId=id;
   markMentionsRead(id);
   renderTask();
@@ -22816,15 +22854,17 @@ function markMentionsRead(id){
   if(ch)DB.update('op_tarefas',id,{atividade:at});
 }
 
-function renderTask(keepScroll){
+function renderTask(keepScroll){return withCache(()=>renderTaskInner(keepScroll))}
+function renderTaskInner(keepScroll){
   const t=tarefa(S.taskId);const ov=document.getElementById('op-ov');
   if(!t){ov.innerHTML='';return}
   const l=lista(t.listaId);if(!l){ov.innerHTML='';return}
+  const draft=document.getElementById('op-cm-in')?.value||'';
   const prevMain=ov.querySelector('.op-main');const prevAct=ov.querySelector('.op-act-list');
   const sm=prevMain?prevMain.scrollTop:0,sa=prevAct?prevAct.scrollTop:0;
   const st=statusOf(l,t);
   const ps=people();
-  const respSel=(t.resp||[]).map(id=>{const p=personById(id);return p?`<span class="op-chip" style="background:var(--p-light);color:var(--p2)">${esc(p.nome)} <span style="cursor:pointer" onclick="opToggleResp('${t.id}','${ea(p.id)}')">✕</span></span>`:''}).join(' ');
+  const respSel=(t.resp||[]).map(id=>{const p=personById(id);return p?`<span class="op-chip" style="background:var(--p-light);color:var(--p2)">${esc(p.nome)} <span style="cursor:pointer" onclick="opToggleResp('${t.id}',${jsq(p.id)})">✕</span></span>`:''}).join(' ');
   const campos=(l.campos||[]).map(c=>`<div class="op-pr" style="grid-template-columns:150px 1fr"><span>${esc(c.nome)}</span><div>${campoInput(t,c)}</div></div>`).join('');
   const ckHtml=(t.checklists||[]).map(c=>{
     const tot=(c.itens||[]).length,dn=(c.itens||[]).filter(i=>i.feito).length;
@@ -22840,7 +22880,7 @@ function renderTask(keepScroll){
     :`<div class="op-act-it"><b style="color:var(--txt)">${esc(a.autor)}</b> ${esc(a.texto)} <span style="color:var(--light)">· ${esc(new Date(a.data).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}))}</span></div>`).join('');
   ov.innerHTML=`<div class="op-drawer">
     <div class="op-main">
-      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)"><span>${esc(squad(l.squadId)?.nome||'')} / ${esc(l.nome)}</span><span style="margin-left:auto"></span><button class="btn btn-ghost btn-sm" onclick="opDelTask('${t.id}')" title="Arquivar tarefa">🗄 Arquivar</button><button class="btn btn-ghost btn-sm" onclick="opCloseTask()">✕ Fechar</button></div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)"><span>${esc(squad(l.squadId)?.nome||'')} / ${esc(l.nome)}</span><span style="margin-left:auto"></span><button class="btn btn-ghost btn-sm" onclick="opDelTask('${t.id}')" title="Esconde a tarefa, mas mantém os dados salvos">🗄 Arquivar</button><button class="btn btn-ghost btn-sm" style="color:#EF4444" onclick="opExcluirTask('${t.id}')" title="Apaga a tarefa de vez">🗑 Excluir</button><button class="btn btn-ghost btn-sm" onclick="opCloseTask()">✕ Fechar</button></div>
       <input class="op-title" value="${ea(t.titulo)}" onchange="opSetTitulo('${t.id}',this.value)">
       <div class="op-props">
         <div class="op-pr"><span>Status</span><div style="display:flex;gap:6px"><select class="form-input" style="font-weight:800;color:#fff;background:${ea(st?.cor||'#999')};border-color:${ea(st?.cor||'#999')}" onchange="opSetStatus('${t.id}',this.value)">${(l.statuses||[]).map(s=>`<option value="${s.id}" ${s.id===st?.id?'selected':''} style="background:#fff;color:#111">${esc(s.nome)}</option>`).join('')}</select><button class="btn btn-ghost btn-sm" title="Concluir tarefa (move para o status final)" onclick="opConcluir('${t.id}')">${st?.concluido?'✅':'✓'}</button></div></div>
@@ -22862,11 +22902,18 @@ function renderTask(keepScroll){
       <div style="padding:14px 14px 0;font-weight:800;font-size:13px">Atividade</div>
       <div class="op-act-list" id="op-act-list">${atv}</div>
       <div class="op-cmbox"><div class="op-mnbox" id="op-mnbox"></div>
-        <textarea class="form-input" id="op-cm-in" rows="2" style="width:100%;font-size:12.5px" placeholder="Escreva um comentário… use @ para marcar alguém" oninput="opMentionInput(this)" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey))opAddComment()"></textarea>
+        <textarea class="form-input" id="op-cm-in" maxlength="2000" rows="2" style="width:100%;font-size:12.5px" placeholder="Escreva um comentário… use @ para marcar alguém" oninput="opMentionInput(this)" onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey))opAddComment()"></textarea>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px"><span style="font-size:10.5px;color:var(--light)">Ctrl+Enter envia</span><button class="btn btn-primary btn-sm" onclick="opAddComment()">Comentar</button></div>
       </div>
     </div>
   </div>`;
+  if(!podeEditar(l)){
+    ov.querySelectorAll('.op-main input,.op-main select,.op-main textarea').forEach(e=>{e.disabled=true});
+    ov.querySelectorAll('.op-ghost,.op-x,.op-cmbox,.op-sec label').forEach(e=>{e.style.display='none'});
+    ov.querySelectorAll('.op-main .btn').forEach(e=>{if(!/opCloseTask/.test(e.getAttribute('onclick')||''))e.style.display='none'});
+    const ta=ov.querySelector('.op-act-list');if(ta)ta.insertAdjacentHTML('beforeend','<div class="op-act-it" style="text-align:center">👁 Você tem acesso somente para visualizar.</div>');
+  }
+  const dr=document.getElementById('op-cm-in');if(dr&&draft)dr.value=draft;
   const m=ov.querySelector('.op-main'),a=ov.querySelector('.op-act-list');
   if(m)m.scrollTop=sm;
   if(a)a.scrollTop=keepScroll===false?a.scrollHeight:(sa||a.scrollHeight);
@@ -22911,11 +22958,37 @@ window.opSetCampo=function(id,cid,v){
   if(S.taskId===id)renderTask();
   renderOpBg();
 };
-function renderOpBg(){if(document.getElementById('op-ov').classList.contains('open')){const l=lista(S.listaId);const b=document.getElementById('op-body');if(l&&b)b.outerHTML=bodyHtml(l)}else renderOp()}
+function renderOpBg(){if(document.getElementById('op-ov').classList.contains('open')){const l=lista(S.listaId);const b=document.getElementById('op-body');if(l&&b)withCache(()=>{b.outerHTML=bodyHtml(l)})}else renderOp()}
 window.opDelTask=function(id){
+  if(!guardEdit(lista(tarefa(id)?.listaId)))return;
   if(!confirm('Arquivar esta tarefa? Ela some das telas, mas os dados continuam salvos.'))return;
   DB.update('op_tarefas',id,{arquivada:true});
   opCloseTask();
+};
+
+/* ── exclusão definitiva ── */
+async function removerAnexosStorage(t){
+  const c=sb();const paths=(t?.anexos||[]).map(a=>a.path).filter(Boolean);
+  if(c&&paths.length){try{await c.storage.from(BUCKET).remove(paths)}catch(e){console.warn('[Operacional] remover anexos:',e)}}
+}
+window.opExcluirTask=async function(id){
+  const t=tarefa(id);if(!t)return;
+  if(!guardEdit(lista(t.listaId)))return;
+  if(!confirm(`Excluir "${t.titulo}" de vez?\n\nO card, o histórico, os checklists e os anexos serão apagados e não dá para recuperar.\n(Se só quiser esconder, use "Arquivar".)`))return;
+  await removerAnexosStorage(t);
+  DB.remove('op_tarefas',id);
+  if(S.taskId===id){S.taskId=null;document.getElementById('op-ov').classList.remove('open');document.getElementById('op-ov').innerHTML=''}
+  renderOp();toast('Tarefa excluída','#6B7280');
+};
+window.opExcluirLista=async function(){
+  if(!canManage())return;
+  const l=lista(CFG.id);if(!l)return;
+  const ts=(DB.get('op_tarefas')||[]).filter(t=>t.listaId===l.id);
+  const r=prompt(`Excluir a lista "${l.nome}" e ${ts.length} tarefa(s) de vez? Não dá para recuperar.\n\nPara confirmar, digite EXCLUIR:`);
+  if((r||'').trim().toUpperCase()!=='EXCLUIR')return;
+  for(const t of ts){await removerAnexosStorage(t);DB.remove('op_tarefas',t.id)}
+  DB.remove('op_listas',l.id);
+  S.listaId=null;opCloseModal();renderOp();toast('Lista excluída','#6B7280');
 };
 
 /* ── checklists ── */
@@ -22952,6 +23025,7 @@ window.opUpload=async function(inp){
   const files=[...(inp.files||[])];inp.value='';
   if(!files.length)return;
   const c=sb();
+  if(!guardEdit(lista(tarefa(S.taskId)?.listaId)))return;
   if(!c){toast('Upload indisponível neste ambiente (só funciona no sistema publicado).','#EF4444');return}
   for(const f of files){
     if(f.size>MAX_ANEXO){toast(`"${f.name}" passa de 10 MB.`,'#EF4444');continue}
@@ -22975,6 +23049,7 @@ window.opOpenAnexo=async function(aid){
   window.open(data.signedUrl,'_blank','noopener');
 };
 window.opDelAnexo=async function(aid){
+  if(!guardEdit(lista(tarefa(S.taskId)?.listaId)))return;
   if(!confirm('Remover este anexo?'))return;
   const t=tarefa(S.taskId);const a=(t?.anexos||[]).find(x=>x.id===aid);if(!a)return;
   const c=sb();
@@ -23007,10 +23082,10 @@ window.opMentionInput=function(el){
   const q=m[1].toLowerCase();
   const list=people().filter(p=>p.nome.toLowerCase().includes(q)).slice(0,6);
   if(!list.length){box.style.display='none';return}
-  box.innerHTML=list.map(p=>`<div onmousedown="event.preventDefault();opPickMention('${ea(p.id)}')">${esc(p.nome)}${p.cargo?` <span style="color:var(--light);font-size:11px">· ${esc(p.cargo)}</span>`:''}</div>`).join('');
+  box.innerHTML=list.map(p=>`<div onmousedown="event.preventDefault();opPickMention(${jsq(p.id)})">${esc(p.nome)}${p.cargo?` <span style="color:var(--light);font-size:11px">· ${esc(p.cargo)}</span>`:''}</div>`).join('');
   box.style.display='block';
 };
-window.opPickMention=function(pid){
+window.opPickMention=function(pid){pid=String(pid);
   const el=document.getElementById('op-cm-in');const p=personById(pid);if(!el||!p)return;
   const pos=el.selectionStart;const before=el.value.slice(0,pos).replace(/@([^\s@]*)$/,'@'+p.nome+' ');
   el.value=before+el.value.slice(pos);
@@ -23018,18 +23093,18 @@ window.opPickMention=function(pid){
   document.getElementById('op-mnbox').style.display='none';
 };
 window.opAddComment=function(){
-  const el=document.getElementById('op-cm-in');const txt=(el?.value||'').trim();if(!txt)return;
-  const t=tarefa(S.taskId);if(!t)return;
+  const el=document.getElementById('op-cm-in');const txt=(el?.value||'').trim().slice(0,MAX_COM_TXT);if(!txt)return;
+  const t=tarefa(S.taskId);if(!t||!guardEdit(lista(t.listaId)))return;
   const men=mentionsIn(txt);
   const e={...logEntry(txt,'comentario'),mencoes:men,lidoPor:[me().id]};
-  DB.update('op_tarefas',t.id,{atividade:[...(t.atividade||[]),e]});
+  DB.update('op_tarefas',t.id,{atividade:capAtiv([...(t.atividade||[]),e])});
   if(men.length)toast(`Marcou ${men.map(id=>personById(id)?.nome).filter(Boolean).join(', ')} ✓`,'#10B981');
   renderTask(false);
   renderOpBg();
 };
 window.opMentions=function(){
   const out=[];
-  (DB.get('op_tarefas')||[]).forEach(t=>(t.atividade||[]).forEach(a=>{
+  col('op_tarefas').filter(t=>nivelLista(lista(t.listaId))).forEach(t=>(t.atividade||[]).forEach(a=>{
     if(a.tipo==='comentario'&&(a.mencoes||[]).some(id=>{const p=personById(id);return p&&personIsMe(p)}))out.push({t,a});
   }));
   out.sort((x,y)=>String(y.a.data).localeCompare(String(x.a.data)));
@@ -23037,7 +23112,7 @@ window.opMentions=function(){
    ${out.length?out.slice(0,60).map(({t,a})=>`<div class="op-cm" style="cursor:pointer" onclick="opCloseModal();opGoTask('${t.id}')"><b>${esc(a.autor)}</b> em <b>${esc(t.titulo)}</b><span class="d">${esc(new Date(a.data).toLocaleString('pt-BR'))}</span>${(a.lidoPor||[]).includes(me().id)?'':' <span style="color:#EF4444;font-weight:800;font-size:11px">● nova</span>'}<div style="margin-top:4px">${mentionHtml(a.texto)}</div></div>`).join(''):'<div style="color:var(--light);padding:16px;text-align:center">Ninguém marcou você ainda.</div>'}`);
 };
 window.opGoTask=function(id){
-  const t=tarefa(id);const l=lista(t?.listaId);if(!l)return;
+  const t=tarefa(id);const l=lista(t?.listaId);if(!l||!nivelLista(l)){toast('Você não tem acesso a esta lista.','#EF4444');return}
   S.squadId=l.squadId;S.listaId=l.id;S.openSquads[l.squadId]=true;renderOp();opOpenTask(id);
 };
 
@@ -23091,7 +23166,7 @@ function renderCfg(){
    <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Traz os clientes que já estão neste squad (e o status, resultado, relacionamento e links da Carteira antiga) como tarefas desta lista. Não apaga nem altera nada do módulo antigo e não duplica clientes já importados.</div>
    <button class="op-ghost" onclick="opImportClientes()">⬇ Importar clientes do squad</button>
    <div style="display:flex;gap:8px;justify-content:space-between;margin-top:20px;border-top:1px solid var(--border);padding-top:14px">
-     <button class="btn btn-ghost" style="color:#EF4444" onclick="opArchiveLista()">🗄 Arquivar lista</button>
+     <div style="display:flex;gap:8px"><button class="btn btn-ghost" onclick="opArchiveLista()" title="Esconde, mas mantém os dados">🗄 Arquivar lista</button><button class="btn btn-ghost" style="color:#EF4444" onclick="opExcluirLista()">🗑 Excluir lista</button></div>
      <div style="display:flex;gap:8px"><button class="btn btn-ghost" onclick="opCloseModal()">Cancelar</button><button class="btn btn-primary" onclick="opSaveCfg()">Salvar</button></div>
    </div>`);
 }
@@ -23130,7 +23205,7 @@ window.opImportClientes=function(){
   DB.update('op_listas',CFG.id,{nome:CFG.nome.trim()||l.nome,statuses:CFG.statuses,campos:CFG.campos});
   const L=lista(CFG.id);
   const clientes=(DB.get('clientes')||[]).filter(c=>clienteSquads(c).includes(sq.nome));
-  const existentes=new Set((DB.get('op_tarefas')||[]).filter(t=>t.listaId===L.id).map(t=>String(t.clienteId)));
+  const existentes=new Set(col('op_tarefas').filter(t=>t.listaId===L.id).map(t=>String(t.clienteId)));
   const stByNome=n=>(L.statuses||[]).find(s=>String(s.nome).trim().toLowerCase()===String(n||'').trim().toLowerCase());
   const cpByNome=n=>(L.campos||[]).find(c=>String(c.nome).trim().toLowerCase()===n.toLowerCase());
   const optId=(c,v)=>c?.opcoes?.find(o=>String(o.nome).toLowerCase()===String(v||'').toLowerCase())?.id||'';
@@ -23151,6 +23226,43 @@ window.opImportClientes=function(){
   opCloseModal();renderOp();
   toast(n?`${n} cliente(s) importado(s) ✓`:'Nenhum cliente novo para importar.',n?'#10B981':'#F59E0B');
 };
+
+/* ═══ ACESSOS (só o fundador gerencia) ═══ */
+window.opAcessos=function(){
+  if(!canManage())return;
+  const sq=squad(S.squadId);if(!sq)return;
+  const ls=listasDoSquad(sq.id);
+  const gs=col('op_acessos').filter(g=>g.squadId===sq.id);
+  const ps=people();
+  openModal2(`<div style="display:flex;align-items:center;margin-bottom:6px"><h3 style="margin:0;font-size:16px">👥 Acessos · ${esc(sq.nome)}</h3><button class="op-x" style="margin-left:auto" onclick="opCloseModal()">✕</button></div>
+   <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Quem não é fundador só vê os squads e listas liberados aqui. "Ver" mostra tudo sem permitir alterar; "Editar" permite criar, mover e editar tarefas.</div>
+   <div style="display:grid;grid-template-columns:1.3fr 1.3fr .8fr auto;gap:8px;align-items:center">
+     <select class="form-input" id="op-ac-p"><option value="">Pessoa…</option>${ps.map(p=>`<option value="${ea(p.id)}">${esc(p.nome)}${p.cargo?' · '+esc(p.cargo):''}</option>`).join('')}</select>
+     <select class="form-input" id="op-ac-l"><option value="">Squad inteiro</option>${ls.map(l=>`<option value="${l.id}">Só a lista: ${esc(l.nome)}</option>`).join('')}</select>
+     <select class="form-input" id="op-ac-n"><option value="ver">Ver</option><option value="editar">Editar</option></select>
+     <button class="btn btn-primary btn-sm" onclick="opAcAdd()">Liberar</button>
+   </div>
+   <div class="op-sec">Quem tem acesso</div>
+   ${gs.length?gs.map(g=>{const p=personById(g.userId);const l=g.listaId?lista(g.listaId):null;return `<div class="op-att"><span style="flex:1"><b>${esc(p?.nome||g.nome||'Usuário')}</b> <span style="color:var(--muted)">· ${l?'lista '+esc(l.nome):'squad inteiro'}</span></span>
+     <select class="form-input" style="width:auto;padding:3px 6px;font-size:12px" onchange="opAcNivel('${g.id}',this.value)"><option value="ver" ${g.nivel==='ver'?'selected':''}>Ver</option><option value="editar" ${g.nivel==='editar'?'selected':''}>Editar</option></select>
+     <button class="op-x" title="Remover acesso" onclick="opAcDel('${g.id}')">✕</button></div>`}).join(''):'<div style="font-size:12px;color:var(--light)">Ninguém ainda (além dos fundadores).</div>'}`);
+};
+window.opAcAdd=function(){
+  const pid=document.getElementById('op-ac-p').value,lid=document.getElementById('op-ac-l').value,nv=document.getElementById('op-ac-n').value;
+  if(!pid){toast('Escolha a pessoa.','#EF4444');return}
+  const ex=col('op_acessos').find(g=>g.userId===pid&&g.squadId===S.squadId&&(g.listaId||'')===lid);
+  if(ex)DB.update('op_acessos',ex.id,{nivel:nv});
+  else DB.push('op_acessos',{id:nid(),userId:pid,nome:personById(pid)?.nome||'',squadId:S.squadId,listaId:lid,nivel:nv,criadoPor:me().nome,criadoEm:new Date().toISOString()});
+  opAcessos();toast('Acesso liberado ✓','#10B981');
+};
+window.opAcNivel=function(id,nv){DB.update('op_acessos',id,{nivel:nv});toast('Nível atualizado ✓','#10B981')};
+window.opAcDel=function(id){DB.remove('op_acessos',id);opAcessos();toast('Acesso removido','#6B7280')};
+
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape')return;
+  if(document.getElementById('op-md').classList.contains('open'))opCloseModal();
+  else if(document.getElementById('op-ov').classList.contains('open'))opCloseTask();
+});
 
 /* atualiza o selo de menções sem redesenhar tudo */
 setInterval(()=>{
