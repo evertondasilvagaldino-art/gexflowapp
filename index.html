@@ -23375,6 +23375,7 @@ body.gx-ini-novo #page-inicio>:not(.welcome-box):not(#dash-filter-bar):not(#inic
 const st=document.createElement('style');st.id='gex-inicio-bi-css';st.textContent=css;document.head.appendChild(st);
 
 const E=s=>(typeof escHtml==='function'?escHtml(s):String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])));
+const E_=E;
 const num=n=>Number(n||0).toLocaleString('pt-BR');
 const brl=n=>fmtBRL(n||0);
 const M=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -23438,6 +23439,38 @@ function _dk(v){if(!v)return '';const t=String(v);return /^\d{4}-\d{2}-\d{2}/.te
 function closeKey(l){return _dk(l.dataFechamento||l.closedAt||(won(l)?l.wonAt:l.lostAt)||l._updatedAt||l.updatedAt||l.updated_at)}
 window.gxCloseKey=closeKey;
 function closedIn(l,p){return inP(closeKey(l),p)}
+function taxasHtml(leadsP,label){
+  let f=null;
+  try{
+    const all=getCommercialFunnels()||[];
+    f=dashFilter.funil?all.find(x=>String(x.id)===String(dashFilter.funil)):(typeof getActiveFunnel==='function'?getActiveFunnel():null);
+    if(!f)f=all.find(x=>x.isDefault)||all[0];
+  }catch(e){}
+  if(!f||!Array.isArray(f.stages)||!f.stages.length)return '';
+  const def=(()=>{try{return (getCommercialFunnels()||[]).find(x=>x.isDefault)}catch(e){return null}})();
+  const L=leadsP.filter(l=>String(l.funnelId||'')===String(f.id)||(def&&String(def.id)===String(f.id)&&!l.funnelId));
+  const ST=f.stages.slice().sort((a,b)=>(a.order||0)-(b.order||0));
+  const E=ST.map(st=>({nome:st.name||'Etapa',ganho:!!st.isWon,perdido:!!st.isLost,qtd:L.filter(l=>(l.stageId&&l.stageId===st.id)||(!l.stageId&&l.estagio===st.name)).length}));
+  const lixo=e=>e.perdido||/follow|fora icp|perdid/i.test(e.nome);
+  const noshow=e=>/no ?show/i.test(e.nome);
+  const chegou=i=>E.reduce((a,e,j)=>a+((j>=i&&!lixo(e))||e.ganho?e.qtd:0),0);
+  const cad=E.map((e,i)=>i).filter(i=>!lixo(E[i])&&!noshow(E[i]));
+  const iAg=E.findIndex(e=>/agend/i.test(e.nome)),iPr=E.findIndex(e=>/proposta/i.test(e.nome));
+  const ganhos=E.filter(e=>e.ganho).reduce((a,e)=>a+e.qtd,0);
+  const pcn=v=>(Number(v)||0).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%';
+  const P=(a,b)=>b>0?pcn(a/b*100):'—';
+  const passos=[];let pior=-1,piorV=2;
+  cad.forEach((i,k)=>{const j=cad[k+1];if(j===undefined)return;const base=chegou(i);if(!base)return;const v=chegou(j)/base;passos.push({de:E[i].nome,para:E[j].nome,v,n:chegou(j),base});if(base>=5&&v<piorV){piorV=v;pior=passos.length-1}});
+  if(!passos.length)return '';
+  let cards='';
+  if(iAg>=0){const ag=chegou(iAg);
+    const cd=(t,v,h)=>`<div class="gxb-card" style="padding:12px"><div class="gxb-l">${t}</div><div class="gxb-v">${v}</div><div class="gxb-s">${h}</div></div>`;
+    cards=`<div class="gxb-grid gxb-2e" style="margin:0 0 14px">${cd('Agendamento → Proposta',iPr>=0?P(chegou(iPr),ag):'—',iPr>=0?chegou(iPr)+' de '+ag+' agendados':'')}${cd('Agendamento → Ganho',P(ganhos,ag),ganhos+' de '+ag+' agendados')}</div>`;}
+  const linhas=passos.map((x,k)=>{const ruim=k===pior;
+    return `<div style="display:grid;grid-template-columns:minmax(110px,1.3fr) 2fr 64px;gap:10px;align-items:center;margin:9px 0;font-size:13px"><div style="min-width:0"><b>${E_(x.de)}</b> <span class="gxb-sub">→ ${E_(x.para)}</span></div><div style="background:#eef1f6;border-radius:6px;height:14px;overflow:hidden"><div style="width:${Math.max(2,Math.round(x.v*100))}%;height:100%;border-radius:6px;background:${ruim?'#d64533':BLUE}"></div></div><div style="text-align:right;font-weight:700;font-variant-numeric:tabular-nums;color:${ruim?'#d64533':'inherit'}">${pcn(x.v*100)}</div></div><div class="gxb-sub" style="margin:-4px 0 0;font-size:11px">${x.n} de ${x.base} avançaram${ruim?' · <b style="color:#d64533">maior perda do funil</b>':''}</div>`;}).join('');
+  const saidas=E.filter(e=>(lixo(e)||noshow(e))&&!e.ganho&&e.qtd).map(e=>`${E_(e.nome)} <b>${e.qtd}</b>`).join(' · ');
+  return `<div class="gxb-card" style="margin-bottom:12px"><div class="gxb-h"><div><div class="gxb-t">Avanço entre etapas</div><div class="gxb-sub">Funil ${E_(f.name||'')} · ${E_(label)} · de cada 100 leads que chegam numa etapa, quantos seguem. Estimativa pela etapa atual.</div></div></div>${cards}${linhas}${saidas?`<div class="gxb-sub" style="margin-top:14px">Fora da sequência: ${saidas}</div>`:''}</div>`;
+}
 function stColor(n,i){
   const t=String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
   if(/ganh|won|fechad/.test(t))return '#1a9a55';
@@ -23526,6 +23559,7 @@ function build(){
     fun=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">Funil comercial</div><div class="gxb-sub">${ativos.length} ativos agora · ${brl(pipeVal)} em aberto</div></div></div>${etapas.length?etapas.map((e,i)=>`<div class="gxb-fn"><b title="${E(e)}">${E(e)}</b><div><i style="width:${cnt[i]?Math.max(3,Math.round(cnt[i]/mx*100)):0}%;background:${stColor(e,i)}"></i></div><em>${cnt[i]}</em></div>`).join(''):'<div class="gxb-empty">Sem etapas.</div>'}</div>`;
   }
   html+=`<div class="gxb-grid gxb-2">${fat||''}${fun||''}</div>`;
+  if(cC){try{html+=taxasHtml(leadsP,label)}catch(e){}}
 
   // Origem dos leads + ranking
   let ori='',rank='';
