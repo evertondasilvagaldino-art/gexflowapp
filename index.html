@@ -2206,6 +2206,8 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
         <option value="2024">2024</option>
         <option value="2025">2025</option>
         <option value="2026">2026</option>
+        <option value="2027">2027</option>
+        <option value="2028">2028</option>
       </select>
       <select class="dash-filter-sel" id="dash-funil" onchange="setDashFilter()" style="display:none" title="Ver só os dados de um funil">
         <option value="">Todos os funis</option>
@@ -18486,33 +18488,16 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   function updateHolidayBanner(){
     const bar=document.getElementById('ann-bar');
     if(!bar)return;
-    const yearSel=document.getElementById('dash-ano');
-    const mesSel=document.getElementById('dash-mes');
+    // O aviso do topo é global: sempre mostra os PRÓXIMOS feriados a partir de
+    // hoje (virando o ano quando preciso), sem depender do filtro do dashboard.
     const now=new Date();
-    const year=Number(window.dashFilter?.ano || yearSel?.value || now.getFullYear());
-    const month=Number(window.dashFilter?.mes || mesSel?.value || 0);
-    const list=holidayList(year);
-    let base;
-    if(year===now.getFullYear()){
-      base=new Date(now.getFullYear(),now.getMonth(),now.getDate());
-    }else{
-      base=new Date(year,month?month-1:0,1);
-    }
-    let items;
-    if(month){
-      items=list.filter(h=>h.data.getMonth()+1===month);
-      if(year===now.getFullYear() && month===now.getMonth()+1){
-        items=items.filter(h=>h.data>=base);
-      }
-    }else{
-      items=list.filter(h=>h.data>=base).slice(0,3);
-      if(!items.length)items=list.slice(-3);
-    }
+    const base=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    const list=holidayList(now.getFullYear()).concat(holidayList(now.getFullYear()+1));
+    const items=list.filter(h=>h.data>=base).slice(0,3);
     const text=items.length
-      ?items.map(h=>`${h.nome} (${fmtDateBR(h.data)})`).join(' · ')
-      :'Nenhum feriado/ponto facultativo no período selecionado';
-    const label=month?`Feriados ${pad2(month)}/${year}:`:`Próximos feriados ${year}:`;
-    bar.innerHTML=`${GEX_HOLIDAY_ICON}<span id="ann-holiday-title">${label}</span> <span id="ann-holiday-text">${text}</span><span class="ann-close" onclick="this.parentElement.style.display='none'">×</span>`;
+      ?items.map(h=>`${h.nome} (${fmtDateBR(h.data)}${h.data.getFullYear()!==now.getFullYear()?'/'+h.data.getFullYear():''})`).join(' · ')
+      :'Nenhum feriado próximo';
+    bar.innerHTML=`${GEX_HOLIDAY_ICON}<span id="ann-holiday-title">Próximos feriados:</span> <span id="ann-holiday-text">${text}</span><span class="ann-close" onclick="this.parentElement.style.display='none'">×</span>`;
   }
   window.gexUpdateHolidayBanner=updateHolidayBanner;
 
