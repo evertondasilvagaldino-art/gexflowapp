@@ -288,25 +288,34 @@ function render(){
   if(!a.gasto&&!a.impressoes&&!a.cliques&&!a.leads){
     $('app').innerHTML='<div class="state"><b>Sem anúncios rodando neste período</b>Escolha outro período.</div>';return;
   }
+  const temVenda=a.vendas>0||a.faturamento>0;
+  const sv='—';
+  const roiTxt=temVenda?pc(a.roi):sv;
   $('app').innerHTML=
    '<section class="grid-kpi" aria-label="Indicadores">'+
      kpi('Investimento',brl2(a.gasto),a.gasto,b.gasto,{hero:true})+
+     kpi('Faturamento (compras na Meta)',temVenda?brl2(a.faturamento):sv,a.faturamento,b.faturamento)+
+     kpi('Vendas',temVenda?int(a.vendas):sv,a.vendas,b.vendas)+
+     kpi('ROAS (faturamento ÷ investimento)',temVenda&&a.roas?a.roas.toLocaleString('pt-BR',{maximumFractionDigits:2})+'x':sv,a.roas,b.roas)+
+     kpi('ROI (retorno sobre o investimento)',roiTxt,a.roi,b.roi)+
+     kpi('Custo por venda',a.vendas?brl2(a.cac):sv,a.cac,b.cac,{inverse:true})+
      kpi('Leads',int(a.leads),a.leads,b.leads)+
-     kpi('Custo por lead',a.leads?brl2(a.cpl):'—',a.cpl,b.cpl,{inverse:true})+
+     kpi('Custo por lead',a.leads?brl2(a.cpl):sv,a.cpl,b.cpl,{inverse:true})+
      kpi('Cliques',int(a.cliques),a.cliques,b.cliques)+
      kpi('CTR (cliques ÷ impressões)',pc(a.ctr),a.ctr,b.ctr)+
-     kpi('Custo por clique',a.cliques?brl2(a.cpc):'—',a.cpc,b.cpc,{inverse:true})+
-     kpi('CPM (por mil impressões)',a.impressoes?brl2(a.cpm):'—',a.cpm,b.cpm,{inverse:true})+
-     kpi('Impressões',int(a.impressoes),a.impressoes,b.impressoes,{})+
+     kpi('Custo por clique',a.cliques?brl2(a.cpc):sv,a.cpc,b.cpc,{inverse:true})+
+     kpi('CPM (por mil impressões)',a.impressoes?brl2(a.cpm):sv,a.cpm,b.cpm,{inverse:true})+
    '</section>'+
+   (temVenda?'':'<div class="card" style="margin-bottom:12px;font-size:13px;color:var(--ink2)">A Meta não registrou <b>compras</b> neste período para esta conta. Faturamento, vendas, ROAS e ROI só aparecem quando os anúncios têm o evento de compra configurado no pixel (ou nas conversões) com o valor da venda.</div>')+
    '<section class="grid2">'+
      '<div class="card"><div class="head"><div><h2>Investimento por dia</h2><div class="hint">Quanto foi gasto em anúncios em cada dia</div></div><button class="btn tg" data-tg="c1">Ver tabela</button></div><div id="c1" class="chart"></div></div>'+
-     '<div class="card"><div class="head"><div><h2>Leads por dia</h2><div class="hint">Leads gerados pelos anúncios em cada dia</div></div><button class="btn tg" data-tg="c2">Ver tabela</button></div><div id="c2" class="chart"></div></div>'+
+     '<div class="card"><div class="head"><div><h2>'+(temVenda?'Faturamento por dia':'Leads por dia')+'</h2><div class="hint">'+(temVenda?'Valor das compras registradas pela Meta em cada dia':'Leads gerados pelos anúncios em cada dia')+'</div></div><button class="btn tg" data-tg="c2">Ver tabela</button></div><div id="c2" class="chart"></div></div>'+
    '</section>'+
    '<section class="card"><h2>Campanhas</h2><div class="hint">Ordenadas por investimento no período</div><div class="scroll"><table class="tbl stack" id="camp"></table></div></section>'+
-   '<p class="foot">Dados lidos direto da conta de anúncios (Meta). Custo por lead = investimento ÷ leads gerados nos anúncios. Variações comparam com o período anterior de mesmo tamanho ('+brDate(d.periodo.anteriorDe)+' a '+brDate(d.periodo.anteriorAte)+').</p>';
+   '<p class="foot">Dados lidos direto da conta de anúncios (Meta). Faturamento = valor das compras registradas pelos anúncios. ROAS = faturamento ÷ investimento. ROI = (faturamento − investimento) ÷ investimento. Variações comparam com o período anterior de mesmo tamanho ('+brDate(d.periodo.anteriorDe)+' a '+brDate(d.periodo.anteriorAte)+').</p>';
   drawChart('c1',d.serie.map(x=>({k:x.k,v:x.gasto,t:'<b>'+labelOf(x.k,'dia',true)+'</b><br>'+brl2(x.gasto)+' · '+int(x.cliques)+' clique(s)'})),'--s1',fx,brl2,'dia');
-  drawChart('c2',d.serie.map(x=>({k:x.k,v:x.leads,t:'<b>'+labelOf(x.k,'dia',true)+'</b><br>'+int(x.leads)+' lead(s)'+(x.leads?' · '+brl2(x.gasto/x.leads)+' cada':'')})),'--s2',v=>int(v),int,'dia');
+  if(temVenda)drawChart('c2',d.serie.map(x=>({k:x.k,v:x.faturamento,t:'<b>'+labelOf(x.k,'dia',true)+'</b><br>'+brl2(x.faturamento)+' · '+int(x.vendas)+' venda(s)'})),'--s2',fx,brl2,'dia');
+  else drawChart('c2',d.serie.map(x=>({k:x.k,v:x.leads,t:'<b>'+labelOf(x.k,'dia',true)+'</b><br>'+int(x.leads)+' lead(s)'+(x.leads?' · '+brl2(x.gasto/x.leads)+' cada':'')})),'--s2',v=>int(v),int,'dia');
   drawCamps(d);
   document.querySelectorAll('[data-tg]').forEach(b=>b.onclick=()=>toggleTable(b.dataset.tg));
 }
@@ -371,8 +380,8 @@ function toggleTable(id){const c=charts[id];if(!c)return;c.table=!c.table;paint(
 /* ── campanhas ── */
 function drawCamps(d){
   const c=d.campanhas||[];const max=Math.max(1,...c.map(x=>x.gasto));
-  $('camp').innerHTML='<thead><tr><th>Campanha</th><th>Investimento</th><th>Leads</th><th>Custo por lead</th><th>Cliques</th><th>CTR</th></tr></thead><tbody>'+
-   (c.length?c.map(x=>'<tr><td title="'+esc(x.nome)+'">'+esc(x.nome)+'</td><td data-l="Investimento" class="num wide"><div class="inl"><i style="width:'+Math.round(x.gasto/max*80)+'px"></i>'+brl2(x.gasto)+'</div></td><td data-l="Leads" class="num">'+int(x.leads)+'</td><td data-l="Custo por lead" class="num">'+(x.leads?brl2(x.cpl):'—')+'</td><td data-l="Cliques" class="num">'+int(x.cliques)+'</td><td data-l="CTR" class="num">'+pc(x.ctr)+'</td></tr>').join(''):'<tr><td colspan="6">Nenhuma campanha com gasto neste período.</td></tr>')+'</tbody>';
+  $('camp').innerHTML='<thead><tr><th>Campanha</th><th>Investimento</th><th>Faturamento</th><th>ROAS</th><th>Vendas</th><th>Leads</th><th>Cliques</th></tr></thead><tbody>'+
+   (c.length?c.map(x=>'<tr><td title="'+esc(x.nome)+'">'+esc(x.nome)+'</td><td data-l="Investimento" class="num wide"><div class="inl"><i style="width:'+Math.round(x.gasto/max*80)+'px"></i>'+brl2(x.gasto)+'</div></td><td data-l="Faturamento" class="num">'+(x.faturamento?brl2(x.faturamento):'—')+'</td><td data-l="ROAS" class="num">'+(x.roas?x.roas.toLocaleString('pt-BR',{maximumFractionDigits:2})+'x':'—')+'</td><td data-l="Vendas" class="num">'+(x.vendas?int(x.vendas):'—')+'</td><td data-l="Leads" class="num">'+int(x.leads)+'</td><td data-l="Cliques" class="num">'+int(x.cliques)+'</td></tr>').join(''):'<tr><td colspan="7">Nenhuma campanha com gasto neste período.</td></tr>')+'</tbody>';
 }
 
 /* ── controles ── */
