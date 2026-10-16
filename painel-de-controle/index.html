@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#7C3AED">
 <title>BI de Vendas · GexFlow</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%237C3AED'/%3E%3Cpath d='M16 5l7 7h-3.5v6H23l-7 9-7-9h3.5v-6H9l7-7z' fill='%23F59E0B'/%3E%3C/svg%3E">
 <style>
@@ -105,6 +106,58 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .lk .ac{display:flex;gap:6px}
 @media(max-width:640px){.lk{grid-template-columns:1fr}}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* ── mobile ── */
+.grid-kpi>*,.grid2>*,.card{min-width:0}
+@media(max-width:640px){
+  .wrap{padding:14px 12px calc(32px + env(safe-area-inset-bottom))}
+  header{gap:10px;margin-bottom:12px}
+  .brand{margin-bottom:6px}
+  h1{font-size:19px}
+  .bar{margin-left:0;width:100%;gap:8px}
+  .seg{width:100%;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .seg::-webkit-scrollbar{display:none}
+  .seg button{white-space:nowrap;padding:9px 12px;flex:0 0 auto}
+  .custom.on{width:100%;flex-wrap:wrap}
+  .custom input[type=date]{flex:1;min-width:130px}
+  #funil{flex:1 1 100%}
+  #links,#refresh{flex:1 1 calc(50% - 4px);padding:10px 12px}
+  select,input[type=date]{font-size:16px;padding:10px 12px}
+  .grid-kpi{gap:8px;margin-bottom:8px}
+  .grid2{gap:8px;margin-bottom:8px}
+  .card{padding:14px;border-radius:12px}
+  .kpi .lbl{font-size:11.5px}
+  .kpi .val{font-size:21px;margin:3px 0 4px}
+  .kpi.hero{grid-column:1/-1}
+  .kpi.hero .val{font-size:30px}
+  .grid-kpi .kpi:last-child{grid-column:1/-1}
+  .kpi .dl{font-size:11.5px}
+  .card h2{font-size:14.5px}
+  .chart{height:200px}
+  .head{flex-wrap:wrap}
+  .btn.tg{padding:8px 11px}
+  .fn-row{grid-template-columns:1fr;gap:3px;font-size:12.5px}
+  .fn-row>div:empty{display:none}
+  .fn{gap:10px}
+  .fn-name{font-weight:600;color:var(--ink)}
+  .foot{font-size:11.5px}
+  /* tabelas viram cartões */
+  .tbl.stack thead{display:none}
+  .tbl.stack,.tbl.stack tbody{display:block}
+  .tbl.stack tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px 8px;padding:12px 0;border-bottom:1px solid var(--grid)}
+  .tbl.stack tr:last-child{border-bottom:0}
+  .tbl.stack td{display:block;text-align:left;padding:3px 0;border:0}
+  .tbl.stack td:first-child{grid-column:1/-1;font-weight:700;font-size:14px;padding-bottom:4px}
+  .tbl.stack td[data-l]::before{content:attr(data-l);display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
+  .tbl.stack td.wide{grid-column:1/-1}
+  .tbl.stack .inl{justify-content:flex-start}
+  .scroll{overflow-x:visible}
+  /* janela de links vira folha na base */
+  .mdl{align-items:flex-end;padding:0}
+  .mdl-box{width:100%;max-height:86vh;border-radius:16px 16px 0 0;padding:16px 14px calc(16px + env(safe-area-inset-bottom))}
+  .lk .ac .btn{flex:1;padding:10px}
+}
+@media(max-width:380px){.kpi .val{font-size:19px}.kpi.hero .val{font-size:27px}}
 </style>
 </head>
 <body>
@@ -236,9 +289,9 @@ function render(){
    '</section>'+
    '<section class="grid2">'+
      '<div class="card"><h2>Funil de vendas</h2><div class="hint">Em que etapa estão hoje os leads criados no período</div><div id="fn"></div></div>'+
-     '<div class="card"><h2>Origem dos leads</h2><div class="hint">De onde vieram os leads do período e quantos já viraram venda</div><div class="scroll"><table class="tbl" id="ori"></table></div></div>'+
+     '<div class="card"><h2>Origem dos leads</h2><div class="hint">De onde vieram os leads do período e quantos já viraram venda</div><div class="scroll"><table class="tbl stack" id="ori"></table></div></div>'+
    '</section>'+
-   '<section class="card"><h2>Ranking por vendedor</h2><div class="hint">Vendas e perdas fechadas no período · leads criados no período</div><div class="scroll"><table class="tbl" id="vend"></table></div></section>'+
+   '<section class="card"><h2>Ranking por vendedor</h2><div class="hint">Vendas e perdas fechadas no período · leads criados no período</div><div class="scroll"><table class="tbl stack" id="vend"></table></div></section>'+
    '<p class="foot">Conversão = vendas ganhas ÷ (ganhas + perdidas) fechadas no período. Lead → venda = dos leads criados no período, quantos já foram ganhos. Todos os valores são consolidados: nenhum dado pessoal de lead aparece aqui.</p>';
   drawChart('c1',d.serie.map(x=>({k:x.k,v:x.valor,t:'<b>'+labelOf(x.k,d.granularidade,true)+'</b><br>'+brl2(x.valor)+' · '+int(x.ganhos)+' venda(s)'})),'--s1',brlShort,brl2,d.granularidade);
   drawChart('c2',d.serie.map(x=>({k:x.k,v:x.leads,t:'<b>'+labelOf(x.k,d.granularidade,true)+'</b><br>'+int(x.leads)+' lead(s)'})),'--s2',v=>int(v),int,d.granularidade);
@@ -287,14 +340,18 @@ function paint(id){
   el.innerHTML=s;
   const tip=$(id+'-tip');
   el.querySelectorAll('[data-h]').forEach(r=>{
-    r.addEventListener('mousemove',e=>{
+    const show=e=>{
       const i=+r.dataset.h;tip.innerHTML=c.items[i].t;tip.style.opacity=1;
       const bb=el.getBoundingClientRect();let x=e.clientX-bb.left+12,y=e.clientY-bb.top-34;
       if(x+tip.offsetWidth>W)x=e.clientX-bb.left-tip.offsetWidth-12;
       tip.style.left=x+'px';tip.style.top=Math.max(0,y)+'px';
       el.querySelectorAll('.b').forEach(b=>b.style.opacity=(+b.dataset.i===i)?1:.55);
-    });
-    r.addEventListener('mouseleave',()=>{tip.style.opacity=0;el.querySelectorAll('.b').forEach(b=>b.style.opacity=1)});
+    };
+    const hide=()=>{tip.style.opacity=0;el.querySelectorAll('.b').forEach(b=>b.style.opacity=1)};
+    r.addEventListener('pointermove',show);
+    r.addEventListener('pointerdown',show);
+    r.addEventListener('pointerleave',e=>{if(e.pointerType==='mouse')hide()});
+    if(!el._outside){el._outside=true;document.addEventListener('pointerdown',e=>{if(!el.contains(e.target))hide()})}
   });
 }
 function toggleTable(id){const c=charts[id];if(!c)return;c.table=!c.table;paint(id);const b=document.querySelector('[data-tg="'+id+'"]');if(b)b.textContent=c.table?'Ver gráfico':'Ver tabela'}
@@ -321,12 +378,12 @@ function drawFunnel(d){
 function drawOrigens(d){
   const o=d.origens||[];const max=Math.max(1,...o.map(x=>x.leads));
   $('ori').innerHTML='<thead><tr><th>Origem</th><th>Leads</th><th>Vendas</th><th>Conversão</th><th>Faturamento</th></tr></thead><tbody>'+
-   (o.length?o.map(x=>'<tr><td>'+esc(x.origem)+'</td><td><div class="inl"><i style="width:'+Math.max(2,x.leads/max*70)+'px"></i><span class="num">'+int(x.leads)+'</span></div></td><td class="num">'+int(x.ganhos)+'</td><td class="num">'+pc(x.conversao)+'</td><td class="num">'+brl(x.valor)+'</td></tr>').join(''):'<tr><td colspan="5">Sem leads no período</td></tr>')+'</tbody>';
+   (o.length?o.map(x=>'<tr><td>'+esc(x.origem)+'</td><td data-l="Leads"><div class="inl"><i style="width:'+Math.max(2,x.leads/max*70)+'px"></i><span class="num">'+int(x.leads)+'</span></div></td><td data-l="Vendas" class="num">'+int(x.ganhos)+'</td><td data-l="Conversão" class="num">'+pc(x.conversao)+'</td><td data-l="Faturamento" class="num wide">'+brl(x.valor)+'</td></tr>').join(''):'<tr><td colspan="5">Sem leads no período</td></tr>')+'</tbody>';
 }
 function drawVend(d){
   const v=d.vendedores||[];const max=Math.max(1,...v.map(x=>x.valor));
   $('vend').innerHTML='<thead><tr><th>Vendedor</th><th>Leads</th><th>Vendas</th><th>Perdidas</th><th>Conversão</th><th>Ticket</th><th>Faturamento</th></tr></thead><tbody>'+
-   (v.length?v.map((x,i)=>'<tr><td><span class="rank num">'+(i+1)+'º</span> '+esc(x.nome)+'</td><td class="num">'+int(x.leads)+'</td><td class="num">'+int(x.ganhos)+'</td><td class="num">'+int(x.perdidos)+'</td><td class="num">'+pc(x.conversao)+'</td><td class="num">'+brl(x.ticket)+'</td><td><div class="inl"><i style="width:'+Math.max(2,x.valor/max*90)+'px"></i><span class="num">'+brl(x.valor)+'</span></div></td></tr>').join(''):'<tr><td colspan="7">Sem dados no período</td></tr>')+'</tbody>';
+   (v.length?v.map((x,i)=>'<tr><td><span class="rank num">'+(i+1)+'º</span> '+esc(x.nome)+'</td><td data-l="Leads" class="num">'+int(x.leads)+'</td><td data-l="Vendas" class="num">'+int(x.ganhos)+'</td><td data-l="Perdidas" class="num">'+int(x.perdidos)+'</td><td data-l="Conversão" class="num">'+pc(x.conversao)+'</td><td data-l="Ticket" class="num">'+brl(x.ticket)+'</td><td data-l="Faturamento"><div class="inl"><i style="width:'+Math.max(2,x.valor/max*90)+'px"></i><span class="num">'+brl(x.valor)+'</span></div></td></tr>').join(''):'<tr><td colspan="7">Sem dados no período</td></tr>')+'</tbody>';
 }
 
 /* ── controles ── */
