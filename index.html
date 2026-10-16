@@ -3135,7 +3135,17 @@ const GEX_USER_CREATE_FUNCTION = 'create-gex-user';
 // Função segura para criar/atualizar usuários e perfis no Supabase.
 // Mantemos o mesmo endpoint para não espalhar integrações no front-end.
 
+const _gxRoleCache=new Map();
 function normalizeProfileRole(role){
+  const _k=String(role==null?'':role);
+  const _hit=_gxRoleCache.get(_k);
+  if(_hit!==undefined)return _hit;
+  const _res=_normalizeProfileRoleRaw(role);
+  if(_gxRoleCache.size>500)_gxRoleCache.clear();
+  _gxRoleCache.set(_k,_res);
+  return _res;
+}
+function _normalizeProfileRoleRaw(role){
   const r=String(role||'').trim();
   if(!r)return 'Colaborador';
 
@@ -3535,9 +3545,18 @@ function sanitizeUsuariosCache(opts={}){
   }
   return clean;
 }
+var _gxUsrVal=null,_gxUsrAt=0;
 function getUsuariosForDisplay(){
-  return sanitizeUsuariosCache({keepLegacy:false});
+  // Mesmo resultado de antes. Só evita refazer a limpeza/deduplicação inteira a cada chamada
+  // (era chamada uma vez por lead em várias telas). O cache é descartado quando a lista de
+  // usuários é gravada, quando outra aba altera o armazenamento, e no máximo após 1 segundo.
+  const now=Date.now();
+  if(_gxUsrVal&&now-_gxUsrAt<1000)return _gxUsrVal.map(u=>({...u}));
+  const res=sanitizeUsuariosCache({keepLegacy:false});
+  _gxUsrVal=res;_gxUsrAt=Date.now();
+  return res.map(u=>({...u}));
 }
+try{window.addEventListener('storage',()=>{_gxUsrVal=null})}catch(e){}
 
 function upsertUsuarioCache(user){
   const normalized=normalizeLocalUserForSupabaseCache(user);
@@ -3999,6 +4018,7 @@ function gexReadLocalCollection(collection){
   return Array.isArray(data) ? data : [];
 }
 function gexWriteLocalCollection(collection,value){
+  if(collection==='usuarios')_gxUsrVal=null;
   try{
     localStorage.setItem(gexCacheKey(collection),JSON.stringify(Array.isArray(value)?value:[]));
   }catch(e){
@@ -4605,7 +4625,8 @@ function startGexRecordsRealtime(){
   }
 }
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,5);
-const fmtBRL=n=>'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const _gxBRLfmt=new Intl.NumberFormat('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtBRL=n=>'R$ '+_gxBRLfmt.format(Number(n));
 const initials=s=>s.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
 const now=()=>new Date().toLocaleString('pt-BR');
 
@@ -17653,7 +17674,7 @@ async function gexRevalidateOwnStatus(force){
 }
 function startGexStatusPoll(){
   if(gexStatusPollTimer)return;
-  gexStatusPollTimer=setInterval(()=>{ if(sessionUser)gexRevalidateOwnStatus(true); },5000);
+  gexStatusPollTimer=setInterval(()=>{ if(sessionUser&&!document.hidden)gexRevalidateOwnStatus(true); },5000);
 }
 startGexStatusPoll();
 // Revalida assim que a aba volta a ficar visível (usuário trocou de aba/
