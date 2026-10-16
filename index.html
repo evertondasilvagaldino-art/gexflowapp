@@ -23386,8 +23386,10 @@ function paintToggle(mode){
   tg.innerHTML=`<button class="${mode==='novo'?'on':''}" onclick="gxIniSetMode('novo')">Novo</button><button class="${mode==='classico'?'on':''}" onclick="gxIniSetMode('classico')">Clássico</button>`;
 }
 
-function won(l){try{return isWonOpportunity(l)}catch(e){return /ganh/i.test(String(l.dealStatus||l.status||''))}}
-function lost(l){try{return isLostOpportunityLocal(l)}catch(e){return false}}
+const _wm=new WeakMap();
+function _fl(l){let r=_wm.get(l);if(!r){r={};_wm.set(l,r)}return r}
+function won(l){const r=_fl(l);if(r.w===undefined){try{r.w=!!isWonOpportunity(l)}catch(e){r.w=/ganh/i.test(String(l.dealStatus||l.status||''))}}return r.w}
+function lost(l){const r=_fl(l);if(r.l===undefined){try{r.l=!!isLostOpportunityLocal(l)}catch(e){r.l=false}}return r.l}
 function delta(cur,prev,invert){
   if(!prev&&!cur)return '';
   if(!prev)return '<span class="gxb-d neutral">novo</span>';
@@ -23405,6 +23407,12 @@ function inP(ref,p){
   if(p.mes&&d.getMonth()+1!==p.mes)return false;return d.getFullYear()===p.ano;
 }
 
+function stColor(n,i){
+  const t=String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  if(/ganh|won|fechad/.test(t))return '#1a9a55';
+  if(/perd|lost|fora icp|desqualif|descart/.test(t))return '#d64533';
+  return BLUE;
+}
 function build(){
   const cls=DB.get('clientes')||[],mbs=DB.get('membros')||[],leads=DB.get('leads')||[];
   const txsAll=DB.get('transacoes')||[];
@@ -23481,7 +23489,7 @@ function build(){
     const cnt=etapas.map(e=>atual.filter(l=>l.estagio===e).length);
     const mx=Math.max(1,...cnt);
     const pipeVal=ativos.reduce((a,l)=>a+(parseFloat(l.valor)||0),0);
-    fun=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">Funil comercial</div><div class="gxb-sub">${ativos.length} ativos agora · ${brl(pipeVal)} em aberto</div></div></div>${etapas.length?etapas.map((e,i)=>`<div class="gxb-fn"><b title="${E(e)}">${E(e)}</b><div><i style="width:${cnt[i]?Math.max(3,Math.round(cnt[i]/mx*100)):0}%;background:${RAMP[Math.min(i,RAMP.length-1)]}"></i></div><em>${cnt[i]}</em></div>`).join(''):'<div class="gxb-empty">Sem etapas.</div>'}</div>`;
+    fun=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">Funil comercial</div><div class="gxb-sub">${ativos.length} ativos agora · ${brl(pipeVal)} em aberto</div></div></div>${etapas.length?etapas.map((e,i)=>`<div class="gxb-fn"><b title="${E(e)}">${E(e)}</b><div><i style="width:${cnt[i]?Math.max(3,Math.round(cnt[i]/mx*100)):0}%;background:${stColor(e,i)}"></i></div><em>${cnt[i]}</em></div>`).join(''):'<div class="gxb-empty">Sem etapas.</div>'}</div>`;
   }
   html+=`<div class="gxb-grid gxb-2">${fat||''}${fun||''}</div>`;
 
@@ -23509,6 +23517,13 @@ function build(){
 }
 
 window.renderInicio=function(){
+  // Cache só durante este desenho: getReportFunnels() relê/parseia os funis a
+  // cada lead (milhares de vezes) — era o que deixava o Início lento.
+  const origRF=window.getReportFunnels;let rfc=null;
+  if(typeof origRF==='function'){window.getReportFunnels=function(){return rfc||(rfc=origRF.apply(this,arguments))}}
+  try{return renderInicioInner.apply(this,arguments)}finally{if(origRF)window.getReportFunnels=origRF}
+};
+function renderInicioInner(){
   // 1) o clássico sempre roda (mantém filtros, listas e fallback) — se ele
   //    próprio falhar, o erro segue o caminho de sempre.
   legacyRender.apply(this,arguments);
@@ -23530,7 +23545,7 @@ window.renderInicio=function(){
     try{console.warn('[Início novo] voltando ao clássico:',err)}catch(e){}
     const box=document.getElementById('inicio-bi');if(box)box.innerHTML='';
   }
-};
+}
 })();
 </script>
 
