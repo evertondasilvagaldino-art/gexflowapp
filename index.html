@@ -23287,5 +23287,252 @@ setInterval(()=>{
 })();
 </script>
 
+<script id="gex-inicio-bi-script">
+/* Início no visual do BI — camada ADITIVA. O renderInicio original continua
+   rodando por baixo (filtros, listas, dados); este bloco só desenha o painel
+   novo por cima. Qualquer erro => volta sozinho para o painel Clássico. */
+(function(){
+'use strict';
+const legacyRender=window.renderInicio;
+if(typeof legacyRender!=='function')return;
+const KEY='gxIniMode';
+let tableView={fat:false};
+const BLUE='#2a78d6',ORG='#eb6834',RAMP=['#0b3d7a','#1857a8','#2a78d6','#5b9be6','#8ab8ee','#b4d1f5','#cfe1f8','#e1ecfa'];
+
+const css=`
+#inicio-bi{display:none}
+body.gx-ini-novo #inicio-bi{display:block}
+body.gx-ini-novo #page-inicio>:not(.welcome-box):not(#dash-filter-bar):not(#inicio-bi){display:none!important}
+#gx-ini-toggle{display:inline-flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-left:auto}
+#gx-ini-toggle button{border:0;background:var(--card);color:var(--muted);font:600 12px Inter,sans-serif;padding:6px 12px;cursor:pointer}
+#gx-ini-toggle button.on{background:${BLUE};color:#fff}
+.gxb-grid{display:grid;gap:12px;margin-bottom:12px;min-width:0}
+.gxb-kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.gxb-2{grid-template-columns:minmax(0,3fr) minmax(0,2fr)}
+.gxb-2e{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+@media(max-width:900px){.gxb-2,.gxb-2e{grid-template-columns:minmax(0,1fr)}}
+.gxb-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;min-width:0}
+.gxb-hero{background:linear-gradient(135deg,#0f2f5e,#1857a8);color:#fff;border:0}
+.gxb-hero .gxb-l,.gxb-hero .gxb-s{color:rgba(255,255,255,.75)}
+.gxb-l{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.gxb-v{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15;overflow-wrap:anywhere}
+.gxb-hero .gxb-v{font-size:26px}
+.gxb-s{font-size:12px;color:var(--muted);margin-top:6px}
+.gxb-d{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;padding:1px 7px;border-radius:99px;margin-left:6px;vertical-align:middle}
+.gxb-d.up{background:#dff3e8;color:#12663a}.gxb-d.down{background:#fde4e0;color:#a52a1b}.gxb-d.neutral{background:#eceef3;color:#555a6b}
+.gxb-hero .gxb-d.up{background:rgba(255,255,255,.18);color:#c9f5dc}.gxb-hero .gxb-d.down{background:rgba(255,255,255,.18);color:#ffd0c8}
+.gxb-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.gxb-t{font-size:14px;font-weight:700}
+.gxb-sub{font-size:12px;color:var(--muted);font-weight:500}
+.gxb-sw{border:1px solid var(--border);background:var(--card);color:var(--muted);border-radius:6px;font:600 11px Inter,sans-serif;padding:3px 9px;cursor:pointer}
+.gxb-bars{display:flex;align-items:flex-end;gap:6px;height:170px;padding-top:8px;border-bottom:1px solid var(--border)}
+.gxb-bar{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%}
+.gxb-bar i{display:block;width:100%;max-width:34px;background:${BLUE};border-radius:4px 4px 0 0;min-height:2px}
+.gxb-bar.cur i{background:${ORG}}
+.gxb-bar.dim i{opacity:.45}
+.gxb-xl{display:flex;gap:6px;margin-top:5px}.gxb-xl span{flex:1;text-align:center;font-size:10px;color:var(--muted)}
+.gxb-fn{display:grid;grid-template-columns:minmax(70px,130px) 1fr 40px;gap:8px;align-items:center;margin:7px 0;font-size:12px}
+.gxb-fn b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gxb-fn div{background:#eef1f6;border-radius:5px;height:16px;overflow:hidden}
+.gxb-fn div i{display:block;height:100%;border-radius:5px}
+.gxb-fn em{font-style:normal;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.gxb-tw{overflow-x:auto}
+.gxb-tb{width:100%;border-collapse:collapse;font-size:12.5px}
+.gxb-tb th{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+.gxb-tb td{padding:8px;text-align:right;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums}
+.gxb-tb th:first-child,.gxb-tb td:first-child{text-align:left}
+.gxb-tb td:first-child{font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gxb-pill{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:99px;background:#e3eefb;color:#1857a8}
+.gxb-empty{color:var(--muted);font-size:12.5px;padding:14px 0}
+@media(max-width:600px){.gxb-v{font-size:20px}.gxb-hero .gxb-v{font-size:24px}.gxb-fn{grid-template-columns:80px 1fr 34px}}
+`;
+const st=document.createElement('style');st.id='gex-inicio-bi-css';st.textContent=css;document.head.appendChild(st);
+
+const E=s=>(typeof escHtml==='function'?escHtml(s):String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])));
+const num=n=>Number(n||0).toLocaleString('pt-BR');
+const brl=n=>fmtBRL(n||0);
+const M=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+function isFounder(){try{return !!isProjectFounderView()}catch(e){return false}}
+function getMode(){
+  if(!isFounder())return 'classico';
+  try{const v=localStorage.getItem(KEY);if(v==='classico'||v==='novo')return v}catch(e){}
+  return 'novo';
+}
+function setMode(m){try{localStorage.setItem(KEY,m)}catch(e){}; window.renderInicio()}
+window.gxIniSetMode=setMode;
+window.gxIniSwitchFat=function(){tableView.fat=!tableView.fat;window.renderInicio()};
+
+function ensureShell(){
+  const page=document.getElementById('page-inicio');if(!page)return null;
+  let box=document.getElementById('inicio-bi');
+  if(!box){
+    box=document.createElement('div');box.id='inicio-bi';
+    const bar=document.getElementById('dash-filter-bar');
+    (bar&&bar.parentNode===page)?bar.insertAdjacentElement('afterend',box):page.appendChild(box);
+  }
+  let tg=document.getElementById('gx-ini-toggle');
+  const bar=document.getElementById('dash-filter-bar');
+  if(!tg&&bar){
+    tg=document.createElement('span');tg.id='gx-ini-toggle';
+    bar.appendChild(tg);
+  }
+  return box;
+}
+function paintToggle(mode){
+  const tg=document.getElementById('gx-ini-toggle');if(!tg)return;
+  if(!isFounder()){tg.style.display='none';return}
+  tg.style.display='';
+  tg.innerHTML=`<button class="${mode==='novo'?'on':''}" onclick="gxIniSetMode('novo')">Novo</button><button class="${mode==='classico'?'on':''}" onclick="gxIniSetMode('classico')">Clássico</button>`;
+}
+
+function won(l){try{return isWonOpportunity(l)}catch(e){return /ganh/i.test(String(l.dealStatus||l.status||''))}}
+function lost(l){try{return isLostOpportunityLocal(l)}catch(e){return false}}
+function delta(cur,prev,invert){
+  if(!prev&&!cur)return '';
+  if(!prev)return '<span class="gxb-d neutral">novo</span>';
+  const p=Math.round((cur-prev)/Math.abs(prev)*100);
+  if(p===0)return '<span class="gxb-d neutral">= anterior</span>';
+  const good=invert?p<0:p>0;
+  return `<span class="gxb-d ${good?'up':'down'}">${p>0?'↑':'↓'} ${Math.abs(p)}%</span>`;
+}
+function prevPeriod(){
+  if(dashFilter.mes){let m=dashFilter.mes-1,a=dashFilter.ano;if(m<1){m=12;a--}return {mes:m,ano:a,lbl:M[m-1]+'/'+a}}
+  return {mes:0,ano:dashFilter.ano-1,lbl:String(dashFilter.ano-1)};
+}
+function inP(ref,p){
+  if(!ref)return false;const d=new Date(String(ref).slice(0,10)+'T00:00:00');if(isNaN(d))return false;
+  if(p.mes&&d.getMonth()+1!==p.mes)return false;return d.getFullYear()===p.ano;
+}
+
+function build(){
+  const cls=DB.get('clientes')||[],mbs=DB.get('membros')||[],leads=DB.get('leads')||[];
+  const txsAll=DB.get('transacoes')||[];
+  const dashSel=!!(dashFilter.funil||dashFilter.resp);
+  const label=dashFilter.mes?`${M[dashFilter.mes-1]} / ${dashFilter.ano}`:`Ano ${dashFilter.ano}`;
+  const pp=prevPeriod();
+  const txs=txsAll.filter(txInPeriod);
+  const rec=txs.filter(t=>t.tipo==='Receita').reduce((a,t)=>a+(+t.valor||0),0);
+  const desp=txs.filter(t=>t.tipo==='Despesa').reduce((a,t)=>a+(+t.valor||0),0);
+  const lucro=rec-desp;
+  const txsPrev=txsAll.filter(t=>inP(t.data,pp));
+  const recPrev=txsPrev.filter(t=>t.tipo==='Receita').reduce((a,t)=>a+(+t.valor||0),0);
+  const lucroPrev=recPrev-txsPrev.filter(t=>t.tipo==='Despesa').reduce((a,t)=>a+(+t.valor||0),0);
+  const leadsP=dashSel?leads.filter(leadInPeriod).filter(dashLeadMatchesSelection):excludePartnerFunnelLeads(leads.filter(leadInPeriod));
+  const ganhos=leadsP.filter(won);
+  const vGanho=ganhos.reduce((a,l)=>a+(parseFloat(l.valor)||0),0);
+  // período anterior (mesma base de leads / mesmo recorte)
+  const baseAll=dashSel?leads.filter(dashLeadMatchesSelection):excludePartnerFunnelLeads(leads);
+  const leadsPrev=baseAll.filter(l=>inP(l.dataInicio||l.dataFechamento,pp));
+  const ganhosPrev=leadsPrev.filter(won);
+  const vGanhoPrev=ganhosPrev.reduce((a,l)=>a+(parseFloat(l.valor)||0),0);
+  const conv=leadsP.length?Math.round(ganhos.length/leadsP.length*1000)/10:0;
+  const convPrev=leadsPrev.length?Math.round(ganhosPrev.length/leadsPrev.length*1000)/10:0;
+  const ticket=ganhos.length?vGanho/ganhos.length:0;
+  const gc=leadsP.filter(l=>l.dealStatus==='Ganho'&&l.dataInicio&&l.dataFechamento);
+  const ciclo=gc.length?Math.round(gc.reduce((a,l)=>a+Math.max(0,Math.round((new Date(l.dataFechamento+'T00:00:00')-new Date(l.dataInicio+'T00:00:00'))/864e5)),0)/gc.length):null;
+  const ads=txs.filter(t=>t.tipo==='Despesa'&&/ads|tráfego|marketing/i.test(t.cat||'')).reduce((a,t)=>a+(+t.valor||0),0);
+  const nGanho=leadsP.filter(l=>l.dealStatus==='Ganho').length;
+  const cac=(!dashSel&&nGanho>0)?Math.round(ads/nGanho):null;
+  const avgH=cls.length?Math.round(cls.reduce((a,c)=>a+(c.health||0),0)/cls.length):0;
+  const risco=cls.filter(c=>c.status==='Ativo'&&(c.health||0)<50).length;
+  const cAtivos=cls.filter(c=>c.status==='Ativo').length;
+  const mAtivos=mbs.filter(m=>m.status==='Ativo').length;
+
+  const cF=can('financas','view'),cC=can('comercial','view'),cCl=can('clientes','view'),cR=can('rh','view');
+  const sub=`${label}${dashSel?' · recorte de funil/responsável':''}`;
+  const k=[];
+  if(cF)k.push(`<div class="gxb-card gxb-hero"><div class="gxb-l">Receita · ${E(label)}</div><div class="gxb-v">${brl(rec)}${delta(rec,recPrev)}</div><div class="gxb-s">vs ${E(pp.lbl)}: ${brl(recPrev)}${dashSel?' · empresa toda':''}</div></div>`);
+  if(cF)k.push(`<div class="gxb-card"><div class="gxb-l">Lucro líquido</div><div class="gxb-v" style="color:${lucro<0?'#a52a1b':'inherit'}">${brl(lucro)}${delta(lucro,lucroPrev)}</div><div class="gxb-s">Receita − despesas do período</div></div>`);
+  if(cC){
+    k.push(`<div class="gxb-card"><div class="gxb-l">Negócios ganhos</div><div class="gxb-v">${brl(vGanho)}${delta(vGanho,vGanhoPrev)}</div><div class="gxb-s">${ganhos.length} venda${ganhos.length!==1?'s':''} · ticket ${brl(ticket)}</div></div>`);
+    k.push(`<div class="gxb-card"><div class="gxb-l">Conversão</div><div class="gxb-v">${String(conv).replace('.',',')}%${delta(conv,convPrev)}</div><div class="gxb-s">${ganhos.length} de ${leadsP.length} lead${leadsP.length!==1?'s':''}</div></div>`);
+    k.push(`<div class="gxb-card"><div class="gxb-l">Ciclo médio</div><div class="gxb-v">${ciclo!==null?ciclo+' dias':'—'}</div><div class="gxb-s">${gc.length} fechado${gc.length!==1?'s':''} no período</div></div>`);
+    k.push(`<div class="gxb-card"><div class="gxb-l">Invest. em Ads</div><div class="gxb-v">${brl(ads)}</div><div class="gxb-s">${dashSel?'Total da empresa':'Categoria Ads / Tráfego'}</div></div>`);
+    k.push(`<div class="gxb-card"><div class="gxb-l">CAC</div><div class="gxb-v">${cac!==null?brl(cac):'—'}</div><div class="gxb-s">${dashSel?'Só no total geral':(cac!==null?`Ads ÷ ${nGanho} ganho${nGanho!==1?'s':''}`:'Sem dados')}</div></div>`);
+  }
+  if(cCl){
+    k.push(`<div class="gxb-card"><div class="gxb-l">Clientes ativos</div><div class="gxb-v">${num(cAtivos)}</div><div class="gxb-s">${risco} em risco de churn</div></div>`);
+    k.push(`<div class="gxb-card"><div class="gxb-l">Health score médio</div><div class="gxb-v" style="color:${healthColor(avgH)}">${avgH}</div><div class="gxb-s">${avgH>=70?'Saudável':'Atenção necessária'}</div></div>`);
+  }
+  if(cR)k.push(`<div class="gxb-card"><div class="gxb-l">Membros ativos</div><div class="gxb-v">${num(mAtivos)}</div><div class="gxb-s">de ${mbs.length} no total</div></div>`);
+
+  let html=`<div class="gxb-grid gxb-kpis">${k.join('')}</div>`;
+
+  // Faturamento por mês
+  let fat='';
+  if(cF){
+    const vals=M.map((_,i)=>txsAll.filter(t=>t.tipo==='Receita'&&t.data&&(d=>d.getFullYear()===dashFilter.ano&&d.getMonth()===i)(new Date(t.data+'T00:00:00'))).reduce((a,t)=>a+(+t.valor||0),0));
+    const mx=Math.max(...vals,1),tot=vals.reduce((a,v)=>a+v,0);
+    const body=tableView.fat
+      ?`<div class="gxb-tw"><table class="gxb-tb"><thead><tr><th>Mês</th><th>Receita</th></tr></thead><tbody>${vals.map((v,i)=>`<tr><td>${M[i]}</td><td>${brl(v)}</td></tr>`).join('')}</tbody></table></div>`
+      :`<div class="gxb-bars">${vals.map((v,i)=>`<div class="gxb-bar${dashFilter.mes===i+1?' cur':''}${dashFilter.mes&&dashFilter.mes!==i+1?' dim':''}" title="${M[i]}: ${brl(v)}"><i style="height:${Math.max(1,Math.round(v/mx*100))}%"></i></div>`).join('')}</div><div class="gxb-xl">${M.map(m=>`<span>${m}</span>`).join('')}</div>`;
+    fat=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">Faturamento por mês</div><div class="gxb-sub">Total ${dashFilter.ano}: ${brl(tot)}</div></div><button class="gxb-sw" onclick="gxIniSwitchFat()">${tableView.fat?'Ver gráfico':'Ver tabela'}</button></div>${body}</div>`;
+  }
+  // Funil (distribuição atual)
+  let fun='';
+  if(cC){
+    const atual=dashSel?leads.filter(dashLeadMatchesSelection):excludePartnerFunnelLeads(leads);
+    const ativos=atual.filter(l=>!won(l)&&!lost(l));
+    let etapas=[];try{etapas=getStages()}catch(e){}
+    if(dashFilter.funil){const f=(getCommercialFunnels()||[]).find(x=>String(x.id)===String(dashFilter.funil));if(f&&Array.isArray(f.stages)&&f.stages.length)etapas=f.stages.slice().sort((a,b)=>(a.order||0)-(b.order||0)).map(x=>x.name)}
+    const extras=[...new Set(atual.map(l=>l.estagio).filter(Boolean))].filter(e=>!etapas.includes(e));
+    etapas=[...etapas,...extras];
+    const cnt=etapas.map(e=>atual.filter(l=>l.estagio===e).length);
+    const mx=Math.max(1,...cnt);
+    const pipeVal=ativos.reduce((a,l)=>a+(parseFloat(l.valor)||0),0);
+    fun=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">Funil comercial</div><div class="gxb-sub">${ativos.length} ativos agora · ${brl(pipeVal)} em aberto</div></div></div>${etapas.length?etapas.map((e,i)=>`<div class="gxb-fn"><b title="${E(e)}">${E(e)}</b><div><i style="width:${cnt[i]?Math.max(3,Math.round(cnt[i]/mx*100)):0}%;background:${RAMP[Math.min(i,RAMP.length-1)]}"></i></div><em>${cnt[i]}</em></div>`).join(''):'<div class="gxb-empty">Sem etapas.</div>'}</div>`;
+  }
+  html+=`<div class="gxb-grid gxb-2">${fat||''}${fun||''}</div>`;
+
+  // Origem dos leads + ranking
+  let ori='',rank='';
+  if(cC){
+    const g={};
+    leadsP.forEach(l=>{const o=String(l.origem||'').trim()||'Sem origem';(g[o]=g[o]||{o,n:0,w:0,v:0});g[o].n++;if(won(l)){g[o].w++;g[o].v+=parseFloat(l.valor)||0}});
+    const rows=Object.values(g).sort((a,b)=>b.n-a.n).slice(0,8);
+    ori=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">Origem dos leads</div><div class="gxb-sub">${E(sub)}</div></div></div>${rows.length?`<div class="gxb-tw"><table class="gxb-tb"><thead><tr><th>Origem</th><th>Leads</th><th>Ganhos</th><th>Conv.</th><th>Valor</th></tr></thead><tbody>${rows.map(r=>`<tr><td title="${E(r.o)}">${E(r.o)}</td><td>${r.n}</td><td>${r.w}</td><td><span class="gxb-pill">${r.n?Math.round(r.w/r.n*100):0}%</span></td><td>${brl(r.v)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="gxb-empty">Sem leads no período.</div>'}</div>`;
+    let srows=[];try{srows=getSalesTeamMetrics({...dashFilter})||[]}catch(e){}
+    srows=srows.filter(r=>r.leads||r.ganhos||r.ativos).slice(0,8);
+    let tit='Ranking de vendedores';try{if(!isSalesManagerView())tit='Minha performance'}catch(e){}
+    rank=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">${tit}</div><div class="gxb-sub">${E(sub)}</div></div></div>${srows.length?`<div class="gxb-tw"><table class="gxb-tb"><thead><tr><th>Vendedor</th><th>Leads</th><th>Ganhos</th><th>Conv.</th><th>Vendido</th><th>Pipeline</th></tr></thead><tbody>${srows.map(r=>`<tr><td title="${E(r.user&&r.user.nome)}">${E(r.user&&r.user.nome||'—')}</td><td>${r.leads}</td><td>${r.ganhos}</td><td><span class="gxb-pill">${r.conv}%</span></td><td>${brl(r.valorGanho)}</td><td>${brl(r.pipelineAtivo)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="gxb-empty">Sem vendedores com movimento.</div>'}</div>`;
+  }
+  if(ori||rank)html+=`<div class="gxb-grid gxb-2e">${ori}${rank}</div>`;
+
+  // Equipe e parceiros (reaproveita as listas já desenhadas pelo painel clássico)
+  const sq=document.getElementById('squad-list'),pt=document.getElementById('partners-list');
+  if(sq||pt){
+    const sc=(document.getElementById('squad-count')||{}).textContent||'',pc=(document.getElementById('partners-count')||{}).textContent||'';
+    html+=`<div class="gxb-grid gxb-2e"><div class="gxb-card"><div class="gxb-h"><div class="gxb-t">Equipe ativa</div><div class="gxb-sub">${E(sc)}</div></div>${sq?sq.innerHTML:''}</div><div class="gxb-card"><div class="gxb-h"><div class="gxb-t">Parceiros ativos</div><div class="gxb-sub">${E(pc)}</div></div>${pt?pt.innerHTML:''}</div></div>`;
+  }
+  return html;
+}
+
+window.renderInicio=function(){
+  // 1) o clássico sempre roda (mantém filtros, listas e fallback) — se ele
+  //    próprio falhar, o erro segue o caminho de sempre.
+  legacyRender.apply(this,arguments);
+  // 2) o novo só desenha por cima; qualquer falha => classe removida => clássico.
+  let mode='classico';
+  try{
+    mode=getMode();
+    const box=ensureShell();
+    paintToggle(mode);
+    if(mode==='novo'&&box){
+      const h=build();
+      box.innerHTML=h;
+      document.body.classList.add('gx-ini-novo');
+    }else{
+      document.body.classList.remove('gx-ini-novo');
+    }
+  }catch(err){
+    document.body.classList.remove('gx-ini-novo');
+    try{console.warn('[Início novo] voltando ao clássico:',err)}catch(e){}
+    const box=document.getElementById('inicio-bi');if(box)box.innerHTML='';
+  }
+};
+})();
+</script>
+
 </body>
 </html>
