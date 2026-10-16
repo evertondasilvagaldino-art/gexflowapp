@@ -22464,6 +22464,7 @@ function deleteGcalEventModal(eventId,monthKey){
 .op-att{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:12.5px;background:var(--bg)}
 </style>
 <div class="op-ov" id="op-ov" onclick="if(event.target===this)opCloseTask()"></div>
+<div class="op-md" id="op-dlg" style="z-index:9300"><div class="op-md-box" id="op-dlg-box" style="width:min(440px,100%)"></div></div>
 <div class="op-md" id="op-md" onclick="if(event.target===this)opCloseModal()"><div class="op-md-box" id="op-md-box"></div></div>
 <script id="gex-operacional-script">
 (function(){
@@ -22818,9 +22819,9 @@ function opMoveTo(id,statusId){
 }
 
 /* ═══ CRIAR TAREFA ═══ */
-window.opNewTask=function(statusId){
+window.opNewTask=async function(statusId){
   const l=lista(S.listaId);if(!l||!guardEdit(l))return;
-  const nome=prompt('Nome da tarefa / cliente:');
+  const nome=await perguntar('Nova tarefa',{placeholder:'Nome da tarefa / cliente',ok:'Criar'});
   if(!nome||!nome.trim())return;
   const st=(l.statuses||[]).find(s=>s.id===statusId)||l.statuses[0];
   const t={id:nid(),listaId:l.id,titulo:nome.trim(),statusId:st?.id,resp:[],inicio:'',venc:'',prioridade:'',etiquetas:[],descricao:'',campos:{},checklists:[],anexos:[],
@@ -22959,9 +22960,9 @@ window.opSetCampo=function(id,cid,v){
   renderOpBg();
 };
 function renderOpBg(){if(document.getElementById('op-ov').classList.contains('open')){const l=lista(S.listaId);const b=document.getElementById('op-body');if(l&&b)withCache(()=>{b.outerHTML=bodyHtml(l)})}else renderOp()}
-window.opDelTask=function(id){
+window.opDelTask=async function(id){
   if(!guardEdit(lista(tarefa(id)?.listaId)))return;
-  if(!confirm('Arquivar esta tarefa? Ela some das telas, mas os dados continuam salvos.'))return;
+  if(!await confirmar('Arquivar esta tarefa? Ela some das telas, mas os dados continuam salvos.',{titulo:'Arquivar tarefa',ok:'Arquivar'}))return;
   DB.update('op_tarefas',id,{arquivada:true});
   opCloseTask();
 };
@@ -22974,7 +22975,7 @@ async function removerAnexosStorage(t){
 window.opExcluirTask=async function(id){
   const t=tarefa(id);if(!t)return;
   if(!guardEdit(lista(t.listaId)))return;
-  if(!confirm(`Excluir "${t.titulo}" de vez?\n\nO card, o histórico, os checklists e os anexos serão apagados e não dá para recuperar.\n(Se só quiser esconder, use "Arquivar".)`))return;
+  if(!await confirmar(`Excluir "${t.titulo}" de vez?\n\nO card, o histórico, os checklists e os anexos serão apagados para todos os usuários e não dá para recuperar.\n(Se só quiser esconder, use "Arquivar".)`,{titulo:'Excluir tarefa',ok:'Excluir',perigo:true}))return;
   await removerAnexosStorage(t);
   DB.remove('op_tarefas',id);
   if(S.taskId===id){S.taskId=null;document.getElementById('op-ov').classList.remove('open');document.getElementById('op-ov').innerHTML=''}
@@ -22984,7 +22985,7 @@ window.opExcluirLista=async function(){
   if(!canManage())return;
   const l=lista(CFG.id);if(!l)return;
   const ts=(DB.get('op_tarefas')||[]).filter(t=>t.listaId===l.id);
-  const r=prompt(`Excluir a lista "${l.nome}" e ${ts.length} tarefa(s) de vez? Não dá para recuperar.\n\nPara confirmar, digite EXCLUIR:`);
+  const r=await perguntar('Excluir lista',{msg:`Excluir a lista "${l.nome}" e ${ts.length} tarefa(s) de vez, para todos os usuários? Não dá para recuperar.\n\nPara confirmar, digite EXCLUIR:`,placeholder:'EXCLUIR',ok:'Excluir'});
   if((r||'').trim().toUpperCase()!=='EXCLUIR')return;
   for(const t of ts){await removerAnexosStorage(t);DB.remove('op_tarefas',t.id)}
   DB.remove('op_listas',l.id);
@@ -22992,8 +22993,8 @@ window.opExcluirLista=async function(){
 };
 
 /* ── checklists ── */
-window.opCkNew=function(){
-  const nome=prompt('Nome do checklist:','Checklist');if(!nome)return;
+window.opCkNew=async function(){
+  const nome=await perguntar('Novo checklist',{valor:'Checklist',ok:'Criar'});if(!nome||!nome.trim())return;
   const t=tarefa(S.taskId);
   upd(t.id,{checklists:[...(t.checklists||[]),{id:nid(),nome:nome.trim(),itens:[]}]},`criou o checklist "${nome.trim()}"`);
   renderTask();
@@ -23004,7 +23005,7 @@ function ckMut(cid,fn,log){
   upd(t.id,{checklists:cks},log);
 }
 window.opCkRename=function(cid,v){if(!v.trim())return;ckMut(cid,c=>({...c,nome:v.trim()}));};
-window.opCkDel=function(cid){if(!confirm('Remover este checklist?'))return;ckMut(cid,()=>null,'removeu um checklist');renderTask()};
+window.opCkDel=async function(cid){if(!await confirmar('Remover este checklist e todos os itens?',{titulo:'Remover checklist',ok:'Remover',perigo:true}))return;ckMut(cid,()=>null,'removeu um checklist');renderTask()};
 window.opCkAdd=function(cid){
   const inp=document.getElementById('op-ckin-'+cid);const v=(inp?.value||'').trim();if(!v)return;
   ckMut(cid,c=>({...c,itens:[...c.itens,{id:nid(),texto:v,feito:false,resp:''}]}),`adicionou o item "${v}"`);
@@ -23050,7 +23051,7 @@ window.opOpenAnexo=async function(aid){
 };
 window.opDelAnexo=async function(aid){
   if(!guardEdit(lista(tarefa(S.taskId)?.listaId)))return;
-  if(!confirm('Remover este anexo?'))return;
+  if(!await confirmar('Remover este anexo?',{titulo:'Remover anexo',ok:'Remover',perigo:true}))return;
   const t=tarefa(S.taskId);const a=(t?.anexos||[]).find(x=>x.id===aid);if(!a)return;
   const c=sb();
   if(c){try{await c.storage.from(BUCKET).remove([a.path])}catch(e){console.warn(e)}}
@@ -23116,14 +23117,39 @@ window.opGoTask=function(id){
   S.squadId=l.squadId;S.listaId=l.id;S.openSquads[l.squadId]=true;renderOp();opOpenTask(id);
 };
 
+/* ═══ DIÁLOGOS PRÓPRIOS (no lugar de confirm/prompt do navegador) ═══ */
+let DLG=null;
+function dlg(o){
+  return new Promise(res=>{
+    DLG={res,input:!!o.input};
+    document.getElementById('op-dlg-box').innerHTML=`<h3 style="margin:0 0 8px;font-size:16px">${esc(o.titulo||'Confirmar')}</h3>
+      <div style="font-size:13px;color:var(--muted);white-space:pre-line;margin-bottom:12px">${esc(o.msg||'')}</div>
+      ${o.input?`<input class="form-input" id="op-dlg-in" placeholder="${ea(o.placeholder||'')}" value="${ea(o.valor||'')}" style="width:100%" onkeydown="if(event.key==='Enter')opDlgOk()">`:''}
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+        <button class="btn btn-ghost" onclick="opDlgCancel()">Cancelar</button>
+        <button class="btn btn-primary" style="${o.perigo?'background:#EF4444;border-color:#EF4444':''}" onclick="opDlgOk()">${esc(o.ok||'OK')}</button></div>`;
+    document.getElementById('op-dlg').classList.add('open');
+    setTimeout(()=>document.getElementById('op-dlg-in')?.focus(),30);
+  });
+}
+function dlgClose(v){
+  document.getElementById('op-dlg').classList.remove('open');
+  document.getElementById('op-dlg-box').innerHTML='';
+  const d=DLG;DLG=null;d?.res(v);
+}
+window.opDlgOk=function(){if(!DLG)return;dlgClose(DLG.input?(document.getElementById('op-dlg-in')?.value||''):true)};
+window.opDlgCancel=function(){if(DLG)dlgClose(DLG.input?null:false)};
+const confirmar=(msg,o={})=>dlg({titulo:o.titulo||'Confirmar',msg,ok:o.ok||'Confirmar',perigo:o.perigo});
+const perguntar=(titulo,o={})=>dlg({titulo,input:true,placeholder:o.placeholder,valor:o.valor,ok:o.ok||'Salvar',msg:o.msg});
+
 /* ═══ MODAL GENÉRICO ═══ */
 function openModal2(html){document.getElementById('op-md-box').innerHTML=html;document.getElementById('op-md').classList.add('open')}
 window.opCloseModal=function(){document.getElementById('op-md').classList.remove('open');document.getElementById('op-md-box').innerHTML=''};
 
 /* ═══ LISTAS: criar / configurar (status e campos personalizados) ═══ */
-window.opNewLista=function(sid){
+window.opNewLista=async function(sid){
   if(!canManage())return;
-  const nome=prompt('Nome da nova lista (ex.: Carteira Clientes):');if(!nome||!nome.trim())return;
+  const nome=await perguntar('Nova lista',{placeholder:'Ex.: Carteira Clientes',ok:'Criar'});if(!nome||!nome.trim())return;
   const sq=squad(sid);const base=defaultListaModel(sq);
   const ordem=(listasDoSquad(sid).slice(-1)[0]?.ordem||0)+1;
   const l={id:nid(),squadId:sid,ordem,nome:nome.trim(),statuses:base.statuses,campos:base.campos,criadoEm:new Date().toISOString()};
@@ -23187,15 +23213,15 @@ window.CFG_delSt=i=>{
   if(n){toast(`Há ${n} tarefa(s) em "${s.nome}". Mova-as para outro status antes de remover.`,'#F59E0B');return}
   CFG.statuses.splice(i,1);renderCfg();
 };
-window.CFG_delCp=i=>{if(!confirm('Remover este campo? Os valores já preenchidos deixam de aparecer (continuam salvos nas tarefas).'))return;CFG.campos.splice(i,1);renderCfg()};
+window.CFG_delCp=async i=>{if(!await confirmar('Remover este campo? Os valores já preenchidos deixam de aparecer (continuam salvos nas tarefas).',{titulo:'Remover campo',ok:'Remover',perigo:true}))return;CFG.campos.splice(i,1);renderCfg()};
 window.opSaveCfg=function(){
   if(!CFG.nome.trim()){toast('Dê um nome à lista.','#EF4444');return}
   if(CFG.statuses.some(s=>!String(s.nome).trim())){toast('Todo status precisa de nome.','#EF4444');return}
   DB.update('op_listas',CFG.id,{nome:CFG.nome.trim(),statuses:CFG.statuses,campos:CFG.campos.filter(c=>String(c.nome).trim())});
   opCloseModal();renderOp();toast('Lista atualizada ✓','#10B981');
 };
-window.opArchiveLista=function(){
-  if(!confirm('Arquivar esta lista? Ela e suas tarefas somem das telas, mas continuam salvas.'))return;
+window.opArchiveLista=async function(){
+  if(!await confirmar('Arquivar esta lista? Ela e suas tarefas somem das telas, mas continuam salvas.',{titulo:'Arquivar lista',ok:'Arquivar'}))return;
   DB.update('op_listas',CFG.id,{arquivada:true});
   S.listaId=null;opCloseModal();renderOp();
 };
@@ -23260,6 +23286,7 @@ window.opAcDel=function(id){DB.remove('op_acessos',id);opAcessos();toast('Acesso
 
 document.addEventListener('keydown',e=>{
   if(e.key!=='Escape')return;
+  if(DLG){opDlgCancel();return}
   if(document.getElementById('op-md').classList.contains('open'))opCloseModal();
   else if(document.getElementById('op-ov').classList.contains('open'))opCloseTask();
 });
