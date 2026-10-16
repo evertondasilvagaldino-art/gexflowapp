@@ -196,7 +196,12 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 'use strict';
 const API='https://kghgmraezxcssipccodn.supabase.co/functions/v1/gex-bi-vendas';
 const QS=new URLSearchParams(location.search);
-const TOKEN=QS.get('t')||'';
+const LSK='gxbi_chave';
+let TOKEN=QS.get('t')||'';
+try{
+  if(TOKEN){localStorage.setItem(LSK,TOKEN);QS.delete('t');history.replaceState(null,'',location.pathname+(QS.toString()?'?'+QS.toString():''))}
+  else if(!QS.get('l')){TOKEN=localStorage.getItem(LSK)||''}
+}catch(e){}
 const LINK=QS.get('l')||'';
 const S={p:'30',de:'',ate:'',funil:'',data:null,timer:null,abort:null};
 const $=id=>document.getElementById(id);
@@ -223,7 +228,7 @@ function range(){
 function brDate(k){return k.slice(8,10)+'/'+k.slice(5,7)+'/'+k.slice(0,4)}
 
 async function load(){
-  if(!TOKEN&&!LINK){showState('Link incompleto','Peça o link do BI para quem administra o GexFlow.');return}
+  if(!TOKEN&&!LINK){pedirChave();return}
   const [de,ate]=range();
   if(S.abort)S.abort.abort();
   S.abort=new AbortController();
@@ -232,7 +237,7 @@ async function load(){
     const r=await fetch(u,{signal:S.abort.signal,cache:'no-store'});
     if(r.status===401){
       let b={};try{b=await r.json()}catch(e){}
-      if(b&&b.error&&/inv[aá]lido/i.test(b.error)){showState('Link inválido ou expirado','Peça um link novo para quem administra o GexFlow.');return}
+      if(b&&b.error&&/inv[aá]lido/i.test(b.error)){if(TOKEN&&!LINK){try{localStorage.removeItem(LSK)}catch(e){};TOKEN='';pedirChave('Chave incorreta. Tente de novo.');return}showState('Link inválido ou expirado','Peça um link novo para quem administra o GexFlow.');return}
       showState('Acesso bloqueado pelo servidor','A função do BI está com "Verify JWT" ligado no Supabase. Quem administra o GexFlow precisa desligar essa opção.');return;
     }
     if(!r.ok)throw new Error('http '+r.status);
@@ -243,6 +248,12 @@ async function load(){
     if(S.data){$('sub').textContent='Sem conexão agora — mostrando os últimos dados carregados.';return}
     showState('Não consegui carregar os dados','Verifique sua conexão e clique em Atualizar.');
   }
+}
+function pedirChave(msg){
+  $('app').innerHTML='<div class="state"><b>Painel de controle</b>Digite a chave de acesso para entrar.<form id="fk" style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><input id="kk" type="password" autocomplete="current-password" placeholder="Chave de acesso" style="padding:10px 12px;border:1px solid #c9ced8;border-radius:8px;font:inherit;min-width:220px"><button type="submit" style="padding:10px 18px;border:0;border-radius:8px;background:#2a78d6;color:#fff;font:600 14px inherit;cursor:pointer">Entrar</button></form><div style="color:#a52a1b;margin-top:10px">'+esc(msg||'')+'</div></div>';
+  $('sub').textContent='';
+  $('fk').onsubmit=function(e){e.preventDefault();const v=$('kk').value.trim();if(!v)return;TOKEN=v;try{localStorage.setItem(LSK,v)}catch(x){};if(TOKEN)$('links').style.display='';load()};
+  setTimeout(()=>{try{$('kk').focus()}catch(e){}},50);
 }
 function showState(t,m){$('app').innerHTML='<div class="state"><b>'+esc(t)+'</b>'+esc(m)+'</div>';$('sub').textContent=''}
 
