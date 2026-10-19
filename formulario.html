@@ -17,6 +17,26 @@
     .quiz-nav button{margin:0}
     #quiz-back{flex:0 0 auto;background:#f1f5f9;color:#475569;width:auto;padding:0 18px;box-shadow:none}
     #quiz-next{flex:1}
+    /* Mobile: textos e campos maiores, fáceis de ler e de tocar (16px+ nos campos evita o zoom automático do iPhone) */
+    @media(max-width:600px){
+      body{padding:14px 12px 28px}
+      .card{padding:26px 20px;border-radius:20px}
+      .logo-img{max-height:60px;max-width:240px;margin-bottom:22px}
+      .brand{font-size:14px}
+      .progress{height:8px;margin-bottom:26px}
+      h1{font-size:28px;line-height:1.2;text-wrap:balance}
+      .description{font-size:16.5px;line-height:1.5;margin:12px 0 28px}
+      .quiz-eyebrow{font-size:12.5px;margin-bottom:14px}
+      .field{margin-bottom:20px}
+      .field span{font-size:18px;line-height:1.35;font-weight:700;color:#1e293b;margin-bottom:12px}
+      input,select,textarea{height:56px;font-size:17px;padding:0 16px;border-radius:12px;-webkit-appearance:none;appearance:none}
+      select,select:focus{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='8' viewBox='0 0 14 8'%3E%3Cpath d='M1 1l6 6 6-6' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;padding-right:42px}
+      textarea{height:120px;padding-top:14px}
+      button{height:58px;font-size:17px;border-radius:13px;touch-action:manipulation}
+      .quiz-nav{gap:12px;margin-bottom:18px}
+      #quiz-back{padding:0 22px}
+      .state h2{font-size:24px}.state p{font-size:16.5px}
+    }
   </style>
 </head>
 <body>
@@ -165,7 +185,14 @@
         const response=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slug,website,answers,utm})}),result=await response.json();
         if(!response.ok||!result.ok)throw new Error(result.error||'Não foi possível enviar.');
         if(currentForm&&currentForm.metaPixelId){try{window.fbq&&window.fbq('track','Lead')}catch(e){}}
-        if(currentForm&&currentForm.redirectUrl){location.href=currentForm.redirectUrl;return}
+        if(currentForm&&currentForm.redirectUrl){
+          const dest=currentForm.redirectUrl;
+          // Dentro de um iframe (formulário embutido no site), tenta levar a página INTEIRA
+          // pro destino; se o navegador bloquear, cai pro redirecionamento dentro do iframe.
+          if(window.top!==window){try{window.top.location.href=dest}catch(e){}setTimeout(()=>{location.href=dest},600)}
+          else location.href=dest;
+          return;
+        }
         $('form-area').classList.add('hidden');
         $('success-message').textContent=result.message||'Recebemos seus dados.';
         $('success').classList.remove('hidden');
