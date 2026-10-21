@@ -2252,16 +2252,12 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
         <button class="btn btn-primary" onclick="openModal('cliente')">+ Novo Cliente</button>
       </div>
     </div>
-    <div class="filters">
-      <div class="filter-tabs">
-        <button class="ftab active" onclick="filterCli('todos',this)">Todos</button>
-        <button class="ftab" onclick="filterCli('Aguardando',this)">⏳ Aguardando</button>
-        <button class="ftab" onclick="filterCli('Ativo',this)">Ativos</button>
-        <button class="ftab" onclick="filterCli('Inativo',this)">Inativos</button>
-      </div>
+    <div class="filters" style="flex-wrap:wrap;gap:10px">
+      <div class="filter-tabs" id="cli-tabs"></div>
       <input class="search-inline" id="cli-search" placeholder="Buscar cliente..." oninput="renderClientes()">
+      <div id="cli-viewtoggle" style="margin-left:auto;display:flex;gap:6px"></div>
     </div>
-    <div class="card"><div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Status</th><th>LTV</th><th>Health</th><th>Ações</th><th></th></tr></thead><tbody id="cli-tbody"></tbody></table></div></div>
+    <div id="cli-view"></div>
   </div>
 
   <!-- PROJETOS -->
@@ -2334,6 +2330,7 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
         </select>
         <span style="font-size:12px;color:var(--muted);margin-left:4px" id="pipeline-filter-info"></span>
         <div style="margin-left:auto;display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" id="gx-cards-btn" onclick="gxCardsOpen()" title="Escolher o que aparece nos cards">⚙ Cards</button>
           <button class="btn btn-ghost btn-sm" id="pipe-view-kanban" onclick="setPipelineView('kanban')">🗂 Kanban</button>
           <button class="btn btn-ghost btn-sm" id="pipe-view-lista" onclick="setPipelineView('lista')">📋 Lista</button>
         </div>
@@ -5309,7 +5306,7 @@ function confirmDelete(cb){
 
 // ═══ BADGE ═══
 function badge(s){
-  const m={Ativo:'badge-green',Inativo:'badge-gray',Aguardando:'badge-yellow',Lead:'badge-blue',Férias:'badge-yellow','Em andamento':'badge-blue','A fazer':'badge-gray','Em revisão':'badge-yellow',Concluído:'badge-green',Admin:'badge-purple',Gestor:'badge-blue',Colaborador:'badge-gray',Receita:'badge-green',Despesa:'badge-red',Prospecção:'badge-gray',Qualificação:'badge-blue',Proposta:'badge-yellow',Negociação:'badge-purple',Fechamento:'badge-green',Pendente:'badge-yellow',Concluída:'badge-green',Desligado:'badge-red',Perdido:'badge-red',Ganho:'badge-green','Revisão':'badge-yellow','Aguard. Aprovação':'badge-blue',Aprovado:'badge-green',Postado:'badge-green'};
+  const m={Ativo:'badge-green',Inativo:'badge-gray',Aguardando:'badge-yellow','Em negociação':'badge-blue','Pediu para sair':'badge-yellow',Lead:'badge-blue',Férias:'badge-yellow','Em andamento':'badge-blue','A fazer':'badge-gray','Em revisão':'badge-yellow',Concluído:'badge-green',Admin:'badge-purple',Gestor:'badge-blue',Colaborador:'badge-gray',Receita:'badge-green',Despesa:'badge-red',Prospecção:'badge-gray',Qualificação:'badge-blue',Proposta:'badge-yellow',Negociação:'badge-purple',Fechamento:'badge-green',Pendente:'badge-yellow',Concluída:'badge-green',Desligado:'badge-red',Perdido:'badge-red',Ganho:'badge-green','Revisão':'badge-yellow','Aguard. Aprovação':'badge-blue',Aprovado:'badge-green',Postado:'badge-green'};
   // Dynamic stage badge colors
   const stages=getStages();
   const stageCls=['badge-gray','badge-blue','badge-yellow','badge-purple','badge-green','badge-red'];
@@ -7326,7 +7323,7 @@ function formCliente(d,contexto='full'){
   <div class="form-row">
     <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" id="f-tel" value="${d?.telefone||''}"></div>
     <div class="form-group"><label class="form-label">Status</label>
-      <select class="form-input" id="f-status"><option ${d?.status==='Aguardando'?'selected':''}>Aguardando</option><option ${d?.status==='Ativo'?'selected':''}>Ativo</option><option ${d?.status==='Lead'?'selected':''}>Lead</option><option ${d?.status==='Inativo'?'selected':''}>Inativo</option></select></div>
+      <select class="form-input" id="f-status"><option ${d?.status==='Em negociação'?'selected':''}>Em negociação</option><option ${d?.status==='Aguardando'?'selected':''}>Aguardando</option><option ${d?.status==='Ativo'?'selected':''}>Ativo</option><option ${d?.status==='Pediu para sair'?'selected':''}>Pediu para sair</option><option ${d?.status==='Lead'?'selected':''}>Lead</option><option ${d?.status==='Inativo'?'selected':''}>Inativo</option></select></div>
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Squads responsáveis (Ctrl/Cmd+clique para vários)</label>
@@ -8593,7 +8590,7 @@ function renderInicio(){
 }
 
 
-function filterCli(f,el){cliFilter=f;document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderClientes()}
+function filterCli(f,el){cliFilter=f;renderClientes()}
 // Ordem das tabelas: maior valor em R$ primeiro (quem não tem valor vai pro fim).
 function ordenaClientesPorValor(arr){
   return arr.slice().sort((a,b)=>(contratoValorNum(b.ltv)-contratoValorNum(a.ltv))||String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR'));
@@ -8601,30 +8598,116 @@ function ordenaClientesPorValor(arr){
 function ordenaContratosPorValor(arr){
   return arr.slice().sort((a,b)=>(contratoValorNum(b.valor)-contratoValorNum(a.valor))||String(a.titulo||'').localeCompare(String(b.titulo||''),'pt-BR'));
 }
-function renderClientes(){
-  const q=(document.getElementById('cli-search')?.value||'').toLowerCase();
-  let data=DB.get('clientes');
-  if(cliFilter!=='todos') data=data.filter(c=>c.status===cliFilter);
-  if(q) data=data.filter(c=>c.nome.toLowerCase().includes(q)||c.email?.toLowerCase().includes(q));
-  data=ordenaClientesPorValor(data);
-  document.getElementById('cli-sub').textContent=data.length+' cliente(s)';
-  const tbody=document.getElementById('cli-tbody');
-  if(!data.length){tbody.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="empty-ico">👥</div><div class="empty-txt">Nenhum cliente</div></div></td></tr>`;return}
-  tbody.innerHTML=data.map(c=>`<tr>
-    <td><div style="display:flex;align-items:center;gap:8px"><div style="width:30px;height:30px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials(c.nome)}</div><div><div style="font-weight:600;font-size:13px">${c.nome}</div>${c.desc?`<div style="font-size:10px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.desc}</div>`:''}</div></div></td>
-    <td style="color:var(--muted);font-size:12px">${c.email||'—'}</td>
-    <td style="color:var(--muted);font-size:12px">${c.telefone||'—'}</td>
-    <td>${badge(c.status)}</td>
-    <td style="font-weight:600;color:var(--green)">${c.ltv||'—'}</td>
+// ═══ CLIENTES — lista agrupada por status + quadro (modelo ClickUp "Carteira Clientes") ═══
+const CLI_STATUS=[
+  {k:'Em negociação',cor:'#64748B'},
+  {k:'Aguardando',cor:'#06B6D4'},
+  {k:'Lead',cor:'#3B82F6',oculto:true},
+  {k:'Ativo',cor:'#16A34A'},
+  {k:'Pediu para sair',cor:'#D97706'},
+  {k:'Inativo',cor:'#EA580C'}
+];
+function cliView(){try{return localStorage.getItem('gxCliView')==='quadro'?'quadro':'lista'}catch(e){return 'lista'}}
+function setCliView(v){try{localStorage.setItem('gxCliView',v)}catch(e){}renderClientes()}
+function cliCollapsed(){let o={};try{o=JSON.parse(localStorage.getItem('gxCliCol')||'null')}catch(e){}return o&&typeof o==='object'?o:{'Inativo':true}}
+function cliToggleGroup(k){const o=cliCollapsed();o[k]=!o[k];try{localStorage.setItem('gxCliCol',JSON.stringify(o))}catch(e){}renderClientes()}
+function cliGroupOf(c){const st=String(c&&c.status||'').trim();return CLI_STATUS.some(x=>x.k===st)?st:'Outros'}
+function cliPill(k,n){
+  const d=CLI_STATUS.find(x=>x.k===k)||{cor:'#94A3B8'};
+  return `<span style="display:inline-flex;align-items:center;gap:6px;background:${d.cor};color:#fff;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:4px 10px;border-radius:6px">${escHtml(k)}</span><span style="font-size:12px;color:var(--muted);font-weight:600">${n}</span>`;
+}
+function cliRowHtml(c){
+  const onb=(DB.get('onboarding')||[]).find(o=>o.clienteId===c.id);
+  return `<tr>
+    <td><div style="display:flex;align-items:center;gap:8px"><div style="width:30px;height:30px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials(c.nome)}</div><div><div style="font-weight:600;font-size:13px">${escHtml(c.nome||'')}</div>${c.desc?`<div style="font-size:10px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(c.desc)}</div>`:''}</div></div></td>
+    <td style="color:var(--muted);font-size:12px">${escHtml(c.email||'—')}</td>
+    <td style="color:var(--muted);font-size:12px">${escHtml(c.telefone||'—')}</td>
+    <td style="font-weight:600;color:var(--green)">${escHtml(c.ltv||'—')}</td>
     <td><span style="font-weight:700;color:${healthColor(c.health||0)}">${c.health||0}</span></td>
     <td><div class="td-actions">
       <button class="btn btn-ghost btn-sm" title="Ver detalhes" onclick='openDetail("${c.id}")'>Ver</button>
       ${can('clientes','edit')?`<button class="btn btn-ghost btn-sm" title="Editar" onclick='openModal("cliente","${c.id}")'>Editar</button>`:''}
       ${can('clientes','delete')?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" title="Excluir" onclick='confirmDelete(()=>{DB.remove("clientes","${c.id}");renderClientes();renderInicio();toast("Removido","#EF4444")})'>Excluir</button>`:''}
-
     </div></td>
-    <td>${c.status==='Aguardando'?`<button class="btn btn-primary btn-sm" style="white-space:nowrap;font-size:11px" onclick='openModal("cliente","${c.id}")' title="Ative o cliente para enviá-lo ao Onboarding">✅ Ativar</button>`:''}${c.status==='Ativo'&&!DB.get('onboarding').find(o=>o.clienteId===c.id)?`<button class="btn btn-ghost btn-sm" style="white-space:nowrap;font-size:11px" onclick='sendToOperacional("${c.id}")' title="Enviar para Onboarding">📤</button>`:''}</td>
-  </tr>`).join('');
+    <td>${c.status==='Aguardando'?`<button class="btn btn-primary btn-sm" style="white-space:nowrap;font-size:11px" onclick='openModal("cliente","${c.id}")' title="Ative o cliente para enviá-lo ao Onboarding">✅ Ativar</button>`:''}${c.status==='Ativo'&&!onb?`<button class="btn btn-ghost btn-sm" style="white-space:nowrap;font-size:11px" onclick='sendToOperacional("${c.id}")' title="Enviar para Onboarding">📤</button>`:''}</td>
+  </tr>`;
+}
+function cliListaHtml(data){
+  const col=cliCollapsed();
+  const groups=CLI_STATUS.map(d=>d.k).concat(['Outros']);
+  return groups.map(k=>{
+    const items=data.filter(c=>cliGroupOf(c)===k);
+    const def=CLI_STATUS.find(x=>x.k===k);
+    if(!items.length&&(k==='Outros'||(def&&def.oculto)))return '';
+    if(!items.length&&cliFilter!=='todos')return '';
+    const closed=!!col[k];
+    return `<div class="card" style="margin-bottom:12px;padding:0;overflow:hidden">
+      <div onclick="cliToggleGroup('${k}')" style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none">
+        <span style="font-size:11px;color:var(--muted);width:12px;display:inline-block;transition:transform .15s;transform:rotate(${closed?0:90}deg)">▶</span>${cliPill(k,items.length)}
+      </div>
+      ${closed||!items.length?'':`<div class="tbl-wrap"><table style="table-layout:fixed;width:100%"><colgroup><col style="width:23%"><col style="width:20%"><col style="width:13%"><col style="width:10%"><col style="width:7%"><col style="width:20%"><col style="width:7%"></colgroup><thead><tr><th>Nome</th><th>Email</th><th>Telefone</th><th>LTV</th><th>Health</th><th>Ações</th><th></th></tr></thead><tbody>${items.map(cliRowHtml).join('')}</tbody></table></div>`}
+    </div>`;
+  }).join('');
+}
+function cliQuadroHtml(data){
+  const cols=CLI_STATUS.filter(d=>!d.oculto||data.some(c=>cliGroupOf(c)===d.k));
+  const canEdit=can('clientes','edit');
+  return `<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:10px;align-items:flex-start">${cols.map(d=>{
+    const items=data.filter(c=>cliGroupOf(c)===d.k);
+    return `<div style="flex:0 0 270px;background:${d.cor}0D;border:1px solid ${d.cor}33;border-top:3px solid ${d.cor};border-radius:12px;padding:10px"
+      ondragover="event.preventDefault()" ondrop="${canEdit?`cliDrop(event,'${d.k}')`:''}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">${cliPill(d.k,items.length)}</div>
+      <div style="display:flex;flex-direction:column;gap:8px;max-height:68vh;overflow-y:auto">${items.map(c=>`
+        <div class="card" ${canEdit?`draggable="true" ondragstart="event.dataTransfer.setData('text/plain','${c.id}')"`:''} onclick='openDetail("${c.id}")' style="padding:10px 12px;cursor:pointer">
+          <div style="display:flex;align-items:center;gap:8px"><div style="width:26px;height:26px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials(c.nome)}</div><div style="font-weight:600;font-size:13px;line-height:1.25">${escHtml(c.nome||'')}</div></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px">${escHtml(c.telefone||c.email||'—')}</div>
+          <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11.5px"><span style="font-weight:600;color:var(--green)">${escHtml(c.ltv||'—')}</span><span style="font-weight:700;color:${healthColor(c.health||0)}">♥ ${c.health||0}</span></div>
+        </div>`).join('')}${items.length?'':'<div style="font-size:11px;color:var(--muted);text-align:center;padding:10px">Vazio</div>'}</div>
+    </div>`}).join('')}</div>`;
+}
+// Arrastar no quadro muda o status. Ao entrar em "Ativo", faz o mesmo que o
+// formulário de edição: cria a entrada no Onboarding se ainda não existir.
+function cliDrop(e,novoStatus){
+  e.preventDefault();
+  try{
+    const id=e.dataTransfer.getData('text/plain');
+    if(!id||!can('clientes','edit'))return;
+    const c=DB.find('clientes',id);
+    if(!c||c.status===novoStatus)return;
+    const anterior=c.status;
+    DB.update('clientes',id,{status:novoStatus});
+    fireWebhook('cliente.atualizado',{...c,status:novoStatus});
+    if(novoStatus==='Ativo'&&anterior!=='Ativo'){
+      const obs=DB.get('onboarding')||[];
+      if(!obs.find(o=>o.clienteId===id)){
+        obs.push({id:uid(),clienteId:id,estagio:'Aguardando',responsaveis:[],steps:OB_DEFAULT_STEPS.map(s=>({id:uid(),label:s.label,done:false,responsavel:''}))});
+        DB.set('onboarding',obs);
+        toast(`✅ ${c.nome} ativado → enviado para Onboarding!`,'#7C3AED');
+      }else toast('Status atualizado ✓','#10B981');
+    }else toast(`Movido para ${novoStatus} ✓`,'#10B981');
+    renderClientes();renderInicio();
+  }catch(err){try{toast('Não foi possível mover o cliente','#EF4444')}catch(x){}}
+}
+function renderClientes(){
+  const q=(document.getElementById('cli-search')?.value||'').toLowerCase();
+  let data=(DB.get('clientes')||[]).filter(c=>c);
+  if(q)data=data.filter(c=>String(c.nome||'').toLowerCase().includes(q)||String(c.email||'').toLowerCase().includes(q)||String(c.telefone||'').toLowerCase().includes(q));
+  data=ordenaClientesPorValor(data);
+  // abas de filtro com contagem
+  const tabs=document.getElementById('cli-tabs');
+  if(tabs){
+    const cnt=k=>data.filter(c=>cliGroupOf(c)===k).length;
+    const lista=[{k:'todos',l:'Todos',n:data.length}].concat(CLI_STATUS.filter(d=>!d.oculto||cnt(d.k)).map(d=>({k:d.k,l:d.k,n:cnt(d.k)})));
+    tabs.innerHTML=lista.map(t=>`<button class="ftab ${cliFilter===t.k?'active':''}" onclick="filterCli('${t.k}',this)">${escHtml(t.l)} <span style="opacity:.6">${t.n}</span></button>`).join('');
+  }
+  const view=cliView();
+  const tg=document.getElementById('cli-viewtoggle');
+  if(tg)tg.innerHTML=`<button class="btn btn-sm ${view==='lista'?'btn-primary':'btn-ghost'}" onclick="setCliView('lista')">📋 Lista</button><button class="btn btn-sm ${view==='quadro'?'btn-primary':'btn-ghost'}" onclick="setCliView('quadro')">🗂 Quadro</button>`;
+  if(cliFilter!=='todos')data=data.filter(c=>cliGroupOf(c)===cliFilter);
+  const sub=document.getElementById('cli-sub');if(sub)sub.textContent=data.length+' cliente(s)';
+  const box=document.getElementById('cli-view');if(!box)return;
+  if(!data.length&&view==='lista'){box.innerHTML=`<div class="card"><div class="empty"><div class="empty-ico">👥</div><div class="empty-txt">Nenhum cliente</div></div></div>`;return}
+  box.innerHTML=view==='quadro'?cliQuadroHtml(data):cliListaHtml(data);
 }
 
 function renderProjetos(){renderProjView();}
@@ -10167,15 +10250,19 @@ function renderComercial(){
         const avatarColor=STAGE_COLORS[gexSimpleHash(l.id||l.nome||'').length%STAGE_COLORS.length];
         return `<div class="pcard" draggable="true" ondragstart="dragStart(event,'${l.id}','lead')" ondragend="dragEnd(event)" onclick="openDealDetail('${l.id}')">
         <div class="pcard-top">
-          <span class="pcard-avatar" style="background:${avatarColor}">${initials}</span>
+          <span class="pcard-avatar gx-c-avatar" style="background:${avatarColor}">${initials}</span>
           <div class="pcard-name">${l.nome||'Lead sem nome'}</div>
         </div>
-        <div class="pcard-co">🏢 ${l.empresa||'—'}</div>
-        <div class="pcard-co">👤 ${getLeadOwnerName(l)||'Sem responsável'}</div>
-        ${(()=>{const t=leadEntradaLabel(l);return t?`<div class="pcard-co" title="Data e hora em que o lead entrou">🕒 ${t}</div>`:''})()}
-        <div class="pcard-footer">
-          <span class="pcard-val">${fmtBRL(l.valor||0)}</span>
-          <div class="pcard-actions">
+        <div class="pcard-co gx-c-emp">🏢 ${l.empresa||'—'}</div>
+        <div class="pcard-co gx-c-resp">👤 ${getLeadOwnerName(l)||'Sem responsável'}</div>
+        ${(()=>{const t=leadEntradaLabel(l);return t?`<div class="pcard-co gx-c-ent" title="Data e hora em que o lead entrou">🕒 ${t}</div>`:''})()}
+        ${l.telefone?`<div class="pcard-co gx-c-tel">📞 ${escHtml(String(l.telefone))}</div>`:''}
+        ${l.email?`<div class="pcard-co gx-c-mail">✉️ ${escHtml(String(l.email))}</div>`:''}
+        ${l.origem?`<div class="pcard-co gx-c-orig">📍 ${escHtml(String(l.origem))}</div>`:''}
+        ${l.dataFechamento?`<div class="pcard-co gx-c-prev">🎯 ${escHtml(String(l.dataFechamento))}</div>`:''}
+        <div class="pcard-footer gx-c-foot">
+          <span class="pcard-val gx-c-val">${fmtBRL(l.valor||0)}</span>
+          <div class="pcard-actions gx-c-acoes">
             <button class="btn btn-ghost btn-sm btn-icon" title="Abrir detalhes" onclick="event.stopPropagation();openDealDetail('${l.id}')">👁</button>
             <button class="btn btn-ghost btn-sm btn-icon" onclick="event.stopPropagation();openModal('lead','${l.id}')">✏️</button>
             <button class="btn btn-ghost btn-sm btn-icon" onclick="event.stopPropagation();confirmDelete(()=>{DB.remove('leads','${l.id}');renderComercial();toast('Removido','#EF4444')})">🗑️</button>
@@ -23699,6 +23786,57 @@ function renderInicioInner(){
     const box=document.getElementById('inicio-bi');if(box)box.innerHTML='';
   }
 }
+})();
+</script>
+
+<script id="gex-cards-script">
+(function(){
+// Personalizar o que aparece nos cards do Pipeline (por navegador/usuário).
+// Só liga/desliga a exibição por CSS — não altera nenhum dado do lead.
+var KEY='gxCardOpts';
+var OPTS=[
+ {k:'avatar',c:'gx-c-avatar',l:'Inicial do nome (bolinha)',d:1},
+ {k:'emp',c:'gx-c-emp',l:'Empresa',d:1},
+ {k:'resp',c:'gx-c-resp',l:'Responsável',d:1},
+ {k:'ent',c:'gx-c-ent',l:'Data e hora de entrada',d:1},
+ {k:'tel',c:'gx-c-tel',l:'Telefone',d:0},
+ {k:'mail',c:'gx-c-mail',l:'E-mail',d:0},
+ {k:'orig',c:'gx-c-orig',l:'Origem do lead',d:0},
+ {k:'prev',c:'gx-c-prev',l:'Previsão de fechamento',d:0},
+ {k:'val',c:'gx-c-val',l:'Valor (R$)',d:1},
+ {k:'acoes',c:'gx-c-acoes',l:'Botões (ver, editar, excluir)',d:1}
+];
+function load(){var o={};try{o=JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){}return o}
+function save(o){try{localStorage.setItem(KEY,JSON.stringify(o))}catch(e){}}
+function on(o,x){return (x.k in o)?!!o[x.k]:!!x.d}
+function css(){
+  var o=load(),r='';
+  OPTS.forEach(function(x){
+    if(on(o,x))r+= x.d?'':'.'+x.c+'{display:block!important}';
+    else r+='.'+x.c+'{display:none!important}';
+  });
+  if(!on(o,OPTS[8])&&!on(o,OPTS[9]))r+='.gx-c-foot{display:none!important}';
+  var st=document.getElementById('gx-cards-css');
+  if(!st){st=document.createElement('style');st.id='gx-cards-css';document.head.appendChild(st)}
+  st.textContent=r;
+}
+window.gxCardsOpen=function(){
+  var o=load();
+  var old=document.getElementById('gx-cards-modal');if(old)old.remove();
+  var m=document.createElement('div');m.id='gx-cards-modal';
+  m.style.cssText='position:fixed;inset:0;background:rgba(15,10,30,.45);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
+  m.innerHTML='<div style="background:var(--card,#fff);color:var(--txt,#1a1530);border-radius:14px;max-width:380px;width:100%;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:90vh;overflow:auto">'
+   +'<div style="font-size:15px;font-weight:700;margin-bottom:4px">⚙ O que aparece no card</div>'
+   +'<div style="font-size:11.5px;color:var(--muted);margin-bottom:12px">Marque o que você quer ver. Vale só para você, neste navegador. Não altera os dados dos leads.</div>'
+   +OPTS.map(function(x){return '<label style="display:flex;align-items:center;gap:9px;padding:7px 4px;font-size:13px;cursor:pointer"><input type="checkbox" data-k="'+x.k+'" '+(on(o,x)?'checked':'')+'> '+x.l+'</label>'}).join('')
+   +'<div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end"><button class="btn btn-ghost btn-sm" id="gx-cards-reset">Restaurar padrão</button><button class="btn btn-sm" style="background:var(--p2,#6D28D9);color:#fff" id="gx-cards-ok">Pronto</button></div></div>';
+  document.body.appendChild(m);
+  m.addEventListener('click',function(e){if(e.target===m)m.remove()});
+  m.querySelectorAll('input[type=checkbox]').forEach(function(cb){cb.addEventListener('change',function(){var o2=load();o2[cb.getAttribute('data-k')]=cb.checked?1:0;save(o2);css()})});
+  document.getElementById('gx-cards-ok').onclick=function(){m.remove()};
+  document.getElementById('gx-cards-reset').onclick=function(){save({});css();m.remove();window.gxCardsOpen()};
+};
+css();
 })();
 </script>
 
