@@ -13814,34 +13814,78 @@ function contratoSituacaoPill(key){
   return `<span class="badge" style="background:${sit.bg};color:${sit.color}">${sit.label}</span>`;
 }
 // ── Saídas de clientes: "Pediu para sair" + "Inativo" contam como saída ──
-let churnSaidaPeriodo='todos';
+// ── Ordem das listas da Análise de Churn (por usuário, no navegador) ──
+const CHURN_DEF={sai:['Pediu para sair','Inativo'],ct:['ct:vencido','ct:avencer','ct:renovacao','ct:ativo','ct:sem']};
+function churnOrd(sec){
+  const def=CHURN_DEF[sec];let st=[];
+  try{st=JSON.parse(localStorage.getItem('gxChurnOrd_'+sec)||'[]')}catch(e){}
+  if(!Array.isArray(st))st=[];
+  const ok=st.filter(k=>def.includes(k));
+  return ok.concat(def.filter(k=>!ok.includes(k)));
+}
+function churnSalvarOrd(sec,arr){try{localStorage.setItem('gxChurnOrd_'+sec,JSON.stringify(arr))}catch(e){}renderChurn()}
+function churnOrdPersonalizada(){try{return !!(localStorage.getItem('gxChurnOrd_sai')||localStorage.getItem('gxChurnOrd_ct'))}catch(e){return false}}
+function churnOrdReset(){try{localStorage.removeItem('gxChurnOrd_sai');localStorage.removeItem('gxChurnOrd_ct')}catch(e){}renderChurn()}
+function churnMover(sec,k,dir){
+  const o=churnOrd(sec),i=o.indexOf(k),j=i+dir;
+  if(i<0||j<0||j>=o.length)return;
+  const t=o[i];o[i]=o[j];o[j]=t;
+  churnSalvarOrd(sec,o);
+}
+let _churnDrag={sec:'',k:''};
+function churnDragS(e,sec,k){_churnDrag={sec,k};try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/gxchurn',k)}catch(x){}if(e.currentTarget)e.currentTarget.style.opacity='.5'}
+function churnDrop(e,sec,alvo){
+  e.preventDefault();
+  const d=_churnDrag;_churnDrag={sec:'',k:''};
+  if(d.sec!==sec||!d.k||d.k===alvo)return;
+  const o=churnOrd(sec),de=o.indexOf(d.k),para=o.indexOf(alvo);
+  if(de<0||para<0)return;
+  o.splice(de,1);o.splice(para,0,d.k);
+  churnSalvarOrd(sec,o);
+}
+function churnDragAttrs(sec,k){return `ondragstart="churnDragS(event,'${sec}','${k}')" ondragover="event.preventDefault()" ondrop="churnDrop(event,'${sec}','${k}')" ondragend="this.draggable=false;this.style.opacity=''"`}
+function churnCtl(sec,k){
+  return `<span style="margin-left:auto;display:flex;align-items:center;gap:2px" onclick="event.stopPropagation()">
+    <span title="Subir esta lista" style="cursor:pointer;padding:4px 7px;color:var(--muted);font-size:11px" onclick="churnMover('${sec}','${k}',-1)">▲</span>
+    <span title="Descer esta lista" style="cursor:pointer;padding:4px 7px;color:var(--muted);font-size:11px" onclick="churnMover('${sec}','${k}',1)">▼</span>
+    <span title="Segure e arraste para mudar a posição" style="cursor:grab;padding:4px 8px;color:var(--muted);font-size:14px" onmousedown="this.closest('.card').draggable=true">⋮⋮</span>
+  </span>`;
+}
+let churnMes=0,churnAno='todos'; // filtro da taxa: mês (0 = todos) e ano ('todos' ou 2026...)
 function churnToggleGroup(k){let o={};try{o=JSON.parse(localStorage.getItem('gxChurnCol')||'{}')||{}}catch(e){}o[k]=!o[k];try{localStorage.setItem('gxChurnCol',JSON.stringify(o))}catch(e){}renderChurn()}
-function setChurnSaidaPeriodo(v){churnSaidaPeriodo=v||'todos';renderChurn();}
+function setChurnMes(v){churnMes=+v||0;if(churnMes&&churnAno==='todos')churnAno=String(new Date().getFullYear());renderChurn();}
+function setChurnAno(v){churnAno=v||'todos';if(churnAno==='todos')churnMes=0;renderChurn();}
 function churnSaidasHtml(clientes){
   const ehSaida=c=>c&&(c.status==='Pediu para sair'||c.status==='Inativo');
   const saidasTodas=clientes.filter(ehSaida);
   const ativosAgora=clientes.filter(c=>c&&c.status==='Ativo').length;
-  const mesDe=c=>String(c.saidaEm||'').slice(0,7);
-  const meses=[...new Set(saidasTodas.map(mesDe).filter(Boolean))].sort().reverse();
-  const semData=saidasTodas.filter(c=>!mesDe(c)).length;
-  if(churnSaidaPeriodo!=='todos'&&churnSaidaPeriodo!=='semdata'&&!meses.includes(churnSaidaPeriodo))churnSaidaPeriodo='todos';
-  const saidas=churnSaidaPeriodo==='todos'?saidasTodas
-    :(churnSaidaPeriodo==='semdata'?saidasTodas.filter(c=>!mesDe(c)):saidasTodas.filter(c=>mesDe(c)===churnSaidaPeriodo));
+  const dataSaida=c=>/^\d{4}-\d{2}/.test(String(c.saidaEm||''))?String(c.saidaEm):'';
+  const semData=saidasTodas.filter(c=>!dataSaida(c)).length;
+  const anos=[...new Set(saidasTodas.map(c=>dataSaida(c).slice(0,4)).filter(Boolean).concat([String(new Date().getFullYear())]))].sort().reverse();
+  if(churnAno!=='todos'&&!anos.includes(churnAno))churnAno='todos';
+  const MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const saidas=saidasTodas.filter(c=>{
+    if(churnAno==='todos'&&!churnMes)return true;           // todos os períodos (inclui os sem data)
+    const d=dataSaida(c);if(!d)return false;               // sem data só entra em "todos"
+    if(churnAno!=='todos'&&d.slice(0,4)!==churnAno)return false;
+    if(churnMes&&+d.slice(5,7)!==churnMes)return false;
+    return true;
+  });
+  const rotuloPeriodo=churnAno==='todos'?'todos os períodos':(churnMes?MESES[churnMes-1]+' de '+churnAno:'ano de '+churnAno);
   const pediu=saidas.filter(c=>c.status==='Pediu para sair');
   const inativos=saidas.filter(c=>c.status==='Inativo');
   const base=ativosAgora+saidas.length;
   const taxa=base?(saidas.length/base*100):0;
   const mrrNum=c=>contratoValorNum(c.mrr||'');
   const mrrSaida=saidas.reduce((a,c)=>a+mrrNum(c),0);
-  const nomeMes=m=>{const [y,mm]=m.split('-');return ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][+mm-1]+'/'+y};
   const dataBR=c=>c.saidaEm?String(c.saidaEm).slice(0,10).split('-').reverse().join('/'):'sem data';
   const card=(lbl,val,cor,sub)=>`<div class="stat-card"><div class="stat-lbl" style="color:${cor}">${lbl}</div><div class="stat-val" style="color:${cor}">${val}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${sub}</div></div>`;
   let colChurn={};try{colChurn=JSON.parse(localStorage.getItem('gxChurnCol')||'{}')||{}}catch(e){}
   const tab=(titulo,arr)=>{
     const closed=!!colChurn[titulo];
-    return `<div class="card" style="margin-bottom:12px;padding:0;overflow:hidden">
+    return `<div class="card" style="margin-bottom:12px;padding:0;overflow:hidden" ${churnDragAttrs('sai',titulo)}>
       <div onclick="churnToggleGroup('${titulo}')" style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none">
-        <span style="font-size:11px;color:var(--muted);width:12px;display:inline-block;transition:transform .15s;transform:rotate(${closed?0:90}deg)">▶</span>${cliPill(titulo,arr.length)}
+        <span style="font-size:11px;color:var(--muted);width:12px;display:inline-block;transition:transform .15s;transform:rotate(${closed?0:90}deg)">▶</span>${cliPill(titulo,arr.length)}${churnCtl('sai',titulo)}
       </div>
       ${closed||!arr.length?'':`<div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th>Contato</th><th>LTV</th><th>Início</th><th>Saiu em</th><th>Health</th></tr></thead><tbody>${arr.slice().sort((a,b)=>String(b.saidaEm||'').localeCompare(String(a.saidaEm||''))).map(c=>`<tr>
         <td><div style="font-weight:600">${escHtml(c.nome||'')}</div></td>
@@ -13852,22 +13896,28 @@ function churnSaidasHtml(clientes){
         <td><span style="font-weight:700;color:${healthColor(c.health||0)}">${c.health||0}</span></td></tr>`).join('')}</tbody></table></div>`}
     </div>`;
   };
-  const seletor=`<select class="form-input" style="padding:5px 8px;font-size:12px;width:auto" onchange="setChurnSaidaPeriodo(this.value)">
-      <option value="todos" ${churnSaidaPeriodo==='todos'?'selected':''}>Todos os períodos</option>
-      ${meses.map(m=>`<option value="${m}" ${churnSaidaPeriodo===m?'selected':''}>${nomeMes(m)}</option>`).join('')}
-      ${semData?`<option value="semdata" ${churnSaidaPeriodo==='semdata'?'selected':''}>Sem data registrada (${semData})</option>`:''}
-    </select>`;
+  const selCss='padding:5px 8px;font-size:12px;width:auto';
+  const seletor=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select class="form-input" style="${selCss}" onchange="setChurnMes(this.value)" title="Mês">
+        <option value="0" ${!churnMes?'selected':''}>Todos os meses</option>
+        ${MESES.map((m,i)=>`<option value="${i+1}" ${churnMes===i+1?'selected':''}>${m.charAt(0).toUpperCase()+m.slice(1)}</option>`).join('')}
+      </select>
+      <select class="form-input" style="${selCss}" onchange="setChurnAno(this.value)" title="Ano">
+        <option value="todos" ${churnAno==='todos'?'selected':''}>Todos os anos</option>
+        ${anos.map(a=>`<option value="${a}" ${churnAno===a?'selected':''}>${a}</option>`).join('')}
+      </select>
+    </div>`;
+  const seletorOrd=churnOrdPersonalizada()?`<button class="btn btn-ghost btn-sm" onclick="churnOrdReset()" title="Voltar à ordem padrão das listas">↺ Ordem padrão</button>`:'';
   return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-      <div><div style="font-size:15px;font-weight:700">Saídas de clientes</div><div style="font-size:11.5px;color:var(--muted)">“Pediu para sair” e “Inativo” contam como saída. Taxa de churn = saídas ÷ (clientes ativos + saídas).</div></div>${seletor}</div>
+      <div><div style="font-size:15px;font-weight:700">Saídas de clientes</div><div style="font-size:11.5px;color:var(--muted)">“Pediu para sair” e “Inativo” contam como saída. Taxa de churn = saídas ÷ (clientes ativos + saídas).${semData&&(churnAno!=='todos'||churnMes)?` ${semData} saída(s) sem data só aparecem em “Todos os meses / anos”.`:''}</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${seletor}${seletorOrd}</div></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:14px">
-      ${card('🚪 Saídas',saidas.length,'#DC2626',pediu.length+' pediram para sair · '+inativos.length+' inativos')}
-      ${card('📉 Taxa de churn',taxa.toFixed(1).replace('.',',')+'%','#D97706',saidas.length+' saídas ÷ '+base+' clientes')}
+      ${card('🚪 Saídas',saidas.length,'#DC2626',pediu.length+' pediram para sair · '+inativos.length+' inativos · '+rotuloPeriodo)}
+      ${card('📉 Taxa de churn',taxa.toFixed(1).replace('.',',')+'%','#D97706',saidas.length+' saídas ÷ '+base+' clientes · '+rotuloPeriodo)}
       ${card('👥 Base de clientes',base,'#2563EB',ativosAgora+' ativos + '+saidas.length+' saídas')}
       ${card('🟢 Clientes ativos',ativosAgora,'#059669','status Ativo hoje')}
       ${mrrSaida>0?card('💸 MRR em saída',escHtml(gexMoneyFmt(mrrSaida,true)||''),'#7C3AED','soma do MRR dos clientes que saíram'):''}
     </div>
-    ${tab('Pediu para sair',pediu)}
-    ${tab('Inativo',inativos)}`;
+    ${churnOrd('sai').map(k=>tab(k,k==='Pediu para sair'?pediu:inativos)).join('')}`;
 }
 // ── Saúde dos contratos (vencimentos), em grupos que abrem e fecham ──
 function churnToggleCt(k){let o={};try{o=JSON.parse(localStorage.getItem('gxChurnCol')||'{}')||{}}catch(e){}const cur=(k in o)?!!o[k]:(k==='ct:ativo');o[k]=!cur;try{localStorage.setItem('gxChurnCol',JSON.stringify(o))}catch(e){}renderChurn()}
@@ -13890,11 +13940,11 @@ function churnContratosHtml(clientes){
   let col={};try{col=JSON.parse(localStorage.getItem('gxChurnCol')||'{}')||{}}catch(e){}
   const fechado=k=>(k in col)?!!col[k]:(k==='ct:ativo');
   const pill=(label,cor,n,sub)=>`<span style="display:inline-flex;align-items:center;background:${cor};color:#fff;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:4px 10px;border-radius:6px">${escHtml(label)}</span><span style="font-size:12px;color:var(--muted);font-weight:600">${n}</span>${sub?`<span style="font-size:11px;color:var(--muted)">${sub}</span>`:''}`;
-  const head=(k,inner,closed)=>`<div onclick="churnToggleCt('${k}')" style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none"><span style="font-size:11px;color:var(--muted);width:12px;display:inline-block;transition:transform .15s;transform:rotate(${closed?0:90}deg)">▶</span>${inner}</div>`;
+  const head=(k,inner,closed)=>`<div onclick="churnToggleCt('${k}')" style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none"><span style="font-size:11px;color:var(--muted);width:12px;display:inline-block;transition:transform .15s;transform:rotate(${closed?0:90}deg)">▶</span>${inner}${churnCtl('ct',k)}</div>`;
   const keys=['vencido','avencer','renovacao','ativo'];
   const tabela=k=>{
     const sit=CONTRATO_SITUACOES[k],arr=grupos[k],ck='ct:'+k,closed=fechado(ck);
-    return `<div class="card" style="margin-bottom:12px;padding:0;overflow:hidden">
+    return `<div class="card" style="margin-bottom:12px;padding:0;overflow:hidden" ${churnDragAttrs('ct',ck)}>
       ${head(ck,pill(sit.label,sit.color,arr.length,nClientes(arr)+' cliente(s) · '+sit.hint),closed)}
       ${closed||!arr.length?'':`<div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th>Contrato</th><th>Valor</th><th>Vencimento</th><th>Prazo</th><th>Health</th></tr></thead><tbody>
         ${arr.map(ct=>{
@@ -13915,7 +13965,7 @@ function churnContratosHtml(clientes){
     </div>`;
   };
   const ckSem='ct:sem',closedSem=fechado(ckSem);
-  const semCard=`<div class="card" style="margin-bottom:12px;padding:0;overflow:hidden">
+  const semCard=`<div class="card" style="margin-bottom:12px;padding:0;overflow:hidden" ${churnDragAttrs('ct',ckSem)}>
       ${head(ckSem,pill('Ativos sem contrato','#64748B',semContrato.length,'sem contrato não dá pra medir a saúde financeira'),closedSem)}
       ${closedSem||!semContrato.length?'':`<div style="padding:4px 16px 14px;display:flex;flex-wrap:wrap;gap:6px">${semContrato.map(c=>`<span class="badge badge-gray" style="cursor:pointer" onclick="openModal('cliente','${c.id}')" title="Abrir cliente">${escHtml(c.nome||'')}</span>`).join('')}</div>`}
     </div>`;
@@ -13923,7 +13973,7 @@ function churnContratosHtml(clientes){
   return `<div style="border-top:1px solid var(--border);margin:8px 0 16px"></div>
     <div style="font-size:15px;font-weight:700;margin-bottom:2px">Saúde dos contratos</div>
     <div style="font-size:11.5px;color:var(--muted);margin-bottom:10px">Situação de cada contrato pelo vencimento.</div>
-    ${keys.map(tabela).join('')}${semCard}${nota}`;
+    ${churnOrd('ct').map(ck=>ck==='ct:sem'?semCard:tabela(ck.slice(3))).join('')}${nota}`;
 }
 function renderChurn(){
   const cont=document.getElementById('churn-content');
