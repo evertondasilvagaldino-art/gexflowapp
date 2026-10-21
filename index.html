@@ -8127,7 +8127,7 @@ function formContrato(d){
     <div class="form-group"><label class="form-label">Data de Vencimento</label><input class="form-input" id="f-cont-venc" type="date" value="${d?.vencimento||''}"></div>
   </div>
   <div class="form-group"><label class="form-label">Status</label>
-    <select class="form-input" id="f-cont-status"><option ${d?.status==='Ativo'?'selected':''}>Ativo</option><option ${d?.status==='Encerrado'?'selected':''}>Encerrado</option><option ${d?.status==='Renovação'?'selected':''}>Renovação</option><option ${d?.status==='Renovado'?'selected':''}>Renovado</option><option ${d?.status==='Pendente'?'selected':''}>Pendente</option></select>
+    <select class="form-input" id="f-cont-status"><option ${d?.status==='Ativo'?'selected':''}>Ativo</option><option ${d?.status==='Encerrado'?'selected':''}>Encerrado</option><option ${d?.status==='Renovação'?'selected':''}>Renovação</option><option ${d?.status==='Pendente'?'selected':''}>Pendente</option></select>
   </div>`;
 }
 
@@ -13759,8 +13759,7 @@ const CONTRATO_SITUACOES={
   vencido:  {label:'Vencido',      icon:'🔴',color:'#DC2626',bg:'#FEE2E2',ord:0,hint:'Passou da data de vencimento'},
   avencer:  {label:'A vencer',     icon:'🟠',color:'#D97706',bg:'#FEF3C7',ord:1,hint:`Vence em até ${CONTRATO_JANELA_A_VENCER_DIAS} dias`},
   renovacao:{label:'Em renovação', icon:'🔵',color:'#2563EB',bg:'#DBEAFE',ord:2,hint:'Renovação em negociação'},
-  ativo:    {label:'Ativo',        icon:'🟢',color:'#059669',bg:'#DCFCE7',ord:3,hint:'Contrato em dia'},
-  renovado: {label:'Renovado',     icon:'🟣',color:'#7C3AED',bg:'#EDE9FE',ord:4,hint:'Contrato já renovado'}
+  ativo:    {label:'Ativo',        icon:'🟢',color:'#059669',bg:'#DCFCE7',ord:3,hint:'Contrato em dia'}
 };
 function contratoDiasParaVencer(c){
   const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(c?.vencimento||''));
@@ -13773,7 +13772,7 @@ function contratoSituacao(c){
   const st=String(c?.status||'Ativo').trim().toLowerCase();
   if(st==='encerrado')return 'encerrado';
   if(st==='pendente')return 'pendente';
-  if(st==='renovado')return 'renovado';
+  if(st==='renovado')return 'ativo'; // status "Renovado" foi removido: contrato renovado = em dia (Ativo)
   if(st.startsWith('renova'))return 'renovacao';
   const d=contratoDiasParaVencer(c);
   if(d!==null){
@@ -13835,22 +13834,23 @@ function churnSaidasHtml(clientes){
       <div><div style="font-size:15px;font-weight:700">Saídas de clientes</div><div style="font-size:11.5px;color:var(--muted)">“Pediu para sair” e “Inativo” contam como saída. Taxa de churn = saídas ÷ (clientes ativos + saídas).</div></div>${seletor}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:14px">
       ${card('🚪 Saídas',saidas.length,'#DC2626',pediu.length+' pediram para sair · '+inativos.length+' inativos')}
-      ${card('📉 Taxa de churn',taxa.toFixed(1).replace('.',',')+'%','#D97706','base: '+ativosAgora+' ativos + '+saidas.length+' saídas')}
-      ${card('🟢 Clientes ativos',ativosAgora,'#059669','hoje')}
+      ${card('📉 Taxa de churn',taxa.toFixed(1).replace('.',',')+'%','#D97706',saidas.length+' saídas ÷ '+base+' clientes')}
+      ${card('👥 Base de clientes',base,'#2563EB',ativosAgora+' ativos + '+saidas.length+' saídas')}
+      ${card('🟢 Clientes ativos',ativosAgora,'#059669','status Ativo hoje')}
       ${mrrSaida>0?card('💸 MRR em saída',escHtml(gexMoneyFmt(mrrSaida,true)||''),'#7C3AED','soma do MRR dos clientes que saíram'):''}
     </div>
     ${tab('Pediu para sair',pediu)}
     ${tab('Inativo',inativos)}`;
 }
 // ── Saúde dos contratos (vencimentos), em grupos que abrem e fecham ──
-function churnToggleCt(k){let o={};try{o=JSON.parse(localStorage.getItem('gxChurnCol')||'{}')||{}}catch(e){}const cur=(k in o)?!!o[k]:(k==='ct:ativo'||k==='ct:renovado');o[k]=!cur;try{localStorage.setItem('gxChurnCol',JSON.stringify(o))}catch(e){}renderChurn()}
+function churnToggleCt(k){let o={};try{o=JSON.parse(localStorage.getItem('gxChurnCol')||'{}')||{}}catch(e){}const cur=(k in o)?!!o[k]:(k==='ct:ativo');o[k]=!cur;try{localStorage.setItem('gxChurnCol',JSON.stringify(o))}catch(e){}renderChurn()}
 function churnContratosHtml(clientes){
   const contratos=(DB.get('contratos')||[]).filter(Boolean);
   const cliById={};clientes.forEach(c=>{cliById[c.id]=c});
-  const grupos={vencido:[],avencer:[],renovacao:[],ativo:[],renovado:[]};
+  const grupos={vencido:[],avencer:[],renovacao:[],ativo:[]};
   let encerrados=0,pendentes=0;
   contratos.forEach(ct=>{
-    const k=contratoSituacao(ct);
+    let k=contratoSituacao(ct);
     if(k==='encerrado'){encerrados++;return;}
     if(k==='pendente'){pendentes++;return;}
     if(grupos[k])grupos[k].push(ct);
@@ -13861,10 +13861,10 @@ function churnContratosHtml(clientes){
   const comContrato=new Set(contratos.map(ct=>ct.clienteId).filter(Boolean));
   const semContrato=clientes.filter(c=>c.status==='Ativo'&&!comContrato.has(c.id));
   let col={};try{col=JSON.parse(localStorage.getItem('gxChurnCol')||'{}')||{}}catch(e){}
-  const fechado=k=>(k in col)?!!col[k]:(k==='ct:ativo'||k==='ct:renovado');
+  const fechado=k=>(k in col)?!!col[k]:(k==='ct:ativo');
   const pill=(label,cor,n,sub)=>`<span style="display:inline-flex;align-items:center;background:${cor};color:#fff;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:4px 10px;border-radius:6px">${escHtml(label)}</span><span style="font-size:12px;color:var(--muted);font-weight:600">${n}</span>${sub?`<span style="font-size:11px;color:var(--muted)">${sub}</span>`:''}`;
   const head=(k,inner,closed)=>`<div onclick="churnToggleCt('${k}')" style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none"><span style="font-size:11px;color:var(--muted);width:12px;display:inline-block;transition:transform .15s;transform:rotate(${closed?0:90}deg)">▶</span>${inner}</div>`;
-  const keys=['vencido','avencer','renovacao','ativo','renovado'];
+  const keys=['vencido','avencer','renovacao','ativo'];
   const tabela=k=>{
     const sit=CONTRATO_SITUACOES[k],arr=grupos[k],ck='ct:'+k,closed=fechado(ck);
     return `<div class="card" style="margin-bottom:12px;padding:0;overflow:hidden">
@@ -13926,7 +13926,7 @@ function contratoValorNum(raw){
 // tratado como mensal. Ticket médio = MRR ÷ nº de clientes com contrato vigente.
 function contratosResumoMRR(){
   const contratos=(DB.get('contratos')||[]).filter(Boolean);
-  const vigentes=contratos.filter(ct=>['ativo','avencer','renovacao','renovado'].includes(contratoSituacao(ct)));
+  const vigentes=contratos.filter(ct=>['ativo','avencer','renovacao'].includes(contratoSituacao(ct)));
   const porCliente={};
   let mrr=0;
   vigentes.forEach(ct=>{
@@ -13954,7 +13954,13 @@ function contratosResumoHtml(){
     </div>
   </div>`;
 }
+let _gxContrRenovadoMigrado=false;
 function renderContratos(){
+  // Status "Renovado" foi removido: contratos que ainda estão com ele passam para "Ativo" (uma vez por sessão).
+  if(!_gxContrRenovadoMigrado){
+    _gxContrRenovadoMigrado=true;
+    try{(DB.get('contratos')||[]).forEach(ct=>{if(ct&&String(ct.status||'').trim().toLowerCase()==='renovado')DB.update('contratos',ct.id,{status:'Ativo'})})}catch(e){}
+  }
   const contratos=DB.get('contratos');
   const clientes=DB.get('clientes');
   const cont=document.getElementById('contratos-content');
@@ -15803,7 +15809,7 @@ function gxIoOpenImport(kind){
   document.getElementById('gx-io-ov').classList.add('open');
 }
 const GX_IO_STATUS_CLI=['Aguardando','Ativo','Lead','Inativo'];
-const GX_IO_STATUS_CONT=['Ativo','Encerrado','Renovação','Renovado','Pendente'];
+const GX_IO_STATUS_CONT=['Ativo','Encerrado','Renovação','Pendente'];
 function gxIoPickStatus(raw,list,def){
   const n=gxNormalizeHeader(raw);
   return list.find(x=>gxNormalizeHeader(x)===n)||def;
