@@ -332,6 +332,12 @@ function render(){
      kpi('Cliques que viraram mensagem',a.conversas?pc(a.taxaConversa):sv,a.taxaConversa,b.taxaConversa)+
      kpi('Alcance (pessoas)',int(a.alcance),a.alcance,b.alcance)+
    '</section>':'')+
+   (d.rastreio&&d.rastreio.leads>0?'<section class="grid-kpi" aria-label="Vendas no GexFlow">'+
+     kpi('Leads rastreados (UTM)',int(d.rastreio.leads),0,0,{noDelta:true,note:'leads do GexFlow que vieram destes anúncios'})+
+     kpi('Vendas no GexFlow',int(d.rastreio.ganhos),0,0,{noDelta:true,note:'leads rastreados que viraram venda'})+
+     kpi('Faturamento no GexFlow',brl2(d.rastreio.valor),0,0,{noDelta:true,note:'valor das vendas rastreadas'})+
+     kpi('ROAS no GexFlow',a.gasto&&d.rastreio.valor?(d.rastreio.valor/a.gasto).toLocaleString('pt-BR',{maximumFractionDigits:2})+'x':sv,0,0,{noDelta:true,note:'faturamento rastreado ÷ investimento'})+
+   '</section>':'')+
    (temVenda?'':'<div class="card" style="margin-bottom:12px;font-size:13px;color:var(--ink2)">A Meta não registrou <b>compras</b> neste período para esta conta. Faturamento, vendas, ROAS e ROI só aparecem quando os anúncios têm o evento de compra configurado no pixel (ou nas conversões) com o valor da venda.</div>')+
    '<section class="grid2">'+
      '<div class="card"><div class="head"><div><h2>Investimento por dia</h2><div class="hint">Quanto foi gasto em anúncios em cada dia</div></div><button class="btn tg" data-tg="c1">Ver tabela</button></div><div id="c1" class="chart"></div></div>'+
@@ -414,7 +420,7 @@ function drawCria(d){
     const n=x[m],custo=n?x.gasto/n:0;
     return '<div class="cr"><div class="cr-img">'+(x.thumb?'<img src="'+esc(x.thumb)+'" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">':'')+'<span class="cr-pos">'+(i+1)+'º</span></div>'+
      '<div class="cr-b"><div class="cr-n" title="'+esc(x.nome)+'">'+esc(x.nome)+'</div><div class="cr-c" title="'+esc(x.campanha)+'">'+esc(x.campanha)+'</div>'+
-     '<div class="cr-k"><div><b class="num">'+int(n)+'</b><span>'+nomeRes+'</span></div><div><b class="num">'+brl2(custo)+'</b><span>custo cada</span></div><div><b class="num">'+brl2(x.gasto)+'</b><span>investido</span></div>'+
+     '<div class="cr-k"><div><b class="num">'+int(n)+'</b><span>'+nomeRes+'</span></div><div><b class="num">'+brl2(custo)+'</b><span>custo cada</span></div><div><b class="num">'+brl2(x.gasto)+'</b><span>investido</span></div>'+(x.leadsGex?'<div><b class="num">'+int(x.leadsGex)+' lead(s) · '+int(x.vendasGex)+' venda(s)</b><span>no GexFlow'+(x.valorGex?' · '+brl2(x.valorGex):'')+'</span></div>':'')+
      (x.roas?'<div><b class="num">'+x.roas.toLocaleString('pt-BR',{maximumFractionDigits:2})+'x</b><span>ROAS</span></div>':'<div><b class="num">'+pc(x.ctr)+'</b><span>CTR</span></div>')+'</div></div></div>';
   }).join('')+'</div>';
 }
@@ -427,9 +433,9 @@ function drawCamps(d){
   const fb=$('camp-f');
   if(fb){fb.innerHTML=[['todas','Todas'],['ativa','Ativas'],['pausada','Pausadas / outras']].map(f=>'<button class="btn" data-f="'+f[0]+'" aria-pressed="'+(CF===f[0])+'">'+f[1]+' ('+cnt[f[0]]+')</button>').join('');
     fb.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{CF=b.dataset.f;drawCamps(S.data)})}
-  const c=CF==='todas'?all:CF==='ativa'?all.filter(x=>x.status==='ativa'):all.filter(x=>x.status!=='ativa');const max=Math.max(1,...c.map(x=>x.gasto));const temC=c.some(x=>x.conversas>0);
-  $('camp').innerHTML='<thead><tr><th>Campanha</th><th>Status</th><th>Investimento</th><th>Faturamento</th><th>ROAS</th><th>Vendas</th><th>Leads</th>'+(temC?'<th>Mensagens</th><th>Custo/msg</th>':'')+'<th>Cliques</th></tr></thead><tbody>'+
-   (c.length?c.map(x=>'<tr><td title="'+esc(x.nome)+'">'+esc(x.nome)+'</td><td data-l="Status">'+stPill(x.status)+'</td><td data-l="Investimento" class="num wide"><div class="inl"><i style="width:'+Math.round(x.gasto/max*80)+'px"></i>'+brl2(x.gasto)+'</div></td><td data-l="Faturamento" class="num">'+(x.faturamento?brl2(x.faturamento):'—')+'</td><td data-l="ROAS" class="num">'+(x.roas?x.roas.toLocaleString('pt-BR',{maximumFractionDigits:2})+'x':'—')+'</td><td data-l="Vendas" class="num">'+(x.vendas?int(x.vendas):'—')+'</td><td data-l="Leads" class="num">'+int(x.leads)+'</td>'+(temC?'<td data-l="Mensagens" class="num">'+(x.conversas?int(x.conversas):'—')+'</td><td data-l="Custo/msg" class="num">'+(x.cpConversa?brl2(x.cpConversa):'—')+'</td>':'')+'<td data-l="Cliques" class="num">'+int(x.cliques)+'</td></tr>').join(''):'<tr><td colspan="9">Nenhuma campanha neste filtro.</td></tr>')+'</tbody>';
+  const c=CF==='todas'?all:CF==='ativa'?all.filter(x=>x.status==='ativa'):all.filter(x=>x.status!=='ativa');const max=Math.max(1,...c.map(x=>x.gasto));const temC=c.some(x=>x.conversas>0),temG=c.some(x=>x.leadsGex>0);
+  $('camp').innerHTML='<thead><tr><th>Campanha</th><th>Status</th><th>Investimento</th><th>Faturamento</th><th>ROAS</th><th>Vendas</th><th>Leads</th>'+(temC?'<th>Mensagens</th><th>Custo/msg</th>':'')+'<th>Cliques</th>'+(temG?'<th>Leads GexFlow</th><th>Vendas GexFlow</th><th>Fat. GexFlow</th>':'')+'</tr></thead><tbody>'+
+   (c.length?c.map(x=>'<tr><td title="'+esc(x.nome)+'">'+esc(x.nome)+'</td><td data-l="Status">'+stPill(x.status)+'</td><td data-l="Investimento" class="num wide"><div class="inl"><i style="width:'+Math.round(x.gasto/max*80)+'px"></i>'+brl2(x.gasto)+'</div></td><td data-l="Faturamento" class="num">'+(x.faturamento?brl2(x.faturamento):'—')+'</td><td data-l="ROAS" class="num">'+(x.roas?x.roas.toLocaleString('pt-BR',{maximumFractionDigits:2})+'x':'—')+'</td><td data-l="Vendas" class="num">'+(x.vendas?int(x.vendas):'—')+'</td><td data-l="Leads" class="num">'+int(x.leads)+'</td>'+(temC?'<td data-l="Mensagens" class="num">'+(x.conversas?int(x.conversas):'—')+'</td><td data-l="Custo/msg" class="num">'+(x.cpConversa?brl2(x.cpConversa):'—')+'</td>':'')+'<td data-l="Cliques" class="num">'+int(x.cliques)+'</td>'+(temG?'<td data-l="Leads GexFlow" class="num">'+(x.leadsGex?int(x.leadsGex):'—')+'</td><td data-l="Vendas GexFlow" class="num">'+(x.vendasGex?int(x.vendasGex):'—')+'</td><td data-l="Fat. GexFlow" class="num">'+(x.valorGex?brl2(x.valorGex):'—')+'</td>':'')+'</tr>').join(''):'<tr><td colspan="9">Nenhuma campanha neste filtro.</td></tr>')+'</tbody>';
 }
 
 /* ── controles ── */
