@@ -102,6 +102,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .cb-l li{padding:7px 9px;border-radius:7px;font-size:12.5px;cursor:pointer}
 .cb-l li:hover,.cb-l li[aria-selected=true]{background:var(--accent-soft);color:var(--ink)}
 .cb-l li.vz{color:var(--muted);cursor:default}
+.fv{margin-top:8px}.fv label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px}.fv .fsel{max-width:100%}.fv .fok{margin-left:8px;font-size:12px;color:var(--good)}
 .tbl{width:100%;border-collapse:collapse;font-size:13px}
 .tbl th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:right;padding:6px 8px;font-weight:700;border-bottom:1px solid var(--line)}
 .tbl td{padding:9px 8px;text-align:right;border-bottom:1px solid var(--grid)}
@@ -309,6 +310,7 @@ function render(){
     $('app').innerHTML='<div class="state"><b>Sem anúncios rodando neste período</b>Escolha outro período.</div>';return;
   }
   const temVenda=a.vendas>0||a.faturamento>0;
+  const vinc=!!(d.rastreio&&d.rastreio.vinculado);
   const sv='—';
   const roiTxt=temVenda?pc(a.roi):sv;
   $('app').innerHTML=
@@ -332,11 +334,11 @@ function render(){
      kpi('Cliques que viraram mensagem',a.conversas?pc(a.taxaConversa):sv,a.taxaConversa,b.taxaConversa)+
      kpi('Alcance (pessoas)',int(a.alcance),a.alcance,b.alcance)+
    '</section>':'')+
-   (d.rastreio&&d.rastreio.leads>0?'<section class="grid-kpi" aria-label="Vendas no GexFlow">'+
-     kpi('Leads rastreados (UTM)',int(d.rastreio.leads),0,0,{noDelta:true,note:'leads do GexFlow que vieram destes anúncios'})+
-     kpi('Vendas no GexFlow',int(d.rastreio.ganhos),0,0,{noDelta:true,note:'leads rastreados que viraram venda'})+
-     kpi('Faturamento no GexFlow',brl2(d.rastreio.valor),0,0,{noDelta:true,note:'valor das vendas rastreadas'})+
-     kpi('ROAS no GexFlow',a.gasto&&d.rastreio.valor?(d.rastreio.valor/a.gasto).toLocaleString('pt-BR',{maximumFractionDigits:2})+'x':sv,0,0,{noDelta:true,note:'faturamento rastreado ÷ investimento'})+
+   (d.rastreio&&(d.rastreio.leads>0||d.rastreio.ganhos>0||d.rastreio.vinculado)?'<section class="grid-kpi" aria-label="Vendas no GexFlow">'+
+     kpi(vinc?'Leads do funil':'Leads rastreados (UTM)',int(d.rastreio.leads),0,0,{noDelta:true,note:vinc?'criados no período em '+(d.rastreio.funilNome||'funil vinculado'):'leads do GexFlow que vieram destes anúncios'})+
+     kpi(vinc?'Vendas no funil':'Vendas no GexFlow',int(d.rastreio.ganhos),0,0,{noDelta:true,note:vinc?'fechadas no período':'leads rastreados que viraram venda'})+
+     kpi(vinc?'Faturamento do funil':'Faturamento no GexFlow',brl2(d.rastreio.valor),0,0,{noDelta:true,note:vinc?'valor das vendas fechadas no período':'valor das vendas rastreadas'})+
+     kpi(vinc?'ROAS do funil':'ROAS no GexFlow',a.gasto&&d.rastreio.valor?(d.rastreio.valor/a.gasto).toLocaleString('pt-BR',{maximumFractionDigits:2})+'x':sv,0,0,{noDelta:true,note:'faturamento do GexFlow ÷ investimento'})+
    '</section>':'')+
    (temVenda?'':'<div class="card" style="margin-bottom:12px;font-size:13px;color:var(--ink2)">A Meta não registrou <b>compras</b> neste período para esta conta. Faturamento, vendas, ROAS e ROI só aparecem quando os anúncios têm o evento de compra configurado no pixel (ou nas conversões) com o valor da venda.</div>')+
    '<section class="grid2">'+
@@ -449,7 +451,7 @@ document.querySelectorAll('#presets button').forEach(b=>b.addEventListener('clic
 $('aplicar').addEventListener('click',()=>{S.de=$('de').value;S.ate=$('ate').value;if(!S.de||!S.ate)return;load()});
 /* ── seletor de conta com pesquisa ── */
 function cbNome(){const o=$('funil').selectedOptions[0];return o?o.textContent:''}
-function cbSync(){const q=$('funil-q');if(document.activeElement!==q)q.value=cbNome()}
+function cbSync(){if($('funil-l').classList.contains('on'))return;$('funil-q').value=cbNome()}
 function cbList(f){
   const l=$('funil-l'),t=(f||'').toLowerCase().trim();
   const ops=[...$('funil').options].filter(o=>!t||o.textContent.toLowerCase().includes(t));
@@ -459,13 +461,14 @@ function cbList(f){
 function cbClose(){$('funil-l').classList.remove('on');cbSync()}
 $('funil-q').addEventListener('focus',e=>{e.target.select();cbList('')});
 $('funil-q').addEventListener('input',e=>cbList(e.target.value));
+$('funil-q').addEventListener('blur',()=>setTimeout(cbClose,150));
 $('funil-q').addEventListener('keydown',e=>{
   if(e.key==='Escape'){e.target.blur();cbClose()}
   if(e.key==='Enter'){const li=$('funil-l').querySelector('li[data-v]');if(li)li.dispatchEvent(new Event('pointerdown',{bubbles:true}))}
 });
 $('funil-l').addEventListener('pointerdown',e=>{
   const li=e.target.closest('li[data-v]');if(!li)return;e.preventDefault();
-  const v=li.dataset.v;$('funil').value=v;cbClose();$('funil-q').blur();
+  const v=li.dataset.v;$('funil').value=v;$('funil-l').classList.remove('on');$('funil-q').value=li.textContent;$('funil-q').blur();
   if(v!==S.conta){S.conta=v;load()}
 });
 document.addEventListener('pointerdown',e=>{if(!$('funil-w').contains(e.target))cbClose()});
@@ -477,14 +480,21 @@ function urlDe(l){return location.origin+location.pathname+'?l='+encodeURICompon
 async function apiAcao(q){const r=await fetch(API+'?t='+encodeURIComponent(TOKEN)+q,{cache:'no-store'});if(!r.ok)throw new Error('http '+r.status);return r.json()}
 async function abrirLinks(){
   $('mdl').classList.add('on');$('mdl-b').innerHTML='<div class="skel" style="width:60%"></div>';
-  try{const j=await apiAcao('&acao=links');desenharLinks(j.links||[])}
+  try{const [j,fj]=await Promise.all([apiAcao('&acao=links'),apiAcao('&acao=funis').catch(()=>({funis:[]}))]);desenharLinks(j.links||[],fj.funis||[])}
   catch(e){$('mdl-b').innerHTML='<div class="state">Não consegui carregar os funis.</div>'}
 }
-function desenharLinks(ls){
-  $('mdl-b').innerHTML=ls.length?ls.map(f=>'<div class="lk" data-id="'+esc(f.id)+'"><div><b>'+esc(f.nome)+'</b></div><input readonly value="'+esc(urlDe(f.l))+'" aria-label="Link do funil '+esc(f.nome)+'"><div class="ac"><button class="btn" data-a="cp">Copiar</button><button class="btn" data-a="nw">Gerar novo</button></div></div>').join(''):'<div class="state">Nenhum funil encontrado.</div>';
+function desenharLinks(ls,funis){
+  funis=funis||[];
+  $('mdl-b').innerHTML=ls.length?ls.map(f=>'<div class="lk" data-id="'+esc(f.id)+'"><div><b>'+esc(f.nome)+'</b><div class="fv"><label>Funil do GexFlow (para somar o faturamento certo)</label><select class="fsel" aria-label="Funil do GexFlow da conta '+esc(f.nome)+'"><option value="">Sem funil vinculado</option>'+funis.map(fu=>'<option value="'+esc(fu.id)+'"'+(fu.id===f.funilId?' selected':'')+'>'+esc(fu.nome)+(fu.padrao?' (padrão)':'')+'</option>').join('')+'</select><span class="fok"></span></div></div><input readonly value="'+esc(urlDe(f.l))+'" aria-label="Link do funil '+esc(f.nome)+'"><div class="ac"><button class="btn" data-a="cp">Copiar</button><button class="btn" data-a="nw">Gerar novo</button></div></div>').join(''):'<div class="state">Nenhum funil encontrado.</div>';
   $('mdl-b').querySelectorAll('.lk').forEach(row=>{
     const inp=row.querySelector('input'),cp=row.querySelector('[data-a=cp]'),nw=row.querySelector('[data-a=nw]');
     inp.addEventListener('focus',()=>inp.select());
+    const fsel=row.querySelector('.fsel'),fok=row.querySelector('.fok');
+    fsel.addEventListener('change',async()=>{
+      fok.textContent='Salvando…';
+      try{await apiAcao('&acao=vincular&conta='+encodeURIComponent(row.dataset.id)+'&funil='+encodeURIComponent(fsel.value));fok.textContent='Salvo ✓';load();setTimeout(()=>fok.textContent='',2200)}
+      catch(e){fok.textContent='Erro ao salvar'}
+    });
     cp.addEventListener('click',async()=>{
       try{await navigator.clipboard.writeText(inp.value)}catch(e){inp.select();document.execCommand('copy')}
       cp.textContent='Copiado ✓';setTimeout(()=>cp.textContent='Copiar',1800);
