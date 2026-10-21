@@ -13861,7 +13861,9 @@ function churnSaidasHtml(clientes){
   const ativosAgora=clientes.filter(c=>c&&c.status==='Ativo').length;
   const dataSaida=c=>/^\d{4}-\d{2}/.test(String(c.saidaEm||''))?String(c.saidaEm):'';
   const semData=saidasTodas.filter(c=>!dataSaida(c)).length;
-  const anos=[...new Set(saidasTodas.map(c=>dataSaida(c).slice(0,4)).filter(Boolean).concat([String(new Date().getFullYear())]))].sort().reverse();
+  // Anos fixos no filtro (ano atual e os 3 anteriores). Só entra um ano a mais se existir uma saída fora dessa faixa.
+  const _anoAtual=new Date().getFullYear();
+  const anos=[...new Set([0,1,2,3].map(i=>String(_anoAtual-i)).concat(saidasTodas.map(c=>dataSaida(c).slice(0,4)).filter(Boolean)))].sort().reverse();
   if(churnAno!=='todos'&&!anos.includes(churnAno))churnAno='todos';
   const MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
   const saidas=saidasTodas.filter(c=>{
