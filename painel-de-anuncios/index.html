@@ -250,14 +250,21 @@ function range(){
 }
 function brDate(k){return k.slice(8,10)+'/'+k.slice(5,7)+'/'+k.slice(0,4)}
 
-async function load(){
+async function load(fresh){
+  const rb=$('refresh');
+  if(rb){rb.disabled=true;rb.textContent='↻ Atualizando…'}
+  $('sub').textContent='Carregando…';const ap=$('app');if(ap&&S.data)ap.style.opacity='.55';
+  try{await load0(fresh)}finally{const ap2=$('app');if(ap2)ap2.style.opacity='';if(rb){rb.disabled=false;rb.textContent='↻ Atualizar'}}
+}
+async function load0(fresh){
   if(!TOKEN&&!LINK){pedirChave();return}
   const [de,ate]=range();
   if(S.abort)S.abort.abort();
   S.abort=new AbortController();
-  const u=API+'?'+(TOKEN?'t='+encodeURIComponent(TOKEN):'l='+encodeURIComponent(LINK))+'&de='+de+'&ate='+ate+(S.conta&&TOKEN?'&conta='+encodeURIComponent(S.conta):'');
+  const u=API+'?'+(TOKEN?'t='+encodeURIComponent(TOKEN):'l='+encodeURIComponent(LINK))+'&de='+de+'&ate='+ate+(S.conta&&TOKEN?'&conta='+encodeURIComponent(S.conta):'')+(fresh===true?'&fresh=1':'');
   try{
-    const r=await fetch(u,{signal:S.abort.signal,cache:'no-store'});
+    S.timedOut=false;const ab=S.abort;const tm=setTimeout(()=>{S.timedOut=true;try{ab.abort()}catch(e){}},60000);
+    let r;try{r=await fetch(u,{signal:S.abort.signal,cache:'no-store'})}finally{clearTimeout(tm)}
     if(r.status===401){
       let b={};try{b=await r.json()}catch(e){}
       if(b&&b.error&&/inv[aá]lido/i.test(b.error)){if(TOKEN&&!LINK){try{localStorage.removeItem(LSK)}catch(e){};TOKEN='';pedirChave('Chave incorreta. Tente de novo.');return}showState('Link inválido ou expirado','Peça um link novo para quem administra o GexFlow.');return}
@@ -269,7 +276,7 @@ async function load(){
     S.data=await r.json();
     render();
   }catch(e){
-    if(e.name==='AbortError')return;
+    if(e.name==='AbortError'){if(S.timedOut){S.timedOut=false;if(S.data)$('sub').textContent='O servidor demorou mais de 1 minuto. Clique em Atualizar para tentar de novo.';else showState('Demorou demais','O servidor não respondeu em 1 minuto. Clique em Atualizar para tentar de novo.')}return}
     if(S.data){$('sub').textContent='Sem conexão agora — mostrando os últimos dados carregados.';return}
     showState('Não consegui carregar os dados','Verifique sua conexão e clique em Atualizar.');
   }
@@ -304,23 +311,29 @@ function render(){
   const nome=(d.conta&&d.conta.nome)||'';
   $('h1').textContent='Painel de anúncios'+(nome?' · '+nome:'');document.title='Painel de anúncios'+(nome?' · '+nome:'');
   const g=new Date(d.geradoEm);
-  $('sub').textContent=brDate(d.periodo.de)+' a '+brDate(d.periodo.ate)+' · atualizado às '+g.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  $('sub').textContent=brDate(d.periodo.de)+' a '+brDate(d.periodo.ate)+' · atualizado às '+g.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+(d.ms?' · levou '+(d.ms/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' s':'');
   const a=d.atual,b=d.anterior;
   if(!a.gasto&&!a.impressoes&&!a.cliques&&!a.leads){
     $('app').innerHTML='<div class="state"><b>Sem anúncios rodando neste período</b>Escolha outro período.</div>';return;
   }
-  const temVenda=a.vendas>0||a.faturamento>0;
+  const temVendaMeta=a.vendas>0||a.faturamento>0;
   const vinc=!!(d.rastreio&&d.rastreio.vinculado);
+  const usaGex=!temVendaMeta&&vinc&&d.rastreio.ganhos>0;
+  if(usaGex){
+    a.vendas=d.rastreio.ganhos;a.faturamento=d.rastreio.valor;
+    a.roas=a.gasto?d.rastreio.valor/a.gasto:0;a.roi=a.gasto?(d.rastreio.valor-a.gasto)/a.gasto*100:0;a.cac=a.gasto?a.gasto/d.rastreio.ganhos:0;
+  }
   const sv='—';
+  const temVenda=temVendaMeta||usaGex;
   const roiTxt=temVenda?pc(a.roi):sv;
   $('app').innerHTML=
    '<section class="grid-kpi" aria-label="Indicadores">'+
      kpi('Investimento',brl2(a.gasto),a.gasto,b.gasto,{hero:true})+
-     kpi('Faturamento (compras na Meta)',temVenda?brl2(a.faturamento):sv,a.faturamento,b.faturamento)+
-     kpi('Vendas',temVenda?int(a.vendas):sv,a.vendas,b.vendas)+
-     kpi('ROAS (faturamento ÷ investimento)',temVenda&&a.roas?a.roas.toLocaleString('pt-BR',{maximumFractionDigits:2})+'x':sv,a.roas,b.roas)+
-     kpi('ROI (retorno sobre o investimento)',roiTxt,a.roi,b.roi)+
-     kpi('Custo por venda',a.vendas?brl2(a.cac):sv,a.cac,b.cac,{inverse:true})+
+     kpi(usaGex?'Faturamento (funil no GexFlow)':'Faturamento (compras na Meta)',temVenda?brl2(a.faturamento):sv,a.faturamento,b.faturamento,usaGex?{noDelta:true,note:'a Meta não registrou compras'}:undefined)+
+     kpi(usaGex?'Vendas (funil no GexFlow)':'Vendas',temVenda?int(a.vendas):sv,a.vendas,b.vendas,usaGex?{noDelta:true,note:'fechadas no período'}:undefined)+
+     kpi('ROAS (faturamento ÷ investimento)',temVenda&&a.roas?a.roas.toLocaleString('pt-BR',{maximumFractionDigits:2})+'x':sv,a.roas,b.roas,usaGex?{noDelta:true,note:'faturamento do funil ÷ investimento'}:undefined)+
+     kpi('ROI (retorno sobre o investimento)',roiTxt,a.roi,b.roi,usaGex?{noDelta:true,note:'(faturamento − investimento) ÷ investimento'}:undefined)+
+     kpi('Custo por venda',a.vendas?brl2(a.cac):sv,a.cac,b.cac,usaGex?{noDelta:true,note:'investimento ÷ vendas do funil'}:{inverse:true})+
      kpi('Leads',int(a.leads),a.leads,b.leads)+
      kpi('Custo por lead',a.leads?brl2(a.cpl):sv,a.cpl,b.cpl,{inverse:true})+
      kpi('Cliques',int(a.cliques),a.cliques,b.cliques)+
@@ -343,13 +356,13 @@ function render(){
    (temVenda?'':'<div class="card" style="margin-bottom:12px;font-size:13px;color:var(--ink2)">A Meta não registrou <b>compras</b> neste período para esta conta. Faturamento, vendas, ROAS e ROI só aparecem quando os anúncios têm o evento de compra configurado no pixel (ou nas conversões) com o valor da venda.</div>')+
    '<section class="grid2">'+
      '<div class="card"><div class="head"><div><h2>Investimento por dia</h2><div class="hint">Quanto foi gasto em anúncios em cada dia</div></div><button class="btn tg" data-tg="c1">Ver tabela</button></div><div id="c1" class="chart"></div></div>'+
-     '<div class="card"><div class="head"><div><h2>'+(temVenda?'Faturamento por dia':'Leads por dia')+'</h2><div class="hint">'+(temVenda?'Valor das compras registradas pela Meta em cada dia':'Leads gerados pelos anúncios em cada dia')+'</div></div><button class="btn tg" data-tg="c2">Ver tabela</button></div><div id="c2" class="chart"></div></div>'+
+     '<div class="card"><div class="head"><div><h2>'+(temVendaMeta?'Faturamento por dia':'Leads por dia')+'</h2><div class="hint">'+(temVendaMeta?'Valor das compras registradas pela Meta em cada dia':'Leads gerados pelos anúncios em cada dia')+'</div></div><button class="btn tg" data-tg="c2">Ver tabela</button></div><div id="c2" class="chart"></div></div>'+
    '</section>'+
    '<section class="card" id="cri-sec" style="margin-bottom:12px"></section>'+
    '<section class="card"><h2>Campanhas</h2><div class="hint">Ativas primeiro, depois as pausadas nos últimos 60 dias · dentro de cada grupo, por investimento no período</div><div id="camp-f" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div><div class="scroll"><table class="tbl stack" id="camp"></table></div></section>'+
    '<p class="foot">Dados lidos direto da conta de anúncios (Meta). Faturamento = valor das compras registradas pelos anúncios. ROAS = faturamento ÷ investimento. ROI = (faturamento − investimento) ÷ investimento. Variações comparam com o período anterior de mesmo tamanho ('+brDate(d.periodo.anteriorDe)+' a '+brDate(d.periodo.anteriorAte)+').</p>';
   drawChart('c1',d.serie.map(x=>({k:x.k,v:x.gasto,t:'<b>'+labelOf(x.k,'dia',true)+'</b><br>'+brl2(x.gasto)+' · '+int(x.cliques)+' clique(s)'})),'--s1',fx,brl2,'dia');
-  if(temVenda)drawChart('c2',d.serie.map(x=>({k:x.k,v:x.faturamento,t:'<b>'+labelOf(x.k,'dia',true)+'</b><br>'+brl2(x.faturamento)+' · '+int(x.vendas)+' venda(s)'})),'--s2',fx,brl2,'dia');
+  if(temVendaMeta)drawChart('c2',d.serie.map(x=>({k:x.k,v:x.faturamento,t:'<b>'+labelOf(x.k,'dia',true)+'</b><br>'+brl2(x.faturamento)+' · '+int(x.vendas)+' venda(s)'})),'--s2',fx,brl2,'dia');
   else drawChart('c2',d.serie.map(x=>({k:x.k,v:x.leads,t:'<b>'+labelOf(x.k,'dia',true)+'</b><br>'+int(x.leads)+' lead(s)'+(x.leads?' · '+brl2(x.gasto/x.leads)+' cada':'')})),'--s2',v=>int(v),int,'dia');
   drawCamps(d);drawCria(d);
   document.querySelectorAll('[data-tg]').forEach(b=>b.onclick=()=>toggleTable(b.dataset.tg));
@@ -472,7 +485,7 @@ $('funil-l').addEventListener('pointerdown',e=>{
   if(v!==S.conta){S.conta=v;load()}
 });
 document.addEventListener('pointerdown',e=>{if(!$('funil-w').contains(e.target))cbClose()});
-$('refresh').addEventListener('click',load);
+$('refresh').addEventListener('click',()=>load(true));
 let rz;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>Object.keys(charts).forEach(paint),150)});
 if(TOKEN)$('links').style.display='';
 /* ── links por funil (só com o link geral) ── */
