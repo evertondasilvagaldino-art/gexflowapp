@@ -7037,8 +7037,16 @@ async function saveModal(type,id=''){
       const statusAnterior=id?DB.find('clientes',id)?.status:'';
       // Saída = "Pediu para sair" ou "Inativo". Guarda a data da 1ª vez que saiu (usada na Análise de Churn);
       // voltar a outro status limpa a data.
-      if(obj.status==='Pediu para sair'||obj.status==='Inativo')obj.saidaEm=(existente&&existente.saidaEm)||new Date().toISOString().slice(0,10);
+      const _hojeISO=new Date().toISOString().slice(0,10);
+      const _saidaEl=document.getElementById('f-saida');
+      if(obj.status==='Pediu para sair'||obj.status==='Inativo')obj.saidaEm=(_saidaEl&&_saidaEl.value)||(existente&&existente.saidaEm)||_hojeISO;
       else obj.saidaEm='';
+      // Início automático: grava a data na 1ª vez que o cliente fica Ativo (nunca sobrescreve uma data já existente).
+      obj.inicioEm=(existente&&existente.inicioEm)||'';
+      if(!obj.inicioEm){
+        if(obj.status==='Ativo'&&statusAnterior!=='Ativo')obj.inicioEm=_hojeISO;
+        else obj.inicioEm=clienteInicioData(existente)||'';
+      }
       const cliId=id||uid();
       if(id){DB.update('clientes',id,obj);fireWebhook('cliente.atualizado',{id,...obj})}else{const c={id:cliId,...obj};DB.push('clientes',c);fireWebhook('cliente.criado',c)}
       // AUTO-ONBOARDING: se status mudou para Ativo, cria entrada no onboarding
@@ -7318,6 +7326,16 @@ function gexAddMeses(dataIso,meses){
   return `${alvo.getFullYear()}-${String(alvo.getMonth()+1).padStart(2,'0')}-${String(alvo.getDate()).padStart(2,'0')}`;
 }
 
+// Data de início do cliente: automática (1ª vez que vira Ativo). Para clientes antigos sem essa data,
+// usa o início do contrato mais antigo dele, se houver.
+function clienteInicioData(c){
+  if(!c)return '';
+  if(c.inicioEm)return String(c.inicioEm).slice(0,10);
+  try{
+    const ini=(DB.get('contratos')||[]).filter(ct=>ct&&ct.clienteId===c.id&&/^\d{4}-\d{2}-\d{2}/.test(String(ct.inicio||''))).map(ct=>String(ct.inicio).slice(0,10)).sort();
+    return ini[0]||'';
+  }catch(e){return ''}
+}
 function formCliente(d,contexto='full'){
   if(contexto==='carteira')return formClienteCarteira(d);
   return `<div class="form-row">
@@ -7349,6 +7367,13 @@ function formCliente(d,contexto='full'){
     <div class="form-group"><label class="form-label">Health Score (0–100)</label><input class="form-input" id="f-health" type="number" min="0" max="100" value="${d?.health||0}"></div>
     <div style="display:flex;flex-direction:column;justify-content:flex-end"><div style="font-size:13px;font-weight:700;color:${healthColor(d?.health||0)}">${d?.health||0} pts</div></div>
   </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Data de início <span style="font-size:10px;color:var(--muted)">(automática)</span></label>
+      <input class="form-input" id="f-inicio" readonly tabindex="-1" style="background:var(--bg,#F6F5FB);color:var(--muted)" value="${(()=>{const i=clienteInicioData(d);return i?i.split('-').reverse().join('/'):''})()}" placeholder="Definida ao ativar o cliente"></div>
+    <div class="form-group"><label class="form-label">Data de saída <span style="font-size:10px;color:var(--muted)">(manual)</span></label>
+      <input class="form-input" id="f-saida" type="date" value="${d?.saidaEm?String(d.saidaEm).slice(0,10):''}"></div>
+  </div>
+  <div style="font-size:10.5px;color:var(--muted);margin:-6px 0 12px">A data de início é preenchida sozinha na 1ª vez que o cliente fica <b>Ativo</b>. A data de saída vale para “Pediu para sair” e “Inativo” — se ficar em branco, mantém a data já registrada ou usa a de hoje.</div>
   <div class="form-group"><label class="form-label">Descrição / Observações</label><textarea class="form-input" id="f-desc" rows="3">${d?.desc||''}</textarea></div>
   ${(()=>{try{if(!d?.id||typeof can!=='function'||!can('contratos','view'))return '';}catch(e){return '';}return `<div class="form-group" style="margin-top:4px;padding-top:12px;border-top:1px dashed var(--border)"><button type="button" class="btn btn-ghost" onclick="enviarClienteParaContratos('${d.id}')">📄 Enviar para contratos</button><div style="font-size:10.5px;color:var(--muted);margin-top:5px">Cria um contrato com o MRR calculado (LTV ÷ período) como valor mensal, começando hoje e vencendo ao fim do período. O financeiro administra em Clientes → Contratos.</div></div>`})()}`;
 }
@@ -8725,8 +8750,9 @@ function cliDrop(e,novoStatus){
     if(!c||c.status===novoStatus)return;
     const anterior=c.status;
     const saidaEm=(novoStatus==='Pediu para sair'||novoStatus==='Inativo')?(c.saidaEm||new Date().toISOString().slice(0,10)):'';
-    DB.update('clientes',id,{status:novoStatus,saidaEm});
-    fireWebhook('cliente.atualizado',{...c,status:novoStatus,saidaEm});
+    const inicioEm=c.inicioEm||((novoStatus==='Ativo'&&anterior!=='Ativo')?new Date().toISOString().slice(0,10):(clienteInicioData(c)||''));
+    DB.update('clientes',id,{status:novoStatus,saidaEm,inicioEm});
+    fireWebhook('cliente.atualizado',{...c,status:novoStatus,saidaEm,inicioEm});
     if(novoStatus==='Ativo'&&anterior!=='Ativo'){
       const obs=DB.get('onboarding')||[];
       if(!obs.find(o=>o.clienteId===id)){
@@ -13817,10 +13843,11 @@ function churnSaidasHtml(clientes){
       <div onclick="churnToggleGroup('${titulo}')" style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none">
         <span style="font-size:11px;color:var(--muted);width:12px;display:inline-block;transition:transform .15s;transform:rotate(${closed?0:90}deg)">▶</span>${cliPill(titulo,arr.length)}
       </div>
-      ${closed||!arr.length?'':`<div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th>Contato</th><th>LTV</th><th>Saiu em</th><th>Health</th></tr></thead><tbody>${arr.slice().sort((a,b)=>String(b.saidaEm||'').localeCompare(String(a.saidaEm||''))).map(c=>`<tr>
+      ${closed||!arr.length?'':`<div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th>Contato</th><th>LTV</th><th>Início</th><th>Saiu em</th><th>Health</th></tr></thead><tbody>${arr.slice().sort((a,b)=>String(b.saidaEm||'').localeCompare(String(a.saidaEm||''))).map(c=>`<tr>
         <td><div style="font-weight:600">${escHtml(c.nome||'')}</div></td>
         <td style="color:var(--muted);font-size:12px">${escHtml(c.telefone||c.email||'—')}</td>
         <td style="font-weight:600;color:var(--green)">${escHtml(c.ltv||'—')}</td>
+        <td style="font-size:12px;color:var(--muted)">${(()=>{const i=clienteInicioData(c);return i?i.split('-').reverse().join('/'):'—'})()}</td>
         <td style="font-size:12px;color:var(--muted)">${dataBR(c)}</td>
         <td><span style="font-weight:700;color:${healthColor(c.health||0)}">${c.health||0}</span></td></tr>`).join('')}</tbody></table></div>`}
     </div>`;
