@@ -92,6 +92,8 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .cr-c{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:8px}
 .cr-k{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}
 .cr-k b{display:block;font-size:14px}.cr-k span{font-size:11px;color:var(--muted)}
+.stp{display:inline-block;border:1px solid;border-radius:999px;padding:1px 8px;font-size:11.5px;font-weight:700;white-space:nowrap}
+.btn[aria-pressed=true]{color:var(--ink);border-color:var(--accent);background:var(--accent-soft)}
 .tbl{width:100%;border-collapse:collapse;font-size:13px}
 .tbl th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:right;padding:6px 8px;font-weight:700;border-bottom:1px solid var(--line)}
 .tbl td{padding:9px 8px;text-align:right;border-bottom:1px solid var(--grid)}
@@ -328,7 +330,7 @@ function render(){
      '<div class="card"><div class="head"><div><h2>'+(temVenda?'Faturamento por dia':'Leads por dia')+'</h2><div class="hint">'+(temVenda?'Valor das compras registradas pela Meta em cada dia':'Leads gerados pelos anúncios em cada dia')+'</div></div><button class="btn tg" data-tg="c2">Ver tabela</button></div><div id="c2" class="chart"></div></div>'+
    '</section>'+
    '<section class="card" id="cri-sec" style="margin-bottom:12px"></section>'+
-   '<section class="card"><h2>Campanhas</h2><div class="hint">Ordenadas por investimento no período</div><div class="scroll"><table class="tbl stack" id="camp"></table></div></section>'+
+   '<section class="card"><h2>Campanhas</h2><div class="hint">Ativas primeiro, depois as pausadas nos últimos 60 dias · dentro de cada grupo, por investimento no período</div><div id="camp-f" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div><div class="scroll"><table class="tbl stack" id="camp"></table></div></section>'+
    '<p class="foot">Dados lidos direto da conta de anúncios (Meta). Faturamento = valor das compras registradas pelos anúncios. ROAS = faturamento ÷ investimento. ROI = (faturamento − investimento) ÷ investimento. Variações comparam com o período anterior de mesmo tamanho ('+brDate(d.periodo.anteriorDe)+' a '+brDate(d.periodo.anteriorAte)+').</p>';
   drawChart('c1',d.serie.map(x=>({k:x.k,v:x.gasto,t:'<b>'+labelOf(x.k,'dia',true)+'</b><br>'+brl2(x.gasto)+' · '+int(x.cliques)+' clique(s)'})),'--s1',fx,brl2,'dia');
   if(temVenda)drawChart('c2',d.serie.map(x=>({k:x.k,v:x.faturamento,t:'<b>'+labelOf(x.k,'dia',true)+'</b><br>'+brl2(x.faturamento)+' · '+int(x.vendas)+' venda(s)'})),'--s2',fx,brl2,'dia');
@@ -408,10 +410,18 @@ function drawCria(d){
      (x.roas?'<div><b class="num">'+x.roas.toLocaleString('pt-BR',{maximumFractionDigits:2})+'x</b><span>ROAS</span></div>':'<div><b class="num">'+pc(x.ctr)+'</b><span>CTR</span></div>')+'</div></div></div>';
   }).join('')+'</div>';
 }
+const ST={ativa:['Ativa','--good'],pausada:['Pausada','--muted'],problema:['Com problema','--crit'],arquivada:['Arquivada','--muted'],outro:['Outro','--muted'],'':['—','--muted']};
+function stPill(s){const x=ST[s]||ST[''];return '<span class="stp" style="color:var('+x[1]+');border-color:var('+x[1]+')">'+x[0]+'</span>'}
+let CF='todas';
 function drawCamps(d){
-  const c=d.campanhas||[];const max=Math.max(1,...c.map(x=>x.gasto));const temC=c.some(x=>x.conversas>0);
-  $('camp').innerHTML='<thead><tr><th>Campanha</th><th>Investimento</th><th>Faturamento</th><th>ROAS</th><th>Vendas</th><th>Leads</th>'+(temC?'<th>Mensagens</th><th>Custo/msg</th>':'')+'<th>Cliques</th></tr></thead><tbody>'+
-   (c.length?c.map(x=>'<tr><td title="'+esc(x.nome)+'">'+esc(x.nome)+'</td><td data-l="Investimento" class="num wide"><div class="inl"><i style="width:'+Math.round(x.gasto/max*80)+'px"></i>'+brl2(x.gasto)+'</div></td><td data-l="Faturamento" class="num">'+(x.faturamento?brl2(x.faturamento):'—')+'</td><td data-l="ROAS" class="num">'+(x.roas?x.roas.toLocaleString('pt-BR',{maximumFractionDigits:2})+'x':'—')+'</td><td data-l="Vendas" class="num">'+(x.vendas?int(x.vendas):'—')+'</td><td data-l="Leads" class="num">'+int(x.leads)+'</td>'+(temC?'<td data-l="Mensagens" class="num">'+(x.conversas?int(x.conversas):'—')+'</td><td data-l="Custo/msg" class="num">'+(x.cpConversa?brl2(x.cpConversa):'—')+'</td>':'')+'<td data-l="Cliques" class="num">'+int(x.cliques)+'</td></tr>').join(''):'<tr><td colspan="7">Nenhuma campanha com gasto neste período.</td></tr>')+'</tbody>';
+  const all=d.campanhas||[];
+  const cnt={todas:all.length,ativa:all.filter(x=>x.status==='ativa').length,pausada:all.filter(x=>x.status!=='ativa').length};
+  const fb=$('camp-f');
+  if(fb){fb.innerHTML=[['todas','Todas'],['ativa','Ativas'],['pausada','Pausadas / outras']].map(f=>'<button class="btn" data-f="'+f[0]+'" aria-pressed="'+(CF===f[0])+'">'+f[1]+' ('+cnt[f[0]]+')</button>').join('');
+    fb.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{CF=b.dataset.f;drawCamps(S.data)})}
+  const c=CF==='todas'?all:CF==='ativa'?all.filter(x=>x.status==='ativa'):all.filter(x=>x.status!=='ativa');const max=Math.max(1,...c.map(x=>x.gasto));const temC=c.some(x=>x.conversas>0);
+  $('camp').innerHTML='<thead><tr><th>Campanha</th><th>Status</th><th>Investimento</th><th>Faturamento</th><th>ROAS</th><th>Vendas</th><th>Leads</th>'+(temC?'<th>Mensagens</th><th>Custo/msg</th>':'')+'<th>Cliques</th></tr></thead><tbody>'+
+   (c.length?c.map(x=>'<tr><td title="'+esc(x.nome)+'">'+esc(x.nome)+'</td><td data-l="Status">'+stPill(x.status)+'</td><td data-l="Investimento" class="num wide"><div class="inl"><i style="width:'+Math.round(x.gasto/max*80)+'px"></i>'+brl2(x.gasto)+'</div></td><td data-l="Faturamento" class="num">'+(x.faturamento?brl2(x.faturamento):'—')+'</td><td data-l="ROAS" class="num">'+(x.roas?x.roas.toLocaleString('pt-BR',{maximumFractionDigits:2})+'x':'—')+'</td><td data-l="Vendas" class="num">'+(x.vendas?int(x.vendas):'—')+'</td><td data-l="Leads" class="num">'+int(x.leads)+'</td>'+(temC?'<td data-l="Mensagens" class="num">'+(x.conversas?int(x.conversas):'—')+'</td><td data-l="Custo/msg" class="num">'+(x.cpConversa?brl2(x.cpConversa):'—')+'</td>':'')+'<td data-l="Cliques" class="num">'+int(x.cliques)+'</td></tr>').join(''):'<tr><td colspan="9">Nenhuma campanha neste filtro.</td></tr>')+'</tbody>';
 }
 
 /* ── controles ── */
