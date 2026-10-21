@@ -353,6 +353,12 @@ function render(){
      kpi(vinc?'Faturamento do funil':'Faturamento no GexFlow',brl2(d.rastreio.valor),0,0,{noDelta:true,note:vinc?'valor das vendas fechadas no período':'valor das vendas rastreadas'})+
      kpi(vinc?'ROAS do funil':'ROAS no GexFlow',a.gasto&&d.rastreio.valor?(d.rastreio.valor/a.gasto).toLocaleString('pt-BR',{maximumFractionDigits:2})+'x':sv,0,0,{noDelta:true,note:'faturamento do GexFlow ÷ investimento'})+
    '</section>':'')+
+   (vinc&&temVendaMeta&&d.rastreio.ganhos>0?'<section class="grid-kpi" aria-label="Total Meta + funil">'+
+     kpi('Faturamento total (Meta + funil)',brl2(a.faturamento+d.rastreio.valor),0,0,{noDelta:true,note:brl2(a.faturamento)+' da Meta + '+brl2(d.rastreio.valor)+' do funil'})+
+     kpi('Vendas totais (Meta + funil)',int(a.vendas+d.rastreio.ganhos),0,0,{noDelta:true,note:int(a.vendas)+' da Meta + '+int(d.rastreio.ganhos)+' do funil'})+
+     kpi('ROAS total do funil',a.gasto?((a.faturamento+d.rastreio.valor)/a.gasto).toLocaleString('pt-BR',{maximumFractionDigits:2})+'x':sv,0,0,{noDelta:true,note:'faturamento total ÷ investimento'})+
+     kpi('Custo por venda (total)',(a.vendas+d.rastreio.ganhos)?brl2(a.gasto/(a.vendas+d.rastreio.ganhos)):sv,0,0,{noDelta:true,note:'investimento ÷ vendas totais'})+
+   '</section>':'')+
    (temVenda?'':'<div class="card" style="margin-bottom:12px;font-size:13px;color:var(--ink2)">A Meta não registrou <b>compras</b> neste período para esta conta. Faturamento, vendas, ROAS e ROI só aparecem quando os anúncios têm o evento de compra configurado no pixel (ou nas conversões) com o valor da venda.</div>')+
    '<section class="grid2">'+
      '<div class="card"><div class="head"><div><h2>Investimento por dia</h2><div class="hint">Quanto foi gasto em anúncios em cada dia</div></div><button class="btn tg" data-tg="c1">Ver tabela</button></div><div id="c1" class="chart"></div></div>'+
