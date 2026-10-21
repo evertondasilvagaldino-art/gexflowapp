@@ -94,6 +94,14 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .cr-k b{display:block;font-size:14px}.cr-k span{font-size:11px;color:var(--muted)}
 .stp{display:inline-block;border:1px solid;border-radius:999px;padding:1px 8px;font-size:11.5px;font-weight:700;white-space:nowrap}
 .btn[aria-pressed=true]{color:var(--ink);border-color:var(--accent);background:var(--accent-soft)}
+.cb{position:relative;min-width:210px}
+.cb input{width:100%;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font:inherit;font-size:12.5px}
+.cb input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.cb-l{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:20;max-height:280px;overflow:auto;list-style:none;margin:0;padding:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.cb-l.on{display:block}
+.cb-l li{padding:7px 9px;border-radius:7px;font-size:12.5px;cursor:pointer}
+.cb-l li:hover,.cb-l li[aria-selected=true]{background:var(--accent-soft);color:var(--ink)}
+.cb-l li.vz{color:var(--muted);cursor:default}
 .tbl{width:100%;border-collapse:collapse;font-size:13px}
 .tbl th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:right;padding:6px 8px;font-weight:700;border-bottom:1px solid var(--line)}
 .tbl td{padding:9px 8px;text-align:right;border-bottom:1px solid var(--grid)}
@@ -191,7 +199,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
         <button data-p="custom" aria-pressed="false">Outro…</button>
       </div>
       <div class="custom" id="custom"><input type="date" id="de" aria-label="De"><span>até</span><input type="date" id="ate" aria-label="Até"><button class="btn" id="aplicar">Aplicar</button></div>
-      <select id="funil" aria-label="Conta de anúncios"></select>
+      <div class="cb" id="funil-w"><input id="funil-q" type="text" autocomplete="off" placeholder="Pesquisar conta…" aria-label="Pesquisar conta de anúncios"><ul id="funil-l" class="cb-l" role="listbox"></ul></div><select id="funil" aria-hidden="true" tabindex="-1" style="display:none"></select>
       <button class="btn" id="links" style="display:none" title="Gerar um link só de uma conta de anúncios, para o cliente acompanhar">🔗 Links por cliente</button>
       <button class="btn" id="refresh" title="Atualizar agora">↻ Atualizar</button>
     </div>
@@ -291,7 +299,7 @@ function render(){
   CUR=(d.conta&&d.conta.moeda)||'BRL';
   const fs=$('funil');const keep=S.conta||(d.conta&&d.conta.id)||'';
   fs.innerHTML=(d.contasDisponiveis||[]).map(f=>'<option value="'+esc(f.id)+'"'+(f.id===keep?' selected':'')+'>'+esc(f.nome)+'</option>').join('');
-  if(d.escopo||(d.contasDisponiveis||[]).length<2)fs.style.display='none';else fs.style.display='';
+  fs.style.display='none';$('funil-w').style.display=(d.escopo||(d.contasDisponiveis||[]).length<2)?'none':'';cbSync();
   const nome=(d.conta&&d.conta.nome)||'';
   $('h1').textContent='Painel de anúncios'+(nome?' · '+nome:'');document.title='Painel de anúncios'+(nome?' · '+nome:'');
   const g=new Date(d.geradoEm);
@@ -433,7 +441,28 @@ function setPreset(p){
 }
 document.querySelectorAll('#presets button').forEach(b=>b.addEventListener('click',()=>setPreset(b.dataset.p)));
 $('aplicar').addEventListener('click',()=>{S.de=$('de').value;S.ate=$('ate').value;if(!S.de||!S.ate)return;load()});
-$('funil').addEventListener('change',e=>{S.conta=e.target.value;load()});
+/* ── seletor de conta com pesquisa ── */
+function cbNome(){const o=$('funil').selectedOptions[0];return o?o.textContent:''}
+function cbSync(){const q=$('funil-q');if(document.activeElement!==q)q.value=cbNome()}
+function cbList(f){
+  const l=$('funil-l'),t=(f||'').toLowerCase().trim();
+  const ops=[...$('funil').options].filter(o=>!t||o.textContent.toLowerCase().includes(t));
+  l.innerHTML=ops.length?ops.map(o=>'<li role="option" data-v="'+esc(o.value)+'"'+(o.selected?' aria-selected="true"':'')+'>'+esc(o.textContent)+'</li>').join(''):'<li class="vz">Nenhuma conta encontrada</li>';
+  l.classList.add('on');
+}
+function cbClose(){$('funil-l').classList.remove('on');cbSync()}
+$('funil-q').addEventListener('focus',e=>{e.target.select();cbList('')});
+$('funil-q').addEventListener('input',e=>cbList(e.target.value));
+$('funil-q').addEventListener('keydown',e=>{
+  if(e.key==='Escape'){e.target.blur();cbClose()}
+  if(e.key==='Enter'){const li=$('funil-l').querySelector('li[data-v]');if(li)li.dispatchEvent(new Event('pointerdown',{bubbles:true}))}
+});
+$('funil-l').addEventListener('pointerdown',e=>{
+  const li=e.target.closest('li[data-v]');if(!li)return;e.preventDefault();
+  const v=li.dataset.v;$('funil').value=v;cbClose();$('funil-q').blur();
+  if(v!==S.conta){S.conta=v;load()}
+});
+document.addEventListener('pointerdown',e=>{if(!$('funil-w').contains(e.target))cbClose()});
 $('refresh').addEventListener('click',load);
 let rz;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>Object.keys(charts).forEach(paint),150)});
 if(TOKEN)$('links').style.display='';
