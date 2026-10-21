@@ -7035,6 +7035,10 @@ async function saveModal(type,id=''){
         linkGmn:temCamposCarteira?v('f-link-gmn'):(existente?.linkGmn||'')};
       if(!obj.nome){toast('Nome obrigatório','#EF4444');return}
       const statusAnterior=id?DB.find('clientes',id)?.status:'';
+      // Saída = "Pediu para sair" ou "Inativo". Guarda a data da 1ª vez que saiu (usada na Análise de Churn);
+      // voltar a outro status limpa a data.
+      if(obj.status==='Pediu para sair'||obj.status==='Inativo')obj.saidaEm=(existente&&existente.saidaEm)||new Date().toISOString().slice(0,10);
+      else obj.saidaEm='';
       const cliId=id||uid();
       if(id){DB.update('clientes',id,obj);fireWebhook('cliente.atualizado',{id,...obj})}else{const c={id:cliId,...obj};DB.push('clientes',c);fireWebhook('cliente.criado',c)}
       // AUTO-ONBOARDING: se status mudou para Ativo, cria entrada no onboarding
@@ -8611,6 +8615,38 @@ function cliView(){try{return localStorage.getItem('gxCliView')==='quadro'?'quad
 function setCliView(v){try{localStorage.setItem('gxCliView',v)}catch(e){}renderClientes()}
 function cliCollapsed(){let o={};try{o=JSON.parse(localStorage.getItem('gxCliCol')||'null')}catch(e){}return o&&typeof o==='object'?o:{'Inativo':true}}
 function cliToggleGroup(k){const o=cliCollapsed();o[k]=!o[k];try{localStorage.setItem('gxCliCol',JSON.stringify(o))}catch(e){}renderClientes()}
+// Ordem dos grupos (lista) e colunas (quadro): cada usuário escolhe a sua, salva no navegador.
+let _cliVisivel=[];
+function cliOrder(){
+  const base=CLI_STATUS.map(d=>d.k);
+  let st=[];try{st=JSON.parse(localStorage.getItem('gxCliOrder')||'[]')}catch(e){}
+  if(!Array.isArray(st))st=[];
+  const ok=st.filter(k=>base.includes(k));
+  return ok.concat(base.filter(k=>!ok.includes(k)));
+}
+function cliSalvarOrder(arr){try{localStorage.setItem('gxCliOrder',JSON.stringify(arr))}catch(e){}renderClientes()}
+function cliResetOrder(){try{localStorage.removeItem('gxCliOrder')}catch(e){}renderClientes()}
+function cliMoverPara(k,alvo,depois){
+  if(!k||!alvo||k===alvo)return;
+  const o=cliOrder().filter(x=>x!==k);
+  const i=o.indexOf(alvo);if(i<0)return;
+  o.splice(depois?i+1:i,0,k);
+  cliSalvarOrder(o);
+}
+function cliMover(k,dir){
+  const v=_cliVisivel,i=v.indexOf(k),j=i+dir;
+  if(i<0||j<0||j>=v.length)return;
+  cliMoverPara(k,v[j],dir>0);
+}
+let _cliDragK='';
+function cliGDragS(e,k){_cliDragK=k;try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/gxcli',k)}catch(x){}if(e.currentTarget)e.currentTarget.style.opacity='.5'}
+function cliGDrop(e,alvo){
+  e.preventDefault();
+  const k=_cliDragK;_cliDragK='';
+  if(!k||k===alvo)return;
+  const v=_cliVisivel;
+  cliMoverPara(k,alvo,v.indexOf(k)<v.indexOf(alvo));
+}
 function cliGroupOf(c){const st=String(c&&c.status||'').trim();return CLI_STATUS.some(x=>x.k===st)?st:'Outros'}
 function cliPill(k,n){
   const d=CLI_STATUS.find(x=>x.k===k)||{cor:'#94A3B8'};
@@ -8634,29 +8670,42 @@ function cliRowHtml(c){
 }
 function cliListaHtml(data){
   const col=cliCollapsed();
-  const groups=CLI_STATUS.map(d=>d.k).concat(['Outros']);
+  const groups=cliOrder().concat(['Outros']);
+  _cliVisivel=groups.filter(k=>{
+    const it=data.filter(c=>cliGroupOf(c)===k);const df=CLI_STATUS.find(x=>x.k===k);
+    if(!it.length&&(k==='Outros'||(df&&df.oculto)))return false;
+    if(!it.length&&cliFilter!=='todos')return false;
+    return true;
+  }).filter(k=>k!=='Outros');
   return groups.map(k=>{
     const items=data.filter(c=>cliGroupOf(c)===k);
     const def=CLI_STATUS.find(x=>x.k===k);
     if(!items.length&&(k==='Outros'||(def&&def.oculto)))return '';
     if(!items.length&&cliFilter!=='todos')return '';
     const closed=!!col[k];
-    return `<div class="card" style="margin-bottom:12px;padding:0;overflow:hidden">
+    const mov=k!=='Outros';
+    return `<div class="card" style="margin-bottom:12px;padding:0;overflow:hidden" ${mov?`ondragstart="cliGDragS(event,'${k}')" ondragover="event.preventDefault()" ondrop="cliGDrop(event,'${k}')" ondragend="this.draggable=false;this.style.opacity=''"`:''}>
       <div onclick="cliToggleGroup('${k}')" style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;user-select:none">
         <span style="font-size:11px;color:var(--muted);width:12px;display:inline-block;transition:transform .15s;transform:rotate(${closed?0:90}deg)">▶</span>${cliPill(k,items.length)}
+        ${mov?`<span style="margin-left:auto;display:flex;align-items:center;gap:2px" onclick="event.stopPropagation()">
+          <span title="Subir esta lista" style="cursor:pointer;padding:4px 7px;color:var(--muted);font-size:11px" onclick="cliMover('${k}',-1)">▲</span>
+          <span title="Descer esta lista" style="cursor:pointer;padding:4px 7px;color:var(--muted);font-size:11px" onclick="cliMover('${k}',1)">▼</span>
+          <span title="Segure e arraste para mudar a posição" style="cursor:grab;padding:4px 8px;color:var(--muted);font-size:14px" onmousedown="this.closest('.card').draggable=true">⋮⋮</span>
+        </span>`:''}
       </div>
       ${closed||!items.length?'':`<div class="tbl-wrap"><table style="table-layout:fixed;width:100%"><colgroup><col style="width:23%"><col style="width:20%"><col style="width:13%"><col style="width:10%"><col style="width:7%"><col style="width:20%"><col style="width:7%"></colgroup><thead><tr><th>Nome</th><th>Email</th><th>Telefone</th><th>LTV</th><th>Health</th><th>Ações</th><th></th></tr></thead><tbody>${items.map(cliRowHtml).join('')}</tbody></table></div>`}
     </div>`;
   }).join('');
 }
 function cliQuadroHtml(data){
-  const cols=CLI_STATUS.filter(d=>!d.oculto||data.some(c=>cliGroupOf(c)===d.k));
+  const cols=cliOrder().map(k=>CLI_STATUS.find(d=>d.k===k)).filter(d=>d&&(!d.oculto||data.some(c=>cliGroupOf(c)===d.k)));
+  _cliVisivel=cols.map(d=>d.k);
   const canEdit=can('clientes','edit');
   return `<div style="display:flex;gap:12px;overflow-x:auto;padding-bottom:10px;align-items:flex-start">${cols.map(d=>{
     const items=data.filter(c=>cliGroupOf(c)===d.k);
     return `<div style="flex:0 0 270px;background:${d.cor}0D;border:1px solid ${d.cor}33;border-top:3px solid ${d.cor};border-radius:12px;padding:10px"
       ondragover="event.preventDefault()" ondrop="${canEdit?`cliDrop(event,'${d.k}')`:''}">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">${cliPill(d.k,items.length)}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">${cliPill(d.k,items.length)}<span style="margin-left:auto;display:flex;gap:2px"><span title="Mover para a esquerda" style="cursor:pointer;padding:3px 6px;color:var(--muted);font-size:11px" onclick="cliMover('${d.k}',-1)">◀</span><span title="Mover para a direita" style="cursor:pointer;padding:3px 6px;color:var(--muted);font-size:11px" onclick="cliMover('${d.k}',1)">▶</span></span></div>
       <div style="display:flex;flex-direction:column;gap:8px;max-height:68vh;overflow-y:auto">${items.map(c=>`
         <div class="card" ${canEdit?`draggable="true" ondragstart="event.dataTransfer.setData('text/plain','${c.id}')"`:''} onclick='openDetail("${c.id}")' style="padding:10px 12px;cursor:pointer">
           <div style="display:flex;align-items:center;gap:8px"><div style="width:26px;height:26px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials(c.nome)}</div><div style="font-weight:600;font-size:13px;line-height:1.25">${escHtml(c.nome||'')}</div></div>
@@ -8675,8 +8724,9 @@ function cliDrop(e,novoStatus){
     const c=DB.find('clientes',id);
     if(!c||c.status===novoStatus)return;
     const anterior=c.status;
-    DB.update('clientes',id,{status:novoStatus});
-    fireWebhook('cliente.atualizado',{...c,status:novoStatus});
+    const saidaEm=(novoStatus==='Pediu para sair'||novoStatus==='Inativo')?(c.saidaEm||new Date().toISOString().slice(0,10)):'';
+    DB.update('clientes',id,{status:novoStatus,saidaEm});
+    fireWebhook('cliente.atualizado',{...c,status:novoStatus,saidaEm});
     if(novoStatus==='Ativo'&&anterior!=='Ativo'){
       const obs=DB.get('onboarding')||[];
       if(!obs.find(o=>o.clienteId===id)){
@@ -8702,7 +8752,7 @@ function renderClientes(){
   }
   const view=cliView();
   const tg=document.getElementById('cli-viewtoggle');
-  if(tg)tg.innerHTML=`<button class="btn btn-sm ${view==='lista'?'btn-primary':'btn-ghost'}" onclick="setCliView('lista')">📋 Lista</button><button class="btn btn-sm ${view==='quadro'?'btn-primary':'btn-ghost'}" onclick="setCliView('quadro')">🗂 Quadro</button>`;
+  if(tg)tg.innerHTML=`<button class="btn btn-sm ${view==='lista'?'btn-primary':'btn-ghost'}" onclick="setCliView('lista')">📋 Lista</button><button class="btn btn-sm ${view==='quadro'?'btn-primary':'btn-ghost'}" onclick="setCliView('quadro')">🗂 Quadro</button>${(()=>{let o=null;try{o=localStorage.getItem('gxCliOrder')}catch(e){}return o?`<button class="btn btn-ghost btn-sm" onclick="cliResetOrder()" title="Voltar à ordem padrão das listas">↺ Ordem padrão</button>`:''})()}`;
   if(cliFilter!=='todos')data=data.filter(c=>cliGroupOf(c)===cliFilter);
   const sub=document.getElementById('cli-sub');if(sub)sub.textContent=data.length+' cliente(s)';
   const box=document.getElementById('cli-view');if(!box)return;
@@ -13738,6 +13788,56 @@ function contratoSituacaoPill(key){
   if(!sit)return `<span class="badge badge-gray">${key==='encerrado'?'Encerrado':escHtml(key||'—')}</span>`;
   return `<span class="badge" style="background:${sit.bg};color:${sit.color}">${sit.label}</span>`;
 }
+// ── Saídas de clientes: "Pediu para sair" + "Inativo" contam como saída ──
+let churnSaidaPeriodo='todos';
+function setChurnSaidaPeriodo(v){churnSaidaPeriodo=v||'todos';renderChurn();}
+function churnSaidasHtml(clientes){
+  const ehSaida=c=>c&&(c.status==='Pediu para sair'||c.status==='Inativo');
+  const saidasTodas=clientes.filter(ehSaida);
+  const ativosAgora=clientes.filter(c=>c&&c.status==='Ativo').length;
+  const mesDe=c=>String(c.saidaEm||'').slice(0,7);
+  const meses=[...new Set(saidasTodas.map(mesDe).filter(Boolean))].sort().reverse();
+  const semData=saidasTodas.filter(c=>!mesDe(c)).length;
+  if(churnSaidaPeriodo!=='todos'&&churnSaidaPeriodo!=='semdata'&&!meses.includes(churnSaidaPeriodo))churnSaidaPeriodo='todos';
+  const saidas=churnSaidaPeriodo==='todos'?saidasTodas
+    :(churnSaidaPeriodo==='semdata'?saidasTodas.filter(c=>!mesDe(c)):saidasTodas.filter(c=>mesDe(c)===churnSaidaPeriodo));
+  const pediu=saidas.filter(c=>c.status==='Pediu para sair');
+  const inativos=saidas.filter(c=>c.status==='Inativo');
+  const base=ativosAgora+saidas.length;
+  const taxa=base?(saidas.length/base*100):0;
+  const mrrNum=c=>contratoValorNum(c.mrr||'');
+  const mrrSaida=saidas.reduce((a,c)=>a+mrrNum(c),0);
+  const nomeMes=m=>{const [y,mm]=m.split('-');return ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][+mm-1]+'/'+y};
+  const dataBR=c=>c.saidaEm?String(c.saidaEm).slice(0,10).split('-').reverse().join('/'):'sem data';
+  const card=(lbl,val,cor,sub)=>`<div class="stat-card"><div class="stat-lbl" style="color:${cor}">${lbl}</div><div class="stat-val" style="color:${cor}">${val}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${sub}</div></div>`;
+  const tab=(titulo,cor,arr)=>`<div class="card" style="margin-bottom:14px">
+      <div class="sec-hdr"><div class="sec-ico">🚪</div><div><div class="sec-title" style="color:${cor}">${titulo}</div><div class="sec-sub">${arr.length} cliente(s)</div></div></div>
+      ${arr.length?`<div class="tbl-wrap"><table><thead><tr><th>Cliente</th><th>Contato</th><th>LTV</th><th>Saiu em</th><th>Health</th></tr></thead><tbody>${arr.slice().sort((a,b)=>String(b.saidaEm||'').localeCompare(String(a.saidaEm||''))).map(c=>`<tr>
+        <td><div style="font-weight:600">${escHtml(c.nome||'')}</div></td>
+        <td style="color:var(--muted);font-size:12px">${escHtml(c.telefone||c.email||'—')}</td>
+        <td style="font-weight:600;color:var(--green)">${escHtml(c.ltv||'—')}</td>
+        <td style="font-size:12px;color:var(--muted)">${dataBR(c)}</td>
+        <td><span style="font-weight:700;color:${healthColor(c.health||0)}">${c.health||0}</span></td></tr>`).join('')}</tbody></table></div>`
+      :`<div class="empty"><div class="empty-txt">Nenhum cliente</div></div>`}
+    </div>`;
+  const seletor=`<select class="form-input" style="padding:5px 8px;font-size:12px;width:auto" onchange="setChurnSaidaPeriodo(this.value)">
+      <option value="todos" ${churnSaidaPeriodo==='todos'?'selected':''}>Todos os períodos</option>
+      ${meses.map(m=>`<option value="${m}" ${churnSaidaPeriodo===m?'selected':''}>${nomeMes(m)}</option>`).join('')}
+      ${semData?`<option value="semdata" ${churnSaidaPeriodo==='semdata'?'selected':''}>Sem data registrada (${semData})</option>`:''}
+    </select>`;
+  return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+      <div><div style="font-size:15px;font-weight:700">Saídas de clientes</div><div style="font-size:11.5px;color:var(--muted)">“Pediu para sair” e “Inativo” contam como saída. Taxa de churn = saídas ÷ (clientes ativos + saídas).</div></div>${seletor}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:14px">
+      ${card('🚪 Saídas',saidas.length,'#DC2626',pediu.length+' pediram para sair · '+inativos.length+' inativos')}
+      ${card('📉 Taxa de churn',taxa.toFixed(1).replace('.',',')+'%','#D97706','base: '+ativosAgora+' ativos + '+saidas.length+' saídas')}
+      ${card('🟢 Clientes ativos',ativosAgora,'#059669','hoje')}
+      ${mrrSaida>0?card('💸 MRR em saída',escHtml(gexMoneyFmt(mrrSaida,true)||''),'#7C3AED','soma do MRR dos clientes que saíram'):''}
+    </div>
+    ${tab('Pediu para sair','#D97706',pediu)}
+    ${tab('Inativos','#EA580C',inativos)}
+    <div style="border-top:1px solid var(--border);margin:6px 0 16px"></div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:10px">Saúde dos contratos</div>`;
+}
 let churnFiltro='todos';
 function setChurnFiltro(k){churnFiltro=(churnFiltro===k)?'todos':k;renderChurn();}
 function renderChurn(){
@@ -13811,7 +13911,9 @@ function renderChurn(){
       :`<div class="empty"><div class="empty-txt">Todos os clientes ativos têm contrato 🎉</div></div>`}
     </div>`;
   const visiveis=churnFiltro==='todos'?keys:[churnFiltro];
+  let saidasBloco='';try{saidasBloco=churnSaidasHtml(clientes)}catch(e){saidasBloco=''}
   cont.innerHTML=`
+    ${saidasBloco}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:18px">${statCards}</div>
     ${churnFiltro!=='todos'?`<div style="margin:-6px 0 12px;font-size:12px;color:var(--muted)">Mostrando só <b>${CONTRATO_SITUACOES[churnFiltro].label}</b>. <a href="#" onclick="setChurnFiltro('${churnFiltro}');return false">Ver todos</a></div>`:''}
     ${visiveis.map(tabela).join('')}
