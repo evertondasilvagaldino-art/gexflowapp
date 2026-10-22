@@ -4013,8 +4013,25 @@ function gexCacheKey(collection){ return 'gx2_'+collection; }
 function gexJsonParse(value,fallback){
   try{return JSON.parse(value)}catch(e){return fallback}
 }
+// Leitura em lote: enquanto uma tela pesada (Início/Relatório) é desenhada, a mesma
+// coleção é lida milhares de vezes (uma por lead). Aqui o JSON só é reprocessado se o
+// texto salvo mudou — fora do lote nada muda (cada leitura continua independente).
+let _gxBatch=0,_gxBatchC={};
+function gexBatchRun(fn){
+  _gxBatch++;
+  try{return fn()}finally{_gxBatch--;if(!_gxBatch)_gxBatchC={}}
+}
 function gexReadLocalCollection(collection){
-  const data = gexJsonParse(localStorage.getItem(gexCacheKey(collection))||'[]',[]);
+  const key=gexCacheKey(collection);
+  const raw=localStorage.getItem(key)||'[]';
+  if(_gxBatch>0){
+    const c=_gxBatchC[key];
+    if(c&&c.raw===raw)return c.v;
+    const d=gexJsonParse(raw,[]);const v=Array.isArray(d)?d:[];
+    _gxBatchC[key]={raw,v};
+    return v;
+  }
+  const data = gexJsonParse(raw,[]);
   return Array.isArray(data) ? data : [];
 }
 function gexWriteLocalCollection(collection,value){
@@ -24222,6 +24239,13 @@ function pintarSeguro(){
   _pintando=true;
   try{pintar()}finally{_pintando=false;_ultPintura=Date.now()}
 }
+try{
+  const _origRel=window.renderRelatorioComercial;
+  if(typeof _origRel==='function'&&!_origRel.__gxB){
+    const w=function(){const a=arguments,t=this;return gexBatchRun(()=>_origRel.apply(t,a))};w.__gxB=1;
+    window.renderRelatorioComercial=w;
+  }
+}catch(e){}
 window.__gexIniParceiroRefresh=function(){
   // Redesenho atrasado e sem repetição: nunca em cascata, nunca mais que 1x por segundo.
   try{
@@ -24232,7 +24256,7 @@ window.__gexIniParceiroRefresh=function(){
 const orig=window.renderInicio;
 window.renderInicio=function(){
   if(!ehParceiro()){try{limpar()}catch(e){}return typeof orig==='function'?orig.apply(this,arguments):undefined}
-  try{pintarSeguro()}catch(err){
+  try{gexBatchRun(pintarSeguro)}catch(err){
     try{console.warn('[Início do parceiro]',err)}catch(e){}
     const b=boxEl();if(b)b.innerHTML='<div class="gip-card"><div class="gip-empty">Não consegui montar o seu painel agora. Abra o Pipeline pelo menu.</div></div>';
     try{esconderClassico(true)}catch(e){}
