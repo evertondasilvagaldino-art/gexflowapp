@@ -14920,6 +14920,29 @@ function funnelOwnerHasCommercialAccess(ownerId,ownerEmail){
   return typeof userCanAccess==='function' ? userCanAccess(u,'comercial','view') : true;
 }
 
+// Funis cujo dono foi desativado ou removido da Gestão de Usuários: somem do dia a dia e ficam
+// listados em "Arquivados" para a pessoa decidir excluir de vez. Nada é apagado automaticamente.
+// A regra vale para TODOS os funis (inclusive Beatriz e Elias) se o dono for desativado ou removido: só sai do dia a dia e vai para a lista; excluir é sempre decisão manual. Sem a lista de usuários carregada
+// (menos de 3 cadastros), não decide nada, para não esconder funil por engano durante a sincronização.
+function gxFunisDonoForaDeCena(){
+  try{
+    if(typeof isSalesManagerView!=='function'||!isSalesManagerView())return [];
+    const users=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[])||[];
+    if(users.length<3)return [];
+    const out=[];
+    getCommercialFunnels().forEach(f=>{
+      if(!f||f.isDefault||f.isArchived)return;
+      if(!f.createdBy&&!f.createdByEmail)return;
+      const u=users.find(x=>
+        (f.createdBy&&(String(x.id)===String(f.createdBy)||String(x.supabaseId||'')===String(f.createdBy))) ||
+        (f.createdByEmail&&normalizeLoginEmail(x.email||'')===normalizeLoginEmail(f.createdByEmail)));
+      if(!u)out.push({f,motivo:'usuário removido'});
+      else if(String(u.status||'Ativo')==='Inativo')out.push({f,motivo:'usuário desativado'});
+    });
+    return out;
+  }catch(e){return []}
+}
+
 function getVisibleCommercialFunnels(funnels){
   const list=Array.isArray(funnels)?funnels:getCommercialFunnels();
   try{
@@ -14974,7 +14997,8 @@ function getVisibleCommercialFunnels(funnels){
         return 'funilnome:'+normalizeSalesName(f.name||'');
       };
       const porDono=new Map();
-      visiveis.forEach(f=>{
+      const _foraIds=new Set(gxFunisDonoForaDeCena().map(x=>String(x.f.id)));
+      visiveis.filter(f=>!_foraIds.has(String(f.id))).forEach(f=>{
         if(f.isDefault){porDono.set('__default__'+f.id,f);return}
         const dono=f.createdBy||f.createdByEmail?chaveIdentidade(f):'';
         if(!dono){porDono.set('__sem_dono__'+f.id,f);return}
@@ -15351,7 +15375,7 @@ function renderFunnelSelector(){
     ${canEdit&&active&&(canManageAnyFunnel||!active.isDefault)?`<button class="fbtn" onclick="openFunnelModal('edit','${active.id}')">✏️ Editar Funil</button>`:''}
     ${canCreate&&active?`<button class="fbtn" onclick="duplicateCommercialFunnel('${active.id}')">⧉ Duplicar</button>`:''}
     ${canEdit&&active&&!active.isDefault?`<button class="fbtn fbtn-danger" onclick="confirmArchiveFunnel('${active.id}')">📦 Arquivar</button>`:''}
-    ${canOpenArchived?`<button class="fbtn" onclick="openArchivedFunnelsModal()">🗂️ Arquivados ${getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length?`(${getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length})`:''}</button>`:''}
+    ${canOpenArchived?`<button class="fbtn" onclick="openArchivedFunnelsModal()">🗂️ Arquivados ${(()=>{const n=getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length+gxFunisDonoForaDeCena().length;return n?`(${n})`:''})()}</button>`:''}
   </div>`;
 
   bar.innerHTML=selectHtml+ownerFilterHtml+btnsHtml;
@@ -15405,8 +15429,22 @@ function renderArchivedFunnelsModal(){
   const canEditFunnel=can('comercial','edit')||can('comercial_pipeline','delete');
   const canDeleteFunnel=can('comercial','delete')||can('comercial_pipeline','delete');
 
+  const fora=gxFunisDonoForaDeCena();
+  const foraHtml=fora.length?`
+    <div style="font-size:12px;font-weight:800;margin:14px 0 6px">Funis de usuários desativados ou removidos</div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.45;margin-bottom:8px">Esses funis já não aparecem no Pipeline. Nada foi apagado: exclua só quando tiver certeza.</div>
+    ${fora.map(({f,motivo})=>`<div class="archived-funnel-summary">
+      <div class="archived-funnel-info">
+        <div class="archived-funnel-name">👤 ${escHtml(f.name||'Funil sem nome')}</div>
+        <div class="archived-funnel-meta">${getFunnelLeadCount(f.id)} oportunidade(s) • ${escHtml(motivo)}${f.createdByEmail?' • '+escHtml(f.createdByEmail):''}</div>
+      </div>
+      <div class="archived-funnel-actions">
+        ${canDeleteFunnel?`<button class="btn btn-danger btn-sm" onclick="gxExcluirFunilDonoFora('${escAttr(f.id)}')">🗑️ Excluir</button>`:''}
+      </div>
+    </div>`).join('')}`:'';
+
   if(!archived.length){
-    body.innerHTML=`<div class="archived-empty">
+    body.innerHTML=fora.length?foraHtml:`<div class="archived-empty">
       <div style="font-size:28px;margin-bottom:8px">🗂️</div>
       <div style="font-weight:800;color:var(--txt);margin-bottom:3px">Nenhum funil arquivado</div>
       <div>Quando você arquivar um funil no Comercial, ele aparecerá aqui para restaurar ou excluir.</div>
@@ -15434,7 +15472,22 @@ function renderArchivedFunnelsModal(){
         </div>
       </div>`;
     }).join('')}
+    ${foraHtml}
   `;
+}
+
+// "Excluir" de funil cujo dono saiu: arquiva e exclui (as oportunidades vão para o funil padrão, como no fluxo normal).
+function gxExcluirFunilDonoFora(funnelId){
+  if(!gxFunisDonoForaDeCena().some(x=>String(x.f.id)===String(funnelId))){toast('Esse funil não está mais nessa lista','#F59E0B');return}
+  const f=getCommercialFunnels().find(x=>x.id===funnelId);
+  if(!f)return;
+  const n=getFunnelLeadCount(funnelId);
+  const msg=n?`Excluir definitivamente "${f.name}"?\n\nEsse funil tem ${n} oportunidade(s). Elas serão movidas para o funil padrão antes da exclusão.`:`Excluir definitivamente "${f.name}"?\n\nEssa ação não pode ser desfeita.`;
+  if(!confirm(msg))return;
+  const funnels=getCommercialFunnels();
+  const t=funnels.find(x=>x.id===funnelId);
+  if(t){t.isArchived=true;t.updatedAt=new Date().toISOString();saveCommercialFunnels(funnels)}
+  deleteArchivedFunnel(funnelId,{moveLeadsToDefault:true});
 }
 
 function restoreArchivedFunnel(funnelId){
