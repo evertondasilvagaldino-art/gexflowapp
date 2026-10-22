@@ -2962,6 +2962,9 @@ const ROLE_PERMS = {
     // Sem "inicio" de propósito — esse papel não vê o painel central da
     // empresa. Ao logar, cai direto na primeira aba que ele tem acesso
     // (Tarefas do Dia), sem precisar de uma página de boas-vindas própria.
+    // Início PRÓPRIO do parceiro (21/10/2026): painel só com o que ele vê e controla (script gex-inicio-parceiro-script).
+    // Basic e Pro. Nunca mostra dados da empresa (finanças, clientes, equipe).
+    inicio:{view:true},
     comercial_tarefas:{view:true,create:true,edit:true},
     // delete:true aqui é só pra permitir excluir DEFINITIVAMENTE um funil
     // próprio já arquivado (deleteArchivedFunnel confere createdBy — nunca
@@ -10673,6 +10676,40 @@ function animateCounter(el,target,prefix='',suffix='',duration=900){
   requestAnimationFrame(update);
 }
 
+// ── Investimento e CAC pela conta Meta do PRÓPRIO parceiro (21/10/2026, a pedido do Everton) ──
+// Só para Gex Parceiro com a Meta conectada em Integrações. Usa as mesmas funções do painel
+// "Campanhas da Meta" (meta-accounts / meta-ads-report), que leem só a conta conectada pelo próprio usuário.
+const REL_META_PRESET={mes:'this_month','30dias':'last_30d'};
+const relMeta={uid:'',accountId:'',noAccount:false,booted:false,loading:false,data:{},err:''};
+async function relMetaEnsure(preset){
+  try{
+    if(!gxIsPartnerRole()||!supabaseClient||!preset)return;
+    const uid=String(sessionUser?.id||'');
+    if(relMeta.uid!==uid){Object.assign(relMeta,{uid,accountId:'',noAccount:false,booted:false,loading:false,data:{},err:''})}
+    if(relMeta.loading)return;
+    if(relMeta.err&&Date.now()-(relMeta.errAt||0)<60000)return;
+    if(relMeta.data[preset]&&Date.now()-relMeta.data[preset].at<5*60*1000)return;
+    relMeta.loading=true;
+    const token=await getGexSupabaseToken();
+    if(!relMeta.booted){
+      const r1=await fetch(getSupabaseFunctionUrl('meta-accounts'),{headers:{Authorization:`Bearer ${token}`}});
+      const j1=await r1.json().catch(()=>({}));
+      if(!r1.ok||j1.error)throw new Error(j1.error||'sem conta');
+      const accs=j1.adAccounts||[];
+      relMeta.booted=true;relMeta.noAccount=!accs.length;relMeta.accountId=accs.length?String(accs[0].id):'';
+    }
+    if(!relMeta.noAccount){
+      const r2=await fetch(getSupabaseFunctionUrl('meta-ads-report'),{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({adAccountId:relMeta.accountId,datePreset:preset})});
+      const j2=await r2.json().catch(()=>({}));
+      if(!r2.ok||j2.error)throw new Error(j2.error||'sem relatório');
+      relMeta.data[preset]={at:Date.now(),spend:Number(j2.summary?.spend||0)};
+    }
+    relMeta.err='';
+  }catch(e){relMeta.err=String(e&&e.message||'erro');relMeta.errAt=Date.now()}
+  relMeta.loading=false;
+  try{const g=document.getElementById('rel-kpi-grid');if(g&&g.offsetParent)renderRelatorioComercial()}catch(e){}
+  try{if(typeof window.__gexIniParceiroRefresh==='function')window.__gexIniParceiroRefresh()}catch(e){}
+}
 function renderRelatorioComercial(){
   ensureDefaultCommercialFunnel();
   migrateOldOpportunitiesToDefaultFunnel();
@@ -10740,6 +10777,28 @@ function renderRelatorioComercial(){
     {lbl:'Ciclo Médio de Venda',ico:'⏱️',val:ciclo,fmt:'dias',accent:'#F59E0B',bg:'rgba(245,158,11,.1)',
      sub:ciclo?'Média entre criação e fechamento':'Dados insuficientes',badge:null},
   ];
+
+  // Investimento em anúncios + CAC (só parceiro com Meta conectada)
+  try{
+    if(gxIsPartnerRole()){
+      const preset=REL_META_PRESET[period]||'';
+      if(preset)relMetaEnsure(preset);
+      const rm=preset?relMeta.data[preset]:null;
+      if(!(relMeta.booted&&relMeta.noAccount)){
+        if(!preset){
+          kpis.push({lbl:'Investimento em anúncios',ico:'📣',val:0,fmt:'brl',accent:'#6366F1',bg:'rgba(99,102,241,.1)',sub:'Escolha "Este mês" ou "Últimos 30 dias" para ver o gasto da sua conta Meta',badge:null});
+          kpis.push({lbl:'CAC — custo por cliente ganho',ico:'🎯',val:0,fmt:'brl',accent:'#8B5CF6',bg:'rgba(139,92,246,.1)',sub:'Investimento ÷ clientes ganhos',badge:null});
+        }else if(rm){
+          kpis.push({lbl:'Investimento em anúncios',ico:'📣',val:rm.spend,fmt:'brl',accent:'#6366F1',bg:'rgba(99,102,241,.1)',sub:'Gasto da sua conta Meta no período',badge:null});
+          kpis.push({lbl:'CAC — custo por cliente ganho',ico:'🎯',val:wonOps.length&&rm.spend?rm.spend/wonOps.length:0,fmt:'brl',accent:'#8B5CF6',bg:'rgba(139,92,246,.1)',sub:wonOps.length?`${fmtBRL(rm.spend)} ÷ ${wonOps.length} cliente${wonOps.length!==1?'s':''} ganho${wonOps.length!==1?'s':''}`:'Sem cliente ganho no período',badge:null});
+        }else if(relMeta.err&&!relMeta.loading){
+          kpis.push({lbl:'Investimento em anúncios',ico:'📣',val:0,fmt:'brl',accent:'#6366F1',bg:'rgba(99,102,241,.1)',sub:'Não consegui buscar a conta Meta agora',badge:null});
+        }else{
+          kpis.push({lbl:'Investimento em anúncios',ico:'📣',val:0,fmt:'brl',accent:'#6366F1',bg:'rgba(99,102,241,.1)',sub:'Buscando a sua conta Meta...',badge:null});
+        }
+      }
+    }
+  }catch(e){}
 
   const kpiGrid=document.getElementById('rel-kpi-grid');
   if(!kpiGrid) return;
@@ -16331,7 +16390,12 @@ function setDealStatus(status){
   refreshDealAndPipeline();
 
   if(status==='Ganho'){
-    if(l){
+    // Gex Parceiro / Operador de Funil trabalham o próprio funil: o negócio ganho deles
+    // NÃO vira cliente na Gestão de Clientes da empresa (21/10/2026, a pedido do Everton).
+    const _ladoParceiro=(()=>{try{return ['Gex Parceiro','Operador de Funil'].includes(resolveRole(sessionUser?.permissao||sessionUser?.cargo||''))}catch(e){return false}})();
+    if(l&&_ladoParceiro){
+      toast(`🎉 Movido para ${stage?.name||'Ganho'}!`,'#10B981');
+    } else if(l){
       const nomeRef=(l.empresa||l.nome||'').toLowerCase().trim();
       const jaExiste=DB.get('clientes').find(c=>(c.nome||'').toLowerCase().trim()===nomeRef);
       if(!jaExiste){
@@ -24015,5 +24079,151 @@ css();
 })();
 </script>
 
+<script id="gex-inicio-parceiro-script">
+(function(){
+// Início do Gex Parceiro: só o que ele enxerga e controla (leads/funil próprios + conta Meta própria).
+// Não lê finanças, clientes, equipe nem nada da empresa. Qualquer outro perfil segue com o Início de sempre.
+const ehParceiro=()=>{try{return typeof gxIsPartnerRole==='function'&&gxIsPartnerRole()}catch(e){return false}};
+const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const css=document.createElement('style');
+css.textContent=`
+#inicio-parceiro{margin-top:4px}
+.gip-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:14px}
+.gip-card{background:#fff;border:1px solid var(--border,#e5e7eb);border-radius:14px;padding:16px 18px;min-width:0}
+.gip-l{font-size:12px;color:var(--muted,#6b7280);font-weight:600;margin-bottom:6px}
+.gip-v{font-size:26px;font-weight:800;color:var(--txt,#111827);letter-spacing:-.02em;line-height:1.1}
+.gip-s{font-size:12px;color:var(--muted,#6b7280);margin-top:6px}
+.gip-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+@media(max-width:900px){.gip-2{grid-template-columns:1fr}}
+.gip-h{font-size:14px;font-weight:800;margin-bottom:10px;color:var(--txt,#111827)}
+.gip-row{display:flex;align-items:center;gap:10px;margin-bottom:9px;font-size:13px}
+.gip-row .n{flex:0 0 38%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--txt,#111827)}
+.gip-bar{flex:1;height:9px;border-radius:6px;background:#eef0f4;overflow:hidden}
+.gip-bar i{display:block;height:100%;background:#6366f1;border-radius:6px}
+.gip-row .c{flex:0 0 28px;text-align:right;font-weight:700}
+.gip-list{width:100%;border-collapse:collapse;font-size:13px}
+.gip-list td{padding:8px 6px;border-bottom:1px solid var(--border,#eef0f4)}
+.gip-list tr:last-child td{border-bottom:0}
+.gip-act{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.gip-empty{color:var(--muted,#6b7280);font-size:13px;padding:6px 0}
+`;
+document.head.appendChild(css);
+
+function boxEl(){
+  let b=document.getElementById('inicio-parceiro');
+  if(!b){const pg=document.getElementById('page-inicio');if(!pg)return null;b=document.createElement('div');b.id='inicio-parceiro';pg.appendChild(b)}
+  return b;
+}
+function esconderClassico(h){
+  const pg=document.getElementById('page-inicio');if(!pg)return;
+  [...pg.children].forEach(el=>{
+    if(el.id==='inicio-parceiro'||el.classList.contains('welcome-box')||el.id==='dash-filter-bar')return;
+    if(h){if(el.dataset.gxipH===undefined)el.dataset.gxipH=el.style.display||'';el.style.display='none'}
+    else if(el.dataset.gxipH!==undefined){el.style.display=el.dataset.gxipH;delete el.dataset.gxipH}
+  });
+}
+function limpar(){
+  const b=document.getElementById('inicio-parceiro');if(b)b.remove();
+  esconderClassico(false);
+}
+function noPeriodo(d){
+  if(!d)return false;
+  const f=(typeof dashFilter!=='undefined'&&dashFilter)||{};
+  if(f.ano&&d.getFullYear()!==f.ano)return false;
+  if(f.mes&&(d.getMonth()+1)!==f.mes)return false;
+  return true;
+}
+function card(l,v,s){return `<div class="gip-card"><div class="gip-l">${esc(l)}</div><div class="gip-v">${v}</div>${s?`<div class="gip-s">${s}</div>`:''}</div>`}
+const brl=n=>{try{return fmtBRL(n)}catch(e){return 'R$ '+Number(n||0).toFixed(2)}};
+
+function pintar(){
+  const b=boxEl();if(!b)return;
+  document.body.classList.remove('gx-ini-novo');
+  esconderClassico(true);
+  const sub=document.getElementById('welcome-sub');if(sub)sub.textContent='Seu painel comercial — só o que é seu';
+  const f=(typeof dashFilter!=='undefined'&&dashFilter)||{};
+  const ops=(typeof getCommercialOpportunities==='function'?getCommercialOpportunities():[]).filter(l=>l&&!l.deleted_at);
+  const criadoEm=o=>getOpportunityCreatedDate(o);
+  const fechadoEm=o=>getOpportunityClosedDate(o)||getOpportunityCreatedDate(o);
+  const ganhosAll=ops.filter(o=>isWonOpportunity(o));
+  const perdidosAll=ops.filter(o=>!isWonOpportunity(o)&&isLostOpportunity(o));
+  const abertos=ops.filter(o=>!isWonOpportunity(o)&&!isLostOpportunity(o));
+  const novos=ops.filter(o=>noPeriodo(criadoEm(o)));
+  const ganhos=ganhosAll.filter(o=>noPeriodo(fechadoEm(o)));
+  const perdidos=perdidosAll.filter(o=>noPeriodo(fechadoEm(o)));
+  const valorGanho=ganhos.reduce((a,o)=>a+getOpportunityValue(o),0);
+  const valorAberto=abertos.reduce((a,o)=>a+getOpportunityValue(o),0);
+  const conv=(ganhos.length+perdidos.length)?Math.round(ganhos.length/(ganhos.length+perdidos.length)*100):0;
+  const ticket=ganhos.length?valorGanho/ganhos.length:0;
+  const MESES=['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const rotulo=f.mes?`${MESES[f.mes]} de ${f.ano}`:`Ano ${f.ano}`;
+
+  // Meta (conta do próprio parceiro) — só quando o período é o mês atual
+  let metaCards='';
+  try{
+    const hoje=new Date();
+    const mesAtual=f.mes===(hoje.getMonth()+1)&&f.ano===hoje.getFullYear();
+    if(mesAtual&&typeof relMetaEnsure==='function'&&typeof relMeta!=='undefined'){
+      relMetaEnsure('this_month');
+      if(!(relMeta.booted&&relMeta.noAccount)){
+        const rm=relMeta.data['this_month'];
+        if(rm){
+          metaCards=card('Investimento em anúncios',brl(rm.spend),'Gasto da sua conta Meta neste mês')
+            +card('CAC — custo por cliente ganho',ganhos.length&&rm.spend?brl(rm.spend/ganhos.length):'—',ganhos.length?`${brl(rm.spend)} ÷ ${ganhos.length} cliente${ganhos.length!==1?'s':''} ganho${ganhos.length!==1?'s':''}`:'Sem cliente ganho neste mês');
+        }else if(relMeta.err){
+          metaCards=card('Investimento em anúncios','—','Não consegui buscar a conta Meta agora');
+        }else{
+          metaCards=card('Investimento em anúncios','…','Buscando a sua conta Meta...');
+        }
+      }
+    }
+  }catch(e){}
+
+  // Etapas dos funis do próprio parceiro (negócios em aberto)
+  const myId=String(sessionUser?.id||'');
+  let funis=[];
+  try{funis=(getCommercialFunnels()||[]).filter(fn=>fn&&!fn.isArchived&&!fn.isDefault&&String(fn.createdBy||'')===myId)}catch(e){}
+  const etapasHtml=funis.length?funis.map(fn=>{
+    const sts=(fn.stages||[]).slice().sort((a,c)=>(a.order||0)-(c.order||0)).filter(st=>!st.isWon&&!st.isLost);
+    const cont=sts.map(st=>({n:st.name,c:abertos.filter(o=>String(o.funnelId||'')===String(fn.id)&&(String(o.stageId||'')===String(st.id)||(!o.stageId&&o.estagio===st.name))).length}));
+    const max=Math.max(1,...cont.map(x=>x.c));
+    return `<div class="gip-h" style="font-size:13px;color:var(--muted,#6b7280)">${esc(fn.name||'Funil')}</div>`+cont.map(x=>`<div class="gip-row"><span class="n" title="${esc(x.n)}">${esc(x.n)}</span><span class="gip-bar"><i style="width:${Math.round(x.c/max*100)}%"></i></span><span class="c">${x.c}</span></div>`).join('');
+  }).join(''):'<div class="gip-empty">Nenhum funil próprio ainda.</div>';
+
+  // Leads recentes
+  const rec=ops.slice().sort((a,c)=>{const da=criadoEm(a),dc=criadoEm(c);return (dc?dc.getTime():0)-(da?da.getTime():0)}).slice(0,8);
+  const recHtml=rec.length?`<table class="gip-list"><tbody>${rec.map(o=>{const d=criadoEm(o);return `<tr><td><b>${esc(o.nome||o.empresa||'Lead')}</b></td><td>${esc(o.estagio||o.etapa||'—')}</td><td style="color:var(--muted,#6b7280)">${esc(o.origem||'—')}</td><td style="text-align:right;color:var(--muted,#6b7280)">${d?d.toLocaleDateString('pt-BR'):''}</td></tr>`}).join('')}</tbody></table>`:'<div class="gip-empty">Nenhum lead ainda. Compartilhe seu formulário ou conecte seu WhatsApp para começar.</div>';
+
+  b.innerHTML=`
+    <div class="gip-act">
+      <button class="btn btn-primary" onclick="navigateSub('comercial','comercial');switchComTab('pipeline')">Abrir meu Pipeline</button>
+      <button class="btn btn-ghost" onclick="navigateSub('relatorio-comercial','comercial');switchComTab('relatorio')">Ver relatório</button>
+    </div>
+    <div class="gip-grid">
+      ${card('Leads novos',novos.length,esc(rotulo))}
+      ${card('Negócios ganhos',ganhos.length,`Taxa de conversão: ${conv}%`)}
+      ${card('Valor ganho',brl(valorGanho),ganhos.length?`Ticket médio ${brl(ticket)}`:'Nenhum negócio ganho no período')}
+      ${card('Pipeline em aberto',abertos.length,brl(valorAberto)+' em oportunidades')}
+      ${metaCards}
+    </div>
+    <div class="gip-2">
+      <div class="gip-card"><div class="gip-h">Meus negócios por etapa</div>${etapasHtml}</div>
+      <div class="gip-card"><div class="gip-h">Leads mais recentes</div>${recHtml}</div>
+    </div>`;
+}
+window.__gexIniParceiroRefresh=function(){
+  try{if(!ehParceiro())return;const b=document.getElementById('inicio-parceiro');if(b&&b.offsetParent)pintar()}catch(e){}
+};
+const orig=window.renderInicio;
+window.renderInicio=function(){
+  if(!ehParceiro()){try{limpar()}catch(e){}return typeof orig==='function'?orig.apply(this,arguments):undefined}
+  try{pintar()}catch(err){
+    try{console.warn('[Início do parceiro]',err)}catch(e){}
+    const b=boxEl();if(b)b.innerHTML='<div class="gip-card"><div class="gip-empty">Não consegui montar o seu painel agora. Abra o Pipeline pelo menu.</div></div>';
+    try{esconderClassico(true)}catch(e){}
+  }
+};
+})();
+</script>
 </body>
 </html>
