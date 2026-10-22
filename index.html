@@ -10982,19 +10982,46 @@ function gxExportFinancasXLSX(){
 function gxEspelhoAllowed(){
   try{const r=resolveRole(sessionUser?.permissao||sessionUser?.cargo||sessionUser?.role||'');return r==='Fundador'||r==='Adm Gerente'}catch(e){return false}
 }
-const gxEsp={loading:false,days:30,data:null,err:'',notConnected:false,busca:''};
+const gxEsp={loading:false,days:30,data:null,err:'',notConnected:false,busca:'',filtro:'todos',limite:50,cache:{},at:0};
+const GX_ESP_TTL=5*60*1000;
 function gxEspBRL(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
 function gxEspDate(d){const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}/${m[2]}/${m[1]}`:'—'}
 function gxEspEsc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 const GX_ESP_TIPOS={PAYMENT_RECEIVED:'Cobrança recebida',PAYMENT_FEE:'Taxa de cobrança',PAYMENT_REFUND:'Estorno',PAYMENT_REVERSAL:'Estorno',TRANSFER:'Transferência',TRANSFER_FEE:'Taxa de transferência',PIX_TRANSACTION_DEBIT:'Pix enviado',PIX_TRANSACTION_CREDIT:'Pix recebido',PIX_TRANSACTION_DEBIT_FEE:'Taxa de Pix',CONTRACTUAL_EFFECT_SETTLEMENT:'Acerto contratual',BILL_PAYMENT:'Pagamento de conta',ANTICIPATION:'Antecipação',ANTICIPATION_FEE:'Taxa de antecipação',INTERNAL_TRANSFER_CREDIT:'Transferência interna (entrada)',INTERNAL_TRANSFER_DEBIT:'Transferência interna (saída)',CHARGEBACK:'Chargeback',REFUND_REQUEST_CANCELLED:'Estorno cancelado'};
 function gxEspTipo(t){return GX_ESP_TIPOS[t]||String(t||'').toLowerCase().replace(/_/g,' ').replace(/^./,c=>c.toUpperCase())}
 function gxEspRow(m){const desc=m.descricao||gxEspTipo(m.tipo)||'—';const sub=m.descricao&&m.tipo?`<div style="font-size:10px;color:var(--muted)">${gxEspEsc(gxEspTipo(m.tipo))}</div>`:'';return `<tr><td style="white-space:nowrap">${gxEspDate(m.data)}</td><td>${gxEspEsc(desc)}${sub}</td><td style="text-align:right;font-weight:700;font-variant-numeric:tabular-nums;color:${m.valor<0?'#DC2626':'#059669'}">${gxEspBRL(m.valor)}</td><td style="text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)">${m.saldo==null?'—':gxEspBRL(m.saldo)}</td></tr>`}
-function gxEspCsv(){const d=gxEsp.data;if(!d?.extrato?.length){toast('Sem extrato para exportar','#EF4444');return}const q=s=>'"'+String(s??'').replace(/"/g,'""')+'"';const lines=['Data;Descrição;Tipo;Valor;Saldo',...d.extrato.map(m=>[gxEspDate(m.data),q(m.descricao),q(gxEspTipo(m.tipo)),String(m.valor).replace('.',','),m.saldo==null?'':String(m.saldo).replace('.',',')].join(';'))];const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='extrato-asaas.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
+function gxEspFiltrado(){
+  const d=gxEsp.data;if(!d)return[];
+  const q=(gxEsp.busca||'').toLowerCase(),f=gxEsp.filtro;
+  return (d.extrato||[]).filter(m=>(f==='todos'||(f==='entradas'?m.valor>=0:m.valor<0))&&(!q||String(m.descricao||'').toLowerCase().includes(q)||gxEspTipo(m.tipo).toLowerCase().includes(q)));
+}
+function gxEspCsv(){const d=gxEsp.data;if(!d?.extrato?.length){toast('Sem extrato para exportar','#EF4444');return}const q=s=>'"'+String(s??'').replace(/"/g,'""')+'"';const lines=['Data;Descrição;Tipo;Valor;Saldo',...gxEspFiltrado().map(m=>[gxEspDate(m.data),q(m.descricao),q(gxEspTipo(m.tipo)),String(m.valor).replace('.',','),m.saldo==null?'':String(m.saldo).replace('.',',')].join(';'))];const blob=new Blob(['﻿'+lines.join('\n')],{type:'text/csv;charset=utf-8'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='extrato-asaas.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
+function gxEspChart(serie,mensal){
+  if(!serie||!serie.length)return '<div style="padding:18px;font-size:12px;color:var(--muted)">Sem movimentações no período.</div>';
+  const W=900,H=220,pl=8,pr=8,pt=10,pb=26,n=serie.length;
+  const max=Math.max(1,...serie.map(s=>Math.max(s.ent,s.sai)));
+  const bw=(W-pl-pr)/n,gw=Math.max(1,bw*0.38);
+  const lab=k=>mensal?k.slice(5)+'/'+k.slice(2,4):k.slice(8,10)+'/'+k.slice(5,7);
+  let bars='',lines='';
+  for(let g=0;g<=3;g++){const y=pt+(H-pt-pb)*(g/3);lines+=`<line x1="${pl}" x2="${W-pr}" y1="${y}" y2="${y}" stroke="currentColor" stroke-opacity=".08"/>`}
+  serie.forEach((s,i)=>{
+    const x=pl+i*bw+bw*0.1,hE=(H-pt-pb)*(s.ent/max),hS=(H-pt-pb)*(s.sai/max),base=H-pb;
+    const tip=`${mensal?s.k:gxEspDate(s.k)} — Entradas ${gxEspBRL(s.ent)} · Saídas ${gxEspBRL(s.sai)} · Sobra ${gxEspBRL(s.ent-s.sai)}`;
+    bars+=`<g><title>${gxEspEsc(tip)}</title><rect x="${x.toFixed(1)}" y="${(base-hE).toFixed(1)}" width="${gw.toFixed(1)}" height="${hE.toFixed(1)}" rx="1.5" fill="#059669"/><rect x="${(x+gw+1).toFixed(1)}" y="${(base-hS).toFixed(1)}" width="${gw.toFixed(1)}" height="${hS.toFixed(1)}" rx="1.5" fill="#DC2626"/></g>`;
+  });
+  const idx=[...new Set([0,Math.floor((n-1)/2),n-1])];
+  const xl=idx.map(i=>`<text x="${(pl+i*bw+bw/2).toFixed(1)}" y="${H-8}" font-size="10" text-anchor="middle" fill="currentColor" fill-opacity=".55">${lab(serie[i].k)}</text>`).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;color:var(--text,#111)" role="img" aria-label="Entradas e saídas por ${mensal?'mês':'dia'}">${lines}${bars}${xl}</svg>`;
+}
+function gxEspBreak(lista,total,cor){
+  if(!lista||!lista.length)return '<div style="font-size:12px;color:var(--muted)">Sem movimentações.</div>';
+  return lista.map(c=>{const pc=total>0?c.valor/total*100:0;return `<div style="margin-bottom:11px"><div style="display:flex;justify-content:space-between;gap:8px;font-size:12px"><span style="font-weight:600">${gxEspEsc(c.nome)} <span style="color:var(--muted);font-weight:400">· ${c.qtd}</span></span><span style="font-variant-numeric:tabular-nums"><b>${gxEspBRL(c.valor)}</b> <span style="color:var(--muted)">${pc.toFixed(1).replace('.',',')}%</span></span></div><div style="height:7px;border-radius:99px;background:rgba(127,127,127,.15);margin-top:4px;overflow:hidden"><div style="height:100%;width:${Math.max(1.5,pc).toFixed(1)}%;background:${cor};border-radius:99px"></div></div></div>`}).join('');
+}
 function renderEspelhoBanco(){
   const pg=document.getElementById('page-espelho-banco');if(!pg)return;
   if(!gxEspelhoAllowed()){showAccessDenied(pg,'Espelho do banco');return}
   const g=gxEsp,d=g.data,r=d?.resumo||{};
-  const card=(t,v,sub,cls)=>`<div class="fin-card ${cls}"><div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">${t}</div><div style="font-size:22px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums">${v}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${sub}</div></div>`;
+  const kpi=(t,v,sub,cor,big)=>`<div class="stat-card" style="${big?'':'padding:14px 16px'}"><div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">${t}</div><div style="font-size:${big?26:19}px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums;color:${cor}">${v}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${sub}</div></div>`;
   let body='';
   if(g.notConnected){
     body=`<div class="card"><div style="padding:22px;text-align:center"><div style="font-size:15px;font-weight:700;margin-bottom:6px">Asaas ainda não conectado</div><div style="font-size:12px;color:var(--muted);margin-bottom:14px">Conecte a sua conta em Integrações para ver o espelho do banco aqui.</div><button class="btn btn-primary" onclick="navigate('integracoes')">Ir para Integrações</button></div></div>`;
@@ -11003,46 +11030,63 @@ function renderEspelhoBanco(){
   }else if(!d){
     body=`<div class="card"><div style="padding:18px;font-size:13px;color:var(--muted)">Carregando dados do Asaas…</div></div>`;
   }else{
-    const q=(g.busca||'').toLowerCase();
-    const mov=(d.extrato||[]).filter(m=>!q||String(m.descricao||'').toLowerCase().includes(q));
-    const rows=mov.map(gxEspRow).join('');
-    body=`<div class="fin-summary" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
-      ${card('Valor recebido',gxEspBRL(r.recebido),`${r.qtdRec||0} cobrança(s) paga(s)`,'receita')}
-      ${card('Valor a receber',gxEspBRL(r.aReceber),`${r.qtdPend||0} cobrança(s) em aberto`,'lucro')}
-      ${card('Valor atrasado',gxEspBRL(r.vencido),`${r.qtdVenc||0} cobrança(s) vencida(s)`,'despesa')}
-      ${card('Valor de saídas',gxEspBRL(r.saidas),`${r.qtdSaidas||0} saída(s) no extrato`,'despesa')}
-      ${d.saldo!=null?card('Saldo atual',gxEspBRL(d.saldo),'na conta Asaas','receita'):''}
+    const sobra=r.sobra||0,margem=r.entradas>0?(sobra/r.entradas*100):0;
+    const taxas=(d.categoriasSaida||[]).find(c=>c.nome==='Taxas do Asaas')?.valor||0;
+    const dias=g.days===365?'12 meses':g.days+' dias';
+    const f=gxEspFiltrado(),vis=f.slice(0,g.limite);
+    body=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:12px">
+      ${kpi('Entradas',gxEspBRL(r.entradas),`${r.qtdEnt||0} movimentação(ões) nos últimos ${dias}`,'#059669',1)}
+      ${kpi('Saídas',gxEspBRL(r.saidas),`${r.qtdSai||0} movimentação(ões) · taxas: ${gxEspBRL(taxas)}`,'#DC2626',1)}
+      ${kpi('Sobra (entradas − saídas)',gxEspBRL(sobra),`${sobra>=0?'Margem':'Resultado negativo'}: ${margem.toFixed(1).replace('.',',')}% das entradas`,sobra>=0?'#059669':'#DC2626',1)}
+      ${d.saldo!=null?kpi('Saldo atual',gxEspBRL(d.saldo),'disponível na conta Asaas','var(--text,#111)',1):''}
     </div>
-    ${d.truncado?'<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Mostrando as primeiras 500 cobranças do período; os totais podem estar incompletos.</div>':''}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px">
+      ${kpi('Cobranças recebidas',gxEspBRL(r.recebido),`${r.qtdRec||0} paga(s) no período`,'#059669')}
+      ${kpi('A receber',gxEspBRL(r.aReceber),`${r.qtdPend||0} em aberto (até 30 dias à frente)`,'#7C3AED')}
+      ${kpi('Atrasado',gxEspBRL(r.vencido),`${r.qtdVenc||0} cobrança(s) vencida(s)`,'#DC2626')}
+    </div>
+    ${(d.truncado||d.truncExtrato)?'<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Período muito grande: os totais consideram as primeiras 3.000 movimentações. Reduza o período para ver tudo.</div>':''}
+    <div class="card" style="margin-bottom:14px"><div class="sec-hdr"><div class="sec-ico">📈</div><div style="flex:1"><div class="sec-title">Entradas × saídas ${d.mensal?'por mês':'por dia'}</div></div><span style="font-size:11px;color:var(--muted)"><span style="color:#059669">■</span> Entradas &nbsp;<span style="color:#DC2626">■</span> Saídas</span></div><div style="padding:4px 14px 12px">${gxEspChart(d.serie,d.mensal)}</div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-bottom:14px">
+      <div class="card"><div class="sec-hdr"><div class="sec-ico">⬆️</div><div style="flex:1"><div class="sec-title">De onde vem o dinheiro</div></div></div><div style="padding:6px 16px 8px">${gxEspBreak(d.categoriasEntrada,r.entradas,'#059669')}</div></div>
+      <div class="card"><div class="sec-hdr"><div class="sec-ico">⬇️</div><div style="flex:1"><div class="sec-title">Para onde vai o dinheiro</div></div></div><div style="padding:6px 16px 8px">${gxEspBreak(d.categoriasSaida,r.saidas,'#DC2626')}</div></div>
+    </div>
     <div class="card">
-      <div class="sec-hdr"><div class="sec-ico">🏦</div><div style="flex:1"><div class="sec-title">Extrato</div><div style="font-size:11px;color:var(--muted)">${(d.extrato||[]).length} movimentação(ões) nos ${g.days===365?"últimos 12 meses":"últimos "+g.days+" dias"}</div></div><button class="btn btn-ghost btn-sm" onclick="gxEspCsv()">⬇️ Exportar CSV</button></div>
-      <div class="rel-filter-bar"><input class="form-input" placeholder="Buscar no extrato..." value="${gxEspEsc(g.busca)}" oninput="gxEsp.busca=this.value;gxEspRepaintTable()" style="max-width:260px;flex:1;min-width:160px"></div>
+      <div class="sec-hdr"><div class="sec-ico">🏦</div><div style="flex:1"><div class="sec-title">Extrato</div><div style="font-size:11px;color:var(--muted)" id="esp-count"></div></div><button class="btn btn-ghost btn-sm" onclick="gxEspCsv()">⬇️ Exportar CSV</button></div>
+      <div class="rel-filter-bar"><input class="form-input" placeholder="Buscar no extrato..." value="${gxEspEsc(g.busca)}" oninput="gxEsp.busca=this.value;gxEsp.limite=50;gxEspRepaintTable()" style="max-width:260px;flex:1;min-width:160px"><select class="form-input" style="width:150px" onchange="gxEsp.filtro=this.value;gxEsp.limite=50;gxEspRepaintTable()"><option value="todos" ${g.filtro==='todos'?'selected':''}>Tudo</option><option value="entradas" ${g.filtro==='entradas'?'selected':''}>Só entradas</option><option value="saidas" ${g.filtro==='saidas'?'selected':''}>Só saídas</option></select></div>
       ${d.extratoErro?`<div style="margin:10px 12px;padding:10px 12px;border-radius:10px;background:#FEF2F2;border:1px solid #FECACA;color:#B91C1C;font-size:12px">${gxEspEsc(d.extratoErro)}</div>`:''}
-      <div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th style="text-align:right">Valor</th><th style="text-align:right">Saldo</th></tr></thead><tbody id="esp-tbody">${rows||'<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:18px">Nenhuma movimentação no período.</td></tr>'}</tbody></table></div>
-      ${d.truncExtrato?'<div style="font-size:11px;color:var(--muted);padding:8px 4px">Extrato limitado às movimentações mais recentes.</div>':''}
+      <div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th style="text-align:right">Valor</th><th style="text-align:right">Saldo</th></tr></thead><tbody id="esp-tbody"></tbody></table></div>
+      <div id="esp-more" style="text-align:center;padding:10px"></div>
     </div>`;
   }
-  pg.innerHTML=`<div class="page-header"><div><div class="page-title">Espelho do banco</div><div class="page-sub">Dados da conta Asaas, somente leitura</div></div>
+  pg.innerHTML=`<div class="page-header"><div><div class="page-title">Espelho do banco</div><div class="page-sub">Painel financeiro da conta Asaas, somente leitura${g.at?` · atualizado às ${new Date(g.at).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}`:''}</div></div>
     <div style="display:flex;gap:8px;align-items:center"><select class="form-input" style="width:170px" onchange="gxEspSetDays(this.value)"><option value="30" ${g.days===30?'selected':''}>Últimos 30 dias</option><option value="90" ${g.days===90?'selected':''}>Últimos 90 dias</option><option value="365" ${g.days===365?'selected':''}>Últimos 12 meses</option></select><button class="btn btn-ghost" onclick="gxEspLoad(true)">${g.loading?'Atualizando…':'Atualizar'}</button></div></div>${body}`;
+  if(d&&!g.err)gxEspRepaintTable();
   if(!d&&!g.err&&!g.notConnected&&!g.loading)gxEspLoad();
 }
 function gxEspRepaintTable(){
   const d=gxEsp.data,tb=document.getElementById('esp-tbody');if(!d||!tb)return;
-  const q=(gxEsp.busca||'').toLowerCase();
-  const mov=(d.extrato||[]).filter(m=>!q||String(m.descricao||'').toLowerCase().includes(q));
-  tb.innerHTML=mov.map(gxEspRow).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:18px">Nada encontrado.</td></tr>';
+  const f=gxEspFiltrado(),vis=f.slice(0,gxEsp.limite);
+  tb.innerHTML=vis.map(gxEspRow).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:18px">Nenhuma movimentação encontrada.</td></tr>';
+  const c=document.getElementById('esp-count');if(c)c.textContent=`${f.length} movimentação(ões)${d.extrato&&d.extrato.length>=500?' (as 500 mais recentes)':''}`;
+  const m=document.getElementById('esp-more');if(m)m.innerHTML=f.length>vis.length?`<button class="btn btn-ghost btn-sm" onclick="gxEsp.limite+=50;gxEspRepaintTable()">Ver mais (${f.length-vis.length})</button>`:'';
 }
-function gxEspSetDays(v){gxEsp.days=Number(v)||30;gxEsp.data=null;gxEsp.err='';gxEspLoad(true)}
+function gxEspSetDays(v){gxEsp.days=Number(v)||30;gxEsp.data=null;gxEsp.err='';gxEsp.limite=50;gxEspLoad(false)}
 async function gxEspLoad(force){
   const g=gxEsp;if(g.loading)return;
-  g.loading=true;g.err='';g.notConnected=false;if(force)g.data=null;renderEspelhoBanco();
+  g.err='';g.notConnected=false;
+  const c=g.cache[g.days];
+  if(!force&&c&&Date.now()-c.t<GX_ESP_TTL){g.data=c.data;g.at=c.t;renderEspelhoBanco();return}
+  g.loading=true;if(force)g.data=null;renderEspelhoBanco();
   try{
     const token=await getGexSupabaseToken();
-    const call=async body=>{const res=await fetch(getSupabaseFunctionUrl('asaas-integration'),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await res.json().catch(()=>({}));if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível consultar o Asaas.');return j};
-    const st=await call({action:'status'});
-    if(!st.connected){g.notConnected=true}else{g.data=await call({action:'espelho',days:g.days})}
+    const res=await fetch(getSupabaseFunctionUrl('asaas-integration'),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({action:'espelho',days:g.days})});
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível consultar o Asaas.');
+    if(j.connected===false){g.notConnected=true;g.data=null}
+    else{g.data=j;g.at=Date.now();g.cache[g.days]={t:g.at,data:j}}
   }catch(e){g.err=e.message||'Erro ao consultar o Asaas.'}
-  g.loading=false;
+  g.loading=false;g.limite=50;
   if(document.getElementById('page-espelho-banco')?.classList.contains('active'))renderEspelhoBanco();
 }
 function renderFinancas(){
@@ -19450,14 +19494,14 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       const j=await gxiAsaasCall({action:'save',apiKey,environment});
       g.connected=true;g.loaded=true;g.env=j.environment||environment;g.keyHint=j.keyHint||'';g.data=null;g.err='';
       toast('Asaas conectado ✓','#10B981');
-      try{gxEsp.data=null}catch(e){}gxiAsaasRepaint();
+      try{gxEsp.data=null;gxEsp.cache={}}catch(e){}gxiAsaasRepaint();
     }catch(e){toast(e.message||'Erro ao conectar o Asaas','#EF4444')}
   };
   window.gxiAsaasDisconnect=async()=>{
     if(!confirm('Desconectar o Asaas? A chave será apagada do servidor.'))return;
     try{
       await gxiAsaasCall({action:'disconnect'});
-      Object.assign(gxiAsaas,{connected:false,keyHint:'',data:null,err:''});try{gxEsp.data=null}catch(e){}
+      Object.assign(gxiAsaas,{connected:false,keyHint:'',data:null,err:''});try{gxEsp.data=null;gxEsp.cache={}}catch(e){}
       toast('Asaas desconectado','#10B981');gxiAsaasRepaint();
     }catch(e){toast(e.message||'Erro ao desconectar','#EF4444')}
   };
