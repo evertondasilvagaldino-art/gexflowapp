@@ -19296,7 +19296,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       const zs=getZapiSettings(),hasCreds=!!zs.connected;
       return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft}"><div class="gxi-card-top"><div class="gxi-icon">${p.icon}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill ${hasCreds?'pending':'off'}" id="gxi-whatsapp-top-pill">${hasCreds?'Credenciais salvas':'Não conectado'}</span></div><p>${p.desc}</p><div class="gxi-card-note">${hasCreds?`Instância <b>${E(zs.instanceId||'')}</b> — status real logo abaixo, no card de conexão Z-API.`:'Configure a instância e o token da Z-API no card abaixo.'}</div><div class="gxi-card-actions" id="gxi-whatsapp-top-actions">${hasCreds?`<button class="gxi-btn small danger" onclick="gxiDisconnectZapi()">Desconectar</button>`:''}<button class="gxi-btn primary small" onclick="document.getElementById('gxi-zapi-card-anchor')?.scrollIntoView({behavior:'smooth',block:'start'})">${hasCreds?'Ver conexão':p.button}</button></div></article>`;
     }
-    const c=connection(p.id),on=c.status==='connected',pending=c.status==='pending';return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft}"><div class="gxi-card-top"><div class="gxi-icon">${p.icon}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill ${on?'on':pending?'pending':'off'}">${on?'Conectado':pending?'Pendente':'Não conectado'}</span></div><p>${p.desc}</p><div class="gxi-card-note">${on?`Conta: ${E(c.assets?.name||c.assets?.account||'Conexão oficial')}`:'Autorização oficial, sem expor tokens no navegador.'}</div><div class="gxi-card-actions">${on?`<button class="gxi-btn small" onclick="gxiTestConnection('${p.id}')">Testar</button><button class="gxi-btn small danger" onclick="gxiDisconnect('${p.id}')">Desconectar</button>`:`<button class="gxi-btn primary small" onclick="gxiConnect('${p.id}')">${p.button}</button>`}</div></article>`}).join('')}</div>${_visRole==='Colaborador'?zapiConfigHtml()+asaasConfigHtml():smtpConfigHtml()}`}
+    const c=connection(p.id),on=c.status==='connected',pending=c.status==='pending';return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft}"><div class="gxi-card-top"><div class="gxi-icon">${p.icon}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill ${on?'on':pending?'pending':'off'}">${on?'Conectado':pending?'Pendente':'Não conectado'}</span></div><p>${p.desc}</p><div class="gxi-card-note">${on?`Conta: ${E(c.assets?.name||c.assets?.account||'Conexão oficial')}`:'Autorização oficial, sem expor tokens no navegador.'}</div><div class="gxi-card-actions">${on?`<button class="gxi-btn small" onclick="gxiTestConnection('${p.id}')">Testar</button><button class="gxi-btn small danger" onclick="gxiDisconnect('${p.id}')">Desconectar</button>`:`<button class="gxi-btn primary small" onclick="gxiConnect('${p.id}')">${p.button}</button>`}</div></article>`}).join('')}${_visRole==='Gex Parceiro'?'':asaasTileHtml()}</div>${_visRole==='Colaborador'?zapiConfigHtml()+asaasConfigHtml():smtpConfigHtml()}`}
   function smtpConfigHtml(){
     const s=getEmailSmtpSettings(),on=!!s.connected;
     return `<div class="gxi-conv-grid" style="grid-template-columns:1fr;margin-top:13px">
@@ -19320,6 +19320,10 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   const gxiAsaasBRL=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const gxiAsaasDate=d=>{const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}/${m[2]}/${m[1]}`:'—'};
   const gxiAsaasStatusMap={RECEIVED:['Recebida','#059669'],CONFIRMED:['Confirmada','#059669'],RECEIVED_IN_CASH:['Recebida','#059669'],PENDING:['Pendente','#B45309'],OVERDUE:['Vencida','#DC2626'],REFUNDED:['Estornada','#6B7280'],CANCELLED:['Cancelada','#6B7280']};
+  function asaasTileHtml(){
+    const g=gxiAsaas,on=g.connected;
+    return `<article class="gxi-card" id="gxi-asaas-tile" style="--accent:#0030B9;--soft:#E8F1FF"><div class="gxi-card-top"><div class="gxi-icon" style="font-weight:800">A</div><div><h3>Asaas</h3><div class="gxi-card-cat">Pagamentos</div></div><span class="gxi-pill ${on?'on':'off'}">${on?'Conectado':'Não conectado'}</span></div><p>Cobranças e recebimentos da sua conta Asaas: o que foi recebido, a receber e vencido. Somente leitura.</p><div class="gxi-card-note">${on?`Ambiente: ${g.env==='sandbox'?'Sandbox':'Produção'}`:'Cole a chave de API no card de configuração abaixo.'}</div><div class="gxi-card-actions"><button class="gxi-btn ${on?'':'primary'} small" onclick="document.getElementById('gxi-asaas-card-anchor')?.scrollIntoView({behavior:'smooth',block:'center'})">${on?'Ver cobranças':'Conectar Asaas'}</button></div></article>`;
+  }
   function asaasConfigHtml(){
     const g=gxiAsaas,on=g.connected;
     const d=g.data;
@@ -19356,7 +19360,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível falar com o Asaas.');
     return j;
   }
-  function gxiAsaasRepaint(){const a=document.getElementById('gxi-asaas-card-anchor');if(!a)return;const t=document.createElement('div');t.innerHTML=asaasConfigHtml();a.replaceWith(t.firstElementChild)}
+  function gxiAsaasRepaint(){const tl=document.getElementById('gxi-asaas-tile');if(tl){const x=document.createElement('div');x.innerHTML=asaasTileHtml();tl.replaceWith(x.firstElementChild)}const a=document.getElementById('gxi-asaas-card-anchor');if(!a)return;const t=document.createElement('div');t.innerHTML=asaasConfigHtml();a.replaceWith(t.firstElementChild)}
   async function gxiAsaasLoad(force){
     const g=gxiAsaas;
     if(g.loading||(g.loaded&&!force)){return}
