@@ -6336,17 +6336,38 @@ async function loadAssinaturasClientes(){
       wrap.innerHTML=`<div class="empty" style="padding:20px">${escHtml(subsRes?.message||'Não foi possível carregar as assinaturas.')}</div>`;
       return;
     }
-    const subs=subsRes.subscriptions||[];
     const plans=plansRes?.plans||[];
     const users=getUsuariosForDisplay()||[];
+    // Só entram na lista as assinaturas de quem ainda está na Gestão de Usuários (ativo ou inativo).
+    const _achaUser=s=>users.find(u=>String(u.id)===String(s.id))||users.find(u=>normalizeLoginEmail(u.email)===normalizeLoginEmail(s.user_email||''));
+    const subs=(subsRes.subscriptions||[]).filter(s=>!!_achaUser(s));
+    // Valor do plano: lê o número do texto do preço (ex.: "R$ 59,90/mês" -> 59.9)
+    const _valorPlano=p=>{
+      const m=String(p?.price_display||'').match(/(\d{1,3}(?:\.\d{3})*,\d{2}|\d+(?:,\d{1,2})?)/);
+      if(!m)return null;
+      return Number(m[1].replace(/\./g,'').replace(',','.'));
+    };
+    const _brl=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+    let totAtivo=0,qtdAtivo=0,totAguard=0,qtdAguard=0,qtdCanc=0;
+    subs.forEach(s=>{
+      const v=_valorPlano(plans.find(p=>p.id===s.plan_id))||0;
+      if(s.status==='active'){totAtivo+=v;qtdAtivo++}
+      else if(s.status==='pending'||s.status==='past_due'){totAguard+=v;qtdAguard++}
+      else qtdCanc++;
+    });
+    const resumo=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:14px">
+      <div class="cfg-kv-card"><div class="cfg-kv-lbl">Receita mensal (ativas)</div><div class="cfg-kv-val" style="color:#059669">${_brl(totAtivo)}</div><div style="font-size:11px;color:var(--muted)">${qtdAtivo} assinatura${qtdAtivo!==1?'s':''} ativa${qtdAtivo!==1?'s':''}</div></div>
+      <div class="cfg-kv-card"><div class="cfg-kv-lbl">Aguardando / atrasadas</div><div class="cfg-kv-val" style="color:#D97706">${_brl(totAguard)}</div><div style="font-size:11px;color:var(--muted)">${qtdAguard} assinatura${qtdAguard!==1?'s':''}</div></div>
+      <div class="cfg-kv-card"><div class="cfg-kv-lbl">Total de todas as listadas</div><div class="cfg-kv-val">${_brl(totAtivo+totAguard)}</div><div style="font-size:11px;color:var(--muted)">${subs.length} no total, ${qtdCanc} cancelada${qtdCanc!==1?'s':''}</div></div>
+    </div>`;
     if(!subs.length){
       wrap.innerHTML='<div class="empty" style="padding:20px">Nenhuma assinatura gerada ainda — os links de pagamento aparecem aqui assim que forem criados.</div>';
       return;
     }
-    wrap.innerHTML=`<div style="overflow-x:auto"><table class="table"><thead><tr>
-      <th>Cliente</th><th>Plano</th><th>Status</th><th>Renovação/Fim</th><th>Atualizado em</th>
+    wrap.innerHTML=resumo+`<div style="overflow-x:auto"><table class="table"><thead><tr>
+      <th>Cliente</th><th>Plano</th><th>Valor</th><th>Status</th><th>Renovação/Fim</th><th>Atualizado em</th>
     </tr></thead><tbody>${subs.map(s=>{
-      const user=users.find(u=>String(u.id)===String(s.id))||users.find(u=>normalizeLoginEmail(u.email)===normalizeLoginEmail(s.user_email||''));
+      const user=_achaUser(s);
       const nome=user?.nome||'—';
       const plan=plans.find(p=>p.id===s.plan_id);
       const[label,color]=BILLING_STATUS_LABELS[s.status]||[s.status||'—','#64748B'];
@@ -6355,11 +6376,12 @@ async function loadAssinaturasClientes(){
       return `<tr>
         <td><div style="font-weight:600;font-size:13px">${escHtml(nome)}</div><div style="font-size:11px;color:var(--muted)">${escHtml(s.user_email||'—')}</div></td>
         <td>${escHtml(plan?.name||s.plan_id||'—')}</td>
+        <td style="font-weight:600;font-size:13px;white-space:nowrap">${_valorPlano(plan)!=null?_brl(_valorPlano(plan)):'—'}</td>
         <td><span style="background:${color}20;color:${color};padding:2px 8px;border-radius:10px;font-weight:700;font-size:11px">${escHtml(label)}</span></td>
         <td style="color:var(--muted);font-size:12px">${periodo}</td>
         <td style="color:var(--muted);font-size:12px">${atualizado}</td>
       </tr>`;
-    }).join('')}</tbody></table></div>`;
+    }).join('')}</tbody><tfoot><tr><td colspan="2" style="font-weight:700;font-size:13px">Total das assinaturas ativas</td><td style="font-weight:800;font-size:14px;color:#059669;white-space:nowrap">${_brl(totAtivo)}</td><td colspan="3"></td></tr></tfoot></table></div>`;
   }catch(e){
     console.warn('[GexFlow] loadAssinaturasClientes:',e);
     wrap.innerHTML='<div class="empty" style="padding:20px">Não foi possível carregar as assinaturas.</div>';
