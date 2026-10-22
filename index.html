@@ -10687,9 +10687,10 @@ async function relMetaEnsure(preset){
     const uid=String(sessionUser?.id||'');
     if(relMeta.uid!==uid){Object.assign(relMeta,{uid,accountId:'',noAccount:false,booted:false,loading:false,data:{},err:''})}
     if(relMeta.loading)return;
+    if(relMeta.booted&&relMeta.noAccount)return;
     if(relMeta.err&&Date.now()-(relMeta.errAt||0)<60000)return;
     if(relMeta.data[preset]&&Date.now()-relMeta.data[preset].at<5*60*1000)return;
-    relMeta.loading=true;
+    relMeta.loading=true;relMeta.refreshed=false;
     const token=await getGexSupabaseToken();
     if(!relMeta.booted){
       const r1=await fetch(getSupabaseFunctionUrl('meta-accounts'),{headers:{Authorization:`Bearer ${token}`}});
@@ -10707,6 +10708,7 @@ async function relMetaEnsure(preset){
     relMeta.err='';
   }catch(e){relMeta.err=String(e&&e.message||'erro');relMeta.errAt=Date.now()}
   relMeta.loading=false;
+  if(relMeta.refreshed)return;relMeta.refreshed=true; // evita laço: redesenhar não deve disparar nova busca em cascata
   try{const g=document.getElementById('rel-kpi-grid');if(g&&g.offsetParent)renderRelatorioComercial()}catch(e){}
   try{if(typeof window.__gexIniParceiroRefresh==='function')window.__gexIniParceiroRefresh()}catch(e){}
 }
