@@ -24270,9 +24270,10 @@ window.renderInicio=function(){
 // Teste grátis de 3 dias do Gex Parceiro (pré-cadastro): durante o teste vale o plano Pro; ao acabar,
 // sem assinatura ativa, aparece um pop-up com os planos. Só atua para Gex Parceiro que tem registro em gex_trials.
 const BENEF={
-  basic:['Calendário próprio','Comercial: pipeline, tarefas e relatório do seu funil','Gerar Leads: formulários e API','Integrações próprias (Meta Ads e outras)','Painel de início com os seus números'],
-  pro:['Tudo do plano Basic','Automações comerciais (mensagens e tarefas automáticas)','Chat de atendimento via WhatsApp','Para quem quer escalar o atendimento']
+  basic:['Calendário próprio','Comercial: pipeline, tarefas e relatório do seu funil','Gerar Leads: formulários e API','Integrações próprias (Meta Ads e outras)','Painel de início com os seus números','Meu perfil e configurações do seu webhook/API','Sem limite de usuários vendedores','Cancele quando quiser'],
+  pro:['Tudo do plano Básico','Automações comerciais: regras que movem leads, criam tarefas e avisam o responsável','Automação de e-mail e de WhatsApp (boas-vindas e mensagens automáticas)','Follow-up automático: não deixe nenhum lead esfriar','Chat de atendimento via WhatsApp dentro do sistema','Sem limite de usuários vendedores','Cancele quando quiser']
 };
+const ehPro=p=>String(p&&p.tier||'').toLowerCase()==='pro'||/\bpro\b/i.test(String(p&&p.name||''));
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const ehParceiro=()=>{try{return gxIsPartnerRole()}catch(e){return false}};
 let trial={uid:'',loaded:false,loading:false,row:null};
@@ -24365,9 +24366,9 @@ window.gxAbrirPlanos=function(fechavel){
   fecharWall();
   wallOpen=true;
   const confirmando=/billing=sucesso/.test(location.search);
-  const planos=(last.plans||[]).slice().sort((a,b)=>(a.tier==='pro')-(b.tier==='pro'));
+  const planos=(last.plans||[]).slice().sort((a,b)=>ehPro(a)-ehPro(b));
   const cards=planos.length?planos.map(p=>{
-    const pro=p.tier==='pro';
+    const pro=ehPro(p);
     return `<div class="gxw-plan ${pro?'pro':''}">
       <div class="gxw-n">${esc(p.name)} ${pro?'<span class="gxw-tag">Completo</span>':''}</div>
       <div class="gxw-p">${esc(p.price_display||'')}</div>
