@@ -10687,7 +10687,7 @@ async function relMetaEnsure(preset){
     const uid=String(sessionUser?.id||'');
     if(relMeta.uid!==uid){Object.assign(relMeta,{uid,accountId:'',noAccount:false,booted:false,loading:false,data:{},err:''})}
     if(relMeta.loading)return;
-    if(relMeta.booted&&relMeta.noAccount)return;
+    if(relMeta.booted&&relMeta.noAccount){if(Date.now()-(relMeta.bootAt||0)<5*60*1000)return;relMeta.booted=false} // sem conta: rechecar só a cada 5 min
     if(relMeta.err&&Date.now()-(relMeta.errAt||0)<60000)return;
     if(relMeta.data[preset]&&Date.now()-relMeta.data[preset].at<5*60*1000)return;
     relMeta.loading=true;relMeta.refreshed=false;
@@ -10697,7 +10697,7 @@ async function relMetaEnsure(preset){
       const j1=await r1.json().catch(()=>({}));
       if(!r1.ok||j1.error)throw new Error(j1.error||'sem conta');
       const accs=j1.adAccounts||[];
-      relMeta.booted=true;relMeta.noAccount=!accs.length;relMeta.accountId=accs.length?String(accs[0].id):'';
+      relMeta.booted=true;relMeta.bootAt=Date.now();relMeta.noAccount=!accs.length;relMeta.accountId=accs.length?String(accs[0].id):'';
     }
     if(!relMeta.noAccount){
       const r2=await fetch(getSupabaseFunctionUrl('meta-ads-report'),{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify({adAccountId:relMeta.accountId,datePreset:preset})});
@@ -24167,7 +24167,10 @@ function pintar(){
     const mesAtual=f.mes===(hoje.getMonth()+1)&&f.ano===hoje.getFullYear();
     if(mesAtual&&typeof relMetaEnsure==='function'&&typeof relMeta!=='undefined'){
       relMetaEnsure('this_month');
-      if(!(relMeta.booted&&relMeta.noAccount)){
+      if(relMeta.booted&&relMeta.noAccount){
+        metaCards=card('Investimento em anúncios','—','Conecte sua conta Meta em Integrações para ver o gasto e o CAC')
+          +card('CAC — custo por cliente ganho','—','Disponível quando a conta Meta estiver conectada');
+      }else{
         const rm=relMeta.data['this_month'];
         if(rm){
           metaCards=card('Investimento em anúncios',brl(rm.spend),'Gasto da sua conta Meta neste mês')
@@ -24213,13 +24216,23 @@ function pintar(){
       <div class="gip-card"><div class="gip-h">Leads mais recentes</div>${recHtml}</div>
     </div>`;
 }
+let _pintando=false,_ultPintura=0,_tmRef=null;
+function pintarSeguro(){
+  if(_pintando)return;
+  _pintando=true;
+  try{pintar()}finally{_pintando=false;_ultPintura=Date.now()}
+}
 window.__gexIniParceiroRefresh=function(){
-  try{if(!ehParceiro())return;const b=document.getElementById('inicio-parceiro');if(b&&b.offsetParent)pintar()}catch(e){}
+  // Redesenho atrasado e sem repetição: nunca em cascata, nunca mais que 1x por segundo.
+  try{
+    if(!ehParceiro()||_tmRef)return;
+    _tmRef=setTimeout(()=>{_tmRef=null;try{const b=document.getElementById('inicio-parceiro');if(b&&b.offsetParent&&Date.now()-_ultPintura>800)pintarSeguro()}catch(e){}},400);
+  }catch(e){}
 };
 const orig=window.renderInicio;
 window.renderInicio=function(){
   if(!ehParceiro()){try{limpar()}catch(e){}return typeof orig==='function'?orig.apply(this,arguments):undefined}
-  try{pintar()}catch(err){
+  try{pintarSeguro()}catch(err){
     try{console.warn('[Início do parceiro]',err)}catch(e){}
     const b=boxEl();if(b)b.innerHTML='<div class="gip-card"><div class="gip-empty">Não consegui montar o seu painel agora. Abra o Pipeline pelo menu.</div></div>';
     try{esconderClassico(true)}catch(e){}
