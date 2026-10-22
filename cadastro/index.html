@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Teste grátis do GexFlow</title>
+<meta name="description" content="Teste o GexFlow grátis por 3 dias e receba seu acesso por e-mail.">
+<meta name="robots" content="index,follow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;padding:0;background:#05031F}
+
+.gxt{background:radial-gradient(800px 380px at 70% -10%,rgba(124,58,237,.28),transparent 70%),#05031F;color:#F4F2FF;font-family:'Manrope',system-ui,sans-serif;
+  /* tela cheia: ignora a caixa do Elementor e ocupa a largura toda */
+  width:100%;
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:56px 20px}
+.gxt,.gxt *{box-sizing:border-box}
+.gxt .in{width:100%;max-width:520px;margin:0 auto;background:#0F0C33;border:1px solid #221C57;border-radius:18px;padding:28px;box-shadow:0 30px 60px -30px rgba(124,58,237,.55)}
+.gxt .eb{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#C4B5FD;margin-bottom:10px}
+.gxt h2{font-family:'Sora',system-ui,sans-serif;font-size:clamp(24px,3.2vw,32px);font-weight:700;line-height:1.15;margin:0 0 10px}
+.gxt p.s{color:#A7A2CF;font-size:15px;line-height:1.6;margin:0 0 20px}
+.gxt label{display:block;font-size:13px;font-weight:600;margin:0 0 6px}
+.gxt input[type=text],.gxt input[type=email],.gxt input[type=tel]{width:100%;background:#0B0830;border:1px solid #221C57;border-radius:12px;padding:14px;color:#F4F2FF;font-size:16px;min-height:48px;margin-bottom:14px;font-family:inherit}
+.gxt input:focus{outline:2px solid #C4B5FD;outline-offset:1px;border-color:#8B5CF6}
+.gxt button{min-height:50px;width:100%;background:linear-gradient(135deg,#8B5CF6,#7C3AED);color:#fff;border:0;border-radius:12px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit}
+.gxt button:disabled{opacity:.6;cursor:wait}
+.gxt .hp{position:absolute;left:-9999px;opacity:0;height:0;width:0}
+.gxt .msg{margin-top:14px;font-size:14px;line-height:1.5;border-radius:10px;padding:12px 14px;display:none}
+.gxt .msg.ok{display:block;background:rgba(52,211,153,.12);border:1px solid #34D399;color:#A7F3D0}
+.gxt .msg.er{display:block;background:rgba(248,113,113,.12);border:1px solid #F87171;color:#FECACA}
+.gxt .st{margin:0 0 14px 20px;padding:0;color:#D8D4F5;font-size:15px;line-height:1.7}
+.gxt .lg{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:22px}
+.gxt .lgi{width:40px;height:40px;border-radius:11px;background:#7C3AED;display:grid;place-items:center}
+.gxt .lgt{font-family:'Sora',system-ui,sans-serif;font-weight:800;font-size:26px;letter-spacing:-.02em;color:#F4F2FF}
+.gxt .lgt b{color:#8B5CF6}
+.gxt .mini{font-size:12px;color:#A7A2CF;margin-top:14px;text-align:center}
+.gxt .mini a{color:#C4B5FD;text-decoration:underline}
+@media(max-width:600px){
+  .gxt{padding:32px 14px;align-items:flex-start;min-height:100svh}
+  .gxt .in{padding:22px 18px;border-radius:16px}
+  .gxt h2{font-size:24px}
+  .gxt p.s{font-size:14.5px}
+}
+
+</style>
+</head>
+<body>
+<section class="gxt" id="teste">
+  <div class="in">
+    <div class="lg" aria-label="GexFlow"><span class="lgi"><svg width="22" height="22" viewBox="0 0 20 20" fill="#fff" aria-hidden="true"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg></span><span class="lgt">Gex<b>Flow</b></span></div>
+    <div id="gxt-intro"><div class="eb">Teste grátis</div>
+    <h2>Use o GexFlow por 3 dias, sem pagar nada</h2>
+    <p class="s">Preencha abaixo. Enviamos o seu acesso por e-mail, com uma senha provisória. Durante o teste você usa o plano completo.</p></div>
+    <form id="gxt-form" novalidate>
+      <label for="gxt-nome">Seu nome</label>
+      <input type="text" id="gxt-nome" autocomplete="name" required>
+      <label for="gxt-email">Seu melhor e-mail</label>
+      <input type="email" id="gxt-email" autocomplete="email" required>
+      <label for="gxt-tel">WhatsApp com DDD</label>
+      <input type="tel" id="gxt-tel" autocomplete="tel" placeholder="(11) 99999-9999" required>
+      <input type="text" id="gxt-site" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <button type="submit" id="gxt-btn">Quero testar 3 dias grátis</button>
+      <div class="msg" id="gxt-msg" role="status"></div>
+    </form>
+    <div id="gxt-thanks" style="display:none">
+      <div class="eb">Cadastro feito</div>
+      <h2>Obrigado! Seu acesso está a caminho</h2>
+      <p class="s">Enviamos um e-mail com o link, o seu login e uma senha provisória. Ele chega em poucos minutos.</p>
+      <ol class="st"><li>Abra o e-mail e confira também o <b>spam</b> e a aba <b>Promoções</b>.</li><li>Clique em <b>Entrar no GexFlow</b> e use a senha provisória.</li><li>No primeiro acesso, crie a sua própria senha.</li></ol>
+      <p class="mini" style="text-align:left">Não chegou? Fale com <a href="mailto:gexcompanysuporte@gmail.com">gexcompanysuporte@gmail.com</a>.</p>
+    </div>
+    <div class="mini">Ao se cadastrar, você concorda com os <a href="#" data-doc="termos">Termos de Uso</a> e a <a href="#" data-doc="privacidade">Política de Privacidade</a>.</div>
+  </div>
+</section>
+
+<script>
+(function(){
+  // Página de obrigado: crie uma página no WordPress com o arquivo wordpress-obrigado.html e cole o link dela aqui.
+  // Se deixar vazio, o obrigado aparece no próprio formulário (sem trocar de página).
+  var URL_OBRIGADO='/obrigado/';
+  var URL_FN='https://kghgmraezxcssipccodn.supabase.co/functions/v1/gex-pre-cadastro';
+  var f=document.getElementById('gxt-form'),b=document.getElementById('gxt-btn'),m=document.getElementById('gxt-msg');
+  function show(t,ok){m.className='msg '+(ok?'ok':'er');m.textContent=t}
+  f.addEventListener('submit',function(e){
+    e.preventDefault();
+    var nome=document.getElementById('gxt-nome').value.trim(),email=document.getElementById('gxt-email').value.trim(),tel=document.getElementById('gxt-tel').value.trim();
+    if(nome.length<2)return show('Informe seu nome.',false);
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email))return show('Informe um e-mail válido.',false);
+    if(tel.replace(/\D/g,'').length<10)return show('Informe seu WhatsApp com DDD.',false);
+    b.disabled=true;b.textContent='Criando seu acesso...';m.className='msg';
+    fetch(URL_FN,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({nome:nome,email:email,telefone:tel,website:document.getElementById('gxt-site').value})})
+      .then(function(r){return r.json().catch(function(){return{}})})
+      .then(function(j){
+        if(j&&j.ok){
+          try{if(window.fbq)fbq('track','Lead')}catch(e){}
+          if(URL_OBRIGADO){window.location.href=URL_OBRIGADO;return}
+          f.style.display='none';
+          document.getElementById('gxt-intro').style.display='none';
+          document.getElementById('gxt-thanks').style.display='block';
+          document.getElementById('teste').scrollIntoView({behavior:'smooth',block:'start'});
+        }
+        else{show((j&&j.message)||'Não foi possível concluir agora. Tente de novo.',false);b.disabled=false;b.textContent='Quero testar 3 dias grátis'}
+      })
+      .catch(function(){show('Sem conexão. Tente de novo em instantes.',false);b.disabled=false;b.textContent='Quero testar 3 dias grátis'});
+  });
+})();
+</script>
+
+<script>
+/* Links dos documentos: preencha quando tiver as páginas (deixe vazio para esconder o link). */
+(function(){
+  var DOCS={termos:'',privacidade:''};
+  document.querySelectorAll('a[data-doc]').forEach(function(a){
+    var u=DOCS[a.getAttribute('data-doc')];
+    if(u){a.href=u;a.target='_blank';a.rel='noopener'}else{a.removeAttribute('href');a.style.textDecoration='none'}
+  });
+})();
+</script>
+</body>
+</html>
