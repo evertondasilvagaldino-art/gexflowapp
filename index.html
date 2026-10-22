@@ -14248,7 +14248,7 @@ function gxApplyPartnerTutorialLink(){
 function _gxApplyPlanTierFromSubPlans(sub,plans){
   const planRow=sub?.plan_id?(plans||[]).find(p=>p.id===sub.plan_id):null;
   const isActive=!!sub&&(sub.status==='active'||sub.status==='past_due');
-  const novoTier=isActive?(planRow?.tier||'basic'):null;
+  const novoTier=isActive?(planRow?.tier||'basic'):(window.__gxTrialActive?'pro':null);
   const mudou=novoTier!==gxMyPlanTier;
   gxMyPlanTier=novoTier;
   if(mudou){
@@ -24262,6 +24262,178 @@ window.renderInicio=function(){
     try{esconderClassico(true)}catch(e){}
   }
 };
+})();
+</script>
+
+<script id="gex-trial-script">
+(function(){
+// Teste grátis de 3 dias do Gex Parceiro (pré-cadastro): durante o teste vale o plano Pro; ao acabar,
+// sem assinatura ativa, aparece um pop-up com os planos. Só atua para Gex Parceiro que tem registro em gex_trials.
+const BENEF={
+  basic:['Calendário próprio','Comercial: pipeline, tarefas e relatório do seu funil','Gerar Leads: formulários e API','Integrações próprias (Meta Ads e outras)','Painel de início com os seus números'],
+  pro:['Tudo do plano Basic','Automações comerciais (mensagens e tarefas automáticas)','Chat de atendimento via WhatsApp','Para quem quer escalar o atendimento']
+};
+const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+const ehParceiro=()=>{try{return gxIsPartnerRole()}catch(e){return false}};
+let trial={uid:'',loaded:false,loading:false,row:null};
+let last={sub:null,plans:[]};
+let wallOpen=false,pollN=0;
+
+const css=document.createElement('style');
+css.textContent=`
+#gx-wall{position:fixed;inset:0;z-index:99990;background:rgba(10,8,30,.78);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:18px;overflow:auto}
+.gxw-box{background:#fff;border-radius:18px;max-width:880px;width:100%;padding:26px;box-shadow:0 30px 80px rgba(0,0,0,.4);max-height:94vh;overflow:auto}
+.gxw-h{font-size:22px;font-weight:800;margin:0 0 6px;color:#111827}
+.gxw-s{color:#6b7280;font-size:14px;margin:0 0 18px}
+.gxw-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.gxw-plan{border:1.5px solid #e5e7eb;border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:10px}
+.gxw-plan.pro{border-color:#7c3aed;box-shadow:0 8px 28px -12px rgba(124,58,237,.55)}
+.gxw-n{font-weight:800;font-size:17px;color:#111827;display:flex;align-items:center;gap:8px}
+.gxw-tag{font-size:10.5px;background:#7c3aed;color:#fff;border-radius:8px;padding:2px 8px;font-weight:700}
+.gxw-p{font-size:20px;font-weight:800;color:#7c3aed}
+.gxw-plan ul{list-style:none;margin:0;padding:0;display:grid;gap:7px;font-size:13.5px;color:#374151;flex:1}
+.gxw-plan li{padding-left:22px;position:relative}
+.gxw-plan li::before{content:"✓";position:absolute;left:0;color:#059669;font-weight:800}
+.gxw-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:16px;flex-wrap:wrap;font-size:12.5px;color:#6b7280}
+#gx-trial-pill{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;z-index:9000;background:#1e1b4b;color:#fff;border-radius:999px;padding:9px 18px;font-size:13px;display:flex;align-items:center;gap:12px;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+#gx-trial-pill button{background:#7c3aed;color:#fff;border:0;border-radius:999px;padding:6px 14px;font-weight:700;cursor:pointer;font-size:12.5px}
+.gxw-in{width:100%;padding:11px 12px;border:1px solid #d1d5db;border-radius:10px;font-size:14px;margin:6px 0 12px;box-sizing:border-box}
+`;
+document.head.appendChild(css);
+
+function subAtiva(sub){return !!sub&&(sub.status==='active'||sub.status==='past_due')}
+function trialAtivo(){
+  const r=trial.row;if(!r||subAtiva(last.sub))return false;
+  return Date.now()<new Date(r.ends_at).getTime();
+}
+function trialExpirado(){
+  const r=trial.row;if(!r||subAtiva(last.sub))return false;
+  return Date.now()>=new Date(r.ends_at).getTime();
+}
+
+async function carregarTrial(){
+  const uid=String(sessionUser?.id||'');
+  if(!uid||!supabaseClient)return;
+  if(trial.uid!==uid){trial={uid,loaded:false,loading:false,row:null}}
+  if(trial.loaded||trial.loading)return;
+  trial.loading=true;
+  try{
+    const {data,error}=await supabaseClient.from('gex_trials').select('started_at,ends_at').eq('user_id',uid).maybeSingle();
+    if(!error)trial.row=data||null;
+    trial.loaded=!error;
+  }catch(e){}
+  trial.loading=false;
+  if(trial.loaded){reaplicar()}
+}
+
+function reaplicar(){
+  try{
+    window.__gxTrialActive=trialAtivo();
+    window.__gxOrigApplyTier(last.sub,last.plans);
+    gxTrialUi();
+  }catch(e){console.warn('[trial]',e)}
+}
+
+// Intercepta a aplicação do plano (chamada após cada consulta de assinatura)
+window.__gxOrigApplyTier=window._gxApplyPlanTierFromSubPlans;
+window._gxApplyPlanTierFromSubPlans=function(sub,plans){
+  last={sub:sub||null,plans:plans||[]};
+  window.__gxTrialActive=ehParceiro()&&trialAtivo();
+  window.__gxOrigApplyTier(sub,plans);
+  if(ehParceiro()){carregarTrial();gxTrialUi();gxCheckSenhaProvisoria()}
+};
+
+function fecharWall(){const w=document.getElementById('gx-wall');if(w)w.remove();wallOpen=false}
+function fecharPill(){const p=document.getElementById('gx-trial-pill');if(p)p.remove()}
+
+function gxTrialUi(){
+  if(!ehParceiro()||!trial.row){fecharPill();return}
+  if(subAtiva(last.sub)){fecharPill();fecharWall();return}
+  if(trialAtivo()){
+    fecharWall();
+    const dias=Math.max(1,Math.ceil((new Date(trial.row.ends_at).getTime()-Date.now())/86400000));
+    let p=document.getElementById('gx-trial-pill');
+    if(!p){p=document.createElement('div');p.id='gx-trial-pill';document.body.appendChild(p)}
+    p.innerHTML=`<span>Teste grátis: ${dias===1?'falta 1 dia':'faltam '+dias+' dias'}</span><button onclick="gxAbrirPlanos(true)">Ver planos</button>`;
+    return;
+  }
+  fecharPill();
+  if(trialExpirado())gxAbrirPlanos(false);
+}
+
+window.gxAbrirPlanos=function(fechavel){
+  fecharWall();
+  wallOpen=true;
+  const confirmando=/billing=sucesso/.test(location.search);
+  const planos=(last.plans||[]).slice().sort((a,b)=>(a.tier==='pro')-(b.tier==='pro'));
+  const cards=planos.length?planos.map(p=>{
+    const pro=p.tier==='pro';
+    return `<div class="gxw-plan ${pro?'pro':''}">
+      <div class="gxw-n">${esc(p.name)} ${pro?'<span class="gxw-tag">Completo</span>':''}</div>
+      <div class="gxw-p">${esc(p.price_display||'')}</div>
+      <ul>${(BENEF[pro?'pro':'basic']).map(b=>`<li>${esc(b)}</li>`).join('')}</ul>
+      <button class="btn btn-primary" onclick="gxAssinarPlano('${esc(p.id)}',this)">Assinar ${esc(p.name)}</button>
+    </div>`}).join(''):'<div style="color:#6b7280">Nenhum plano disponível agora. Fale com gexcompanysuporte@gmail.com.</div>';
+  const w=document.createElement('div');w.id='gx-wall';
+  w.innerHTML=`<div class="gxw-box">
+    <h2 class="gxw-h">${fechavel?'Escolha seu plano':'Seu teste grátis terminou'}</h2>
+    <p class="gxw-s">${confirmando?'Pagamento recebido. Estamos liberando o seu acesso, isso leva alguns segundos...':(fechavel?'Assine agora e continue usando tudo sem interrupção.':'Para continuar usando o GexFlow, escolha um plano abaixo. Seus dados continuam guardados.')}</p>
+    <div class="gxw-grid">${cards}</div>
+    <div class="gxw-foot"><span>Pagamento seguro pelo Stripe. Dúvidas: gexcompanysuporte@gmail.com</span>
+      <span>${fechavel?'<button class="btn btn-ghost" onclick="document.getElementById(\'gx-wall\').remove()">Fechar</button>':'<button class="btn btn-ghost" onclick="doLogout()">Sair</button>'}</span></div>
+  </div>`;
+  document.body.appendChild(w);
+  if(confirmando&&pollN<10){pollN++;setTimeout(()=>{try{gxLoadPartnerPlanTier()}catch(e){}},6000)}
+};
+
+window.gxAssinarPlano=async function(planId,btn){
+  if(btn){btn.disabled=true;btn.textContent='Abrindo pagamento...'}
+  try{
+    const token=await getGexSupabaseToken();
+    const returnUrl=location.origin+location.pathname;
+    const res=await fetch(getSupabaseFunctionUrl('billing-self-portal-checkout'),{
+      method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({action:'checkout',planId,successUrl:returnUrl+'?billing=sucesso',cancelUrl:returnUrl+'?billing=cancelado'})
+    });
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível gerar o link de pagamento.');
+    location.href=j.url;
+  }catch(e){
+    toast(e.message||'Erro ao assinar','#EF4444');
+    if(btn){btn.disabled=false;btn.textContent='Assinar'}
+  }
+};
+
+// Primeiro acesso com senha provisória: obriga a criar a própria senha.
+let senhaChecada=false;
+async function gxCheckSenhaProvisoria(){
+  if(senhaChecada||!supabaseClient)return;
+  senhaChecada=true;
+  try{
+    const {data}=await supabaseClient.auth.getUser();
+    if(!data?.user?.user_metadata?.must_change_password)return;
+    const w=document.createElement('div');w.id='gx-pass-wall';w.style.cssText='position:fixed;inset:0;z-index:99995;background:rgba(10,8,30,.82);display:flex;align-items:center;justify-content:center;padding:18px';
+    w.innerHTML=`<div class="gxw-box" style="max-width:420px">
+      <h2 class="gxw-h">Crie sua senha</h2>
+      <p class="gxw-s">Você entrou com a senha provisória. Escolha uma senha só sua para continuar.</p>
+      <label style="font-size:12.5px;font-weight:600">Nova senha (mín. 8 caracteres)</label>
+      <input type="password" id="gxp-1" class="gxw-in" autocomplete="new-password">
+      <label style="font-size:12.5px;font-weight:600">Repita a nova senha</label>
+      <input type="password" id="gxp-2" class="gxw-in" autocomplete="new-password">
+      <button class="btn btn-primary" style="width:100%" id="gxp-btn">Salvar e continuar</button>
+    </div>`;
+    document.body.appendChild(w);
+    document.getElementById('gxp-btn').onclick=async function(){
+      const a=document.getElementById('gxp-1').value,b=document.getElementById('gxp-2').value;
+      if(a.length<8){toast('A senha precisa ter pelo menos 8 caracteres','#F59E0B');return}
+      if(a!==b){toast('As senhas não conferem','#F59E0B');return}
+      this.disabled=true;this.textContent='Salvando...';
+      const {error}=await supabaseClient.auth.updateUser({password:a,data:{must_change_password:false}});
+      if(error){toast(error.message||'Não foi possível salvar a senha','#EF4444');this.disabled=false;this.textContent='Salvar e continuar';return}
+      w.remove();toast('Senha criada ✓','#10B981');
+    };
+  }catch(e){senhaChecada=false}
+}
 })();
 </script>
 </body>
