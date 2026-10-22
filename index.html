@@ -2104,6 +2104,9 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
       <div class="nav-sub" data-sub="financas" onclick="navigateSub('financas','financas')">
         <span class="nav-sub-ico">·</span>Controle financeiro
       </div>
+      <div class="nav-sub" data-sub="espelho-banco" style="display:none" onclick="navigateSub('espelho-banco','financas')">
+        <span class="nav-sub-ico">·</span>Espelho do banco
+      </div>
     </div>
 
     <!-- RH -->
@@ -2391,6 +2394,7 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
   </div>
 
   <!-- FINANÇAS -->
+  <div class="page" id="page-espelho-banco"></div>
   <div class="page" id="page-financas">
     <div class="page-header">
       <div><div class="page-title">Finanças</div><div class="page-sub">Controle financeiro da agência</div></div>
@@ -4996,6 +5000,7 @@ function applyNavPermissions(){
     setVisible(group.hdr,any);
     setVisible(group.wrap,any);
   });
+  try{const _eb=gxEspelhoAllowed();const _el=document.querySelector('[data-sub="espelho-banco"]');if(_el)_el.style.display=_eb?'':'none';if(_eb){setVisible('#grp-hdr-financas',true);setVisible('#grp-wrap-financas',true)}}catch(e){}
 
   // Se a página ativa ficou escondida, leva para a primeira área permitida.
   const activeNav=document.querySelector('.nav-item.active:not([style*="display: none"]), .nav-sub.active:not([style*="display: none"])');
@@ -5108,7 +5113,7 @@ function navigateSub(sub,grp){
     clientes:'clientes',churn:'churn',contratos:'contratos',
     onboarding:'projetos',entregas:'projetos',tarefas:'projetos',
     agenda:'projetos',aprovacao:'projetos',esquemas:'projetos',creators:'projetos',
-    comercial:'comercial',financas:'financas',
+    comercial:'comercial',financas:'financas','espelho-banco':'espelho-banco',
     'gerar-leads-whatsapp':'gerar-leads','gerar-leads-formularios':'gerar-leads','gerar-leads-meta':'gerar-leads','gerar-leads-api':'gerar-leads',
     'config-integracoes':'integracoes','config-webhook-api':'configuracoes','config-pagamentos':'configuracoes','config-empresa':'configuracoes','config-usuarios':'usuarios','config-seguranca':'configuracoes','config-preferencias':'configuracoes'
   };
@@ -5160,13 +5165,13 @@ function navigateSub(sub,grp){
     };
     checkMod=cfgPermMap[sub]||'config_integracoes';
   }
-  if(!can(checkMod,'view')){
+  if(sub==='espelho-banco'?!gxEspelhoAllowed():!can(checkMod,'view')){
     const pageEl=document.getElementById('page-'+page);
     if(pageEl){
       const names={clientes:'Clientes',churn:'Análise de Churn',contratos:'Contratos',
         onboarding:'Onboarding',entregas:'Entregas',tarefas:'Tarefas',agenda:'Agenda',
         aprovacao:'Aprovação de Conteúdo',esquemas:'Esquemas',creators:'Creators',
-        comercial:'Comercial',financas:'Finanças','config-integracoes':'Integrações','config-webhook-api':'Webhook & API','config-pagamentos':'Pagamentos','config-empresa':'Dados da Empresa','config-usuarios':'Gestão de Usuários','config-seguranca':'Segurança','config-preferencias':'Preferências'};
+        comercial:'Comercial',financas:'Finanças','espelho-banco':'Espelho do banco','config-integracoes':'Integrações','config-webhook-api':'Webhook & API','config-pagamentos':'Pagamentos','config-empresa':'Dados da Empresa','config-usuarios':'Gestão de Usuários','config-seguranca':'Segurança','config-preferencias':'Preferências'};
       showAccessDenied(pageEl,names[sub]||sub);
     }
     return;
@@ -5181,7 +5186,7 @@ function navigateSub(sub,grp){
     renderConfiguracoes(sub);
   } else {
     ({clientes:renderClientes,churn:renderChurn,contratos:renderContratos,
-      comercial:renderComercial,'gerar-leads':renderGerarLeads,financas:renderFinancas,usuarios:renderUsuarios,integracoes:renderIntegracoes})[page]?.();
+      comercial:renderComercial,'gerar-leads':renderGerarLeads,financas:renderFinancas,'espelho-banco':renderEspelhoBanco,usuarios:renderUsuarios,integracoes:renderIntegracoes})[page]?.();
   }
 }
 
@@ -10972,6 +10977,69 @@ function gxExportFinancasXLSX(){
   XLSX.utils.book_append_sheet(wb,ws,'Transações');
   XLSX.writeFile(wb,`gex-financas-${new Date().toISOString().slice(0,10)}.xlsx`);
   toast(`${txs.length} transação(ões) exportada(s) ✓`,'#10B981');
+}
+// ═══ ESPELHO DO BANCO (Asaas) — só Fundador / Adm / Gerente ═══
+function gxEspelhoAllowed(){
+  try{const r=resolveRole(sessionUser?.permissao||sessionUser?.cargo||sessionUser?.role||'');return r==='Fundador'||r==='Adm Gerente'}catch(e){return false}
+}
+const gxEsp={loading:false,days:30,data:null,err:'',notConnected:false,busca:''};
+function gxEspBRL(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+function gxEspDate(d){const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}/${m[2]}/${m[1]}`:'—'}
+function gxEspEsc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function renderEspelhoBanco(){
+  const pg=document.getElementById('page-espelho-banco');if(!pg)return;
+  if(!gxEspelhoAllowed()){showAccessDenied(pg,'Espelho do banco');return}
+  const g=gxEsp,d=g.data,r=d?.resumo||{};
+  const card=(t,v,sub,cls)=>`<div class="fin-card ${cls}"><div style="font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">${t}</div><div style="font-size:22px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums">${v}</div><div style="font-size:11px;color:var(--muted);margin-top:2px">${sub}</div></div>`;
+  let body='';
+  if(g.notConnected){
+    body=`<div class="card"><div style="padding:22px;text-align:center"><div style="font-size:15px;font-weight:700;margin-bottom:6px">Asaas ainda não conectado</div><div style="font-size:12px;color:var(--muted);margin-bottom:14px">Conecte a sua conta em Integrações para ver o espelho do banco aqui.</div><button class="btn btn-primary" onclick="navigate('integracoes')">Ir para Integrações</button></div></div>`;
+  }else if(g.err){
+    body=`<div class="card"><div style="padding:18px;color:#DC2626;font-size:13px">${gxEspEsc(g.err)}</div></div>`;
+  }else if(!d){
+    body=`<div class="card"><div style="padding:18px;font-size:13px;color:var(--muted)">Carregando dados do Asaas…</div></div>`;
+  }else{
+    const q=(g.busca||'').toLowerCase();
+    const mov=(d.extrato||[]).filter(m=>!q||String(m.descricao||'').toLowerCase().includes(q));
+    const rows=mov.map(m=>`<tr><td style="white-space:nowrap">${gxEspDate(m.data)}</td><td>${gxEspEsc(m.descricao||m.tipo||'—')}</td><td style="text-align:right;font-weight:700;font-variant-numeric:tabular-nums;color:${m.valor<0?'#DC2626':'#059669'}">${gxEspBRL(m.valor)}</td><td style="text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)">${m.saldo==null?'—':gxEspBRL(m.saldo)}</td></tr>`).join('');
+    body=`<div class="fin-summary" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+      ${card('Valor recebido',gxEspBRL(r.recebido),`${r.qtdRec||0} cobrança(s) paga(s)`,'receita')}
+      ${card('Valor a receber',gxEspBRL(r.aReceber),`${r.qtdPend||0} cobrança(s) em aberto`,'lucro')}
+      ${card('Valor atrasado',gxEspBRL(r.vencido),`${r.qtdVenc||0} cobrança(s) vencida(s)`,'despesa')}
+      ${card('Valor de saídas',gxEspBRL(r.saidas),`${r.qtdSaidas||0} saída(s) no extrato`,'despesa')}
+      ${d.saldo!=null?card('Saldo atual',gxEspBRL(d.saldo),'na conta Asaas','receita'):''}
+    </div>
+    ${d.truncado?'<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Mostrando as primeiras 500 cobranças do período; os totais podem estar incompletos.</div>':''}
+    <div class="card">
+      <div class="sec-hdr"><div class="sec-ico">🏦</div><div style="flex:1"><div class="sec-title">Extrato</div></div></div>
+      <div class="rel-filter-bar"><input class="form-input" placeholder="Buscar no extrato..." value="${gxEspEsc(g.busca)}" oninput="gxEsp.busca=this.value;gxEspRepaintTable()" style="max-width:260px;flex:1;min-width:160px"></div>
+      ${d.extratoErro?`<div style="padding:12px;color:#DC2626;font-size:12px">${gxEspEsc(d.extratoErro)}</div>`:''}
+      <div class="tbl-wrap"><table><thead><tr><th>Data</th><th>Descrição</th><th style="text-align:right">Valor</th><th style="text-align:right">Saldo</th></tr></thead><tbody id="esp-tbody">${rows||'<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:18px">Nenhuma movimentação no período.</td></tr>'}</tbody></table></div>
+      ${d.truncExtrato?'<div style="font-size:11px;color:var(--muted);padding:8px 4px">Extrato limitado às movimentações mais recentes.</div>':''}
+    </div>`;
+  }
+  pg.innerHTML=`<div class="page-header"><div><div class="page-title">Espelho do banco</div><div class="page-sub">Dados da conta Asaas, somente leitura</div></div>
+    <div style="display:flex;gap:8px;align-items:center"><select class="form-input" style="width:170px" onchange="gxEspSetDays(this.value)"><option value="30" ${g.days===30?'selected':''}>Últimos 30 dias</option><option value="90" ${g.days===90?'selected':''}>Últimos 90 dias</option><option value="365" ${g.days===365?'selected':''}>Últimos 12 meses</option></select><button class="btn btn-ghost" onclick="gxEspLoad(true)">${g.loading?'Atualizando…':'Atualizar'}</button></div></div>${body}`;
+  if(!d&&!g.err&&!g.notConnected&&!g.loading)gxEspLoad();
+}
+function gxEspRepaintTable(){
+  const d=gxEsp.data,tb=document.getElementById('esp-tbody');if(!d||!tb)return;
+  const q=(gxEsp.busca||'').toLowerCase();
+  const mov=(d.extrato||[]).filter(m=>!q||String(m.descricao||'').toLowerCase().includes(q));
+  tb.innerHTML=mov.map(m=>`<tr><td style="white-space:nowrap">${gxEspDate(m.data)}</td><td>${gxEspEsc(m.descricao||m.tipo||'—')}</td><td style="text-align:right;font-weight:700;font-variant-numeric:tabular-nums;color:${m.valor<0?'#DC2626':'#059669'}">${gxEspBRL(m.valor)}</td><td style="text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)">${m.saldo==null?'—':gxEspBRL(m.saldo)}</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:18px">Nada encontrado.</td></tr>';
+}
+function gxEspSetDays(v){gxEsp.days=Number(v)||30;gxEsp.data=null;gxEsp.err='';gxEspLoad(true)}
+async function gxEspLoad(force){
+  const g=gxEsp;if(g.loading)return;
+  g.loading=true;g.err='';g.notConnected=false;if(force)g.data=null;renderEspelhoBanco();
+  try{
+    const token=await getGexSupabaseToken();
+    const call=async body=>{const res=await fetch(getSupabaseFunctionUrl('asaas-integration'),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await res.json().catch(()=>({}));if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível consultar o Asaas.');return j};
+    const st=await call({action:'status'});
+    if(!st.connected){g.notConnected=true}else{g.data=await call({action:'espelho',days:g.days})}
+  }catch(e){g.err=e.message||'Erro ao consultar o Asaas.'}
+  g.loading=false;
+  if(document.getElementById('page-espelho-banco')?.classList.contains('active'))renderEspelhoBanco();
 }
 function renderFinancas(){
   // Popula o filtro de categoria uma única vez (a lista é fixa) — o select
@@ -19296,7 +19364,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       const zs=getZapiSettings(),hasCreds=!!zs.connected;
       return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft}"><div class="gxi-card-top"><div class="gxi-icon">${p.icon}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill ${hasCreds?'pending':'off'}" id="gxi-whatsapp-top-pill">${hasCreds?'Credenciais salvas':'Não conectado'}</span></div><p>${p.desc}</p><div class="gxi-card-note">${hasCreds?`Instância <b>${E(zs.instanceId||'')}</b> — status real logo abaixo, no card de conexão Z-API.`:'Configure a instância e o token da Z-API no card abaixo.'}</div><div class="gxi-card-actions" id="gxi-whatsapp-top-actions">${hasCreds?`<button class="gxi-btn small danger" onclick="gxiDisconnectZapi()">Desconectar</button>`:''}<button class="gxi-btn primary small" onclick="document.getElementById('gxi-zapi-card-anchor')?.scrollIntoView({behavior:'smooth',block:'start'})">${hasCreds?'Ver conexão':p.button}</button></div></article>`;
     }
-    const c=connection(p.id),on=c.status==='connected',pending=c.status==='pending';return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft}"><div class="gxi-card-top"><div class="gxi-icon">${p.icon}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill ${on?'on':pending?'pending':'off'}">${on?'Conectado':pending?'Pendente':'Não conectado'}</span></div><p>${p.desc}</p><div class="gxi-card-note">${on?`Conta: ${E(c.assets?.name||c.assets?.account||'Conexão oficial')}`:'Autorização oficial, sem expor tokens no navegador.'}</div><div class="gxi-card-actions">${on?`<button class="gxi-btn small" onclick="gxiTestConnection('${p.id}')">Testar</button><button class="gxi-btn small danger" onclick="gxiDisconnect('${p.id}')">Desconectar</button>`:`<button class="gxi-btn primary small" onclick="gxiConnect('${p.id}')">${p.button}</button>`}</div></article>`}).join('')}${_visRole==='Gex Parceiro'?'':asaasTileHtml()}</div>${_visRole==='Colaborador'?zapiConfigHtml()+asaasConfigHtml():smtpConfigHtml()}`}
+    const c=connection(p.id),on=c.status==='connected',pending=c.status==='pending';return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft}"><div class="gxi-card-top"><div class="gxi-icon">${p.icon}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill ${on?'on':pending?'pending':'off'}">${on?'Conectado':pending?'Pendente':'Não conectado'}</span></div><p>${p.desc}</p><div class="gxi-card-note">${on?`Conta: ${E(c.assets?.name||c.assets?.account||'Conexão oficial')}`:'Autorização oficial, sem expor tokens no navegador.'}</div><div class="gxi-card-actions">${on?`<button class="gxi-btn small" onclick="gxiTestConnection('${p.id}')">Testar</button><button class="gxi-btn small danger" onclick="gxiDisconnect('${p.id}')">Desconectar</button>`:`<button class="gxi-btn primary small" onclick="gxiConnect('${p.id}')">${p.button}</button>`}</div></article>`}).join('')}${asaasTileHtml()}</div>${_visRole==='Colaborador'?zapiConfigHtml()+asaasConfigHtml():smtpConfigHtml()}`}
   function smtpConfigHtml(){
     const s=getEmailSmtpSettings(),on=!!s.connected;
     return `<div class="gxi-conv-grid" style="grid-template-columns:1fr;margin-top:13px">
@@ -19321,29 +19389,17 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   const gxiAsaasDate=d=>{const m=String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?`${m[3]}/${m[2]}/${m[1]}`:'—'};
   const gxiAsaasStatusMap={RECEIVED:['Recebida','#059669'],CONFIRMED:['Confirmada','#059669'],RECEIVED_IN_CASH:['Recebida','#059669'],PENDING:['Pendente','#B45309'],OVERDUE:['Vencida','#DC2626'],REFUNDED:['Estornada','#6B7280'],CANCELLED:['Cancelada','#6B7280']};
   function asaasTileHtml(){
+    if(!gxEspelhoAllowed())return '';
     const g=gxiAsaas,on=g.connected;
-    return `<article class="gxi-card" id="gxi-asaas-tile" style="--accent:#0030B9;--soft:#E8F1FF"><div class="gxi-card-top"><div class="gxi-icon" style="font-weight:800">A</div><div><h3>Asaas</h3><div class="gxi-card-cat">Pagamentos</div></div><span class="gxi-pill ${on?'on':'off'}">${on?'Conectado':'Não conectado'}</span></div><p>Cobranças e recebimentos da sua conta Asaas: o que foi recebido, a receber e vencido. Somente leitura.</p><div class="gxi-card-note">${on?`Ambiente: ${g.env==='sandbox'?'Sandbox':'Produção'}`:'Cole a chave de API no card de configuração abaixo.'}</div><div class="gxi-card-actions"><button class="gxi-btn ${on?'':'primary'} small" onclick="document.getElementById('gxi-asaas-card-anchor')?.scrollIntoView({behavior:'smooth',block:'center'})">${on?'Ver cobranças':'Conectar Asaas'}</button></div></article>`;
+    return `<article class="gxi-card" id="gxi-asaas-tile" style="--accent:#0030B9;--soft:#E8F1FF"><div class="gxi-card-top"><div class="gxi-icon" style="font-weight:800">A</div><div><h3>Asaas</h3><div class="gxi-card-cat">Pagamentos</div></div><span class="gxi-pill ${on?'on':'off'}">${on?'Conectado':'Não conectado'}</span></div><p>Conta de pagamentos. Os dados aparecem em Finanças &gt; Espelho do banco. Somente leitura.</p><div class="gxi-card-note">${on?`Ambiente: ${g.env==='sandbox'?'Sandbox':'Produção'}`:'Cole a chave de API no card de configuração abaixo.'}</div><div class="gxi-card-actions"><button class="gxi-btn ${on?'':'primary'} small" onclick="document.getElementById('gxi-asaas-card-anchor')?.scrollIntoView({behavior:'smooth',block:'center'})">${on?'Configurar':'Conectar Asaas'}</button>${on?`<button class="gxi-btn small danger" onclick="gxiAsaasDisconnect()">Desconectar</button>`:''}</div></article>`;
   }
   function asaasConfigHtml(){
+    if(!gxEspelhoAllowed())return '';
     const g=gxiAsaas,on=g.connected;
-    const d=g.data;
-    let panel='';
-    if(on){
-      if(g.busy&&!d)panel='<div class="gxi-card-note" style="margin-bottom:12px">Carregando cobranças do Asaas…</div>';
-      else if(g.err)panel=`<div class="gxi-warning" style="margin-bottom:12px">${E(g.err)}</div>`;
-      else if(d){
-        const r=d.resumo||{};
-        const tile=(t,v,q,c)=>`<div style="flex:1;min-width:130px;border:1px solid var(--border,#E5E7EB);border-radius:10px;padding:10px 12px"><div style="font-size:10px;color:var(--muted,#6B7280);text-transform:uppercase;letter-spacing:.04em">${t}</div><div style="font-size:17px;font-weight:700;color:${c};font-variant-numeric:tabular-nums">${gxiAsaasBRL(v)}</div><div style="font-size:10px;color:var(--muted,#6B7280)">${q} cobrança(s)</div></div>`;
-        const rows=(d.recentes||[]).map(p=>{const st=gxiAsaasStatusMap[p.status]||[p.status,'#6B7280'];return `<tr><td style="padding:6px 8px">${E(p.cliente||'—')}</td><td style="padding:6px 8px;white-space:nowrap">${gxiAsaasDate(p.vencimento)}</td><td style="padding:6px 8px;text-align:right;font-variant-numeric:tabular-nums">${gxiAsaasBRL(p.valor)}</td><td style="padding:6px 8px"><span style="color:${st[1]};font-weight:600">${E(st[0])}</span></td></tr>`}).join('');
-        panel=`<div style="margin-bottom:12px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><b style="font-size:12px">Cobranças</b><select class="gxi-select" onchange="gxiAsaasSetDays(this.value)"><option value="30" ${g.days===30?'selected':''}>Últimos 30 dias</option><option value="90" ${g.days===90?'selected':''}>Últimos 90 dias</option><option value="365" ${g.days===365?'selected':''}>Últimos 12 meses</option></select><button class="gxi-btn small" onclick="gxiAsaasRefresh()">${g.busy?'Atualizando…':'Atualizar'}</button></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">${tile('Recebido',r.recebido,r.qtdRec||0,'#059669')}${tile('A receber',r.aReceber,r.qtdPend||0,'#B45309')}${tile('Vencido',r.vencido,r.qtdVenc||0,'#DC2626')}</div>
-          ${rows?`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11.5px"><thead><tr style="text-align:left;color:var(--muted,#6B7280);font-size:10px;text-transform:uppercase"><th style="padding:6px 8px">Cliente</th><th style="padding:6px 8px">Vencimento</th><th style="padding:6px 8px;text-align:right">Valor</th><th style="padding:6px 8px">Situação</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="gxi-card-note">Nenhuma cobrança no período.</div>'}
-          ${d.truncado?'<div class="gxi-card-note" style="margin-top:6px">Mostrando as primeiras 500 cobranças do período; os totais podem estar incompletos.</div>':''}</div>`;
-      }
-    }
+    const panel='';
     return `<div class="gxi-conv-grid" style="grid-template-columns:1fr;margin-top:13px" id="gxi-asaas-card-anchor">
       <div class="gxi-conv-card">
-        <div class="gxi-conv-head"><div class="gxi-conv-logo" style="background:#E8F1FF;color:#0030B9">A</div><div><h3>Asaas — cobranças e recebimentos</h3><p>Conecte a sua conta Asaas para ver aqui o que foi recebido, o que está a receber e o que venceu. Somente leitura: o sistema não cria nem altera cobranças.</p></div><span class="gxi-config-status ${on?'on':''}" style="margin-left:auto">${on?`Conectado · ${g.env==='sandbox'?'Sandbox':'Produção'}`:(g.loading?'Verificando…':'Não conectado')}</span></div>
+        <div class="gxi-conv-head"><div class="gxi-conv-logo" style="background:#E8F1FF;color:#0030B9">A</div><div><h3>Asaas — cobranças e recebimentos</h3><p>Conecte a sua conta Asaas. Os dados (recebido, a receber, atrasado, saídas e extrato) aparecem em Finanças &gt; Espelho do banco. Somente leitura: o sistema não cria nem altera cobranças.</p></div><span class="gxi-config-status ${on?'on':''}" style="margin-left:auto">${on?`Conectado · ${g.env==='sandbox'?'Sandbox':'Produção'}`:(g.loading?'Verificando…':'Não conectado')}</span></div>
         ${panel}
         <div class="gxi-form-grid" style="margin-bottom:11px">
           <label class="gxi-field"><span class="gxi-label">Ambiente</span><select class="gxi-input" id="gxi-asaas-env"><option value="producao" ${g.env!=='sandbox'?'selected':''}>Produção (conta real)</option><option value="sandbox" ${g.env==='sandbox'?'selected':''}>Sandbox (testes)</option></select></label>
@@ -19363,7 +19419,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   function gxiAsaasRepaint(){const tl=document.getElementById('gxi-asaas-tile');if(tl){const x=document.createElement('div');x.innerHTML=asaasTileHtml();tl.replaceWith(x.firstElementChild)}const a=document.getElementById('gxi-asaas-card-anchor');if(!a)return;const t=document.createElement('div');t.innerHTML=asaasConfigHtml();a.replaceWith(t.firstElementChild)}
   async function gxiAsaasLoad(force){
     const g=gxiAsaas;
-    if(g.loading||(g.loaded&&!force)){return}
+    if(!gxEspelhoAllowed()||g.loading||(g.loaded&&!force)){return}
     if(!supabaseClient){return}
     g.loading=true;gxiAsaasRepaint();
     try{
@@ -19371,7 +19427,6 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       g.connected=!!st.connected;g.env=st.environment||'producao';g.keyHint=st.keyHint||'';g.loaded=true;
     }catch(e){g.connected=false;g.loaded=false}
     g.loading=false;gxiAsaasRepaint();
-    if(g.connected&&!g.data)gxiAsaasRefresh();
   }
   window.gxiAsaasLoad=gxiAsaasLoad;
   window.gxiAsaasRefresh=async()=>{
@@ -19391,14 +19446,14 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       const j=await gxiAsaasCall({action:'save',apiKey,environment});
       g.connected=true;g.loaded=true;g.env=j.environment||environment;g.keyHint=j.keyHint||'';g.data=null;g.err='';
       toast('Asaas conectado ✓','#10B981');
-      gxiAsaasRepaint();window.gxiAsaasRefresh();
+      try{gxEsp.data=null}catch(e){}gxiAsaasRepaint();
     }catch(e){toast(e.message||'Erro ao conectar o Asaas','#EF4444')}
   };
   window.gxiAsaasDisconnect=async()=>{
     if(!confirm('Desconectar o Asaas? A chave será apagada do servidor.'))return;
     try{
       await gxiAsaasCall({action:'disconnect'});
-      Object.assign(gxiAsaas,{connected:false,keyHint:'',data:null,err:''});
+      Object.assign(gxiAsaas,{connected:false,keyHint:'',data:null,err:''});try{gxEsp.data=null}catch(e){}
       toast('Asaas desconectado','#10B981');gxiAsaasRepaint();
     }catch(e){toast(e.message||'Erro ao desconectar','#EF4444')}
   };
