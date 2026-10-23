@@ -19578,6 +19578,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       const j=await res.json().catch(()=>({}));
       if(!document.getElementById('gxi-zapi-live-status'))return;
       const discBtn=document.getElementById('gxi-zapi-disconnect-btn');
+      if(j&&j.unknown)return; // Z-API sem resposta agora: mantém o texto atual em vez de trocar para desconectado
       const liveConnected=!!(j&&j.ok!==false&&j.connected);
       if(liveConnected){
         el.textContent='Conectado';el.classList.add('on');
@@ -21829,6 +21830,9 @@ ${gxlCloseScriptTag}`;
     if(!wacPollInterval){
       wacPollInterval=setInterval(()=>{if(pageActive())loadInbox(wacSelectedPhone)},6000);
     }
+    if(!window._wacStatusInterval){
+      window._wacStatusInterval=setInterval(()=>{if(pageActive())loadStatus()},60000);
+    }
   };
 
   async function loadTagCatalog(){
@@ -22010,9 +22014,10 @@ ${gxlCloseScriptTag}`;
   async function loadStatus(){
     try{
       const j=await apiGet('zapi-status');
-      if(j&&j.ok!==false)wacConn={connected:!!j.connected,configured:!!j.configured};
+      if(j&&j.ok!==false&&!j.unknown)wacConn={connected:!!j.connected,configured:!!j.configured};
+      if(j&&j.ok!==false){wacConn.detail=j.unknown?'A Z-API não respondeu agora; mantendo o último status.':`Instância: ${j.connected?'conectada':'desconectada'} · Celular: ${j.smartphoneConnected?'conectado':'sem conexão'}${j.error?' · '+j.error:''}`}
     }catch(e){/* mantém último status conhecido */}
-    const label=document.getElementById('wac-status-label');
+    const label=document.getElementById('wac-status-label');if(label&&wacConn.detail)label.title=wacConn.detail;
     if(label){label.textContent=wacConn.connected?'Conectado':wacConn.configured?'Desconectado':'Sem conexão configurada';label.classList.toggle('on',wacConn.connected)}
     const sendBtn=document.getElementById('wac-send-btn');
     if(sendBtn)sendBtn.disabled=!wacConn.connected;
