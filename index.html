@@ -20985,12 +20985,12 @@ ${gxlCloseScriptTag}`;
       <input type="hidden" id="auto-canal" value="${esc(canalEfetivo||'whatsapp')}">
     </div>
     <div class="gl-panel" id="auto-intervalo-panel" style="${canalEfetivo==='whatsapp'?'':'display:none'}">
-      <h3>⏱ Intervalo entre envios</h3><p>Pausa aleatória (dentro dessa faixa) entre uma mensagem de WhatsApp e a próxima — evita que o número pareça um robô disparando em sequência e ajuda a reduzir o risco de banimento. Vale pra qualquer momento em que mais de uma mensagem dessa automação for sair de uma vez (ex.: vários leads chegando na etapa ao mesmo tempo, ou os passos de uma cadência).</p>
+      <h3>⏱ Intervalo entre envios</h3><p>Pausa aleatória (dentro dessa faixa) entre uma mensagem de WhatsApp e a próxima — evita que o número pareça um robô disparando em sequência e ajuda a reduzir o risco de banimento. Vale pra qualquer momento em que mais de uma mensagem dessa automação for sair de uma vez (ex.: vários leads chegando na etapa ao mesmo tempo, ou os passos de uma cadência). Não vale para boas-vindas e avisos.</p>
       <div class="gl-grid">
-        <label class="gl-field"><span>Mínimo (segundos)</span><input class="gl-input" id="auto-intervalo-min" type="number" min="5" max="600" value="${Number(d.intervaloMinSeg)||20}"></label>
-        <label class="gl-field"><span>Máximo (segundos)</span><input class="gl-input" id="auto-intervalo-max" type="number" min="5" max="600" value="${Number(d.intervaloMaxSeg)||40}"></label>
+        <label class="gl-field"><span>Mínimo (segundos)</span><input class="gl-input" id="auto-intervalo-min" type="number" min="5" max="600" value="${Number(d.intervaloMinSeg)||90}"></label>
+        <label class="gl-field"><span>Máximo (segundos)</span><input class="gl-input" id="auto-intervalo-max" type="number" min="5" max="600" value="${Number(d.intervaloMaxSeg)||240}"></label>
       </div>
-      <p style="font-size:9.5px;color:#94A3B8;margin-top:6px">Recomendado: entre 20 e 60 segundos. Quanto mais mensagens por automação, maior o intervalo recomendado.</p>
+      <p style="font-size:9.5px;color:#94A3B8;margin-top:6px">O sistema aplica no mínimo 90 a 240 segundos entre follow-ups do mesmo número (até 30 por dia, das 8h às 20h). Se você colocar um intervalo maior aqui, vale o maior. Boas-vindas e avisos ao responsável saem na hora, sem esse intervalo.</p>
     </div>
     <div class="gl-panel">
       <h3>Gatilho</h3><p>Quando o sistema deve agir sozinho.</p>
@@ -21170,8 +21170,8 @@ ${gxlCloseScriptTag}`;
     // quando o painel existe na tela (automação com algum canal WhatsApp).
     // min nunca pode ficar maior que max (usuário pode digitar fora de
     // ordem); clamp em 5–600s por segurança.
-    let intervaloMinSeg=Math.min(600,Math.max(5,Number(document.getElementById('auto-intervalo-min')?.value)||20));
-    let intervaloMaxSeg=Math.min(600,Math.max(5,Number(document.getElementById('auto-intervalo-max')?.value)||40));
+    let intervaloMinSeg=Math.min(600,Math.max(5,Number(document.getElementById('auto-intervalo-min')?.value)||90));
+    let intervaloMaxSeg=Math.min(600,Math.max(5,Number(document.getElementById('auto-intervalo-max')?.value)||240));
     if(intervaloMinSeg>intervaloMaxSeg)[intervaloMinSeg,intervaloMaxSeg]=[intervaloMaxSeg,intervaloMinSeg];
     const base={
       nome,gatilho,funilId,funilName,etapaId,etapaName,intervaloMinSeg,intervaloMaxSeg,
@@ -21633,6 +21633,11 @@ ${gxlCloseScriptTag}`;
     // o que é um padrão clássico de detecção de robô/spam no WhatsApp e
     // aumenta risco de banimento do número conectado. Não atrasa o primeiro
     // envio da varredura.
+    // ENVIO DE WHATSAPP PELO SERVIDOR (23/10/2026): o navegador NÃO envia mais WhatsApp de automação. Antes, salvar ou
+    // ativar uma automação rodava este motor aqui e disparava mensagens direto, sem o limite diário, sem a janela de
+    // horário e sem o intervalo do servidor (risco de restrição do número). As tarefas ficam "pendentes" e o motor do
+    // servidor (a cada minuto) envia no ritmo protegido.
+    whatsappParaEnviar.length=0;
     const gexSleep=ms=>new Promise(res=>setTimeout(res,ms));
     for(let i=0;i<whatsappParaEnviar.length;i++){
       const wm=whatsappParaEnviar[i];
@@ -21654,7 +21659,7 @@ ${gxlCloseScriptTag}`;
       const partes=[],aindaPendentes=created-enviados-whatsappEnviados;
       if(enviados>0)partes.push(`${enviados} e-mail(s) enviado(s) automaticamente`);
       if(whatsappEnviados>0)partes.push(`${whatsappEnviados} WhatsApp(s) enviado(s) automaticamente`);
-      if(aindaPendentes>0)partes.push(`${aindaPendentes} ação(ões) aguardando um clique`);
+      if(aindaPendentes>0)partes.push(`${aindaPendentes} ação(ões) na fila (WhatsApp sai automaticamente pelo servidor, no ritmo protegido)`);
       if(aplicadas>0)partes.push(`${aplicadas} observação(ões) anexada(s) automaticamente`);
       toast(`${partes.join(' · ')} ✓`,'#10B981');
       if(document.getElementById('page-automacoes')?.classList.contains('active'))window.renderAutomacoes();
