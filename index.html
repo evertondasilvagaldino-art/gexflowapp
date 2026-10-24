@@ -3972,16 +3972,42 @@ async function refreshUsersFromSupabaseFast(){
 // (public.profiles.workspace_id) no início da carga em nuvem. Quem é da Gex Company nunca muda.
 const GEX_MAIN_WORKSPACE = 'gex_company';
 let GEX_WORKSPACE_ID = GEX_MAIN_WORKSPACE;
+let GEX_WORKSPACE_NAME = '';
 async function gexResolveWorkspace(){
   let ws=GEX_MAIN_WORKSPACE;
+  let nome='';
   try{
     if(supabaseClient && sessionUser?.id){
       const {data}=await supabaseClient.from('profiles').select('workspace_id').eq('id',sessionUser.id).maybeSingle();
       if(data && data.workspace_id)ws=String(data.workspace_id);
+      if(ws!==GEX_MAIN_WORKSPACE){
+        const w=await supabaseClient.from('gex_workspaces').select('nome').eq('id',ws).maybeSingle();
+        if(w && w.data && w.data.nome)nome=String(w.data.nome);
+      }
     }
   }catch(e){ console.warn('[GexFlow] workspace do perfil:',e); }
   GEX_WORKSPACE_ID=ws;
+  GEX_WORKSPACE_NAME=nome;
+  try{
+    const roleEl=document.getElementById('sb-user-role');
+    if(roleEl && nome && roleEl.textContent.indexOf(nome)<0)roleEl.textContent=roleEl.textContent+' · '+nome;
+  }catch(e){}
   return ws;
+}
+// O cache local (gx2_*) pertence a UMA empresa. Se o navegador trocar de empresa (ex.: testou a Gex e depois entrou
+// numa empresa nova), apaga o cache antigo e recarrega — senão dados de uma empresa apareceriam (e seriam
+// reenviados) na outra. Para quem é da Gex Company e nunca trocou, nada muda.
+function gexIsolateCacheByWorkspace(){
+  try{
+    const KEY='gx2_cache_ws';
+    const prev=localStorage.getItem(KEY);
+    if(prev===GEX_WORKSPACE_ID)return false;
+    if(prev===null && GEX_WORKSPACE_ID===GEX_MAIN_WORKSPACE){ localStorage.setItem(KEY,GEX_WORKSPACE_ID); return false; }
+    const keep=new Set(['gx2_session',KEY]);
+    Object.keys(localStorage).filter(k=>k.indexOf('gx2_')===0&&!keep.has(k)).forEach(k=>localStorage.removeItem(k));
+    localStorage.setItem(KEY,GEX_WORKSPACE_ID);
+    return true;
+  }catch(e){ return false; }
 }
 const GEX_CLOUD_TABLE = 'gex_records';
 const GEX_DB_COLLECTIONS = [
@@ -4431,6 +4457,7 @@ async function initGexCloudDataSync(isRetry){
   gexCloudBooting=true;
   try{
     await gexResolveWorkspace();
+    if(gexIsolateCacheByWorkspace()){ location.reload(); return false; }
     const logSet=new Set(GEX_LOG_COLLECTIONS);
     const {data}=await gexWithRetry(async()=>{
       const res=await supabaseClient
@@ -18071,7 +18098,7 @@ function applySession(){
   const nomeEl=document.getElementById('sb-user-nome');
   const roleEl=document.getElementById('sb-user-role');
   if(nomeEl)nomeEl.textContent=nome;
-  if(roleEl)roleEl.textContent=role;
+  if(roleEl)roleEl.textContent=role+((typeof GEX_WORKSPACE_NAME!=='undefined'&&GEX_WORKSPACE_NAME)?' · '+GEX_WORKSPACE_NAME:'');
 
   const tbAv=document.getElementById('topbar-av');
   if(tbAv)tbAv.title=nome+' — '+role;
