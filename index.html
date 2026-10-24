@@ -2758,6 +2758,26 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
   </div>
 </div>
 
+<div class="overlay" id="empresa-welcome-ov">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title" id="ew-title">👋 Bem-vindo(a) ao GexFlow!</span>
+      <button class="modal-close" onclick="gxEmpWelcomeClose()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="ew-dots" style="display:flex;gap:6px;margin-bottom:16px"></div>
+      <div id="ew-body"></div>
+    </div>
+    <div class="modal-footer" style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-ghost" id="ew-back" onclick="gxEmpWelcomeStep(gxEmpWelcomeIdx-1)">Voltar</button>
+      <span style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost" id="ew-go" onclick="gxEmpWelcomeGo()"></button>
+        <button class="btn btn-primary" id="ew-next" onclick="gxEmpWelcomeNext()">Próximo</button>
+      </span>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -4000,15 +4020,17 @@ async function gexResolveWorkspace(){
 function gexIsolateCacheByWorkspace(){
   try{
     const KEY='gx2_cache_ws';
-    // Gex Company: marca simples (nada muda para quem já usa). Empresas novas: marca com versão — a "|2" força
+    // Gex Company: marca simples (nada muda para quem já usa). Empresas novas: marca com versão — a "|3" força
     // uma limpeza única em navegadores que ficaram com cache misturado na primeira versão desta correção.
-    const marca=GEX_WORKSPACE_ID===GEX_MAIN_WORKSPACE?GEX_WORKSPACE_ID:GEX_WORKSPACE_ID+'|2';
+    const marca=GEX_WORKSPACE_ID===GEX_MAIN_WORKSPACE?GEX_WORKSPACE_ID:GEX_WORKSPACE_ID+'|3';
     const prev=localStorage.getItem(KEY);
     if(prev===marca)return false;
     if(prev===null && GEX_WORKSPACE_ID===GEX_MAIN_WORKSPACE){ localStorage.setItem(KEY,marca); return false; }
     const keep=new Set(['gx2_session',KEY]);
     Object.keys(localStorage).filter(k=>k.indexOf('gx2_')===0&&!keep.has(k)).forEach(k=>localStorage.removeItem(k));
     localStorage.setItem(KEY,marca);
+    // Empresa nova nasce VAZIA: marca os dados de demonstração do sistema como "já criados" para não serem recriados.
+    if(GEX_WORKSPACE_ID!==GEX_MAIN_WORKSPACE){ localStorage.setItem('gx2_seeded','1'); localStorage.setItem('gx2_tasks_seeded','v2'); }
     return true;
   }catch(e){ return false; }
 }
@@ -24766,6 +24788,7 @@ setInterval(function(){
     carregarTrial();
     if(!trial.loaded)return;
     gxCheckSenhaProvisoria();
+    if(!trialExpirado()&&window.gxMaybeShowEmpresaWelcome)window.gxMaybeShowEmpresaWelcome();
     if(trialExpirado()&&document.getElementById('gx-wall'))return;
     gxTrialUi();
   }catch(e){}
@@ -24785,7 +24808,8 @@ function gxTrialUi(){
     const acao=(ehParceiro()||(last.plans&&last.plans.length))
       ?`<button onclick="gxAbrirPlanos(true)">Ver planos</button>`
       :`<button onclick="window.open('mailto:gexcompanysuporte@gmail.com?subject='+encodeURIComponent('Quero assinar o GexFlow'),'_blank')">Assinar</button>`;
-    p.innerHTML=`<span>Teste grátis: ${dias===1?'falta 1 dia':'faltam '+dias+' dias'}</span>${acao}`;
+    const ajuda=ehEmpresaNova()?`<button style="background:transparent;border:1px solid rgba(255,255,255,.35)" onclick="gxEmpWelcomeOpen()">Como começar</button>`:'';
+    p.innerHTML=`<span>Teste grátis: ${dias===1?'falta 1 dia':'faltam '+dias+' dias'}</span>${ajuda}${acao}`;
     return;
   }
   fecharPill();
@@ -24865,6 +24889,66 @@ async function gxCheckSenhaProvisoria(){
     };
   }catch(e){senhaChecada=false}
 }
+})();
+</script>
+<script id="gex-empresa-welcome">
+// Primeiro acesso do Fundador de uma EMPRESA NOVA: passo a passo de como começar. Aparece uma vez por usuário
+// (pode ser reaberto pelo botão "Como começar" no aviso de teste). Só textos e navegação; não grava nada no banco.
+(function(){
+const PASSOS=[
+  {ico:'👥',t:'1. Cadastre a sua equipe',d:'Em Configurações › Gestão de Usuários, crie o acesso de cada pessoa (vendedores, gerentes, atendimento). Cada um entra com o próprio e-mail e senha e vê só o que o cargo permite.',go:'Ir para Usuários',fn:function(){navigateSub('config-usuarios','configuracoes')}},
+  {ico:'💼',t:'2. Monte o seu funil de vendas',d:'No Comercial você cria o funil com as etapas do seu processo (do primeiro contato ao fechamento) e cadastra os seus leads. Cada lead anda pelas etapas e tem tarefas e histórico.',go:'Ir para Comercial',fn:function(){navigate('comercial')}},
+  {ico:'💬',t:'3. Conecte o WhatsApp e o e-mail',d:'Em Integrações, cada pessoa conecta o próprio número de WhatsApp (escaneando o QR Code) e a própria caixa de e-mail. É por eles que as mensagens e as automações saem.',go:'Ir para Integrações',fn:function(){navigate('integracoes')}},
+  {ico:'🎯',t:'4. Traga leads para dentro',d:'Em Gerar Leads você cria formulários para o seu site, usa a chave de API/webhook ou conecta o Meta Ads. Todo lead que chega cai direto no seu funil.',go:'Ir para Gerar Leads',fn:function(){navigate('gerar_leads')}},
+  {ico:'⚡',t:'5. Automatize o dia a dia',d:'Em Automações você cria regras: mensagem de boas-vindas ao lead novo, follow-up automático, aviso ao responsável. O sistema trabalha mesmo com você fora da tela.',go:'Ir para Automações',fn:function(){navigate('automacoes')}},
+  {ico:'🎁',t:'6. Seu teste grátis',d:'Você tem 3 dias de teste com todos os recursos do plano Pro, por conta da Gex Company. O aviso "Teste grátis" na parte de baixo da tela mostra quantos dias faltam. Para continuar depois, toque em Ver planos. Para rever este passo a passo, use o botão Como começar.',go:'',fn:null}
+];
+window.gxEmpWelcomeIdx=0;
+function chave(){return 'gxw_empresa_welcome__'+String((typeof sessionUser!=='undefined'&&sessionUser&&sessionUser.id)||'anon')}
+window.gxEmpWelcomeStep=function(i){
+  i=Math.max(0,Math.min(PASSOS.length-1,i));
+  window.gxEmpWelcomeIdx=i;
+  const p=PASSOS[i];
+  document.getElementById('ew-body').innerHTML=
+    '<div style="display:flex;gap:14px;align-items:flex-start"><span style="font-size:30px;line-height:1">'+p.ico+'</span>'+
+    '<div><div style="font-size:16px;font-weight:700;margin-bottom:6px">'+p.t+'</div>'+
+    '<div style="font-size:13.5px;color:var(--muted);line-height:1.6">'+p.d+'</div></div></div>'+
+    '<div style="font-size:11.5px;color:var(--muted);margin-top:18px">Passo '+(i+1)+' de '+PASSOS.length+'</div>';
+  document.getElementById('ew-dots').innerHTML=PASSOS.map(function(_,k){return '<span style="height:5px;flex:1;border-radius:3px;background:'+(k<=i?'var(--p2,#7C3AED)':'var(--border,#E5E7EB)')+'"></span>'}).join('');
+  document.getElementById('ew-back').style.visibility=i===0?'hidden':'visible';
+  const go=document.getElementById('ew-go');
+  go.style.display=p.go?'':'none';go.textContent=p.go;
+  document.getElementById('ew-next').textContent=i===PASSOS.length-1?'Vamos começar 🚀':'Próximo';
+};
+window.gxEmpWelcomeNext=function(){
+  if(window.gxEmpWelcomeIdx>=PASSOS.length-1){gxEmpWelcomeClose();return}
+  gxEmpWelcomeStep(window.gxEmpWelcomeIdx+1);
+};
+window.gxEmpWelcomeGo=function(){
+  const p=PASSOS[window.gxEmpWelcomeIdx];
+  gxEmpWelcomeClose();
+  try{if(p&&p.fn)p.fn()}catch(e){console.warn('[boas-vindas]',e)}
+};
+window.gxEmpWelcomeOpen=function(){
+  gxEmpWelcomeStep(0);
+  const ov=document.getElementById('empresa-welcome-ov');if(ov)ov.classList.add('open');
+};
+window.gxEmpWelcomeClose=function(){
+  const ov=document.getElementById('empresa-welcome-ov');if(ov)ov.classList.remove('open');
+  try{localStorage.setItem(chave(),'1')}catch(e){}
+};
+// Chamada pelo aviso de teste (empresa nova): abre sozinho só na primeira vez e só depois da criação da senha.
+window.gxMaybeShowEmpresaWelcome=function(){
+  let visto=false;try{visto=localStorage.getItem(chave())==='1'}catch(e){}
+  if(visto||window.__gxEmpWelcomeAgendado)return;
+  window.__gxEmpWelcomeAgendado=true;
+  setTimeout(function(){
+    window.__gxEmpWelcomeAgendado=false;
+    let v2=false;try{v2=localStorage.getItem(chave())==='1'}catch(e){}
+    if(v2||document.getElementById('gx-pass-wall')||document.getElementById('gx-wall'))return;
+    gxEmpWelcomeOpen();
+  },1800);
+};
 })();
 </script>
 <style id="gex-design-v2">
