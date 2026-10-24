@@ -6784,13 +6784,13 @@ function renderConfiguracoesSeguranca(){
         <div class="cfg-kv-card"><div class="cfg-kv-lbl">Usuário atual</div><div class="cfg-kv-val">${escHtml(sessionUser?.nome||sessionUser?.email||'—')}</div></div>
         <div class="cfg-kv-card"><div class="cfg-kv-lbl">Papel</div><div class="cfg-kv-val">${escHtml(sessionUser?.permissao||sessionUser?.cargo||'—')}</div></div>
         <div class="cfg-kv-card"><div class="cfg-kv-lbl">Status</div><div class="cfg-kv-val">${escHtml(sessionUser?.status||'Ativo')}</div></div>
-        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Login</div><div class="cfg-kv-val">Supabase Auth</div></div>
+        <div class="cfg-kv-card"><div class="cfg-kv-lbl">Login</div><div class="cfg-kv-val">E-mail e senha</div></div>
       </div>
       <div class="cfg-actions" style="margin-top:14px">
         <button class="cfg-btn" onclick="navigate('perfil')">Abrir meu perfil</button>
         <button class="cfg-btn" onclick="logout()">Sair do sistema</button>
       </div>
-      <div class="cfg-note">Alterações avançadas de senha, MFA, logs e revogação de sessão devem ser feitas com Supabase Auth/Edge Functions.</div>
+      <div class="cfg-note">Para trocar a senha, use Meu Perfil ou "Esqueci minha senha" na tela de login.</div>
     </div>`;
 }
 
@@ -8064,16 +8064,8 @@ function formUsuario(d){
     const disabled=(r==='Fundador')?'disabled':'';
     return`<option value="${r}" ${dRole===r?'selected':''} ${disabled}>${r}</option>`;
   }).join('');
-  const newPwdHint=d?'<div style="font-size:11px;color:var(--muted);margin-top:5px">Deixe em branco para manter a senha atual</div>':'<div style="font-size:11px;color:var(--muted);margin-top:5px">Será criada no Supabase Auth. Mínimo de 6 caracteres.</div>';
-  const origemHtml=isNew
-    ? `<div class="user-origin-info">
-        <div class="uo-ico">☁️</div>
-        <div>
-          <div class="uo-title">Cadastro será feito no Supabase Auth</div>
-          <div class="uo-sub">O sistema criará automaticamente o usuário em <b>Authentication</b> e o perfil em <b>public.profiles</b>. Não existe mais cadastro local/cache para novo usuário.</div>
-        </div>
-      </div>`
-    : `<div class="form-group"><label class="form-label">Origem</label><input class="form-input" value="${d?.authProvider==='supabase'?'Supabase Auth':'Local/Cache antigo'}" disabled></div>`;
+  const newPwdHint=d?'<div style="font-size:11px;color:var(--muted);margin-top:5px">Deixe em branco para manter a senha atual</div>':'<div style="font-size:11px;color:var(--muted);margin-top:5px">Mínimo de 6 caracteres.</div>';
+  const origemHtml='';
   return `<div class="form-row">
     <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="f-nome" value="${d?.nome||''}"></div>
     <div class="form-group"><label class="form-label">Email *</label><input class="form-input" id="f-email" type="email" value="${d?.email||''}" ${!isNew?'':'autocomplete="off"'}></div>
@@ -8086,14 +8078,13 @@ function formUsuario(d){
     <div class="form-group"><label class="form-label">Papel / Permissão</label>
       <select class="form-input" id="f-permissao" onchange="onUserRoleChange()" ${isFundadorTarget?'disabled title="Fundador principal não pode ser criado/alterado pelo sistema"':''}>${roleOpts}</select>
     </div>
-    ${isNew?`<div class="form-group"><label class="form-label">Destino</label><input class="form-input" value="Supabase Auth + public.profiles" disabled></div>`:origemHtml}
+    <div class="form-group"></div>
   </div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-status"><option ${(d?.status||(isNew?'Inativo':'Ativo'))==='Ativo'?'selected':''}>Ativo</option><option ${(d?.status||(isNew?'Inativo':'Ativo'))==='Inativo'?'selected':''}>Inativo</option></select>${isNew?'<div style="font-size:11px;color:var(--muted);margin-top:5px">Novo usuário já entra Inativo — você ativa manualmente (grátis) ou gera o link de pagamento pra ele ativar sozinho ao pagar.</div>':''}<div id="f-status-billing-note" style="display:none;font-size:11px;color:#B45309;margin-top:5px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:6px 8px">⚠️ Este usuário tem assinatura Stripe vinculada — o campo foi bloqueado pra evitar que uma alteração manual aqui apague, sem querer, o que o pagamento já definiu. <a href="#" onclick="unlockManualStatus();return false" style="color:#B45309;text-decoration:underline;font-weight:700">Editar mesmo assim</a></div></div>
+    <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-status"><option ${(d?.status||(isNew&&!gxIsOtherWorkspace()?'Inativo':'Ativo'))==='Ativo'?'selected':''}>Ativo</option><option ${(d?.status||(isNew&&!gxIsOtherWorkspace()?'Inativo':'Ativo'))==='Inativo'?'selected':''}>Inativo</option></select>${isNew&&!gxIsOtherWorkspace()?'<div style="font-size:11px;color:var(--muted);margin-top:5px">Novo usuário já entra Inativo — você ativa manualmente (grátis) ou gera o link de pagamento pra ele ativar sozinho ao pagar.</div>':''}<div id="f-status-billing-note" style="display:none;font-size:11px;color:#B45309;margin-top:5px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:6px 8px">⚠️ Este usuário tem assinatura Stripe vinculada — o campo foi bloqueado pra evitar que uma alteração manual aqui apague, sem querer, o que o pagamento já definiu. <a href="#" onclick="unlockManualStatus();return false" style="color:#B45309;text-decoration:underline;font-weight:700">Editar mesmo assim</a></div></div>
     <div class="form-group"><label class="form-label">Senha ${d?'(nova)':''}</label><div class="gx-pwd-wrap"><input class="form-input" id="f-senha" type="password" placeholder="••••••••" autocomplete="new-password"><button type="button" class="gx-pwd-eye" title="Mostrar senha" onclick="toggleGxPwdEye('f-senha',this)"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 10s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6z"/><circle cx="10" cy="10" r="2.6"/></svg></button></div>${newPwdHint}</div>
   </div>
-  ${isNew?origemHtml:''}
-  ${!isNew?`<div class="user-origin-info" style="margin-top:14px">
+  ${!isNew&&!gxIsOtherWorkspace()?`<div class="user-origin-info" style="margin-top:14px">
     <div class="uo-ico">💳</div>
     <div style="flex:1">
       <div class="uo-title">Cobrança — manter este usuário ativo</div>
@@ -11842,7 +11833,7 @@ function renderUsuarios(opts={}){
         <div>
           <div style="font-weight:600;font-size:13px">${u.nome}</div>
           ${isFundadorUser?'<div style="font-size:9px;color:var(--p2);font-weight:700;letter-spacing:.04em;text-transform:uppercase">Fundador — acesso total</div>':''}
-          ${u.authProvider==='supabase'?'<div style="font-size:9px;color:#059669;font-weight:700;letter-spacing:.04em;text-transform:uppercase">Supabase Auth</div>':'<div style="font-size:9px;color:var(--light);font-weight:700;letter-spacing:.04em;text-transform:uppercase">Local/cache</div>'}
+          ${u.authProvider==='supabase'?'':'<div style="font-size:9px;color:var(--light);font-weight:700;letter-spacing:.04em;text-transform:uppercase">Local/cache</div>'}
         </div>
       </div></td>
       <td style="color:var(--muted);font-size:12px">${u.email}</td>
