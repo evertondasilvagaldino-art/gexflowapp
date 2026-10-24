@@ -4033,6 +4033,23 @@ function gexIsolateCacheByWorkspace(){
     return true;
   }catch(e){ return false; }
 }
+// Dados de demonstração do sistema (ids fixos). Empresa cliente nunca deve ter esses dados — se aparecerem, são removidos.
+const GEX_DEMO_SEED_IDS={
+  clientes:['c1','c2','c3'],projetos:['p1','p2','p3','p4'],leads:['l1','l2','l3','l4','l5'],transacoes:['t1','t2','t3','t4','t5'],
+  squads:['sq1','sq2','sq3','sq4','sq5','sq6'],membros:['m1','m2','m3','m4'],conteudos:['co1','co2','co3','co4','co5'],
+  fornecedores:['fo1','fo2','fo3','fo4'],creators:['cr1','cr2','cr3','cr4'],onboarding:['ob1','ob2','ob3'],
+  atividades:['a1','a2','a3'],followups:['f1','f2','f3'],tarefas_cli:['tc1','tc2','tc3'],contratos:['ct1','ct2','ct3'],
+  com_tasks:['ct_s1','ct_s2','ct_s3','ct_s4','ct_s5']
+};
+function gexPurgeDemoSeedForCompany(){
+  try{
+    if(GEX_WORKSPACE_ID===GEX_MAIN_WORKSPACE)return;
+    Object.keys(GEX_DEMO_SEED_IDS).forEach(col=>{
+      const ids=new Set(GEX_DEMO_SEED_IDS[col]);
+      (DB.get(col)||[]).filter(x=>x&&ids.has(String(x.id))).forEach(x=>DB.remove(col,x.id));
+    });
+  }catch(e){ console.warn('[GexFlow] limpeza de demo:',e); }
+}
 const GEX_CLOUD_TABLE = 'gex_records';
 const GEX_DB_COLLECTIONS = [
   'clientes','projetos','leads','transacoes','squads','membros','conteudos',
@@ -4482,6 +4499,7 @@ async function initGexCloudDataSync(isRetry){
   try{
     await gexResolveWorkspace();
     if(gexIsolateCacheByWorkspace()){ location.reload(); return false; }
+    gexPurgeDemoSeedForCompany();
     const logSet=new Set(GEX_LOG_COLLECTIONS);
     const {data}=await gexWithRetry(async()=>{
       const res=await supabaseClient
@@ -4616,6 +4634,7 @@ async function initGexCloudDataSync(isRetry){
       if(allOk)localStorage.setItem('gx2_cloud_backfilled_v2','1');
     }
 
+    gexPurgeDemoSeedForCompany();
     gexCloudReady=true;
     startGexRecordsRealtime();
     // DESLIGADO DE PROPÓSITO (03/10/2026): o motor de automações agora roda
@@ -4729,8 +4748,10 @@ const fmtBRL=n=>'R$ '+_gxBRLfmt.format(Number(n));
 const initials=s=>s.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
 const now=()=>new Date().toLocaleString('pt-BR');
 
-// Seed
-if(!localStorage.getItem('gx2_seeded')){
+// Seed (nunca em cache de empresa cliente)
+const _gxCacheMarker=(()=>{try{return localStorage.getItem('gx2_cache_ws')||''}catch(e){return ''}})();
+const _gxMarkerOther=!!_gxCacheMarker&&_gxCacheMarker.indexOf('gex_company')!==0;
+if(!localStorage.getItem('gx2_seeded')&&!_gxMarkerOther){
   DB.set('clientes',[
     {id:'c1',nome:'Empresa Alpha',email:'alpha@email.com',telefone:'(11) 9.9999-1234',status:'Ativo',squad:'Squad A',ltv:'R$ 8.500',health:85,desc:'Cliente premium, foco em tráfego pago e conteúdo orgânico.'},
     {id:'c2',nome:'Beta Soluções',email:'beta@sol.com',telefone:'(21) 9.8888-5678',status:'Ativo',squad:'Squad B',ltv:'R$ 12.000',health:92,desc:'Agência parceira, faz gestão de três marcas.'},
@@ -4835,7 +4856,7 @@ if(!localStorage.getItem('gx2_seeded')){
 }
 
 // Seed de tarefas comerciais demo — v2 (força re-seed para corrigir duplicatas)
-if(localStorage.getItem('gx2_tasks_seeded')!=='v2'){
+if(localStorage.getItem('gx2_tasks_seeded')!=='v2'&&!_gxMarkerOther){
   const _td=new Date();
   const _fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const _yday=new Date(_td); _yday.setDate(_td.getDate()-1);
