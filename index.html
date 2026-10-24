@@ -6500,6 +6500,31 @@ function renderConfiguracoesPagamentosEmpresa(page){
   })();
 }
 
+// Ações do Fundador da Gex sobre uma empresa cliente (suspender, reativar, estender teste).
+window.gexEmpresaAcao=async function(wsId,action,nome){
+  if(!gxIsGexFounder())return;
+  const body={workspaceId:wsId,action};
+  if(action==='estender_teste'){
+    const v=prompt(`Quantos dias de teste grátis a mais para "${nome}"? (1 a 30)`,'3');
+    if(v===null)return;
+    const dias=parseInt(v,10);
+    if(!dias||dias<1||dias>30){toast('Informe de 1 a 30 dias','#F59E0B');return}
+    body.days=dias;
+  }else if(action==='suspender'){
+    if(!confirm(`Suspender "${nome}"? Ninguém dessa empresa consegue usar o sistema até você reativar.`))return;
+  }else if(action==='reativar'){
+    if(!confirm(`Reativar "${nome}" manualmente? Ela volta a usar o sistema sem prazo de teste.`))return;
+  }
+  try{
+    const token=await getGexSupabaseToken();
+    const res=await fetch(getSupabaseFunctionUrl('gex-empresa-manage'),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível concluir. Confirme se a função "gex-empresa-manage" foi publicada.');
+    toast(action==='suspender'?'Empresa suspensa':action==='reativar'?'Empresa reativada ✓':'Teste estendido ✓','#10B981');
+    loadEmpresasClientes();
+  }catch(e){ toast(e.message||'Erro','#EF4444'); }
+};
+
 async function loadEmpresasClientes(){
   const wrap=document.getElementById('empresas-clientes-wrap');
   if(!wrap)return;
@@ -6556,7 +6581,7 @@ async function loadEmpresasClientes(){
       return;
     }
     wrap.innerHTML=resumo+`<div style="overflow-x:auto"><table class="table"><thead><tr>
-      <th>Empresa</th><th>Responsável</th><th>Plano</th><th>Valor</th><th>Situação</th><th>Teste até / Renovação</th><th>Usuários</th><th>Cadastro</th>
+      <th>Empresa</th><th>Responsável</th><th>Plano</th><th>Valor</th><th>Situação</th><th>Teste até / Renovação</th><th>Usuários</th><th>Cadastro</th><th>Ações</th>
     </tr></thead><tbody>${empresas.map(e=>{
       const [lbl,color]=situacao(e);
       const plan=plans.find(p=>p.id===e.assinatura?.plan_id);
@@ -6572,6 +6597,12 @@ async function loadEmpresasClientes(){
         <td style="color:var(--muted);font-size:12px">${dataTxt}</td>
         <td style="font-size:12px">${e.usuarios||0}</td>
         <td style="color:var(--muted);font-size:12px">${e.created_at?new Date(e.created_at).toLocaleDateString('pt-BR'):'—'}</td>
+        <td style="white-space:nowrap">
+          <button class="cfg-btn" style="padding:4px 10px;font-size:11px" onclick="gexEmpresaAcao('${escAttr(e.id)}','estender_teste','${escAttr(e.nome||'')}')">+ Dias de teste</button>
+          ${e.status==='suspensa'
+            ?`<button class="cfg-btn" style="padding:4px 10px;font-size:11px;color:#059669" onclick="gexEmpresaAcao('${escAttr(e.id)}','reativar','${escAttr(e.nome||'')}')">Reativar</button>`
+            :`<button class="cfg-btn" style="padding:4px 10px;font-size:11px;color:#DC2626" onclick="gexEmpresaAcao('${escAttr(e.id)}','suspender','${escAttr(e.nome||'')}')">Suspender</button>`}
+        </td>
       </tr>`;
     }).join('')}</tbody></table></div>`;
   }catch(e){
