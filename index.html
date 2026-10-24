@@ -6495,7 +6495,7 @@ function renderConfiguracoesPagamentosEmpresa(page){
         txt=dias>0?`Teste grátis até ${fim.toLocaleDateString('pt-BR')} (${dias} dia${dias>1?'s':''} restante${dias>1?'s':''}). Contrate um plano para continuar usando.`:`Seu teste grátis terminou em ${fim.toLocaleDateString('pt-BR')}. Contrate um plano para voltar a usar.`;
         if(dias<=0)cor='#EF4444';
       }else if(data.status==='suspensa'){txt='Acesso suspenso por falta de pagamento. Contrate um plano para reativar.';cor='#EF4444'}
-      if(txt)box.innerHTML=`<div style="background:${cor}14;border:1px solid ${cor}40;color:var(--text);border-radius:10px;padding:10px 14px;font-size:13px">${escHtml(txt)}</div>`;
+      if(txt)box.innerHTML=`<div style="background:${cor}14;border:1px solid ${cor}40;color:var(--txt);border-radius:10px;padding:10px 14px;font-size:13px">${escHtml(txt)}</div>`;
     }catch(e){}
   })();
 }
@@ -6507,8 +6507,8 @@ function gexDialog(opts){
   if(!document.getElementById('gex-dlg-style')){
     const st=document.createElement('style'); st.id='gex-dlg-style';
     st.textContent='#gex-dlg-ov{position:fixed;inset:0;background:rgba(10,10,20,.62);display:flex;align-items:center;justify-content:center;z-index:2147483100;padding:16px}'+
-      '.gex-dlg{background:var(--card,#fff);color:var(--text,#111827);border:1px solid var(--border,#E5E7EB);border-radius:14px;max-width:420px;width:100%;padding:22px 22px 18px;box-shadow:0 20px 60px rgba(0,0,0,.4)}'+
-      '.gex-dlg h3{font-size:16px;font-weight:800;margin:0 0 6px}.gex-dlg p{font-size:13px;color:var(--muted,#6B7280);line-height:1.5;margin:0 0 14px}'+
+      '.gex-dlg{background:var(--card,#fff);color:var(--txt,#111827);border:1px solid var(--border,#E5E7EB);border-radius:14px;max-width:420px;width:100%;padding:22px 22px 18px;box-shadow:0 20px 60px rgba(0,0,0,.4)}'+
+      '.gex-dlg h3{font-size:16px;font-weight:800;margin:0 0 6px;color:var(--txt,#111827)}.gex-dlg p{font-size:13px;color:var(--muted,#6B7280);line-height:1.5;margin:0 0 14px}'+
       '.gex-dlg-err{font-size:12.5px;color:#DC2626;margin:0 0 12px;display:none}.gex-dlg-act{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}';
     document.head.appendChild(st);
   }
