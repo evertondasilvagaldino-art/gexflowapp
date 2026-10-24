@@ -24703,9 +24703,36 @@ window._gxApplyPlanTierFromSubPlans=function(sub,plans){
 };
 
 // Empresa nova: confere o teste ao entrar e a cada poucos segundos (barato: só consulta uma vez; depois só atualiza o aviso).
+// Planos e assinatura da empresa nova (mesmas funções do parceiro: billing-self-status / billing-self-portal-checkout).
+let planosEmp={uid:'',at:0,n:0,busy:false};
+async function carregarPlanosEmpresa(){
+  try{
+    const token=await getGexSupabaseToken();
+    const res=await fetch(getSupabaseFunctionUrl('billing-self-status'),{headers:{Authorization:`Bearer ${token}`}});
+    const j=await res.json().catch(()=>({}));
+    if(res.ok&&j&&j.ok!==false)last={sub:j.subscription||null,plans:j.plans||[]};
+  }catch(e){}
+}
+function atualizarPlanosEmpresa(){
+  const uid=String(sessionUser?.id||'');
+  if(planosEmp.uid!==uid)planosEmp={uid,at:0,n:0,busy:false};
+  const sucesso=/billing=sucesso/.test(location.search);
+  const idade=Date.now()-planosEmp.at;
+  if(planosEmp.busy)return;
+  if(planosEmp.at===0||(sucesso&&idade>5000&&planosEmp.n<12)){
+    planosEmp.busy=true;planosEmp.at=Date.now();planosEmp.n++;
+    carregarPlanosEmpresa().then(function(){
+      // Pagamento confirmado: relê o status da empresa (o webhook do Stripe a marca como ativa).
+      if(sucesso){trial.loaded=false;carregarTrial()}
+      gxTrialUi();
+    }).finally(function(){planosEmp.busy=false});
+  }
+}
+
 setInterval(function(){
   try{
     if(!ehEmpresaNova())return;
+    atualizarPlanosEmpresa();
     carregarTrial();
     if(!trial.loaded)return;
     gxCheckSenhaProvisoria();
@@ -24725,7 +24752,7 @@ function gxTrialUi(){
     const dias=Math.max(1,Math.ceil((new Date(trial.row.ends_at).getTime()-Date.now())/86400000));
     let p=document.getElementById('gx-trial-pill');
     if(!p){p=document.createElement('div');p.id='gx-trial-pill';document.body.appendChild(p)}
-    const acao=ehParceiro()
+    const acao=(ehParceiro()||(last.plans&&last.plans.length))
       ?`<button onclick="gxAbrirPlanos(true)">Ver planos</button>`
       :`<button onclick="window.open('mailto:gexcompanysuporte@gmail.com?subject='+encodeURIComponent('Quero assinar o GexFlow'),'_blank')">Assinar</button>`;
     p.innerHTML=`<span>Teste grátis: ${dias===1?'falta 1 dia':'faltam '+dias+' dias'}</span>${acao}`;
