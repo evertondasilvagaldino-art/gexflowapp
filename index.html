@@ -4956,7 +4956,7 @@ function gxPlanBlocksModule(module){
 }
 // Central permission gate
 // Telas internas da Gex Company (administração das assinaturas dos parceiros): não existem para empresas clientes.
-const GX_GEX_INTERNAL_MODULES=['config_pagamentos'];
+const GX_GEX_INTERNAL_MODULES=[]; // Pagamentos agora existe nas duas versões: Gex = todas as assinaturas; empresa cliente = só a própria
 function gxIsOtherWorkspace(){
   try{ return GEX_WORKSPACE_ID!==GEX_MAIN_WORKSPACE; }catch(e){ return false; }
 }
@@ -4977,8 +4977,8 @@ function gxIsGexFounder(){
 function can(module, action){
   if(!sessionUser)return false;
   if(gxIsOtherWorkspace()&&GX_GEX_INTERNAL_MODULES.includes(module))return false;
-  // Pagamentos e Assinatura: só o Fundador do sistema (Gex Company). Nem Adm/Gerente, nem Fundador de empresa nova.
-  if(module==='config_pagamentos'&&!gxIsGexFounder())return false;
+  // Pagamentos e Assinatura: só o Fundador. Na Gex Company mostra todas as assinaturas; numa empresa cliente, só a dela.
+  if(module==='config_pagamentos'&&resolveRole(sessionUser?.permissao||sessionUser?.cargo||sessionUser?.role||'')!=='Fundador')return false;
   if(!userCanAccess(sessionUser,module,action))return false;
   if(gxPlanBlocksModule(module))return false;
   return true;
@@ -5145,7 +5145,7 @@ function repairConfiguracoesMenuVisibility(){
     ].forEach(k=>{
       const el=document.querySelector(`[data-sub="${k}"]`);
       if(!el) return;
-      if(k==='config-pagamentos'&&!gxIsGexFounder()){ el.style.display='none'; return; }
+      if(k==='config-pagamentos'&&!can('config_pagamentos','view')){ el.style.display='none'; return; }
       el.style.display='';
     });
   }
@@ -5729,6 +5729,28 @@ async function fireWebhook(event,data){
 // Fire-and-forget: se falhar (Gmail não configurado, sem internet etc), só
 // registra no console — nunca trava a ação que o usuário estava fazendo.
 async function notifyEmailEvent(event,data){
+  // Empresa cliente: este aviso sai pelo Gmail central da Gex e vai para o time da Gex — nunca para empresas clientes.
+  // Empresa cliente: nunca usa o Gmail central da Gex. Avisa pela PRÓPRIA caixa de e-mail (SMTP) que a pessoa conectou em Integrações.
+  if(typeof gxIsOtherWorkspace==='function'&&gxIsOtherWorkspace()){
+    try{
+      const myId=String(sessionUser?.id||'');
+      const smtp=(DB.get('email_smtp_settings')||[]).find(x=>x.id===`email_smtp_main__${myId}`);
+      const box=String(smtp?.fromEmail||smtp?.username||'').trim();
+      if(!myId||!smtp?.connected||!box)return {ok:false,skipped:true,message:'Conecte o seu e-mail em Integrações para receber os avisos por e-mail.'};
+      const d=data||{};
+      const nome=d.nome||d.empresa||d.titulo||d.title||'';
+      const textos={
+        'teste.notificacao':['🔔 Teste de notificação do GexFlow','Este é um e-mail de teste. Se você recebeu, os avisos por e-mail da sua empresa estão funcionando.'],
+        'lead.criado':[`🔔 Novo lead: ${nome||'Lead'}`,`Novo lead recebido: "${nome||'Lead'}"${d.origem?` (origem: ${d.origem})`:''}. Confira no seu Pipeline.`],
+        'negocio.ganho':[`🎉 Negócio ganho: ${nome||'Negócio'}`,`Boa notícia! O negócio "${nome||'Negócio'}" foi marcado como Ganho${Number(d.valor||0)?` (valor: ${Number(d.valor).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})})`:''} no Pipeline.`],
+        'tarefa.concluida':[`✅ Tarefa concluída: ${nome||'Tarefa'}`,`A tarefa "${nome||'Tarefa'}" foi concluída.`]
+      };
+      const t=textos[event];
+      if(!t)return {ok:false,skipped:true,message:'Aviso não disponível.'};
+      const r=await notifySelfEmail(box,t[0],t[1]);
+      return r?.ok?{ok:true,sent:1}:{ok:false,message:r?.message||r?.error||'Não foi possível enviar pelo seu e-mail. Confira a conexão em Integrações.'};
+    }catch(e){ return {ok:false,error:e.message||'Falha ao enviar'}; }
+  }
   try{
     const token=await getGexSupabaseToken();
     const res=await fetch(getSupabaseFunctionUrl('send-notification-email'),{
@@ -6403,6 +6425,7 @@ function renderConfiguracoesWebhookApi(){
 
 function renderConfiguracoesPagamentos(){
   const page=document.getElementById('page-configuracoes');
+  if(gxIsOtherWorkspace()) return renderConfiguracoesPagamentosEmpresa(page);
   page.innerHTML=`
     <div class="cfg-hero">
       <div>
@@ -6440,6 +6463,41 @@ function renderConfiguracoesPagamentos(){
     </div>`;
   loadAssinaturasClientes();
   loadEmpresasClientes();
+}
+
+// Empresa cliente: o Fundador vê só o pagamento/assinatura da PRÓPRIA empresa.
+function renderConfiguracoesPagamentosEmpresa(page){
+  page.innerHTML=`
+    <div class="cfg-hero">
+      <div>
+        <div class="cfg-title">Pagamentos e Assinatura</div>
+        <div class="cfg-sub">Plano, teste grátis e cobrança da ${escHtml(GEX_WORKSPACE_NAME||'sua empresa')}.</div>
+      </div>
+      <div class="cfg-badge">💳 Minha assinatura</div>
+    </div>
+    ${configTabbar('config-pagamentos')}
+    <div class="cfg-panel" style="margin-top:18px;max-width:760px">
+      <div id="emp-pagto-teste" style="margin-bottom:14px"></div>
+      <div style="font-weight:700;font-size:15px;margin-bottom:4px">Minha assinatura</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Veja a vigência, contrate um plano, troque o cartão, baixe faturas ou cancele — direto por aqui.</div>
+      <div id="minha-assinatura-content"><div class="empty-txt" style="font-size:12px">Consultando...</div></div>
+    </div>`;
+  carregarMinhaAssinatura();
+  (async()=>{
+    try{
+      const box=document.getElementById('emp-pagto-teste'); if(!box||!supabaseClient)return;
+      const {data}=await supabaseClient.from('gex_workspaces').select('status,trial_ends_at,plano').eq('id',GEX_WORKSPACE_ID).maybeSingle();
+      if(!data||!document.getElementById('emp-pagto-teste'))return;
+      const fim=data.trial_ends_at?new Date(data.trial_ends_at):null;
+      let txt='',cor='#6366F1';
+      if(data.status==='trial'&&fim){
+        const dias=Math.ceil((fim.getTime()-Date.now())/86400000);
+        txt=dias>0?`Teste grátis até ${fim.toLocaleDateString('pt-BR')} (${dias} dia${dias>1?'s':''} restante${dias>1?'s':''}). Contrate um plano para continuar usando.`:`Seu teste grátis terminou em ${fim.toLocaleDateString('pt-BR')}. Contrate um plano para voltar a usar.`;
+        if(dias<=0)cor='#EF4444';
+      }else if(data.status==='suspensa'){txt='Acesso suspenso por falta de pagamento. Contrate um plano para reativar.';cor='#EF4444'}
+      if(txt)box.innerHTML=`<div style="background:${cor}14;border:1px solid ${cor}40;color:var(--text);border-radius:10px;padding:10px 14px;font-size:13px">${escHtml(txt)}</div>`;
+    }catch(e){}
+  })();
 }
 
 async function loadEmpresasClientes(){
@@ -6672,7 +6730,7 @@ async function testarNotificacoes(){
   playChime('lead');
   toast('Tocando som e enviando e-mail de teste...','#7C3AED');
   const result=await notifyEmailEvent('teste.notificacao',{});
-  if(result?.ok)toast(`E-mail de teste enviado pra ${result.sent} usuário(s) ✓`,'#10B981');
+  if(result?.ok)toast(gxIsOtherWorkspace()?'E-mail de teste enviado pela sua caixa ✓':`E-mail de teste enviado pra ${result.sent} usuário(s) ✓`,'#10B981');
   else if(result?.skipped)toast(result.message||'E-mail ainda não configurado','#F59E0B');
   else toast(result?.message||result?.error||'Falha ao enviar o e-mail de teste','#EF4444');
 }
