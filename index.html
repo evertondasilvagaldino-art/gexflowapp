@@ -6501,28 +6501,65 @@ function renderConfiguracoesPagamentosEmpresa(page){
 }
 
 // Ações do Fundador da Gex sobre uma empresa cliente (suspender, reativar, estender teste).
-window.gexEmpresaAcao=async function(wsId,action,nome){
-  if(!gxIsGexFounder())return;
-  const body={workspaceId:wsId,action};
-  if(action==='estender_teste'){
-    const v=prompt(`Quantos dias de teste grátis a mais para "${nome}"? (1 a 30)`,'3');
-    if(v===null)return;
-    const dias=parseInt(v,10);
-    if(!dias||dias<1||dias>30){toast('Informe de 1 a 30 dias','#F59E0B');return}
-    body.days=dias;
-  }else if(action==='suspender'){
-    if(!confirm(`Suspender "${nome}"? Ninguém dessa empresa consegue usar o sistema até você reativar.`))return;
-  }else if(action==='reativar'){
-    if(!confirm(`Reativar "${nome}" manualmente? Ela volta a usar o sistema sem prazo de teste.`))return;
+// Caixa de diálogo própria do GexFlow (no lugar do popup do navegador).
+// opts: {title, message, input:{label,value,type,min,max}, confirmText, danger, onConfirm:async(valor)=>{ throw Error para mostrar o erro na própria caixa }}
+function gexDialog(opts){
+  if(!document.getElementById('gex-dlg-style')){
+    const st=document.createElement('style'); st.id='gex-dlg-style';
+    st.textContent='#gex-dlg-ov{position:fixed;inset:0;background:rgba(10,10,20,.62);display:flex;align-items:center;justify-content:center;z-index:2147483100;padding:16px}'+
+      '.gex-dlg{background:var(--card,#fff);color:var(--text,#111827);border:1px solid var(--border,#E5E7EB);border-radius:14px;max-width:420px;width:100%;padding:22px 22px 18px;box-shadow:0 20px 60px rgba(0,0,0,.4)}'+
+      '.gex-dlg h3{font-size:16px;font-weight:800;margin:0 0 6px}.gex-dlg p{font-size:13px;color:var(--muted,#6B7280);line-height:1.5;margin:0 0 14px}'+
+      '.gex-dlg-err{font-size:12.5px;color:#DC2626;margin:0 0 12px;display:none}.gex-dlg-act{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}';
+    document.head.appendChild(st);
   }
-  try{
+  document.getElementById('gex-dlg-ov')?.remove();
+  const ov=document.createElement('div'); ov.id='gex-dlg-ov';
+  const inp=opts.input;
+  ov.innerHTML=`<div class="gex-dlg" role="dialog" aria-modal="true">
+    <h3>${escHtml(opts.title||'')}</h3>
+    <p>${escHtml(opts.message||'')}</p>
+    ${inp?`<div class="form-group" style="margin-bottom:12px"><label class="form-label">${escHtml(inp.label||'')}</label><input class="form-input" id="gex-dlg-input" type="${inp.type||'text'}" value="${escAttr(inp.value??'')}" ${inp.min!=null?`min="${inp.min}"`:''} ${inp.max!=null?`max="${inp.max}"`:''}></div>`:''}
+    <div class="gex-dlg-err" id="gex-dlg-err"></div>
+    <div class="gex-dlg-act">
+      <button class="cfg-btn" id="gex-dlg-cancel" type="button">Cancelar</button>
+      <button class="cfg-btn primary" id="gex-dlg-ok" type="button" ${opts.danger?'style="background:#DC2626;border-color:#DC2626;color:#fff"':''}>${escHtml(opts.confirmText||'Confirmar')}</button>
+    </div></div>`;
+  document.body.appendChild(ov);
+  const close=()=>ov.remove();
+  const ok=ov.querySelector('#gex-dlg-ok'), err=ov.querySelector('#gex-dlg-err');
+  ov.querySelector('#gex-dlg-cancel').onclick=close;
+  ov.addEventListener('mousedown',e=>{ if(e.target===ov)close(); });
+  const go=async()=>{
+    err.style.display='none'; ok.disabled=true; const t=ok.textContent; ok.textContent='Aguarde...';
+    try{ await opts.onConfirm(inp?ov.querySelector('#gex-dlg-input').value:undefined); close(); }
+    catch(e){ err.textContent=e?.message||'Não foi possível concluir.'; err.style.display='block'; ok.disabled=false; ok.textContent=t; }
+  };
+  ok.onclick=go;
+  ov.addEventListener('keydown',e=>{ if(e.key==='Enter'&&inp)go(); if(e.key==='Escape')close(); });
+  setTimeout(()=>(ov.querySelector('#gex-dlg-input')||ok).focus(),30);
+}
+
+// Ações do Fundador da Gex sobre uma empresa cliente (suspender, reativar, estender teste).
+window.gexEmpresaAcao=function(wsId,action,nome){
+  if(!gxIsGexFounder())return;
+  const chamar=async(extra)=>{
     const token=await getGexSupabaseToken();
-    const res=await fetch(getSupabaseFunctionUrl('gex-empresa-manage'),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
-    const j=await res.json().catch(()=>({}));
-    if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível concluir. Confirme se a função "gex-empresa-manage" foi publicada.');
+    const res=await fetch(getSupabaseFunctionUrl('gex-empresa-manage'),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({workspaceId:wsId,action,...(extra||{})})});
+    const j=await res.json().catch(()=>null);
+    if(!j)throw new Error('A função "gex-empresa-manage" não respondeu. Confirme se ela foi publicada no Supabase com esse nome.');
+    if(!res.ok||j.ok===false)throw new Error(j.message||'Não foi possível concluir.');
     toast(action==='suspender'?'Empresa suspensa':action==='reativar'?'Empresa reativada ✓':'Teste estendido ✓','#10B981');
     loadEmpresasClientes();
-  }catch(e){ toast(e.message||'Erro','#EF4444'); }
+  };
+  if(action==='estender_teste'){
+    gexDialog({title:'Estender teste grátis',message:`Quantos dias a mais para "${nome}"? Eles são somados ao fim do teste atual.`,
+      input:{label:'Dias (1 a 30)',type:'number',value:3,min:1,max:30},confirmText:'Estender teste',
+      onConfirm:async(v)=>{ const dias=parseInt(v,10); if(!dias||dias<1||dias>30)throw new Error('Informe de 1 a 30 dias.'); await chamar({days:dias}); }});
+  }else if(action==='suspender'){
+    gexDialog({title:'Suspender empresa',message:`Suspender "${nome}"? Ninguém dessa empresa consegue usar o sistema até você reativar.`,confirmText:'Suspender',danger:true,onConfirm:()=>chamar()});
+  }else if(action==='reativar'){
+    gexDialog({title:'Reativar empresa',message:`Reativar "${nome}" manualmente? Ela volta a usar o sistema sem prazo de teste.`,confirmText:'Reativar',onConfirm:()=>chamar()});
+  }
 };
 
 async function loadEmpresasClientes(){
@@ -6598,7 +6635,7 @@ async function loadEmpresasClientes(){
         <td style="font-size:12px">${e.usuarios||0}</td>
         <td style="color:var(--muted);font-size:12px">${e.created_at?new Date(e.created_at).toLocaleDateString('pt-BR'):'—'}</td>
         <td style="white-space:nowrap">
-          <button class="cfg-btn" style="padding:4px 10px;font-size:11px" onclick="gexEmpresaAcao('${escAttr(e.id)}','estender_teste','${escAttr(e.nome||'')}')">+ Dias de teste</button>
+          ${e.assinatura?.status==='active'?'':`<button class="cfg-btn" style="padding:4px 10px;font-size:11px" onclick="gexEmpresaAcao('${escAttr(e.id)}','estender_teste','${escAttr(e.nome||'')}')">+ Dias de teste</button>`}
           ${e.status==='suspensa'
             ?`<button class="cfg-btn" style="padding:4px 10px;font-size:11px;color:#059669" onclick="gexEmpresaAcao('${escAttr(e.id)}','reativar','${escAttr(e.nome||'')}')">Reativar</button>`
             :`<button class="cfg-btn" style="padding:4px 10px;font-size:11px;color:#DC2626" onclick="gexEmpresaAcao('${escAttr(e.id)}','suspender','${escAttr(e.nome||'')}')">Suspender</button>`}
