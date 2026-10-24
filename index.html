@@ -18214,7 +18214,9 @@ async function doLogin(){
     }
     if(!isProfileActive(profile)){
       loginErr('Usuário inativo. Contate o administrador.');
-      try{await supabaseClient.auth.signOut();}catch(e){}
+      // Mantém a sessão só para abrir a renovação (o app continua bloqueado). Sai sozinha em 20 min ou em "Entrar com outra conta".
+      _gexRenewToken=data?.session?.access_token||'';
+      if(!_gexRenewToken){ try{await supabaseClient.auth.signOut();}catch(e){} }
       gexShowAccessRevokedOverlay(profile?.nome||profile?.name||'');
       return;
     }
@@ -18236,10 +18238,10 @@ async function doLogin(){
 }
 
 // ─── logout ──────────────────────────────────────────────────────────────
-async function doLogout(){
+async function doLogout(keepAuth){
   localStorage.removeItem('gx2_session');
   sessionUser=null;
-  if(supabaseClient){
+  if(supabaseClient&&keepAuth!==true){
     try{ await supabaseClient.auth.signOut(); }catch(e){}
   }
   document.getElementById('login-screen').style.display='flex';
@@ -18269,7 +18271,7 @@ function gexEnsureAccessRevokedOverlay(){
     '.gex-arv-icon{width:52px;height:52px;border-radius:50%;background:#FEE2E2;color:#DC2626;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 16px}'+
     '.gex-arv-title{font-size:17px;font-weight:800;color:#111827;margin-bottom:8px}'+
     '.gex-arv-msg{font-size:13.5px;color:#4B5563;line-height:1.5;margin-bottom:20px}'+
-    '.gex-arv-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;background:#25d366;color:#fff;border:0;border-radius:9px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none}'+
+    '.gex-arv-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;background:#7C3AED;color:#fff;border:0;border-radius:9px;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;text-decoration:none}'+
     '.gex-arv-btn:hover{filter:brightness(.95)}'
   ));
   document.head.appendChild(css);
@@ -18280,25 +18282,77 @@ function gexEnsureAccessRevokedOverlay(){
       '<div class="gex-arv-icon">⚠️</div>'+
       '<div class="gex-arv-title">Seu acesso foi desativado</div>'+
       '<div class="gex-arv-msg">Renove o quanto antes para voltar a usar o GexFlow sem interrupção.</div>'+
-      '<a class="gex-arv-btn" id="gex-arv-renovar-btn" target="_blank" rel="noopener">💬 Renovar agora</a>'+
+      '<div id="gex-arv-plans" style="margin-bottom:12px;text-align:left"></div>'+
+      '<button type="button" class="gex-arv-btn" id="gex-arv-renovar-btn" onclick="gexRenewGo()">Renovar agora</button>'+
+      '<div id="gex-arv-info" style="font-size:12px;color:#6B7280;margin-top:10px"></div>'+
       '<div style="margin-top:14px"><a href="#" id="gex-arv-close-link" style="font-size:12px;color:#9CA3AF;text-decoration:underline">Entrar com outra conta</a></div>'+
     '</div>';
   document.body.appendChild(ov);
   document.getElementById('gex-arv-close-link')?.addEventListener('click',e=>{
     e.preventDefault();
     gexHideAccessRevokedOverlay();
+    _gexRenewToken='';
+    try{ supabaseClient?.auth.signOut(); }catch(err){}
   });
   return ov;
 }
+let _gexRenewToken='';
+let _gexRenewState={hasSub:false,plans:[]};
 function gexShowAccessRevokedOverlay(nomeOverride){
   const ov=gexEnsureAccessRevokedOverlay();
-  const btn=document.getElementById('gex-arv-renovar-btn');
-  if(btn){
-    const nome=nomeOverride||(sessionUser&&(sessionUser.nome||sessionUser.name))||'';
-    const msg='Olá, meu acesso ao GexFlow foi desativado'+(nome?(' ('+nome+')'):'')+' e gostaria de renovar.';
-    btn.href='https://wa.me/5521992735988?text='+encodeURIComponent(msg);
-  }
   ov.classList.add('show');
+  gexRenewLoadPlans();
+  // Segurança: a sessão guardada só para renovar expira sozinha.
+  clearTimeout(window._gexRenewTimer);
+  window._gexRenewTimer=setTimeout(()=>{ _gexRenewToken=''; try{ supabaseClient?.auth.signOut(); }catch(e){} },20*60*1000);
+}
+// Carrega os planos (mesma função do "Minha Assinatura") e mostra a escolha no próprio aviso.
+async function gexRenewLoadPlans(){
+  const box=document.getElementById('gex-arv-plans'), btn=document.getElementById('gex-arv-renovar-btn'), info=document.getElementById('gex-arv-info');
+  if(!box||!btn)return;
+  if(!_gexRenewToken){ box.innerHTML=''; btn.textContent='Entrar para renovar'; return; }
+  btn.disabled=true; btn.textContent='Carregando planos...';
+  try{
+    const res=await fetch(getSupabaseFunctionUrl('billing-self-status'),{headers:{Authorization:`Bearer ${_gexRenewToken}`}});
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||j?.ok===false)throw new Error(j?.message||'erro');
+    const plans=j.plans||[], sub=j.subscription||null;
+    _gexRenewState={hasSub:!!sub&&(sub.status==='active'||sub.status==='past_due'),plans};
+    if(_gexRenewState.hasSub){
+      box.innerHTML='';
+      btn.textContent='Atualizar pagamento';
+      if(info)info.textContent='Você vai para uma página segura do Stripe para regularizar o pagamento.';
+    }else{
+      box.innerHTML=plans.length?`<label style="font-size:12px;font-weight:700;color:#374151;display:block;margin-bottom:6px">Escolha seu plano</label><select id="gex-arv-plano" style="width:100%;padding:10px;border:1px solid #D1D5DB;border-radius:8px;font-size:14px;font-family:inherit">${plans.map(p=>`<option value="${escAttr(p.id)}">${escHtml(p.name)}${p.price_display?' — '+escHtml(p.price_display):''}</option>`).join('')}</select>`:'';
+      btn.textContent='Renovar agora';
+      if(!plans.length&&info)info.textContent='Nenhum plano disponível no momento.';
+      else if(info)info.textContent='Você vai para uma página segura do Stripe para pagar.';
+    }
+    btn.disabled=!_gexRenewState.hasSub&&!plans.length;
+  }catch(e){
+    box.innerHTML=''; btn.disabled=false; btn.textContent='Tentar de novo';
+    if(info)info.textContent='Não foi possível carregar os planos agora.';
+    btn.onclick=()=>{ btn.onclick=()=>gexRenewGo(); gexRenewLoadPlans(); };
+  }
+}
+async function gexRenewGo(){
+  const btn=document.getElementById('gex-arv-renovar-btn'), info=document.getElementById('gex-arv-info');
+  if(!_gexRenewToken){ gexHideAccessRevokedOverlay(); return; }
+  const label=btn?btn.textContent:''; if(btn){btn.disabled=true;btn.textContent='Abrindo...';}
+  try{
+    const returnUrl=location.origin+location.pathname;
+    const body=_gexRenewState.hasSub
+      ?{action:'portal',returnUrl}
+      :{action:'checkout',planId:document.getElementById('gex-arv-plano')?.value||'',successUrl:returnUrl+'?billing=sucesso',cancelUrl:returnUrl+'?billing=cancelado'};
+    if(body.action==='checkout'&&!body.planId)throw new Error('Escolha um plano.');
+    const res=await fetch(getSupabaseFunctionUrl('billing-self-portal-checkout'),{method:'POST',headers:{Authorization:`Bearer ${_gexRenewToken}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||j?.ok===false||!j.url)throw new Error(j?.message||'Não foi possível abrir o pagamento.');
+    location.href=j.url;
+  }catch(e){
+    if(info)info.textContent=e.message||'Não foi possível abrir o pagamento.';
+    if(btn){btn.disabled=false;btn.textContent=label;}
+  }
 }
 function gexHideAccessRevokedOverlay(){
   document.getElementById('gex-access-revoked-overlay')?.classList.remove('show');
@@ -18306,7 +18360,9 @@ function gexHideAccessRevokedOverlay(){
 // Chamado sempre que o sistema detecta (login, Realtime ou revalidação
 // periódica) que o usuário logado foi desativado no meio do uso.
 async function forceLogoutDeactivated(){
-  await doLogout();
+  // Guarda o token só em memória para a tela de renovação funcionar; o app continua bloqueado (sessão local apagada).
+  try{ _gexRenewToken=await getGexSupabaseToken(); }catch(e){ _gexRenewToken=''; }
+  await doLogout(!!_gexRenewToken);
   gexShowAccessRevokedOverlay();
 }
 
