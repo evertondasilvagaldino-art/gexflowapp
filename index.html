@@ -2942,17 +2942,16 @@ const ROLE_PERMS = {
     aprovacao:{view:true,create:true,edit:true,delete:true,approve:true,manage:true},
     esquemas:{view:true,create:true,edit:true,delete:true,manage:true},
     creators:{view:true,create:true,edit:true,delete:true,manage:true},
-    integracoes:{view:true,manage:true},
+    integracoes:{view:true,create:true,edit:true,delete:true,manage:true},
     automacoes:{view:true,create:true,edit:true,delete:true,manage:true},
     gerar_leads:{view:true,create:true,edit:true,delete:true,manage:true},
     gerar_leads_whatsapp:{view:true,create:true,edit:true,delete:true,manage:true},
     gerar_leads_formularios:{view:true,create:true,edit:true,delete:true,manage:true},
-    gerar_leads_meta:{view:true,create:true,edit:true,manage:true},
-    gerar_leads_api:{view:true,edit:true,manage:true},
+    gerar_leads_meta:{view:true,create:true,edit:true,delete:true,manage:true},
+    gerar_leads_api:{view:true,create:true,edit:true,delete:true,manage:true},
     configuracoes:{view:true,edit:true,manage:true},
-    config_integracoes:{view:true,edit:true,manage:true},
-    config_webhook_api:{view:true,edit:true,manage:true},
-    config_pagamentos:{view:true,edit:true,manage:true},
+    config_integracoes:{view:true,create:true,edit:true,delete:true,manage:true},
+    config_webhook_api:{view:true,create:true,edit:true,delete:true,manage:true},
     config_empresa:{view:true,edit:true,manage:true},
     config_seguranca:{view:true,edit:true,manage:true},
     config_preferencias:{view:true,edit:true,manage:true},
@@ -4956,8 +4955,30 @@ function gxPlanBlocksModule(module){
   return gxMyPlanTier!=='pro';
 }
 // Central permission gate
+// Telas internas da Gex Company (administração das assinaturas dos parceiros): não existem para empresas clientes.
+const GX_GEX_INTERNAL_MODULES=['config_pagamentos'];
+function gxIsOtherWorkspace(){
+  try{ return GEX_WORKSPACE_ID!==GEX_MAIN_WORKSPACE; }catch(e){ return false; }
+}
+// Adm/Gerente: só altera cargo/acessos de quem está ABAIXO dele (nunca o próprio, o Fundador ou outro Adm/Gerente).
+function gxIsAdmGerente(){
+  try{ return resolveRole(sessionUser?.permissao||sessionUser?.cargo||sessionUser?.role||'')==='Adm Gerente'; }catch(e){ return false; }
+}
+function gxCanManageTargetUser(target){
+  if(!gxIsAdmGerente())return true; // demais cargos seguem as regras de sempre
+  if(!target)return true; // novo usuário (a lista de cargos já exclui Adm/Gerente)
+  if(String(target.id||'')===String(sessionUser?.id||''))return false;
+  const tr=resolveRole(target.permissao||target.role||target.cargo||'Colaborador');
+  return tr!=='Fundador'&&tr!=='Adm Gerente';
+}
+function gxIsGexFounder(){
+  try{ return !gxIsOtherWorkspace() && resolveRole(sessionUser?.permissao||sessionUser?.cargo||sessionUser?.role||'')==='Fundador'; }catch(e){ return false; }
+}
 function can(module, action){
   if(!sessionUser)return false;
+  if(gxIsOtherWorkspace()&&GX_GEX_INTERNAL_MODULES.includes(module))return false;
+  // Pagamentos e Assinatura: só o Fundador do sistema (Gex Company). Nem Adm/Gerente, nem Fundador de empresa nova.
+  if(module==='config_pagamentos'&&!gxIsGexFounder())return false;
   if(!userCanAccess(sessionUser,module,action))return false;
   if(gxPlanBlocksModule(module))return false;
   return true;
@@ -5123,7 +5144,9 @@ function repairConfiguracoesMenuVisibility(){
       'config-empresa','config-usuarios','config-seguranca','config-preferencias'
     ].forEach(k=>{
       const el=document.querySelector(`[data-sub="${k}"]`);
-      if(el) el.style.display='';
+      if(!el) return;
+      if(k==='config-pagamentos'&&!gxIsGexFounder()){ el.style.display='none'; return; }
+      el.style.display='';
     });
   }
 }
@@ -6401,8 +6424,102 @@ function renderConfiguracoesPagamentos(){
       <div id="assinaturas-clientes-wrap" style="margin-top:14px">
         <div class="empty" style="padding:20px">Carregando…</div>
       </div>
+    </div>
+
+    <div class="cfg-panel" style="margin-top:18px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <div style="font-weight:700;font-size:15px">Empresas clientes</div>
+          <div style="font-size:12px;color:var(--muted)">Novas empresas que usam o GexFlow: teste grátis, assinatura e situação de cada uma.</div>
+        </div>
+        <button class="cfg-btn" onclick="loadEmpresasClientes()">🔄 Atualizar</button>
+      </div>
+      <div id="empresas-clientes-wrap" style="margin-top:14px">
+        <div class="empty" style="padding:20px">Carregando…</div>
+      </div>
     </div>`;
   loadAssinaturasClientes();
+  loadEmpresasClientes();
+}
+
+async function loadEmpresasClientes(){
+  const wrap=document.getElementById('empresas-clientes-wrap');
+  if(!wrap)return;
+  wrap.innerHTML='<div class="empty" style="padding:20px">Carregando…</div>';
+  try{
+    const token=await getGexSupabaseToken();
+    const [empRes,plansRes]=await Promise.all([
+      fetch(getSupabaseFunctionUrl('gex-empresas-list'),{headers:{Authorization:`Bearer ${token}`}}).then(r=>r.json()).catch(()=>({})),
+      fetch(getSupabaseFunctionUrl('billing-plans-list'),{headers:{Authorization:`Bearer ${token}`}}).then(r=>r.json()).catch(()=>({}))
+    ]);
+    if(!document.getElementById('empresas-clientes-wrap'))return;
+    if(!empRes?.ok){
+      wrap.innerHTML=`<div class="empty" style="padding:20px">${escHtml(empRes?.message||'Não foi possível carregar as empresas. Confirme se a função "gex-empresas-list" foi publicada no Supabase.')}</div>`;
+      return;
+    }
+    const plans=plansRes?.plans||[];
+    const empresas=empRes.empresas||[];
+    const _valorPlano=p=>{
+      const m=String(p?.price_display||'').match(/(\d{1,3}(?:\.\d{3})*,\d{2}|\d+(?:,\d{1,2})?)/);
+      return m?Number(m[1].replace(/\./g,'').replace(',','.')):null;
+    };
+    const _brl=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+    const agora=Date.now();
+    const situacao=e=>{
+      const sub=e.assinatura;
+      if(e.status==='suspensa')return['Suspensa','#EF4444'];
+      if(sub&&sub.status==='active')return['Assinatura ativa','#10B981'];
+      if(sub&&sub.status==='past_due')return['Pagamento atrasado','#EF4444'];
+      if(sub&&sub.status==='pending')return['Aguardando pagamento','#F59E0B'];
+      if(e.status==='trial'){
+        const fim=e.trial_ends_at?new Date(e.trial_ends_at).getTime():0;
+        return fim&&fim<agora?['Teste vencido','#EF4444']:['Em teste grátis','#6366F1'];
+      }
+      if(sub&&sub.status==='canceled')return['Cancelada','#EF4444'];
+      return[e.status==='ativa'?'Ativa':(e.status||'—'),'#64748B'];
+    };
+    let nTeste=0,nAtivas=0,nAguard=0,nSusp=0,receita=0;
+    empresas.forEach(e=>{
+      const [lbl]=situacao(e);
+      if(lbl==='Em teste grátis')nTeste++;
+      else if(lbl==='Assinatura ativa'){nAtivas++;receita+=_valorPlano(plans.find(p=>p.id===e.assinatura?.plan_id))||0}
+      else if(lbl==='Aguardando pagamento'||lbl==='Pagamento atrasado'||lbl==='Teste vencido')nAguard++;
+      else if(lbl==='Suspensa'||lbl==='Cancelada')nSusp++;
+    });
+    const resumo=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:14px">
+      <div class="cfg-kv-card"><div class="cfg-kv-lbl">Empresas cadastradas</div><div class="cfg-kv-val">${empresas.length}</div></div>
+      <div class="cfg-kv-card"><div class="cfg-kv-lbl">Em teste grátis</div><div class="cfg-kv-val" style="color:#6366F1">${nTeste}</div></div>
+      <div class="cfg-kv-card"><div class="cfg-kv-lbl">Pagando</div><div class="cfg-kv-val" style="color:#059669">${nAtivas}</div><div style="font-size:11px;color:var(--muted)">${_brl(receita)} por mês</div></div>
+      <div class="cfg-kv-card"><div class="cfg-kv-lbl">Aguardando / vencidas</div><div class="cfg-kv-val" style="color:#D97706">${nAguard}</div></div>
+      <div class="cfg-kv-card"><div class="cfg-kv-lbl">Suspensas / canceladas</div><div class="cfg-kv-val" style="color:#EF4444">${nSusp}</div></div>
+    </div>`;
+    if(!empresas.length){
+      wrap.innerHTML=resumo+'<div class="empty" style="padding:20px">Nenhuma empresa cliente cadastrada ainda. Elas aparecem aqui assim que alguém se cadastrar pelo link de teste grátis.</div>';
+      return;
+    }
+    wrap.innerHTML=resumo+`<div style="overflow-x:auto"><table class="table"><thead><tr>
+      <th>Empresa</th><th>Responsável</th><th>Plano</th><th>Valor</th><th>Situação</th><th>Teste até / Renovação</th><th>Usuários</th><th>Cadastro</th>
+    </tr></thead><tbody>${empresas.map(e=>{
+      const [lbl,color]=situacao(e);
+      const plan=plans.find(p=>p.id===e.assinatura?.plan_id);
+      const v=_valorPlano(plan);
+      const data=e.assinatura?.status==='active'&&e.assinatura.current_period_end?e.assinatura.current_period_end:e.trial_ends_at;
+      const dataTxt=data?new Date(data).toLocaleDateString('pt-BR'):'—';
+      return `<tr>
+        <td><div style="font-weight:600;font-size:13px">${escHtml(e.nome||'—')}</div><div style="font-size:11px;color:var(--muted)">${escHtml(e.id)}</div></td>
+        <td><div style="font-size:13px">${escHtml(e.dono?.nome||'—')}</div><div style="font-size:11px;color:var(--muted)">${escHtml(e.dono?.email||'—')}${e.dono?.telefone?' · '+escHtml(e.dono.telefone):''}</div></td>
+        <td>${escHtml(plan?.name||(e.assinatura?.plan_id)||(e.status==='trial'?'Teste (Pro)':'—'))}</td>
+        <td style="font-weight:600;font-size:13px;white-space:nowrap">${v!=null&&e.assinatura?_brl(v):'—'}</td>
+        <td><span style="background:${color}20;color:${color};padding:2px 8px;border-radius:10px;font-weight:700;font-size:11px">${escHtml(lbl)}</span></td>
+        <td style="color:var(--muted);font-size:12px">${dataTxt}</td>
+        <td style="font-size:12px">${e.usuarios||0}</td>
+        <td style="color:var(--muted);font-size:12px">${e.created_at?new Date(e.created_at).toLocaleDateString('pt-BR'):'—'}</td>
+      </tr>`;
+    }).join('')}</tbody></table></div>`;
+  }catch(e){
+    console.warn('[GexFlow] loadEmpresasClientes:',e);
+    wrap.innerHTML='<div class="empty" style="padding:20px">Não foi possível carregar as empresas.</div>';
+  }
 }
 
 async function loadAssinaturasClientes(){
@@ -7331,6 +7448,10 @@ async function saveModal(type,id=''){
       if(existingByEmail){toast('Já existe um usuário com este email','#EF4444');return}
 
       const curRole=resolveRole(sessionUser?.permissao||'Colaborador');
+      if(curRole==='Adm Gerente'&&(!gxCanManageTargetUser(target)||resolveRole(roleSelected)==='Adm Gerente')){
+        toast('Adm/Gerente só altera cargo e acessos de quem está abaixo dele.','#EF4444');
+        return;
+      }
       const targetIsFounder=target&&isFounderLikeRole(target.permissao||target.role||target.cargo);
       if(id&&targetIsFounder&&curRole!=='Fundador'){
         toast('Apenas Fundador pode editar este usuário','#EF4444');
@@ -7776,7 +7897,9 @@ function formUsuario(d){
   // Não permitimos criar novos usuários Fundador/Admin.
   // O Fundador principal deve existir previamente no Supabase Auth.
   const isNew=!d?.id;
-  const rolesBase=['Adm Gerente','CS/Atendimento','Colaborador','Gex Parceiro'];
+  // "Gex Parceiro" é o programa de parceiros da Gex Company; empresas clientes não criam parceiros.
+  let rolesBase=gxIsOtherWorkspace()?['Adm Gerente','CS/Atendimento','Colaborador']:['Adm Gerente','CS/Atendimento','Colaborador','Gex Parceiro'];
+  if(gxIsAdmGerente())rolesBase=rolesBase.filter(r=>r!=='Adm Gerente'); // Adm/Gerente só cria/edita quem está abaixo dele
   const curRole=resolveRole(sessionUser?.permissao||'Colaborador');
   const dRole=resolveRole(d?.permissao||'Colaborador');
   const isFundadorTarget=dRole==='Fundador';
@@ -9171,15 +9294,19 @@ function getLeadOwnerEmail(lead){
 // Data e hora em que o lead entrou (horário de Brasília), ex.: "05/10/2026 09:37".
 // Usa createdAt (instante exato gravado por Formulário, WhatsApp e leads novos).
 // Leads antigos criados à mão só têm a data (dataInicio) — mostra só a data.
+// Formatadores criados uma vez só (criar um por lead deixava o Pipeline lento). Mesma saída de toLocaleDateString/TimeString.
+let _gxFmtData=null,_gxFmtHora=null;
 function leadEntradaLabel(l){
   try{
     const raw=l&&(l.createdAt||l.created_at);
     const ms=raw?Date.parse(raw):NaN;
     if(!isNaN(ms)){
       const d=new Date(ms);
-      const data=d.toLocaleDateString('pt-BR',{timeZone:'America/Sao_Paulo'});
-      const hora=d.toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'});
-      return `${data} ${hora}`;
+      if(!_gxFmtData){
+        _gxFmtData=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo'});
+        _gxFmtHora=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'});
+      }
+      return `${_gxFmtData.format(d)} ${_gxFmtHora.format(d)}`;
     }
     if(l&&l.dataInicio&&/^\d{4}-\d{2}-\d{2}/.test(l.dataInicio)){
       return new Date(l.dataInicio.slice(0,10)+'T00:00:00').toLocaleDateString('pt-BR');
@@ -11552,7 +11679,7 @@ function renderUsuarios(opts={}){
     const uRole=resolveRole(u.permissao||u.cargo||'Colaborador');
     const isFundadorUser=uRole==='Fundador';
     const canDelete=isFundador&&!isFundadorUser&&u.id!==sessionUser?.id;
-    const canEdit=can('usuarios','edit')&&(!isFundadorUser||isFundador);
+    const canEdit=can('usuarios','edit')&&(!isFundadorUser||isFundador)&&gxCanManageTargetUser(u);
     return `<tr>
       <td><div style="display:flex;align-items:center;gap:8px">
         <div class="user-list-av">${getAvatarInner(u)}</div>
@@ -11605,7 +11732,7 @@ function renderPermMatrix(){
       mainActs.slice(1).forEach(act=>{
         const perms=ROLE_PERMS[role]||{};
         const hasPerm=overrides[mod]&&overrides[mod][act]!==undefined?overrides[mod][act]:!!(perms[mod]&&perms[mod][act]);
-        if(isFundador||!canManage){
+        if(isFundador||!canManage||!gxCanManageTargetUser(u)){
           html+=`<td><div class="perm-check-wrap"><div class="perm-check ${hasPerm?'on':''}" title="${hasPerm?'Permitido':'Negado'}">
             ${hasPerm?`<svg width="9" height="9" viewBox="0 0 12 12" fill="white"><path d="M2 6l3 3 5-5"/></svg>`:''}
           </div></div></td>`;
@@ -11628,6 +11755,7 @@ function renderPermMatrix(){
 async function togglePerm(userId,module,action,value){
   const u=DB.find('usuarios',userId);
   if(!u)return;
+  if(!gxCanManageTargetUser(u)){toast('Adm/Gerente só altera acessos de quem está abaixo dele.','#EF4444');return}
   const overrides={...(u.permOverrides||{})};
   overrides[module]={...(overrides[module]||{})};
   overrides[module][action]=value;
@@ -11935,12 +12063,13 @@ function renderPerfil(){
         </div>
       </div>
     </div>
-    ${role==='Gex Parceiro'?`
+    ${(role==='Gex Parceiro'||(role==='Fundador'&&gxIsOtherWorkspace()))?`
     <div class="card card-pad" id="minha-assinatura-card" style="margin-top:14px;max-width:980px">
       <div style="font-size:14px;font-weight:600;margin-bottom:4px">💳 Minha Assinatura</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Veja sua data de vigência, cancele, reative ou contrate um plano — direto por aqui.</div>
       <div id="minha-assinatura-content">${_minhaAssinaturaCache?_minhaAssinaturaCache.html:'<div class="empty-txt" style="font-size:12px">Consultando...</div>'}</div>
-    </div>
+    </div>`:''}
+    ${role==='Gex Parceiro'?`
     <div class="card card-pad" id="minha-equipe-card" style="margin-top:14px;max-width:980px">
       <div style="font-size:14px;font-weight:600;margin-bottom:4px">👥 Minha Equipe</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Crie contas pra pessoas do seu time acessarem só o Pipeline de um funil seu — elas não veem mais nada além disso (nem seus outros funis, se você tiver mais de um).</div>
@@ -11956,6 +12085,12 @@ function renderPerfil(){
         <div id="minha-equipe-lista">${_minhaEquipeListCache?_minhaEquipeListCache.html:'<div class="empty-txt" style="font-size:12px">Carregando...</div>'}</div>
       </div>
     </div>`:''}`;
+  if(role==='Fundador'&&gxIsOtherWorkspace()){
+    // Empresa cliente: o Fundador também gerencia a própria assinatura (mesmo cartão do parceiro).
+    if(!_minhaAssinaturaCache||(Date.now()-_minhaAssinaturaCache.at)>15000){
+      carregarMinhaAssinatura();
+    }
+  }
   if(role==='Gex Parceiro'){
     popularSelectFunisMinhaEquipe();
     // Mesmo motivo/mesmo remédio do cache de "Minha Equipe" logo abaixo:
@@ -14610,6 +14745,7 @@ function _normalizeFunnel(f,idx=0){
 // ativo, ou que seja da Beatriz pelo nome). Roda 1 vez (idempotente —
 // restaurar de novo não tem efeito colateral se já estiver restaurado).
 function gexRestoreWronglyArchivedFunnels(){
+  if(gxIsOtherWorkspace())return; // correção histórica da Gex Company: não se aplica a empresas clientes
   try{
     if(localStorage.getItem('gex_fix_archived_funnels_2026_10_v2')==='1')return;
     let raw=[];
@@ -14858,6 +14994,7 @@ function gexBeatrizReimportCore(){
 }
 
 function gexRunOneTimeBeatrizFix(){
+  if(gxIsOtherWorkspace())return; // correção histórica da Gex Company: não se aplica a empresas clientes
   try{
     if(localStorage.getItem('gex_fix_beatriz_reimport_2026_10_v9')==='1')return;
     const r=gexBeatrizReimportCore();
@@ -14881,6 +15018,7 @@ function gexRunOneTimeBeatrizFix(){
 // marcador de "já rodou uma vez", e mostra o resultado num alert (não dá
 // pra perder essa mensagem, ao contrário do toast ou do console).
 function gexForceBeatrizReimport(){
+  if(gxIsOtherWorkspace())return; // correção histórica da Gex Company: não se aplica a empresas clientes
   const r=gexBeatrizReimportCore();
   if(!r.ok){
     const motivos={
@@ -25220,6 +25358,21 @@ body.gex-premium-ui .cal-cell,body.gex-premium-ui .cal-week-col{min-width:0}
   }).observe(document.documentElement,{attributes:true,childList:true,subtree:true,attributeFilter:['data-theme']});
   window.addEventListener('load',run);
   run();
+})();
+</script>
+<script id="gex-perf-batch">
+// Desempenho: telas pesadas leem a mesma coleção milhares de vezes (uma por lead). Dentro do "lote" o JSON só é
+// reprocessado se o texto salvo mudou (mesmo mecanismo já usado no Início e no Relatório). Nenhuma regra muda.
+(function(){
+  var nomes=['renderComercial','renderCadastroLeads','renderPipelineListBody','renderClientes','renderChurn','renderFinancas','renderContratos','renderRH','renderCalendario'];
+  nomes.forEach(function(n){
+    try{
+      var o=window[n];
+      if(typeof o!=='function'||o.__gxB||typeof gexBatchRun!=='function')return;
+      var w=function(){var a=arguments,t=this;return gexBatchRun(function(){return o.apply(t,a)})};
+      w.__gxB=1;window[n]=w;
+    }catch(e){}
+  });
 })();
 </script>
 </body>
