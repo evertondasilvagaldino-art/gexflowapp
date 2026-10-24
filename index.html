@@ -3968,7 +3968,21 @@ async function refreshUsersFromSupabaseFast(){
 // Supabase como fonte principal, localStorage apenas como cache rápido.
 // V1 segura: usa public.gex_records (JSONB) para preservar 100% do formato atual dos dados,
 // sem reescrever todos os módulos do sistema de uma vez.
-const GEX_WORKSPACE_ID = 'gex_company';
+// Empresa (workspace) do usuário logado. Padrão = empresa principal (Gex Company); é trocado pelo perfil
+// (public.profiles.workspace_id) no início da carga em nuvem. Quem é da Gex Company nunca muda.
+const GEX_MAIN_WORKSPACE = 'gex_company';
+let GEX_WORKSPACE_ID = GEX_MAIN_WORKSPACE;
+async function gexResolveWorkspace(){
+  let ws=GEX_MAIN_WORKSPACE;
+  try{
+    if(supabaseClient && sessionUser?.id){
+      const {data}=await supabaseClient.from('profiles').select('workspace_id').eq('id',sessionUser.id).maybeSingle();
+      if(data && data.workspace_id)ws=String(data.workspace_id);
+    }
+  }catch(e){ console.warn('[GexFlow] workspace do perfil:',e); }
+  GEX_WORKSPACE_ID=ws;
+  return ws;
+}
 const GEX_CLOUD_TABLE = 'gex_records';
 const GEX_DB_COLLECTIONS = [
   'clientes','projetos','leads','transacoes','squads','membros','conteudos',
@@ -4416,6 +4430,7 @@ async function initGexCloudDataSync(isRetry){
   if(!supabaseClient || !sessionUser?.id || gexCloudBooting)return false;
   gexCloudBooting=true;
   try{
+    await gexResolveWorkspace();
     const logSet=new Set(GEX_LOG_COLLECTIONS);
     const {data}=await gexWithRetry(async()=>{
       const res=await supabaseClient
@@ -4583,8 +4598,16 @@ async function initGexCloudDataSync(isRetry){
     gexCloudBooting=false;
   }
 }
+let gexCloudRealtimeWs = null;
 function startGexRecordsRealtime(){
-  if(!supabaseClient || gexCloudRealtimeChannel)return;
+  if(!supabaseClient)return;
+  // Se trocou de empresa (outro login na mesma aba), refaz a escuta na empresa certa.
+  if(gexCloudRealtimeChannel && gexCloudRealtimeWs!==GEX_WORKSPACE_ID){
+    try{ supabaseClient.removeChannel(gexCloudRealtimeChannel); }catch(e){}
+    gexCloudRealtimeChannel=null;
+  }
+  if(gexCloudRealtimeChannel)return;
+  gexCloudRealtimeWs=GEX_WORKSPACE_ID;
   try{
     gexCloudRealtimeChannel=supabaseClient
       .channel('gex-records-realtime')
@@ -24599,6 +24622,9 @@ const BENEF={
 const ehPro=p=>String(p&&p.tier||'').toLowerCase()==='pro'||/\bpro\b/i.test(String(p&&p.name||''));
 const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const ehParceiro=()=>{try{return gxIsPartnerRole()}catch(e){return false}};
+// Empresa cliente nova (fora da Gex Company): o Fundador dela também tem teste de 3 dias, com aviso e bloqueio no fim.
+const ehEmpresaNova=()=>{try{return !ehParceiro()&&!!sessionUser?.id&&GEX_WORKSPACE_ID!==GEX_MAIN_WORKSPACE}catch(e){return false}};
+const ehAlvo=()=>ehParceiro()||ehEmpresaNova();
 let trial={uid:'',loaded:false,loading:false,row:null};
 let last={sub:null,plans:[]};
 let wallOpen=false,pollN=0;
@@ -24645,6 +24671,13 @@ async function carregarTrial(){
     const {data,error}=await supabaseClient.from('gex_trials').select('started_at,ends_at').eq('user_id',uid).maybeSingle();
     if(!error)trial.row=data||null;
     trial.loaded=!error;
+    // Empresa nova: o status da empresa manda (ativa = sem aviso; suspensa = bloqueada).
+    if(!error&&ehEmpresaNova()){
+      const w=await supabaseClient.from('gex_workspaces').select('status').eq('id',GEX_WORKSPACE_ID).maybeSingle();
+      const st=w&&w.data&&w.data.status;
+      if(st==='ativa')trial.row=null;
+      else if(st==='suspensa')trial.row={started_at:null,ends_at:new Date(0).toISOString()};
+    }
   }catch(e){}
   trial.loading=false;
   if(trial.loaded){reaplicar()}
@@ -24652,8 +24685,10 @@ async function carregarTrial(){
 
 function reaplicar(){
   try{
-    window.__gxTrialActive=trialAtivo();
-    window.__gxOrigApplyTier(last.sub,last.plans);
+    if(ehParceiro()){
+      window.__gxTrialActive=trialAtivo();
+      window.__gxOrigApplyTier(last.sub,last.plans);
+    }
     gxTrialUi();
   }catch(e){console.warn('[trial]',e)}
 }
@@ -24667,18 +24702,33 @@ window._gxApplyPlanTierFromSubPlans=function(sub,plans){
   if(ehParceiro()){carregarTrial();gxTrialUi();gxCheckSenhaProvisoria()}
 };
 
+// Empresa nova: confere o teste ao entrar e a cada poucos segundos (barato: só consulta uma vez; depois só atualiza o aviso).
+setInterval(function(){
+  try{
+    if(!ehEmpresaNova())return;
+    carregarTrial();
+    if(!trial.loaded)return;
+    gxCheckSenhaProvisoria();
+    if(trialExpirado()&&document.getElementById('gx-wall'))return;
+    gxTrialUi();
+  }catch(e){}
+},4000);
+
 function fecharWall(){const w=document.getElementById('gx-wall');if(w)w.remove();wallOpen=false}
 function fecharPill(){const p=document.getElementById('gx-trial-pill');if(p)p.remove()}
 
 function gxTrialUi(){
-  if(!ehParceiro()||!trial.row){fecharPill();return}
+  if(!ehAlvo()||!trial.row){fecharPill();return}
   if(subAtiva(last.sub)){fecharPill();fecharWall();return}
   if(trialAtivo()){
     fecharWall();
     const dias=Math.max(1,Math.ceil((new Date(trial.row.ends_at).getTime()-Date.now())/86400000));
     let p=document.getElementById('gx-trial-pill');
     if(!p){p=document.createElement('div');p.id='gx-trial-pill';document.body.appendChild(p)}
-    p.innerHTML=`<span>Teste grátis: ${dias===1?'falta 1 dia':'faltam '+dias+' dias'}</span><button onclick="gxAbrirPlanos(true)">Ver planos</button>`;
+    const acao=ehParceiro()
+      ?`<button onclick="gxAbrirPlanos(true)">Ver planos</button>`
+      :`<button onclick="window.open('mailto:gexcompanysuporte@gmail.com?subject='+encodeURIComponent('Quero assinar o GexFlow'),'_blank')">Assinar</button>`;
+    p.innerHTML=`<span>Teste grátis: ${dias===1?'falta 1 dia':'faltam '+dias+' dias'}</span>${acao}`;
     return;
   }
   fecharPill();
