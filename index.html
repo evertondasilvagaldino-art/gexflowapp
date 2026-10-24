@@ -2176,6 +2176,10 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
         <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/></svg>
         <div class="wh-dot" id="sound-indicator"></div>
       </div>
+      <div class="ico-btn" id="gx-theme-btn" role="button" tabindex="0" title="Mudar para tema escuro" onclick="gxToggleTheme()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();gxToggleTheme()}">
+        <svg class="gx-sun" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="3.6"/><path d="M10 2.2v1.6M10 16.2v1.6M2.2 10h1.6M16.2 10h1.6M4.5 4.5l1.1 1.1M14.4 14.4l1.1 1.1M15.5 4.5l-1.1 1.1M5.6 14.4l-1.1 1.1"/></svg>
+        <svg class="gx-moon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M16.5 11.6A6.8 6.8 0 018.4 3.5a6.8 6.8 0 108.1 8.1z"/></svg>
+      </div>
       <div class="user-av" id="topbar-av" onclick="navigate('perfil')" title="Meu perfil">EG</div>
     </div>
   </header>
@@ -8493,7 +8497,7 @@ function renderInicio(){
       </div>
       <div class="metric-card">
         <div class="metric-accent" style="background:#F59E0B"></div>
-        <div class="metric-label">💰 Invest. em Ads no período</div>
+        <div class="metric-label">💰 Investimento em Ads no período</div>
         <div class="metric-value">${fmtBRL(adsSpend)}</div>
         <div class="metric-sub">${dashSel?'Total da empresa (não separa por funil/responsável)':`Categoria "Ads / Tráfego Pago" nas transações · ${filterLabel}`}</div>
       </div>
@@ -24012,7 +24016,7 @@ const legacyRender=window.renderInicio;
 if(typeof legacyRender!=='function')return;
 const KEY='gxIniMode';
 let tableView={fat:false};
-const BLUE='#2a78d6',ORG='#eb6834',RAMP=['#0b3d7a','#1857a8','#2a78d6','#5b9be6','#8ab8ee','#b4d1f5','#cfe1f8','#e1ecfa'];
+const BLUE='#7C3AED',ORG='#4C1D95',RAMP=['#2E1065','#4C1D95','#6D28D9','#7C3AED','#A78BFA','#C4B5FD','#DDD6FE','#EDE9FE'];
 
 const css=`
 #inicio-bi{display:none}
@@ -24263,7 +24267,7 @@ function build(){
     k.push(`<div class="gxb-card"><div class="gxb-l">Negócios ganhos</div><div class="gxb-v">${brl(vGanho)}${delta(vGanho,vGanhoPrev)}</div><div class="gxb-s">${ganhos.length} venda${ganhos.length!==1?'s':''} · ticket ${brl(ticket)}</div></div>`);
     k.push(`<div class="gxb-card"><div class="gxb-l">Conversão (ganhos ÷ fechados)</div><div class="gxb-v">${String(conv).replace('.',',')}%${delta(conv,convPrev)}</div><div class="gxb-s">ganhos ÷ (ganhos + perdidos) · ${perdidos.length} perdido${perdidos.length!==1?'s':''}</div></div>`);
     k.push(`<div class="gxb-card"><div class="gxb-l">Ciclo médio</div><div class="gxb-v">${ciclo!==null?ciclo+' dias':'—'}</div><div class="gxb-s">${gc.length} fechado${gc.length!==1?'s':''} no período</div></div>`);
-    k.push(`<div class="gxb-card"><div class="gxb-l">Invest. em Ads</div><div class="gxb-v">${brl(ads)}</div><div class="gxb-s">${dashSel?'Total da empresa':'Categoria Ads / Tráfego'}</div></div>`);
+    k.push(`<div class="gxb-card"><div class="gxb-l">Investimento em Ads</div><div class="gxb-v">${brl(ads)}</div><div class="gxb-s">${dashSel?'Total da empresa':'Categoria Ads / Tráfego'}</div></div>`);
     k.push(`<div class="gxb-card"><div class="gxb-l">CAC</div><div class="gxb-v">${cac!==null?brl(cac):'—'}</div><div class="gxb-s">${dashSel?'Só no total geral':(cac!==null?`Ads ÷ ${nGanho} ganho${nGanho!==1?'s':''}`:'Sem dados')}</div></div>`);
   }
   if(cCl){
@@ -24307,7 +24311,7 @@ function build(){
     const g={};
     leadsP.forEach(l=>{const o=String(l.origem||'').trim()||'Sem origem';(g[o]=g[o]||{o,n:0,w:0,v:0});g[o].n++;if(won(l)){g[o].w++;g[o].v+=parseFloat(l.valor)||0}});
     const rows=Object.values(g).sort((a,b)=>b.n-a.n).slice(0,8);
-    ori=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">Origem dos leads</div><div class="gxb-sub">${E(sub)}</div></div></div>${rows.length?`<div class="gxb-tw"><table class="gxb-tb"><thead><tr><th>Origem</th><th>Leads</th><th>Ganhos</th><th>Conv.</th><th>Valor</th></tr></thead><tbody>${rows.map(r=>`<tr><td title="${E(r.o)}">${E(r.o)}</td><td>${r.n}</td><td>${r.w}</td><td><span class="gxb-pill">${r.n?Math.round(r.w/r.n*100):0}%</span></td><td>${brl(r.v)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="gxb-empty">Sem leads no período.</div>'}</div>`;
+    ori=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">Origem dos leads</div><div class="gxb-sub">${E(sub)}</div></div></div>${rows.length?`<div class="gxb-tw"><table class="gxb-tb"><thead><tr><th>Origem</th><th>Leads</th><th>Ganhos</th><th>Conversão</th><th>Valor</th></tr></thead><tbody>${rows.map(r=>`<tr><td title="${E(r.o)}">${E(r.o)}</td><td>${r.n}</td><td>${r.w}</td><td><span class="gxb-pill">${r.n?Math.round(r.w/r.n*100):0}%</span></td><td>${brl(r.v)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="gxb-empty">Sem leads no período.</div>'}</div>`;
     let srows=[];try{srows=getSalesTeamMetrics({...dashFilter})||[]}catch(e){}
     try{
       srows=srows.map(r=>{
@@ -24319,7 +24323,7 @@ function build(){
     }catch(e){}
     srows=srows.filter(r=>r.leads||r.ganhos||r.ativos).slice(0,8);
     let tit='Ranking de vendedores';try{if(!isSalesManagerView())tit='Minha performance'}catch(e){}
-    rank=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">${tit}</div><div class="gxb-sub">${E(sub)}</div></div></div>${srows.length?`<div class="gxb-tw"><table class="gxb-tb"><thead><tr><th>Vendedor</th><th>Leads</th><th>Ganhos</th><th>Conv.</th><th>Vendido</th><th>Pipeline</th></tr></thead><tbody>${srows.map(r=>`<tr><td title="${E(r.user&&r.user.nome)}">${E(r.user&&r.user.nome||'—')}</td><td>${r.leads}</td><td>${r.ganhos}</td><td><span class="gxb-pill">${r.conv}%</span></td><td>${brl(r.valorGanho)}</td><td>${brl(r.pipelineAtivo)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="gxb-empty">Sem vendedores com movimento.</div>'}</div>`;
+    rank=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">${tit}</div><div class="gxb-sub">${E(sub)}</div></div></div>${srows.length?`<div class="gxb-tw"><table class="gxb-tb"><thead><tr><th>Vendedor</th><th>Leads</th><th>Ganhos</th><th>Conversão</th><th>Vendido</th><th>Pipeline</th></tr></thead><tbody>${srows.map(r=>`<tr><td title="${E(r.user&&r.user.nome)}">${E(r.user&&r.user.nome||'—')}</td><td>${r.leads}</td><td>${r.ganhos}</td><td><span class="gxb-pill">${r.conv}%</span></td><td>${brl(r.valorGanho)}</td><td>${brl(r.pipelineAtivo)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="gxb-empty">Sem vendedores com movimento.</div>'}</div>`;
   }
   if(ori||rank)html+=`<div class="gxb-grid gxb-2e">${ori}${rank}</div>`;
 
@@ -24754,6 +24758,275 @@ async function gxCheckSenhaProvisoria(){
     };
   }catch(e){senhaChecada=false}
 }
+})();
+</script>
+<style id="gex-design-v2">
+/* ═══════ GEX FLOW — CAMADA VISUAL v2 (somente aparência) ═══════
+   Nada aqui altera dados, regras ou comportamento. Tudo é CSS por cima do que já existe. */
+:root{
+  --g-bg:#F6F6F9;--g-card:#FFFFFF;--g-line:#E9E9F0;--g-line2:#F1F1F6;--g-soft:#FAFAFC;
+  --g-tx:#17171F;--g-mu:#6A6A7C;--g-li:#9A9AAC;
+  --g-p:#7C3AED;--g-p-d:#6D28D9;--g-p-soft:#F3EEFF;--g-p-ring:rgba(124,58,237,.18);
+  --g-ok-bg:#E8F7EF;--g-ok:#0F7A43;--g-wa-bg:#FEF3DC;--g-wa:#9A5B05;--g-er-bg:#FDEBEA;--g-er:#B42318;--g-in-bg:#EDE9FE;--g-in:#5B21B6;
+  --g-track:#EEEEF4;--g-sh:0 1px 2px rgba(23,23,31,.04);
+}
+html[data-theme="dark"]{
+  --g-bg:#0D0D13;--g-card:#15151D;--g-line:#262633;--g-line2:#1E1E29;--g-soft:#1A1A24;
+  --g-tx:#EDEDF5;--g-mu:#A0A0B4;--g-li:#7A7A90;
+  --g-p:#9B6CFF;--g-p-d:#8B5CF6;--g-p-soft:rgba(139,92,246,.16);--g-p-ring:rgba(155,108,255,.28);
+  --g-ok-bg:rgba(16,185,129,.14);--g-ok:#5EE0A6;--g-wa-bg:rgba(245,158,11,.14);--g-wa:#F6C36B;--g-er-bg:rgba(239,68,68,.15);--g-er:#FF9A94;--g-in-bg:rgba(139,92,246,.18);--g-in:#C4B5FD;
+  --g-track:#242432;--g-sh:none;
+  color-scheme:dark;
+}
+html[data-theme="dark"] body,body.gex-premium-ui{--bg:var(--g-bg);--card:var(--g-card);--border:var(--g-line);--txt:var(--g-tx);--muted:var(--g-mu);--light:var(--g-li);--p-light:var(--g-p-soft)}
+html[data-theme="dark"] body.gex-premium-ui,html body.gex-premium-ui{background:var(--g-bg)!important;color:var(--g-tx)}
+body.gex-premium-ui{--p2:#7C3AED}
+html[data-theme="dark"] body.gex-premium-ui{--p2:#9B6CFF}
+
+/* tipografia e ritmo */
+body.gex-premium-ui{font-size:14px;letter-spacing:-.005em}
+body.gex-premium-ui .page{padding:24px 28px}
+body.gex-premium-ui .page-title{font-size:26px;font-weight:700;letter-spacing:-.02em}
+body.gex-premium-ui .page-sub{font-size:14px;color:var(--g-mu);margin-top:4px}
+body.gex-premium-ui .page-header{margin-bottom:24px}
+
+/* topo */
+body.gex-premium-ui .topbar{background:var(--g-card);backdrop-filter:none;-webkit-backdrop-filter:none;border-bottom:1px solid var(--g-line);box-shadow:none;height:60px}
+body.gex-premium-ui .ann-bar{background:var(--g-soft);border-bottom:1px solid var(--g-line);color:var(--g-mu)}
+body.gex-premium-ui .ann-bar span{color:var(--g-tx)}
+body.gex-premium-ui .search input,body.gex-premium-ui .search-inline{background:var(--g-soft);border:1px solid var(--g-line);border-radius:10px;height:38px;color:var(--g-tx);transition:border-color .16s,box-shadow .16s,background .16s}
+body.gex-premium-ui .search input:focus,body.gex-premium-ui .search-inline:focus{background:var(--g-card);border-color:var(--g-p);box-shadow:0 0 0 4px var(--g-p-ring);outline:none}
+body.gex-premium-ui .ico-btn{background:var(--g-card);border:1px solid var(--g-line);color:var(--g-mu);border-radius:10px;width:36px;height:36px;transition:background .16s,border-color .16s,color .16s}
+body.gex-premium-ui .ico-btn:hover{background:var(--g-p-soft);border-color:var(--g-p);color:var(--g-p)}
+body.gex-premium-ui .wh-dot{border-color:var(--g-card)}
+
+/* cabeçalho de boas-vindas */
+body.gex-premium-ui .welcome-box{background:var(--g-card);border:1px solid var(--g-line);border-radius:14px;box-shadow:var(--g-sh);padding:14px 22px;margin-bottom:14px}
+body.gex-premium-ui .welcome-title{font-size:24px;font-weight:700;letter-spacing:-.02em;color:var(--g-tx)}
+body.gex-premium-ui .welcome-sub{font-size:14px;color:var(--g-mu);margin-top:2px}
+body.gex-premium-ui .welcome-av{background:linear-gradient(135deg,#7C3AED,#5B21B6);box-shadow:none}
+
+/* barra de filtros do início (toolbar) */
+body.gex-premium-ui .dash-filter-bar{background:var(--g-card);border:1px solid var(--g-line);border-radius:12px;box-shadow:none;padding:12px 16px;gap:10px;margin-bottom:20px}
+body.gex-premium-ui .dash-filter-label{font-size:11.5px;font-weight:700;letter-spacing:.06em;color:var(--g-li);text-transform:uppercase}
+body.gex-premium-ui .dash-filter-sel,body.gex-premium-ui select.form-input,body.gex-premium-ui .rel-sel{height:36px;border:1px solid var(--g-line);border-radius:9px;background-color:var(--g-card);color:var(--g-tx);font-size:13px;font-weight:500;padding:0 12px;transition:border-color .16s,box-shadow .16s}
+body.gex-premium-ui .dash-filter-sel:hover,body.gex-premium-ui select.form-input:hover{border-color:#CFCFDC}
+body.gex-premium-ui .dash-filter-sel:focus,body.gex-premium-ui select.form-input:focus{border-color:var(--g-p);box-shadow:0 0 0 4px var(--g-p-ring);outline:none}
+#gx-ini-toggle{border:1px solid var(--g-line)!important;border-radius:9px!important;background:var(--g-soft)}
+#gx-ini-toggle button{background:transparent!important;color:var(--g-mu)!important;font-weight:600;padding:7px 14px!important;transition:background .16s,color .16s}
+#gx-ini-toggle button.on{background:var(--g-p)!important;color:#fff!important}
+
+/* botões */
+body.gex-premium-ui .btn{min-height:36px;padding:0 16px;border-radius:9px;font-size:13px;font-weight:600;transition:background .16s,border-color .16s,box-shadow .16s,transform .1s,opacity .16s}
+body.gex-premium-ui .btn-sm{min-height:30px;padding:0 12px;font-size:12px}
+body.gex-premium-ui .btn-primary{background:var(--g-p);color:#fff;box-shadow:none}
+body.gex-premium-ui .btn-primary:hover{background:var(--g-p-d);opacity:1}
+body.gex-premium-ui .btn-ghost{background:var(--g-card);color:var(--g-tx);border:1px solid var(--g-line)}
+body.gex-premium-ui .btn-ghost:hover{background:var(--g-soft);border-color:#CFCFDC;opacity:1}
+html[data-theme="dark"] body.gex-premium-ui .btn-ghost:hover{border-color:#3A3A4C}
+body.gex-premium-ui .btn:focus-visible,body.gex-premium-ui .ico-btn:focus-visible,body.gex-premium-ui .nav-item:focus-visible{outline:none;box-shadow:0 0 0 4px var(--g-p-ring)}
+body.gex-premium-ui .btn:disabled,body.gex-premium-ui .btn[disabled]{opacity:.5;cursor:not-allowed}
+
+/* cards genéricos */
+body.gex-premium-ui .card,body.gex-premium-ui .stat-card,body.gex-premium-ui .kpi-card,body.gex-premium-ui .chart-section,body.gex-premium-ui .metric-card,body.gex-premium-ui .gxb-card{background:var(--g-card);border:1px solid var(--g-line);border-radius:14px;box-shadow:var(--g-sh)}
+body.gex-premium-ui .card-pad,body.gex-premium-ui .stat-card{padding:20px 24px}
+
+/* painel do início (BI) */
+body.gex-premium-ui .gxb-grid{gap:16px;margin-bottom:16px}
+body.gex-premium-ui .gxb-card{padding:20px 22px}
+body.gex-premium-ui .gxb-kpis{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+body.gex-premium-ui .gxb-l{font-size:11.5px;font-weight:600;letter-spacing:.05em;color:var(--g-mu);margin-bottom:10px}
+body.gex-premium-ui .gxb-v{font-size:26px;font-weight:700;letter-spacing:-.03em;color:var(--g-tx)}
+body.gex-premium-ui .gxb-s{font-size:12.5px;color:var(--g-mu);margin-top:8px;line-height:1.45}
+body.gex-premium-ui .gxb-t{font-size:16px;font-weight:600;letter-spacing:-.01em;color:var(--g-tx)}
+body.gex-premium-ui .gxb-sub{font-size:12.5px;color:var(--g-mu);font-weight:400;margin-top:2px}
+body.gex-premium-ui .gxb-h{margin-bottom:18px}
+body.gex-premium-ui .gxb-hero{background:linear-gradient(135deg,#1E1646 0%,#3A2299 100%)!important;border:0;box-shadow:0 12px 32px -16px rgba(58,34,153,.55)}
+body.gex-premium-ui .gxb-hero .gxb-l,body.gex-premium-ui .gxb-hero .gxb-s{color:rgba(255,255,255,.72)}
+body.gex-premium-ui .gxb-hero .gxb-v{color:#fff;font-size:26px}
+body.gex-premium-ui .gxb-d{font-size:11.5px;padding:2px 8px;font-weight:600}
+body.gex-premium-ui .gxb-d.up{background:var(--g-ok-bg);color:var(--g-ok)}
+body.gex-premium-ui .gxb-d.down{background:var(--g-er-bg);color:var(--g-er)}
+body.gex-premium-ui .gxb-d.neutral{background:var(--g-track);color:var(--g-mu)}
+body.gex-premium-ui .gxb-hero .gxb-d.up{background:rgba(255,255,255,.16);color:#BDF3D6}
+body.gex-premium-ui .gxb-hero .gxb-d.down{background:rgba(255,255,255,.16);color:#FFC9C3}
+body.gex-premium-ui .gxb-sw{border:1px solid var(--g-line);background:var(--g-card);color:var(--g-mu);border-radius:8px;padding:5px 12px;font-size:12px;transition:background .16s,border-color .16s,color .16s}
+body.gex-premium-ui .gxb-sw:hover{background:var(--g-p-soft);border-color:var(--g-p);color:var(--g-p)}
+/* gráfico de barras */
+body.gex-premium-ui .gxb-bars{height:190px;gap:10px;border-bottom:1px solid var(--g-line);background-image:linear-gradient(var(--g-line2) 1px,transparent 1px);background-size:100% 25%;background-position:0 8px}
+body.gex-premium-ui .gxb-bar i{max-width:30px;border-radius:6px 6px 0 0;transition:opacity .16s}
+body.gex-premium-ui .gxb-bar:hover i{opacity:.8}
+body.gex-premium-ui .gxb-xl{gap:10px;margin-top:8px}
+body.gex-premium-ui .gxb-xl span{font-size:11.5px;color:var(--g-mu);font-weight:500}
+/* funil comercial */
+body.gex-premium-ui .gxb-fn{grid-template-columns:minmax(80px,140px) 1fr 44px;gap:14px;margin:0;padding:9px 0;font-size:13px;border-bottom:1px solid var(--g-line2)}
+body.gex-premium-ui .gxb-fn:last-of-type{border-bottom:0}
+body.gex-premium-ui .gxb-fn b{font-weight:500;color:var(--g-tx)}
+body.gex-premium-ui .gxb-fn div{background:var(--g-track);height:8px;border-radius:99px}
+body.gex-premium-ui .gxb-fn div i{border-radius:99px;transition:width .3s}
+body.gex-premium-ui .gxb-fn em{font-weight:600;color:var(--g-tx)}
+/* tabelas do painel */
+body.gex-premium-ui .gxb-tb{font-size:13px}
+body.gex-premium-ui .gxb-tb th{background:var(--g-soft);font-size:11px;font-weight:600;letter-spacing:.05em;color:var(--g-mu);padding:10px 12px;border-bottom:1px solid var(--g-line)}
+body.gex-premium-ui .gxb-tb th:first-child{border-radius:8px 0 0 8px}body.gex-premium-ui .gxb-tb th:last-child{border-radius:0 8px 8px 0}
+body.gex-premium-ui .gxb-tb td{white-space:nowrap;padding:12px;border-bottom:1px solid var(--g-line2);color:var(--g-tx)}
+body.gex-premium-ui .gxb-tb tbody tr:hover td{background:var(--g-soft)}
+body.gex-premium-ui .gxb-tb tr:last-child td{border-bottom:0}
+body.gex-premium-ui .gxb-pill{background:var(--g-in-bg);color:var(--g-in);font-weight:600;padding:2px 9px}
+body.gex-premium-ui .gxb-empty{color:var(--g-li);padding:20px 0;text-align:center}
+
+/* tabelas gerais */
+body.gex-premium-ui table th{background:var(--g-soft);font-size:11px;font-weight:600;letter-spacing:.05em;color:var(--g-mu);padding:12px 16px;border-bottom:1px solid var(--g-line)}
+body.gex-premium-ui table td{padding:13px 16px;border-bottom:1px solid var(--g-line2);font-size:13.5px;color:var(--g-tx)}
+body.gex-premium-ui tr:hover td{background:var(--g-soft)}
+
+/* badges suaves */
+body.gex-premium-ui .badge{font-size:10.5px;font-weight:600;padding:3px 10px;letter-spacing:.04em}
+body.gex-premium-ui .badge-green{background:var(--g-ok-bg);color:var(--g-ok)}
+body.gex-premium-ui .badge-yellow{background:var(--g-wa-bg);color:var(--g-wa)}
+body.gex-premium-ui .badge-red{background:var(--g-er-bg);color:var(--g-er)}
+body.gex-premium-ui .badge-blue,body.gex-premium-ui .badge-purple{background:var(--g-in-bg);color:var(--g-in)}
+body.gex-premium-ui .badge-gray{background:var(--g-track);color:var(--g-mu)}
+
+/* campos de formulário */
+body.gex-premium-ui .form-input,body.gex-premium-ui input[type=text],body.gex-premium-ui input[type=email],body.gex-premium-ui input[type=number],body.gex-premium-ui input[type=password],body.gex-premium-ui input[type=date],body.gex-premium-ui input[type=tel],body.gex-premium-ui textarea{border-radius:9px;border-color:var(--g-line);transition:border-color .16s,box-shadow .16s}
+body.gex-premium-ui .form-input:focus,body.gex-premium-ui input:focus,body.gex-premium-ui textarea:focus{border-color:var(--g-p);box-shadow:0 0 0 4px var(--g-p-ring);outline:none}
+
+/* pipeline / kanban */
+body.gex-premium-ui .kcard{border-radius:10px;border:1px solid var(--g-line);box-shadow:none;background:var(--g-card)}
+body.gex-premium-ui .kcard:hover{box-shadow:0 6px 18px -10px rgba(124,58,237,.35);border-color:#D8CBFA}
+body.gex-premium-ui .kol-count{background:var(--g-card);border:1px solid var(--g-line)}
+body.gex-premium-ui .ftab.active{background:var(--g-card);color:var(--g-p);box-shadow:0 1px 2px rgba(23,23,31,.08)}
+
+/* menu lateral: mais calmo (continua escuro nos dois temas) */
+body.gex-premium-ui .sidebar{background:linear-gradient(180deg,#15132B 0%,#0F0E1F 100%);box-shadow:none;border-right:1px solid rgba(255,255,255,.06)}
+body.gex-premium-ui .nav-item,body.gex-premium-ui .nav-grp-hdr{font-size:12.5px}
+body.gex-premium-ui .nav-item:hover,body.gex-premium-ui .nav-grp-hdr:hover,body.gex-premium-ui .nav-sub:hover{transform:none}
+body.gex-premium-ui .nav-item.active,body.gex-premium-ui .nav-sub.active{background:rgba(139,92,246,.2);box-shadow:inset 2px 0 0 #A78BFA}
+
+/* botão tema */
+#gx-theme-btn svg{width:16px;height:16px;display:block}
+#gx-theme-btn .gx-moon{display:none}
+html[data-theme="dark"] #gx-theme-btn .gx-sun{display:none}
+html[data-theme="dark"] #gx-theme-btn .gx-moon{display:block}
+
+/* ═══ TEMA ESCURO: superfícies que o sistema pinta com cores fixas ═══ */
+html[data-theme="dark"] body.gex-premium-ui .topbar,
+html[data-theme="dark"] body .modal,html[data-theme="dark"] body .modal-box,html[data-theme="dark"] body .modal-content,
+html[data-theme="dark"] body .btn-ghost,html[data-theme="dark"] body .search-inline,
+html[data-theme="dark"] body .kcard,html[data-theme="dark"] body .kol-count,
+html[data-theme="dark"] body .ftab.active,html[data-theme="dark"] body .cal-view-toggle button.active{background:var(--g-card)!important;color:var(--g-tx)}
+html[data-theme="dark"] body .ann-bar,html[data-theme="dark"] body .perm-table th,html[data-theme="dark"] body .cal-grid-hdr,html[data-theme="dark"] body .cal-cell.muted{background:var(--g-soft)!important}
+html[data-theme="dark"] body input,html[data-theme="dark"] body select,html[data-theme="dark"] body textarea{background-color:var(--g-soft);color:var(--g-tx);border-color:var(--g-line)}
+html[data-theme="dark"] body input::placeholder,html[data-theme="dark"] body textarea::placeholder{color:var(--g-li)}
+html[data-theme="dark"] body td,html[data-theme="dark"] body th{border-bottom-color:var(--g-line2)}
+html[data-theme="dark"] body [style*="background:#fff"],html[data-theme="dark"] body [style*="background: #fff"],html[data-theme="dark"] body [style*="background:#FFF"],html[data-theme="dark"] body [style*="background:white"],html[data-theme="dark"] body [style*="background:#FFFFFF"],html[data-theme="dark"] body [style*="background-color:#fff"],html[data-theme="dark"] body [style*="background:#ffffff"]{background:var(--g-card)!important}
+html[data-theme="dark"] body [style*="background:#F8F8FC"],html[data-theme="dark"] body [style*="background:#FAFAFD"],html[data-theme="dark"] body [style*="background:#F4F4F9"],html[data-theme="dark"] body [style*="background:#F9FAFB"],html[data-theme="dark"] body [style*="background:#F3F4F6"],html[data-theme="dark"] body [style*="background:#F6F4FF"],html[data-theme="dark"] body [style*="background:#FBFAFF"]{background:var(--g-soft)!important}
+html[data-theme="dark"] body [style*="color:#1A1A2E"],html[data-theme="dark"] body [style*="color:#111"],html[data-theme="dark"] body [style*="color:#17142B"],html[data-theme="dark"] body [style*="color:#000"]{color:var(--g-tx)!important}
+html[data-theme="dark"] body [style*="border:1px solid #E4E4EF"],html[data-theme="dark"] body [style*="border:1px solid #E7E2F6"],html[data-theme="dark"] body [style*="border:1px solid #eee"]{border-color:var(--g-line)!important}
+html[data-theme="dark"] .gxb-fn div,html[data-theme="dark"] #inicio-bi [style*="background:#eef1f6"]{background:var(--g-track)!important}
+html[data-theme="dark"] .welcome-box,html[data-theme="dark"] .dash-filter-bar{background:var(--g-card)}
+html[data-theme="dark"] .pipeline::-webkit-scrollbar-track{background:#1E1E29}html[data-theme="dark"] .pipeline::-webkit-scrollbar-thumb{border-color:#1E1E29}
+html[data-theme="dark"] ::-webkit-scrollbar-thumb{background:#34344A}
+
+
+/* cabeçalhos de página, colunas e abas: usam os mesmos tokens nos dois temas */
+body.gex-premium-ui .page-header{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important;border-radius:0;margin-bottom:22px}
+body.gex-premium-ui .pipe-col{background:var(--g-soft);border:1px solid var(--g-line);box-shadow:none;border-radius:14px}
+body.gex-premium-ui .pcard{background:var(--g-card);border-color:var(--g-line);box-shadow:none}
+body.gex-premium-ui .cfg-hero{background:var(--g-card);border:1px solid var(--g-line)}
+body.gex-premium-ui .cfg-tab.active,body.gex-premium-ui .tab-nav .active,body.gex-premium-ui .tab.active{background:var(--g-p);box-shadow:none}
+body.gex-premium-ui table th{color:var(--g-mu)}
+body.gex-premium-ui tbody tr:hover{background:transparent}
+body.gex-premium-ui .kol{border-radius:12px}
+body.gex-premium-ui .cal-grid-hdr,body.gex-premium-ui .cal-grid-body{grid-template-columns:repeat(7,minmax(0,1fr))}
+body.gex-premium-ui .cal-week-grid{grid-template-columns:repeat(7,minmax(0,1fr))}
+body.gex-premium-ui .cal-cell,body.gex-premium-ui .cal-week-col{min-width:0}
+@media(prefers-reduced-motion:reduce){body.gex-premium-ui *{transition:none!important}}
+</style>
+<script id="gex-theme-v2">
+/* Alternar tema claro/escuro — só troca uma marca no <html>; guarda a escolha neste navegador. */
+(function(){
+  var K='gxTheme';
+  function get(){try{return localStorage.getItem(K)==='dark'?'dark':'light'}catch(e){return 'light'}}
+  function apply(t){
+    if(t==='dark')document.documentElement.setAttribute('data-theme','dark');else document.documentElement.removeAttribute('data-theme');
+    var b=document.getElementById('gx-theme-btn');
+    if(b){var d=t==='dark';b.title=d?'Mudar para tema claro':'Mudar para tema escuro';b.setAttribute('aria-label',b.title);b.setAttribute('aria-pressed',d?'true':'false')}
+  }
+  window.gxToggleTheme=function(){var n=get()==='dark'?'light':'dark';try{localStorage.setItem(K,n)}catch(e){}apply(n)};
+  apply(get());
+  document.addEventListener('DOMContentLoaded',function(){apply(get())});
+})();
+</script>
+
+
+<script id="gex-dark-gen">
+/* Tema escuro: converte, na hora, as cores claras fixas do sistema (folhas de estilo e estilos inline) em equivalentes escuros.
+   Só roda quando o tema escuro está ligado; não toca em dados nem em lógica. */
+(function(){
+  var INL_BG=["#d1fae5", "#d9fdd3", "#dbeafe", "#dcfce7", "#ddd6fe", "#dff3e8", "#e3eefb", "#e7f9ef", "#e8f0fe", "#e8f1ff", "#e9eef1", "#e9fbf3", "#eaf2ff", "#ebebf0", "#eceaf5", "#eceef3", "#ecfdf5", "#ede9fe", "#eeeaf6", "#eeeafb", "#eef0f4", "#eef1f6", "#eef2ff", "#eefcf4", "#efeafb", "#eff6ff", "#f0ebff", "#f0f2f5", "#f1f0fa", "#f1f5f9", "#f3f0ff", "#f3f4f6", "#f4f4f9", "#f4f7fb", "#f6f4ff", "#f7f5fc", "#f8f7fb", "#f8f7ff", "#f8f8fc", "#f8fafc", "#f9f8fc", "#f9f9fb", "#f9fafb", "#fafafa", "#fafafc", "#fafafd", "#fafafe", "#fbfaff", "#fbfdfc", "#fde4e0", "#fdf4e7", "#fee2e2", "#fef2f2", "#fef3c7", "#fef9c3", "#fff", "#fff7ed", "#fff7f7", "#fff8e1", "#fff8f8", "#fffbeb", "#ffffff"], INL_FG=["#000", "#0030b9", "#047857", "#059669", "#065f46", "#075e54", "#0f172a", "#111", "#111827", "#12663a", "#128c7e", "#166534", "#17142b", "#1857a8", "#1967d2", "#1a1a2e", "#1e40af", "#1f2937", "#334155", "#374151", "#475569", "#4b4560", "#4b5563", "#4c1d95", "#54656f", "#555a6b", "#5b21b6", "#5f5774", "#64748b", "#667085", "#6b7280", "#766e8b", "#92400e", "#991b1b", "#a16207", "#a52a1b", "#b45309", "#d97706"];
+  var CARD='#15151D',SOFT='#1A1A24',TX='#EDEDF5',MU='#A0A0B4';
+  function hsl(r,g,b){r/=255;g/=255;b/=255;var mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2,h=0,s=0,d=mx-mn;
+    if(d){s=l>.5?d/(2-mx-mn):d/(mx+mn);h=mx==r?((g-b)/d+(g<b?6:0)):mx==g?((b-r)/d+2):((r-g)/d+4);h*=60}return[h,s,l]}
+  function parse(c){var m=c.match(/rgba?\(([^)]+)\)/);if(!m)return null;var p=m[1].split(/[ ,\/]+/).filter(Boolean).map(parseFloat);return{r:p[0],g:p[1],b:p[2],a:p.length>3?p[3]:1}}
+  function hex(c){c=c.replace('#','');if(c.length==3)c=c.split('').map(function(x){return x+x}).join('');return{r:parseInt(c.slice(0,2),16),g:parseInt(c.slice(2,4),16),b:parseInt(c.slice(4,6),16),a:1}}
+  function out(o,a){return a<1?'rgba('+o[0]+','+o[1]+','+o[2]+','+a+')':'rgb('+o[0]+','+o[1]+','+o[2]+')'}
+  function hslOut(h,s,l,a){return 'hsla('+Math.round(h)+','+Math.round(s*100)+'%,'+Math.round(l*100)+'%,'+a+')'}
+  function bgMap(c){var h=hsl(c.r,c.g,c.b);if(h[2]<.86)return null;
+    if(h[1]<.25){return out(h[2]>.965?[21,21,29]:[26,26,36],c.a)}
+    return hslOut(h[0],Math.min(h[1],.5),.17,c.a)}
+  function fgMap(c){var h=hsl(c.r,c.g,c.b);if(h[2]>.5)return null;
+    if(h[1]<.3)return h[2]<=.28?out([237,237,245],c.a):out([160,160,180],c.a);
+    return hslOut(h[0],Math.max(h[1],.55),.72,c.a)}
+  function bdMap(c){var h=hsl(c.r,c.g,c.b);if(h[2]<.8)return null;return h[1]<.3?out([38,38,51],c.a):hslOut(h[0],.3,.22,c.a)}
+  function mapAll(v,fn){return v.replace(/rgba?\([^)]*\)/g,function(m){var c=parse(m);var r=c&&fn(c);return r||m})}
+  var SKIP=/(login|sidebar|\.sb-|\.nav-|gxb-hero|gex-premium-ui\s+\.nav|\.btn-primary|gx-theme|#gx-ini-toggle|gxw|print|toast|:root|^html|^body$)/i;
+  function build(){
+    var css='',seen=0;
+    function rule(r){
+      if(r.type===1&&r.style){
+        var sel=r.selectorText;if(!sel||SKIP.test(sel))return;
+        var st=r.style,decl='',bgset=false,bgval=null;
+        ['background-color','background-image','background','border-color','border-top-color','border-bottom-color','border-left-color','border-right-color','color','fill','outline-color'].forEach(function(p){
+          var v=st.getPropertyValue(p);if(!v||v.indexOf('rgb')<0)return;
+          var n=null;
+          if(p==='color'||p==='fill'){ if(bgset&&bgval===null)return; n=mapAll(v,fgMap) }
+          else if(p.indexOf('border')===0||p==='outline-color'){ n=mapAll(v,bdMap) }
+          else { n=mapAll(v,bgMap) }
+          if(n&&n!==v){decl+=p+':'+n+';'; if(p.indexOf('background')===0){bgset=true;bgval=n}}
+          else if(p.indexOf('background')===0&&v){ decl+=p+':'+v+';'; if(/rgb/.test(v)){var c=parse(v);if(c&&hsl(c.r,c.g,c.b)[2]>.35){bgset=true;bgval=null}} }
+          else if(p.indexOf('background')!==0){ decl+=p+':'+v+';' }
+        });
+        if(decl){css+=sel.split(',').map(function(x){return ':where(html[data-theme="dark"]) '+x.trim()}).join(',')+'{'+decl+'}\n';seen++}
+      }else if(r.cssRules&&(r.type===4||r.type===12||r.type===3)){
+        var inner='';var prev=css;css='';for(var i=0;i<r.cssRules.length;i++)rule(r.cssRules[i]);
+        inner=css;css=prev;if(inner){css+=(r.type===4?'@media '+r.conditionText:r.type===12?'@supports '+r.conditionText:'')+'{'+inner+'}\n'}
+      }
+    }
+    for(var i=0;i<document.styleSheets.length;i++){var sh=document.styleSheets[i];if(sh.ownerNode&&sh.ownerNode.id==='gex-dark-gen-css')continue;var rs;try{rs=sh.cssRules}catch(e){continue}
+      if(!rs)continue;for(var j=0;j<rs.length;j++){try{rule(rs[j])}catch(e){}}}
+    // estilos inline (valores que aparecem no código)
+    INL_BG.forEach(function(h){var c=hex(h),m=bgMap(c);if(!m)return;
+      ['background:','background: ','background-color:','background-color: '].forEach(function(p){css+='html[data-theme="dark"] body [style*="'+p+h+'" i]{background:'+m+' !important}\n'})});
+    INL_FG.forEach(function(h){var c=hex(h),m=fgMap(c);if(!m)return;
+      ['color:','color: '].forEach(function(p){css+='html[data-theme="dark"] body [style*="; '+p+h+'" i],html[data-theme="dark"] body [style*="\"'+p+h+'" i],html[data-theme="dark"] body [style*=";'+p+h+'" i]{color:'+m+' !important}\n'})});
+    return css;
+  }
+  var tmr=null,st=null;
+  function run(){
+    if(document.documentElement.getAttribute('data-theme')!=='dark'){if(st)st.textContent='';return}
+    if(!st){st=document.createElement('style');st.id='gex-dark-gen-css';(document.body||document.head).appendChild(st)}
+    try{st.textContent=build();if(st.parentNode!==document.body&&document.body)document.body.appendChild(st);else if(document.body&&st.nextSibling)document.body.appendChild(st)}catch(e){}
+  }
+  function later(){clearTimeout(tmr);tmr=setTimeout(run,250)}
+  new MutationObserver(function(ms){
+    for(var i=0;i<ms.length;i++){var m=ms[i];
+      if(m.type==='attributes'&&m.attributeName==='data-theme'){run();return}
+      for(var j=0;j<m.addedNodes.length;j++){var n=m.addedNodes[j];if(n.nodeName==='STYLE'&&n.id!=='gex-dark-gen-css'){later();return}}}
+  }).observe(document.documentElement,{attributes:true,childList:true,subtree:true,attributeFilter:['data-theme']});
+  window.addEventListener('load',run);
+  run();
 })();
 </script>
 </body>
