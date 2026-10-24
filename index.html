@@ -4000,12 +4000,15 @@ async function gexResolveWorkspace(){
 function gexIsolateCacheByWorkspace(){
   try{
     const KEY='gx2_cache_ws';
+    // Gex Company: marca simples (nada muda para quem já usa). Empresas novas: marca com versão — a "|2" força
+    // uma limpeza única em navegadores que ficaram com cache misturado na primeira versão desta correção.
+    const marca=GEX_WORKSPACE_ID===GEX_MAIN_WORKSPACE?GEX_WORKSPACE_ID:GEX_WORKSPACE_ID+'|2';
     const prev=localStorage.getItem(KEY);
-    if(prev===GEX_WORKSPACE_ID)return false;
-    if(prev===null && GEX_WORKSPACE_ID===GEX_MAIN_WORKSPACE){ localStorage.setItem(KEY,GEX_WORKSPACE_ID); return false; }
+    if(prev===marca)return false;
+    if(prev===null && GEX_WORKSPACE_ID===GEX_MAIN_WORKSPACE){ localStorage.setItem(KEY,marca); return false; }
     const keep=new Set(['gx2_session',KEY]);
     Object.keys(localStorage).filter(k=>k.indexOf('gx2_')===0&&!keep.has(k)).forEach(k=>localStorage.removeItem(k));
-    localStorage.setItem(KEY,GEX_WORKSPACE_ID);
+    localStorage.setItem(KEY,marca);
     return true;
   }catch(e){ return false; }
 }
