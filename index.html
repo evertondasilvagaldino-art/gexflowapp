@@ -6589,12 +6589,13 @@ async function loadEmpresasClientes(){
       const sub=e.assinatura;
       if(e.status==='suspensa')return['Suspensa','#EF4444'];
       if(sub&&sub.status==='active')return['Assinatura ativa','#10B981'];
-      if(sub&&sub.status==='past_due')return['Pagamento atrasado','#EF4444'];
-      if(sub&&sub.status==='pending')return['Aguardando pagamento','#F59E0B'];
+      // Teste grátis vale mesmo que exista um link de pagamento gerado e ainda não pago (assinatura "pending").
       if(e.status==='trial'){
         const fim=e.trial_ends_at?new Date(e.trial_ends_at).getTime():0;
         return fim&&fim<agora?['Teste vencido','#EF4444']:['Em teste grátis','#6366F1'];
       }
+      if(sub&&sub.status==='past_due')return['Pagamento atrasado','#EF4444'];
+      if(sub&&sub.status==='pending')return['Aguardando pagamento','#F59E0B'];
       if(sub&&sub.status==='canceled')return['Cancelada','#EF4444'];
       return[e.status==='ativa'?'Ativa':(e.status||'—'),'#64748B'];
     };
@@ -6623,13 +6624,14 @@ async function loadEmpresasClientes(){
       const [lbl,color]=situacao(e);
       const plan=plans.find(p=>p.id===e.assinatura?.plan_id);
       const v=_valorPlano(plan);
+      const emTeste=lbl==='Em teste grátis';
       const data=e.assinatura?.status==='active'&&e.assinatura.current_period_end?e.assinatura.current_period_end:e.trial_ends_at;
       const dataTxt=data?new Date(data).toLocaleDateString('pt-BR'):'—';
       return `<tr>
         <td><div style="font-weight:600;font-size:13px">${escHtml(e.nome||'—')}</div><div style="font-size:11px;color:var(--muted)">${escHtml(e.id)}</div></td>
         <td><div style="font-size:13px">${escHtml(e.dono?.nome||'—')}</div><div style="font-size:11px;color:var(--muted)">${escHtml(e.dono?.email||'—')}${e.dono?.telefone?' · '+escHtml(e.dono.telefone):''}</div></td>
-        <td>${escHtml(plan?.name||(e.assinatura?.plan_id)||(e.status==='trial'?'Teste (Pro)':'—'))}</td>
-        <td style="font-weight:600;font-size:13px;white-space:nowrap">${v!=null&&e.assinatura?_brl(v):'—'}</td>
+        <td>${emTeste?'Teste (Pro)':escHtml(plan?.name||(e.assinatura?.plan_id)||'—')}</td>
+        <td style="font-weight:600;font-size:13px;white-space:nowrap">${!emTeste&&v!=null&&e.assinatura?_brl(v):'—'}</td>
         <td><span style="background:${color}20;color:${color};padding:2px 8px;border-radius:10px;font-weight:700;font-size:11px">${escHtml(lbl)}</span></td>
         <td style="color:var(--muted);font-size:12px">${dataTxt}</td>
         <td style="font-size:12px">${e.usuarios||0}</td>
