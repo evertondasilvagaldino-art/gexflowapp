@@ -2720,9 +2720,9 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
 <!-- CONFIRM -->
 <div class="confirm-overlay" id="confirm-ov">
   <div class="confirm-box">
-    <div style="font-size:32px;margin-bottom:10px">🗑️</div>
-    <div style="font-size:16px;font-weight:700;margin-bottom:6px">Confirmar exclusão</div>
-    <div style="font-size:13px;color:var(--muted)">Esta ação não pode ser desfeita.</div>
+    <div id="confirm-ico" style="font-size:32px;margin-bottom:10px">🗑️</div>
+    <div id="confirm-title" style="font-size:16px;font-weight:700;margin-bottom:6px">Confirmar exclusão</div>
+    <div id="confirm-msg" style="font-size:13px;color:var(--muted)">Esta ação não pode ser desfeita.</div>
     <div class="confirm-btns">
       <button class="btn btn-ghost" onclick="document.getElementById('confirm-ov').classList.remove('open')">Cancelar</button>
       <button class="btn btn-danger" id="confirm-ok">Excluir</button>
@@ -5432,8 +5432,15 @@ function gxAddPwdEye(inputId){
 }
 
 // ═══ CONFIRM ═══
-function confirmDelete(cb){
+// opts (opcional): {icon,title,message,okText} — para ações que não são exclusão (ex.: Desconectar).
+function confirmDelete(cb,opts){
   const ov=document.getElementById('confirm-ov');
+  try{
+    const o=opts||{};
+    const set=(id,v)=>{const el=document.getElementById(id); if(el)el.textContent=v;};
+    set('confirm-ico',o.icon||'🗑️'); set('confirm-title',o.title||'Confirmar exclusão'); set('confirm-msg',o.message||'Esta ação não pode ser desfeita.');
+    const okb=document.getElementById('confirm-ok'); if(okb)okb.textContent=o.okText||'Excluir';
+  }catch(e){}
   if(!ov){
     try{ if(typeof cb==='function')cb(); }catch(err){console.error('[GexFlow] Erro ao confirmar exclusão:',err);toast('Não foi possível excluir. Veja o console.','#EF4444')}
     return;
@@ -20044,7 +20051,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       btns.forEach(b=>{if(document.body.contains(b)){b.disabled=false;b.textContent='Desconectar'}});
       gxiLoadZapiLiveStatus();
     };
-    if(typeof confirmDelete==='function')confirmDelete(run);
+    if(typeof confirmDelete==='function')confirmDelete(run,{icon:'🔌',title:'Desconectar WhatsApp',message:'Será preciso escanear um novo QR Code para reconectar.',okText:'Desconectar'});
     else if(confirm('Desconectar o número do WhatsApp? Será preciso escanear um novo QR Code para reconectar.'))run();
   };
   function trackingListHtml(){const list=getTrackings();return `<div class="gxi-toolbar"><div class="gxi-toolbar-copy"><h2>Regras de rastreamento</h2><p>Mova leads no Pipeline quando uma mensagem corresponder ao critério configurado.</p></div><button class="gxi-btn primary" onclick="gxiNewTracking()">+ Novo rastreamento</button></div><div class="gxi-rules">${list.length?list.map(r=>`<div class="gxi-rule"><div><div class="gxi-rule-title">“${E(r.message)}”</div><div class="gxi-rule-sub">${E(MODES[r.mode]||r.mode)} • ${E(r.connectionName||'WhatsApp')}</div></div><div><span class="gxi-tag">${E(r.stageName||'Sem etapa')}</span></div><div><div class="gxi-rule-title">${r.executions||0} execuções</div><div class="gxi-rule-sub">${r.lastExecutedAt?new Date(r.lastExecutedAt).toLocaleString('pt-BR'):'Nunca executado'}</div></div><div><span class="gxi-pill ${r.active!==false?'on':'off'}">${r.active!==false?'Ativo':'Pausado'}</span></div><div class="gxi-rule-actions"><button class="gxi-btn small" onclick="gxiToggleTracking('${r.id}')">${r.active!==false?'Pausar':'Ativar'}</button><button class="gxi-btn small" onclick="gxiEditTracking('${r.id}')">Editar</button><button class="gxi-btn small danger" onclick="gxiDeleteTracking('${r.id}')">Excluir</button></div></div>`).join(''):`<div class="gxi-empty"><i>⌁</i><b>Nenhum rastreamento criado</b>Crie a primeira regra para automatizar a movimentação dos leads.</div>`}</div>`}
@@ -20132,7 +20139,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
           <button class="gxi-btn primary small" onclick="gxiConfirmLeadgenOAuthPage()">Confirmar Página</button>
         </div>`:`<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
           <button class="meta-oauth-btn" id="leadgen-oauth-connect-btn" onclick="connectLeadgenOAuth()">${s.hasToken?'Reconectar com Facebook':'Conectar com Facebook'}</button>
-          ${s.hasToken?`<button class="gxi-btn danger small" onclick="confirmDelete(()=>disconnectLeadgenOAuth())">Desconectar</button>`:''}
+          ${s.hasToken?`<button class="gxi-btn danger small" onclick="confirmDelete(()=>disconnectLeadgenOAuth(),{icon:'🔌',title:'Desconectar Meta Leads',message:'Os leads do Facebook/Instagram param de chegar até você reconectar.',okText:'Desconectar'})">Desconectar</button>`:''}
           ${s.hasToken?`<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:#059669;background:#D1FAE5;border-radius:20px;padding:5px 12px"><span style="width:7px;height:7px;border-radius:50%;background:#059669;display:inline-block"></span>Conectado${s.pageName?`: ${E(s.pageName)}`:''}${s.pageId?` <span style="color:#047857;font-weight:600">(ID ${E(s.pageId)})</span>`:''}</span>`:''}
           <span style="font-size:11px;color:var(--muted)">${s.hasToken?'Pode reconectar a qualquer momento pra trocar de Página ou renovar a permissão.':'Faz login com o Facebook e já traz o Token de acesso da Página certo, sem precisar do Graph API Explorer.'}</span>
         </div>
@@ -20368,7 +20375,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
         toast(e.message||'Erro ao desconectar o e-mail','#EF4444');
       }
     };
-    if(typeof confirmDelete==='function')confirmDelete(run);
+    if(typeof confirmDelete==='function')confirmDelete(run,{icon:'🔌',title:'Desconectar e-mail',message:'As automações de e-mail param de funcionar até você reconectar.',okText:'Desconectar'});
     else if(confirm('Desconectar a conexão de e-mail? As automações de e-mail param de funcionar até você reconectar.'))run();
   };
   window.gxiSaveZapiConfig=async()=>{
@@ -22698,7 +22705,7 @@ ${gxlCloseScriptTag}`;
   window.wacDisconnect=function(){
     if(wacDisconnecting)return;
     if(typeof confirmDelete==='function'){
-      confirmDelete(async()=>{await doDisconnect()});
+      confirmDelete(async()=>{await doDisconnect()},{icon:'🔌',title:'Desconectar WhatsApp',message:'Será preciso escanear um novo QR Code para reconectar.',okText:'Desconectar'});
     }else if(confirm('Desconectar o número do WhatsApp? Será preciso escanear um novo QR Code para reconectar.')){
       doDisconnect();
     }
@@ -22770,8 +22777,8 @@ ${gxlCloseScriptTag}`;
 })();
 </script>
 
-<!-- GexFlow • Botão flutuante de WhatsApp (Suporte Gex Company 🟢) — só para
-     usuários Parceiro/abaixo de Fundador e Adm Gerente, e só depois de logado -->
+<!-- GexFlow • Botão flutuante de WhatsApp (Suporte Gex Company 🟢) — para
+     usuários Parceiro/abaixo de Fundador e Adm Gerente da Gex Company e para TODOS os usuários de empresas clientes, só depois de logado -->
 <script id="gex-partner-support-fab">
 (function(){
   if(window.__GEX_PARTNER_SUPPORT_FAB__) return;
@@ -22894,6 +22901,8 @@ ${gxlCloseScriptTag}`;
   function isPartnerLoggedIn(){
     try{
       if(typeof sessionUser==='undefined' || !sessionUser || !sessionUser.id) return false;
+      // Empresa cliente (fora da Gex Company): todos os usuários têm o botão de suporte do sistema.
+      if(typeof gxIsOtherWorkspace === 'function' && gxIsOtherWorkspace()) return true;
       if(typeof isSalesManagerView === 'function') return !isSalesManagerView();
       return false;
     }catch(e){ return false; }
@@ -23264,7 +23273,7 @@ function disconnectGoogleCalendar(){
     _calGoogleEvents={};
     if(calIsActivePage())renderCalendario();
     toast('Google Agenda desconectada','#7C3AED');
-  });
+  },{icon:'🔌',title:'Desconectar Google Agenda',message:'Suas atividades do GexFlow continuam salvas. Só a ligação com a sua conta do Google será removida.',okText:'Desconectar'});
 }
 async function loadGoogleCalendarStatus(){
   try{
