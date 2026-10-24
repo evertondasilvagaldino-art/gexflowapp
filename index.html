@@ -25441,6 +25441,9 @@ body.gex-premium-ui .nav-item.active,body.gex-premium-ui .nav-sub.active{backgro
 /* botão tema */
 #gx-theme-btn svg{width:16px;height:16px;display:block}
 #gx-theme-btn .gx-moon{display:none}
+/* Painel lateral do lead (Pipeline): fundo fixo claro ficava branco no tema escuro, com texto claro ilegível */
+html[data-theme="dark"] body .deal-sidebar{background:var(--g-card);border-left-color:var(--g-line)}
+html[data-theme="dark"] body .deal-sidebar .sb-action-btn{background:var(--g-soft);color:var(--g-tx);border-color:var(--g-line)}
 html[data-theme="dark"] #gx-theme-btn .gx-sun{display:none}
 html[data-theme="dark"] #gx-theme-btn .gx-moon{display:block}
 
