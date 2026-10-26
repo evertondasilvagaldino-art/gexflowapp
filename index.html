@@ -4519,16 +4519,31 @@ async function initGexCloudDataSync(isRetry){
     if(gexIsolateCacheByWorkspace()){ location.reload(); return false; }
     gexPurgeDemoSeedForCompany();
     const logSet=new Set(GEX_LOG_COLLECTIONS);
+    // CORREÇÃO (26/10/2026): o Supabase devolve no máximo ~1000 linhas por consulta (limite do servidor,
+    // não adianta .limit(100000)). Sem ordem fixa, quando a empresa passa disso a carga vinha com um
+    // pedaço diferente a cada atualização — leads "sumindo e voltando". Agora lê em páginas, com ordem
+    // fixa, até acabar. Só leitura: não muda nem apaga nada.
     const {data}=await gexWithRetry(async()=>{
-      const res=await supabaseClient
-        .from(GEX_CLOUD_TABLE)
-        .select('collection,record_id,data,updated_at,deleted_at')
-        .eq('workspace_id',GEX_WORKSPACE_ID)
-        .is('deleted_at',null)
-        .not('collection','in',`(${GEX_LOG_COLLECTIONS.map(c=>`"${c}"`).join(',')})`)
-        .limit(100000);
-      if(res.error)throw res.error;
-      return res;
+      const all=[];
+      const PAGE=1000;
+      let from=0;
+      for(let guard=0;guard<500;guard++){
+        const res=await supabaseClient
+          .from(GEX_CLOUD_TABLE)
+          .select('collection,record_id,data,updated_at,deleted_at')
+          .eq('workspace_id',GEX_WORKSPACE_ID)
+          .is('deleted_at',null)
+          .not('collection','in',`(${GEX_LOG_COLLECTIONS.map(c=>`"${c}"`).join(',')})`)
+          .order('collection',{ascending:true})
+          .order('record_id',{ascending:true})
+          .range(from,from+PAGE-1);
+        if(res.error)throw res.error;
+        const rows=res.data||[];
+        if(!rows.length)break;
+        all.push(...rows);
+        from+=rows.length;
+      }
+      return {data:all};
     });
 
     const byCollection={};
