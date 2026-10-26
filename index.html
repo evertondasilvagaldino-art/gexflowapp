@@ -2040,6 +2040,20 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
 .gx-zbtn button.on{background:linear-gradient(135deg,#8B5CF6,#6D28D9);color:#fff}
 @media (max-width:999px){.gx-zbtn{display:none}}
 </style>
+<style id="gx-pipe-compact">
+/* Pipeline compacto: cabeçalho, filtros e cartões ocupam menos altura para os leads ganharem espaço */
+#page-comercial .page-header{margin-bottom:6px;gap:10px}
+#page-comercial .page-title{font-size:20px;line-height:1.15}
+#page-comercial .page-sub{font-size:11.5px;margin-top:1px}
+#page-comercial #comercial-header-actions .btn{padding:6px 12px;font-size:12px}
+#com-tab-pipeline #pipeline-filter-bar{padding:6px 12px;margin-bottom:8px;gap:8px}
+#com-tab-pipeline #funnel-selector-bar{padding:0 0 8px}
+#com-tab-pipeline #com-stats{margin-bottom:8px!important;gap:8px}
+#com-tab-pipeline #com-stats .stat-card{padding:8px 14px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+#com-tab-pipeline #com-stats .stat-card>*{margin:0!important}
+#com-tab-pipeline #com-stats .stat-val,#com-tab-pipeline #com-stats [class*="val"]{font-size:20px!important;line-height:1.2}
+#com-tab-pipeline #com-stats .stat-lbl{font-size:12px}
+</style>
 </head>
 <body class="gex-premium-ui">
 
@@ -8983,7 +8997,19 @@ function gxPipeZoomApply(){
   if(tab)tab.classList.toggle('gx-z80',z===80);
   document.querySelectorAll('#gx-zbtn button').forEach(b=>b.classList.toggle('on',+b.dataset.z===z));
 }
-function gxPipeZoom(z){try{localStorage.setItem('gex_pipe_zoom',String(z))}catch(e){}gxPipeZoomApply()}
+function gxPipeFit(){
+  try{
+    const pb=document.getElementById('pipeline-board');
+    if(!pb||pb.offsetParent===null||getComputedStyle(pb).display==='none')return;
+    pb.style.height='';
+    const r=pb.getBoundingClientRect();
+    const sc=pb.offsetHeight?(r.height/pb.offsetHeight):1; // 1 ou 0,8 (zoom)
+    const h=Math.max(320,(window.innerHeight-r.top-14)/(sc||1));
+    pb.style.height=Math.round(h)+'px';
+  }catch(e){}
+}
+window.addEventListener('resize',()=>{clearTimeout(window._gxFitT);window._gxFitT=setTimeout(gxPipeFit,120)});
+function gxPipeZoom(z){try{localStorage.setItem('gex_pipe_zoom',String(z))}catch(e){}gxPipeZoomApply();setTimeout(gxPipeFit,30)}
 function setPipelineQuick(k){
   if(k==='todos'){pipelineFilter.quick='';pipelineFilter.mes=0;pipelineFilter.ano=0;renderComercial();return}
   pipelineFilter.quick=k;
@@ -11008,7 +11034,7 @@ function renderComercial(){
   const pipeAnoSel=document.getElementById('pipe-ano');
   if(pipeMesSel)pipeMesSel.value=pipelineFilter.quick?'':pipelineFilter.mes;
   if(pipeAnoSel)pipeAnoSel.value=pipelineFilter.quick?'':pipelineFilter.ano;
-  try{gxPipeZoomApply()}catch(e){}
+  try{gxPipeZoomApply();setTimeout(gxPipeFit,60);setTimeout(gxPipeFit,400)}catch(e){}
   const _allOn=!pipelineFilter.quick&&!pipelineFilter.mes&&!pipelineFilter.ano;
   document.querySelectorAll('#pipe-quick .gx-qchip').forEach(b=>b.classList.toggle('on',b.dataset.k==='todos'?_allOn:b.dataset.k===pipelineFilter.quick));
   const pipeInfo=document.getElementById('pipeline-filter-info');
