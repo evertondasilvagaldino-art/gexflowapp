@@ -10600,7 +10600,17 @@ function salesDateInPeriod(raw,period){
 }
 
 function leadInSalesPeriod(lead,period){
-  return salesDateInPeriod(lead?.dataInicio||lead?.createdAt||lead?.created_at||lead?.dataCriacao,period);
+  // Mesma regra do Pipeline CRM: ganho/perdido pela data de FECHAMENTO; em aberto por ENTRADA
+  // (createdAt primeiro, depois dataInicio) ou por MUDANÇA DE ETAPA dentro do período.
+  try{
+    if((isWonOpportunity(lead)||isLostOpportunityLocal(lead))&&typeof window.gxCloseKey==='function'){
+      const ck=window.gxCloseKey(lead);if(ck)return salesDateInPeriod(ck,period);
+    }
+    const ent=lead?.createdAt||lead?.created_at||lead?.dataInicio||lead?.dataCriacao;
+    if(salesDateInPeriod(ent,period))return true;
+    if(lead?.stageChangedAt&&salesDateInPeriod(lead.stageChangedAt,period))return true;
+    return false;
+  }catch(e){return salesDateInPeriod(lead?.dataInicio||lead?.createdAt||lead?.created_at||lead?.dataCriacao,period)}
 }
 
 // Dono ÚNICO do lead para as métricas de vendedores: cada lead conta para UM só vendedor
@@ -25634,11 +25644,12 @@ function build(){
     leadsP.forEach(l=>{const o=String(l.origem||'').trim()||'Sem origem';(g[o]=g[o]||{o,n:0,w:0,v:0});g[o].n++;if(won(l)){g[o].w++;g[o].v+=parseFloat(l.valor)||0}});
     const rows=Object.values(g).sort((a,b)=>b.n-a.n).slice(0,8);
     ori=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">Origem dos leads</div><div class="gxb-sub">${E(sub)}</div></div></div>${rows.length?`<div class="gxb-tw"><table class="gxb-tb"><thead><tr><th>Origem</th><th>Leads</th><th>Ganhos</th><th>Conversão</th><th>Valor</th></tr></thead><tbody>${rows.map(r=>`<tr><td title="${E(r.o)}">${E(r.o)}</td><td>${r.n}</td><td>${r.w}</td><td><span class="gxb-pill">${r.n?Math.round(r.w/r.n*100):0}%</span></td><td>${brl(r.v)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="gxb-empty">Sem leads no período.</div>'}</div>`;
-    let srows=[];try{srows=getSalesTeamMetrics({mes:dashFilter.mes,ano:dashFilter.ano})||[]}catch(e){}
+    let rkMode='total';try{rkMode=localStorage.getItem('gxRankMode')==='mes'?'mes':'total'}catch(e){}
+    let srows=[];try{srows=getSalesTeamMetrics(rkMode==='mes'?{mes:dashFilter.mes,ano:dashFilter.ano}:'todos')||[]}catch(e){}
     srows=srows.sort((a,b)=>b.valorGanho-a.valorGanho||b.ganhos-a.ganhos||b.leads-a.leads);
     srows=srows.filter(r=>r.leads||r.ganhos||r.ativos).slice(0,8);
     let tit='Ranking de vendedores';try{if(!isSalesManagerView())tit='Minha performance'}catch(e){}
-    rank=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">${tit}</div><div class="gxb-sub">${E(label)} · todos os funis · vendas pela data de fechamento</div></div></div>${srows.length?`<div class="gxb-tw"><table class="gxb-tb"><thead><tr><th>Vendedor</th><th>Leads</th><th>Ganhos</th><th>Conversão</th><th>Vendido</th><th>Pipeline</th></tr></thead><tbody>${srows.map(r=>`<tr><td title="${E(r.user&&r.user.nome)}">${E(r.user&&r.user.nome||'—')}</td><td>${r.leads}</td><td>${r.ganhos}</td><td><span class="gxb-pill">${r.conv}%</span></td><td>${brl(r.valorGanho)}</td><td>${brl(r.pipelineAtivo)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="gxb-empty">Sem vendedores com movimento.</div>'}</div>`;
+    rank=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">${tit}</div><div class="gxb-sub">${rkMode==='mes'?E(label)+' · vendas pela data de fechamento':'Total do funil de cada vendedor · igual ao Pipeline'}</div></div><button type="button" class="gx-pbtn" onclick="gxRankToggle()">${rkMode==='mes'?'Ver total do funil':'Ver só '+E(label)}</button></div>${srows.length?`<div class="gxb-tw"><table class="gxb-tb"><thead><tr><th>Vendedor</th><th>Leads</th><th>Ativos</th><th>Ganhos</th><th>Conversão</th><th>Vendido</th><th>Pipeline</th></tr></thead><tbody>${srows.map(r=>`<tr><td title="${E(r.user&&r.user.nome)}">${E(r.user&&r.user.nome||'—')}</td><td>${r.leads}</td><td>${r.ativos}</td><td>${r.ganhos}</td><td><span class="gxb-pill">${r.conv}%</span></td><td>${brl(r.valorGanho)}</td><td>${brl(r.pipelineAtivo)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="gxb-empty">Sem vendedores com movimento.</div>'}</div>`;
   }
   if(ori||rank)html+=`<div class="gxb-grid gxb-2e">${ori}${rank}</div>`;
 
@@ -25682,6 +25693,7 @@ function renderInicioInner(){
     const box=document.getElementById('inicio-bi');if(box)box.innerHTML='';
   }
 }
+window.gxRankToggle=function(){try{const m=localStorage.getItem('gxRankMode')==='mes'?'total':'mes';localStorage.setItem('gxRankMode',m)}catch(e){}try{const box=document.getElementById('inicio-bi');if(box){box.innerHTML=build();try{applyOrder(box);applyCust(box);orgPaint(box)}catch(e){}}}catch(e){}};
 })();
 </script>
 
