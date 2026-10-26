@@ -10505,22 +10505,35 @@ function getSalesTeamMetrics(period='todos'){
   // período escolhido, porque representam desempenho NO período.
   const allLeadsAtuais=DB.get('leads')||[];
   const visibleLeadsAtuais=getVisibleCommercialLeads(allLeadsAtuais);
-  const users=getVisibleSalesUsersForMetrics(visibleLeads);
+  // Ganhos/perdas entram no período pela data de FECHAMENTO (igual ao Pipeline, Início e Relatório),
+  // não pela data em que o lead entrou — senão a venda de um lead antigo fechado agora some do ranking.
+  const _fechouNoPeriodo=l=>{
+    try{
+      if(!(isWonOpportunity(l)||isLostOpportunityLocal(l)))return false;
+      const ck=(typeof window.gxCloseKey==='function')?window.gxCloseKey(l):'';
+      return salesDateInPeriod(ck||l?.dataInicio||l?.createdAt||l?.created_at,period);
+    }catch(e){return false}
+  };
+  const closedInPeriod=visibleLeadsAtuais.filter(_fechouNoPeriodo);
+  const _seen=new Set(),_union=[];
+  visibleLeads.concat(closedInPeriod).forEach(l=>{const k=String(l.id);if(!_seen.has(k)){_seen.add(k);_union.push(l)}});
+  const users=getVisibleSalesUsersForMetrics(_union);
   const activities=DB.get('atividades')||[];
   const tasks=getCommercialTasks?getCommercialTasks():[];
 
   const rows=users.map(u=>{
     const userLeads=visibleLeads.filter(l=>isLeadOwnedByUser(l,u));
     const userLeadsAtuais=visibleLeadsAtuais.filter(l=>isLeadOwnedByUser(l,u));
-    const ganhos=userLeads.filter(l=>{try{return isWonOpportunity(l)}catch(e){return normalizeSalesName(l.dealStatus||l.status).includes('ganh')}});
-    const perdidos=userLeads.filter(isLostOpportunityLocal);
+    const userFechados=closedInPeriod.filter(l=>isLeadOwnedByUser(l,u));
+    const ganhos=userFechados.filter(l=>{try{return isWonOpportunity(l)}catch(e){return normalizeSalesName(l.dealStatus||l.status).includes('ganh')}});
+    const perdidos=userFechados.filter(isLostOpportunityLocal);
     const ganhosAtuais=userLeadsAtuais.filter(l=>{try{return isWonOpportunity(l)}catch(e){return normalizeSalesName(l.dealStatus||l.status).includes('ganh')}});
     const perdidosAtuais=userLeadsAtuais.filter(isLostOpportunityLocal);
     const ativos=userLeadsAtuais.filter(l=>!ganhosAtuais.includes(l)&&!perdidosAtuais.includes(l));
     const valorGanho=ganhos.reduce((a,l)=>a+(+l.valor||0),0);
     const pipelineAtivo=ativos.reduce((a,l)=>a+(+l.valor||0),0);
     const ticket=ganhos.length?valorGanho/ganhos.length:0;
-    const conv=userLeads.length?Math.round((ganhos.length/userLeads.length)*100):0;
+    const conv=userLeads.length?Math.min(100,Math.round((ganhos.length/userLeads.length)*100)):(ganhos.length?100:0);
     const cycles=ganhos.map(l=>{
       const start=_parseReportDate(l.dataInicio||l.createdAt||l.created_at);
       const end=_parseReportDate(l.dataFechamento||l.closedAt||l.wonAt||l.updatedAt||l.updated_at);
@@ -25392,18 +25405,11 @@ function build(){
     leadsP.forEach(l=>{const o=String(l.origem||'').trim()||'Sem origem';(g[o]=g[o]||{o,n:0,w:0,v:0});g[o].n++;if(won(l)){g[o].w++;g[o].v+=parseFloat(l.valor)||0}});
     const rows=Object.values(g).sort((a,b)=>b.n-a.n).slice(0,8);
     ori=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">Origem dos leads</div><div class="gxb-sub">${E(sub)}</div></div></div>${rows.length?`<div class="gxb-tw"><table class="gxb-tb"><thead><tr><th>Origem</th><th>Leads</th><th>Ganhos</th><th>Conversão</th><th>Valor</th></tr></thead><tbody>${rows.map(r=>`<tr><td title="${E(r.o)}">${E(r.o)}</td><td>${r.n}</td><td>${r.w}</td><td><span class="gxb-pill">${r.n?Math.round(r.w/r.n*100):0}%</span></td><td>${brl(r.v)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="gxb-empty">Sem leads no período.</div>'}</div>`;
-    let srows=[];try{srows=getSalesTeamMetrics({...dashFilter})||[]}catch(e){}
-    try{
-      srows=srows.map(r=>{
-        if(!r.user||r.user.id==='__sem_responsavel')return r;
-        const g=ganhos.filter(l=>{try{return isLeadOwnedByUser(l,r.user)}catch(e){return false}});
-        const vg=g.reduce((a,l)=>a+(parseFloat(l.valor)||0),0);
-        return {...r,ganhos:g.length,valorGanho:vg,conv:r.leads?Math.round(g.length/r.leads*100):0};
-      }).sort((a,b)=>b.valorGanho-a.valorGanho||b.ganhos-a.ganhos||b.leads-a.leads);
-    }catch(e){}
+    let srows=[];try{srows=getSalesTeamMetrics({mes:dashFilter.mes,ano:dashFilter.ano})||[]}catch(e){}
+    srows=srows.sort((a,b)=>b.valorGanho-a.valorGanho||b.ganhos-a.ganhos||b.leads-a.leads);
     srows=srows.filter(r=>r.leads||r.ganhos||r.ativos).slice(0,8);
     let tit='Ranking de vendedores';try{if(!isSalesManagerView())tit='Minha performance'}catch(e){}
-    rank=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">${tit}</div><div class="gxb-sub">${E(sub)}</div></div></div>${srows.length?`<div class="gxb-tw"><table class="gxb-tb"><thead><tr><th>Vendedor</th><th>Leads</th><th>Ganhos</th><th>Conversão</th><th>Vendido</th><th>Pipeline</th></tr></thead><tbody>${srows.map(r=>`<tr><td title="${E(r.user&&r.user.nome)}">${E(r.user&&r.user.nome||'—')}</td><td>${r.leads}</td><td>${r.ganhos}</td><td><span class="gxb-pill">${r.conv}%</span></td><td>${brl(r.valorGanho)}</td><td>${brl(r.pipelineAtivo)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="gxb-empty">Sem vendedores com movimento.</div>'}</div>`;
+    rank=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">${tit}</div><div class="gxb-sub">${E(label)} · todos os funis · vendas pela data de fechamento</div></div></div>${srows.length?`<div class="gxb-tw"><table class="gxb-tb"><thead><tr><th>Vendedor</th><th>Leads</th><th>Ganhos</th><th>Conversão</th><th>Vendido</th><th>Pipeline</th></tr></thead><tbody>${srows.map(r=>`<tr><td title="${E(r.user&&r.user.nome)}">${E(r.user&&r.user.nome||'—')}</td><td>${r.leads}</td><td>${r.ganhos}</td><td><span class="gxb-pill">${r.conv}%</span></td><td>${brl(r.valorGanho)}</td><td>${brl(r.pipelineAtivo)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="gxb-empty">Sem vendedores com movimento.</div>'}</div>`;
   }
   if(ori||rank)html+=`<div class="gxb-grid gxb-2e">${ori}${rank}</div>`;
 
