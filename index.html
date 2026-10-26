@@ -2003,6 +2003,9 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
 .gxf-seg{animation:gxfIn .5s ease both;transform-origin:center}
 @keyframes gxfIn{from{opacity:0;transform:scaleX(.85)}to{opacity:1;transform:none}}
 .gxf-t1{fill:#fff;font-size:24px;font-weight:700;font-family:inherit}
+.gxf-t3{fill:rgba(255,255,255,.95);font-size:14px;font-weight:700;font-family:inherit}
+.gxf-t3.sm{font-size:9.5px}
+.gxf-flownote{margin-top:8px;font-size:11px;color:var(--muted);line-height:1.4}
 .gxf-t2{fill:rgba(255,255,255,.92);font-size:15px;font-family:inherit}
 .gxf-side{flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px}
 .gxf-chip{align-self:flex-start;font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:999px;background:rgba(124,58,237,.14);color:#7C3AED}
@@ -4498,6 +4501,7 @@ const DB={
   },
   push(k,v){
     if(v&&typeof v==='object')gexEnsureRecordId(v);
+    if(k==='leads'&&v&&typeof v==='object'&&!v.stageHistory&&(v.estagio||v.stageId)){try{v.stageHistory=[{s:v.stageId||'',n:v.estagio||'',f:v.funnelId||'',at:v.createdAt||new Date().toISOString()}]}catch(e){}}
     const d=DB.get(k);
     d.push(v);
     let next=k==='usuarios'?dedupeUsuariosList(d,{keepLegacy:false}):d;
@@ -4523,7 +4527,17 @@ const DB={
     let d=DB.get(k).map(x=>{
       if(String(x.id)===String(id)){
         updated={...x,...data,id:x.id,_updatedAt:new Date().toISOString(),_updatedBy:sessionUser?.id||x._updatedBy||null};
-        if(k==='leads'&&data&&((data.stageId!==undefined&&String(data.stageId)!==String(x.stageId||''))||(data.estagio!==undefined&&String(data.estagio)!==String(x.estagio||''))))updated.stageChangedAt=new Date().toISOString();
+        if(k==='leads'&&data&&((data.stageId!==undefined&&String(data.stageId)!==String(x.stageId||''))||(data.estagio!==undefined&&String(data.estagio)!==String(x.estagio||'')))){
+          const _now=new Date().toISOString();
+          updated.stageChangedAt=_now;
+          // Histórico de etapas: guarda por onde o lead passou (base das métricas de avanço do funil).
+          try{
+            const h=Array.isArray(x.stageHistory)?x.stageHistory.slice():[];
+            if(!h.length&&(x.estagio||x.stageId))h.push({s:x.stageId||'',n:x.estagio||'',f:x.funnelId||'',at:x.createdAt||x.dataInicio||'',seed:1});
+            h.push({s:updated.stageId||'',n:updated.estagio||'',f:updated.funnelId||'',at:_now});
+            updated.stageHistory=h.slice(-40);
+          }catch(e){}
+        }
         return updated;
       }
       return x;
@@ -11469,11 +11483,71 @@ async function relMetaEnsure(preset){
   try{const g=document.getElementById('rel-kpi-grid');if(g&&g.offsetParent)renderRelatorioComercial()}catch(e){}
   try{if(typeof window.__gexIniParceiroRefresh==='function')window.__gexIniParceiroRefresh()}catch(e){}
 }
+// ── Avanço real por etapa (usa o histórico gravado em cada lead: stageHistory) ──
+const GX_PARK_RE=/follow|no.?show|fora.?icp|descart|desqualif|sem.?perfil|nao.?qualif/i;
+function gxStageNorm(t){return String(t==null?'':t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
+// defs: [{name,isWon,isLost,parking?}] na ordem do funil. Devolve por nome: {entered,advanced,conv,days,lostFrom,parking}
+function gxStageFlow(leads,defs){
+  const norm=gxStageNorm,idx=new Map();
+  defs.forEach((d,i)=>{if(!idx.has(norm(d.name)))idx.set(norm(d.name),i)});
+  const isMain=d=>!d.isLost&&!(d.parking===true||(d.parking!==false&&GX_PARK_RE.test(d.name||'')&&!d.isWon));
+  const entered=defs.map(()=>0),adv=defs.map(()=>0),lostFrom=defs.map(()=>0),tsum=defs.map(()=>0),tcnt=defs.map(()=>0);
+  let tracked=0,since=null;const now=Date.now();
+  (leads||[]).forEach(l=>{
+    const h=Array.isArray(l.stageHistory)?l.stageHistory:[];
+    if(h.length<2)return;
+    tracked++;
+    const seq=h.map(e=>({i:idx.has(norm(e.n))?idx.get(norm(e.n)):-1,t:e.at?Date.parse(e.at):NaN,seed:!!e.seed}));
+    const last=seq[seq.length-1];
+    if(!seq.some(e=>!e.seed&&!isNaN(e.t)&&(since===null||e.t<since)))void 0;
+    seq.forEach(e=>{if(!e.seed&&!isNaN(e.t)&&(since===null||e.t<since))since=e.t});
+    const visited=new Set(seq.map(e=>e.i).filter(i=>i>=0));
+    visited.forEach(i=>{
+      entered[i]++;
+      if(!isMain(defs[i])||defs[i].isWon)return;
+      for(const j of visited){if(j!==i&&j>i&&isMain(defs[j])){adv[i]++;break}}
+    });
+    for(let m=0;m<seq.length;m++){
+      const e=seq[m];if(e.i<0||isNaN(e.t))continue;
+      const nx=seq[m+1];
+      const end=nx?nx.t:(defs[e.i].isWon||defs[e.i].isLost?NaN:now);
+      if(!isNaN(end)&&end>=e.t){tsum[e.i]+=(end-e.t)/864e5;tcnt[e.i]++}
+    }
+    if(last.i>=0&&defs[last.i].isLost&&seq.length>=2){
+      for(let m=seq.length-2;m>=0;m--){if(seq[m].i>=0&&seq[m].i!==last.i){lostFrom[seq[m].i]++;break}}
+    }
+  });
+  const out={tracked,since:since?new Date(since):null,total:(leads||[]).length,by:{}};
+  defs.forEach((d,i)=>{
+    const main=isMain(d);
+    out.by[norm(d.name)]={entered:entered[i],advanced:adv[i],conv:(main&&!d.isWon&&entered[i]>0)?Math.round(adv[i]/entered[i]*100):null,days:tcnt[i]?Math.round(tsum[i]/tcnt[i]*10)/10:null,lostFrom:lostFrom[i],parking:!d.isLost&&!main};
+  });
+  return out;
+}
+window.gxStageFlow=gxStageFlow;
+function gxFlowLine(f,compact){
+  if(!f||!f.entered)return '';
+  if(f.parking)return `fora do caminho · ${f.entered} passaram`;
+  const parts=[];
+  if(f.conv!==null)parts.push(`→ ${f.conv}% avançam`);
+  if(f.days!==null)parts.push(`${String(f.days).replace('.',',')} d na etapa`);
+  if(f.lostFrom)parts.push(`${f.lostFrom} perdido${f.lostFrom>1?'s':''}`);
+  return parts.join(' · ');
+}
+function gxFlowNote(fl){
+  if(!fl||!fl.total)return '';
+  if(!fl.tracked)return 'Avanço por etapa: o histórico de etapas começou a ser gravado agora. Os percentuais aparecem conforme os negócios mudarem de etapa.';
+  const d=fl.since?fl.since.toLocaleDateString('pt-BR'):'';
+  return `Avanço medido pelo histórico de etapas${d?` desde ${d}`:''} · ${fl.tracked} de ${fl.total} negócios com histórico.`;
+}
 function esc2(t){return String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 // Desenha o funil (faixas escalonadas). compact=true para os cartões lado a lado.
-function gxFunnelBuild(rows,opsF,lostF,lostValor,compact){
+function gxFlowDefs(f){return ((f&&f.stages)||[]).slice().sort((a,b)=>(a.order||0)-(b.order||0)).map(x=>({name:x.name,isWon:!!x.isWon,isLost:!!x.isLost,parking:x.parking}))}
+function gxFunnelBuild(rows,opsF,lostF,lostValor,compact,flow){
   const totalOps=opsF.length;
-  const W=compact?272:760,rowH=compact?38:64,gap=compact?5:10,n=rows.length,H=n*rowH+(n-1)*gap;
+  const lines=rows.map(r=>flow?gxFlowLine(flow.by[gxStageNorm(r.est)],compact):'');
+  const has3=lines.some(Boolean);
+  const W=compact?272:760,rowH=compact?(has3?50:38):(has3?78:64),gap=compact?5:10,n=rows.length,H=n*rowH+(n-1)*gap;
   const minTop=W*(compact?0.66:0.56),stepW=n>1?(W-minTop)/(n-1):0;
   const c0=[11,79,99],c1=[28,198,214];
   const col=i=>{const t=n>1?i/(n-1):0;return 'rgb('+c0.map((v,k)=>Math.round(v+(c1[k]-v)*t)).join(',')+')'};
@@ -11484,13 +11558,16 @@ function gxFunnelBuild(rows,opsF,lostF,lostValor,compact){
     const fill=col(i);
     const lbl=esc2(r.est.length>maxLbl?r.est.slice(0,maxLbl-1)+'…':r.est);
     const l2=compact?`${r.count} · ${totalOps?Math.round(r.count/totalOps*100):0}% · ${fmtBRL(r.valor)}`:`${r.count} ${r.count===1?'negócio':'negócios'} · ${totalOps?Math.round(r.count/totalOps*100):0}% · ${fmtBRL(r.valor)}`;
+    const y1=has3?(compact?17:27):(rowH/2-(compact?2:3)),y2=has3?(compact?30:47):(rowH/2+(compact?12:16)),y3=compact?43:66;
     return `<g class="gxf-seg" style="animation-delay:${i*90}ms"><polygon points="${x1},${y} ${W-x1},${y} ${W-x2},${y+rowH} ${x2},${y+rowH}" fill="${fill}" stroke="${fill}" stroke-width="${compact?3:6}" stroke-linejoin="round"/>
-      <text x="${W/2}" y="${y+rowH/2-(compact?2:3)}" text-anchor="middle" class="gxf-t1${compact?' sm':''}">${lbl}</text>
-      <text x="${W/2}" y="${y+rowH/2+(compact?12:16)}" text-anchor="middle" class="gxf-t2${compact?' sm':''}">${l2}</text></g>`;
+      <text x="${W/2}" y="${y+y1}" text-anchor="middle" class="gxf-t1${compact?' sm':''}">${lbl}</text>
+      <text x="${W/2}" y="${y+y2}" text-anchor="middle" class="gxf-t2${compact?' sm':''}">${l2}</text>
+      ${lines[i]?`<text x="${W/2}" y="${y+y3}" text-anchor="middle" class="gxf-t3${compact?' sm':''}">${esc2(lines[i])}</text>`:''}</g>`;
   }).join('');
   const lostPct=totalOps?Math.round((lostF.length/totalOps)*100):0;
+  const note=flow?gxFlowNote(flow):'';
   return `<div class="gxf-wrap${compact?' compact':''}"><svg class="gxf-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Funil de vendas">${shapes}</svg></div>
-    <div class="gxf-lost"><span class="gxf-lost-ico">✕</span><div><b>${lostF.length} perdido${lostF.length!==1?'s':''}</b><small>${lostPct}% do total · ${fmtBRL(lostValor)}</small></div>${compact?'':'<span class="gxf-note">Cada faixa mostra quantos negócios estão naquela etapa agora, no período escolhido.</span>'}</div>`;
+    <div class="gxf-lost"><span class="gxf-lost-ico">✕</span><div><b>${lostF.length} perdido${lostF.length!==1?'s':''}</b><small>${lostPct}% do total · ${fmtBRL(lostValor)}</small></div>${compact?'':'<span class="gxf-note">Cada faixa mostra quantos negócios estão naquela etapa agora, no período escolhido.</span>'}</div>${note?`<div class="gxf-flownote">${esc2(note)}</div>`:''}`;
 }
 
 function renderRelatorioComercial(){
@@ -11635,7 +11712,7 @@ function renderRelatorioComercial(){
         if(!fo.length)return {f,empty:true};
         const fm=calculateFunnelMetrics(fo,f.id).filter(r=>!r.isLost&&r.openPos>=0).sort((x,y)=>x.openPos-y.openPos);
         const fw=fo.filter(isWonOpportunity),fl=fo.filter(isLostOpportunity);
-        return {f,fo,fm,fw,fl,html:gxFunnelBuild(fm,fo,fl,fl.reduce((a,o)=>a+getOpportunityValue(o),0),true)};
+        return {f,fo,fm,fw,fl,html:gxFunnelBuild(fm,fo,fl,fl.reduce((a,o)=>a+getOpportunityValue(o),0),true,gxStageFlow(fo,gxFlowDefs(f)))};
       });
       const vivos=cards.filter(c=>!c.empty),vazios=cards.filter(c=>c.empty);
       funilEl.innerHTML=`<div class="gxf-multi">${vivos.map(c=>{
@@ -11644,7 +11721,8 @@ function renderRelatorioComercial(){
         +(vazios.length?`<div class="gxf-note" style="margin-top:10px">${vazios.length} funil${vazios.length!==1?'is':''} sem negócios neste período: ${vazios.map(c=>esc2(c.f.name||'Funil')).join(', ')}.</div>`:'')
         +(!vivos.length?'<div class="sales-team-empty">Nenhum negócio neste período.</div>':'');
     }else{
-      funilEl.innerHTML=funilAberto.length?gxFunnelBuild(funilAberto,ops,lostOps,totalLost,false):'<div class="sales-team-empty">Sem etapas para mostrar neste funil.</div>';
+      const _ff=(funnelFilter!=='todos'?getReportFunnels().find(x=>x.id===funnelFilter):getReportFunnels()[0])||getActiveFunnel();
+      funilEl.innerHTML=funilAberto.length?gxFunnelBuild(funilAberto,ops,lostOps,totalLost,false,gxStageFlow(ops,gxFlowDefs(_ff))):'<div class="sales-team-empty">Sem etapas para mostrar neste funil.</div>';
     }
   }
 
@@ -24903,11 +24981,14 @@ body.gx-ini-novo #page-inicio>:not(.welcome-box):not(#dash-filter-bar):not(#inic
 .gxb-bar.cur i{background:${ORG}}
 .gxb-bar.dim i{opacity:.45}
 .gxb-xl{display:flex;gap:6px;margin-top:5px}.gxb-xl span{flex:1;text-align:center;font-size:10px;color:var(--muted)}
-.gxb-fn{display:grid;grid-template-columns:minmax(70px,130px) 1fr 40px;gap:8px;align-items:center;margin:7px 0;font-size:12px}
+.gxb-fn{display:grid;grid-template-columns:minmax(70px,130px) 1fr 40px minmax(0,86px);gap:8px;align-items:center;margin:7px 0;font-size:12px}
 .gxb-fn b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gxb-fn div{background:#eef1f6;border-radius:5px;height:16px;overflow:hidden}
 .gxb-fn div i{display:block;height:100%;border-radius:5px}
 .gxb-fn em{font-style:normal;text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.gxb-fn small{font-size:10.5px;font-weight:700;color:#7C3AED;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gxb-fn small.pk{color:var(--muted);font-weight:600}
+.gxb-flnote{font-size:10.5px;color:var(--muted);margin-top:8px;line-height:1.4}
 .gxb-tw{overflow-x:auto}
 .gxb-tb{width:100%;border-collapse:collapse;font-size:12.5px}
 .gxb-tb th{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);text-align:right;padding:6px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
@@ -25152,8 +25233,16 @@ function build(){
     etapas=[...etapas,...extras];
     const cnt=etapas.map(e=>atual.filter(l=>l.estagio===e).length);
     const mx=Math.max(1,...cnt);
+    let _fl=null;
+    try{
+      const _fs=getCommercialFunnels()||[];
+      const _fsel=dashFilter.funil?_fs.find(x=>String(x.id)===String(dashFilter.funil)):null;
+      const _defs=etapas.map(nm=>{const st=(_fsel&&(_fsel.stages||[]).find(x=>gxStageNorm(x.name)===gxStageNorm(nm)))||(()=>{for(const f of _fs){const x=(f.stages||[]).find(y=>gxStageNorm(y.name)===gxStageNorm(nm));if(x)return x}return null})();return {name:nm,isWon:!!(st&&st.isWon),isLost:!!(st&&st.isLost),parking:st?st.parking:undefined}});
+      _fl=gxStageFlow(atual,_defs);
+    }catch(e){_fl=null}
+    const _flS=nm=>{const f=_fl&&_fl.by[gxStageNorm(nm)];if(!f||!f.entered)return '';if(f.parking)return '<small class="pk" title="Fora do caminho principal">saída</small>';const p=[];if(f.conv!==null)p.push('→ '+f.conv+'%');if(f.days!==null)p.push(String(f.days).replace('.',',')+'d');return p.length?`<small title="Avanço para a próxima etapa · dias médios na etapa">${p.join(' · ')}</small>`:''};
     const pipeVal=ativos.reduce((a,l)=>a+(parseFloat(l.valor)||0),0);
-    fun=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">Funil comercial</div><div class="gxb-sub">${ativos.length} ativos agora · ${brl(pipeVal)} em aberto</div></div></div>${etapas.length?etapas.map((e,i)=>`<div class="gxb-fn"><b title="${E(e)}">${E(e)}</b><div><i style="width:${cnt[i]?Math.max(3,Math.round(cnt[i]/mx*100)):0}%;background:${stColor(e,i)}"></i></div><em>${cnt[i]}</em></div>`).join(''):'<div class="gxb-empty">Sem etapas.</div>'}</div>`;
+    fun=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">Funil comercial</div><div class="gxb-sub">${ativos.length} ativos agora · ${brl(pipeVal)} em aberto</div></div></div>${etapas.length?etapas.map((e,i)=>`<div class="gxb-fn"><b title="${E(e)}">${E(e)}</b><div><i style="width:${cnt[i]?Math.max(3,Math.round(cnt[i]/mx*100)):0}%;background:${stColor(e,i)}"></i></div><em>${cnt[i]}</em>${_flS(e)||'<small></small>'}</div>`).join('')+(_fl?`<div class="gxb-flnote">${E(gxFlowNote(_fl))}</div>`:''):'<div class="gxb-empty">Sem etapas.</div>'}</div>`;
   }
   html+=`<div class="gxb-grid gxb-2">${fat||''}${fun||''}</div>`;
   if(cC){try{html+=taxasHtml(leadsP,label)}catch(e){}}
