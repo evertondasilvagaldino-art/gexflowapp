@@ -20277,7 +20277,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       .map(z=>{
         const ownerId=String(z.id||'').replace(/^zapi_main__/,'');
         const owner=usuarios.find(u=>String(u.id)===ownerId);
-        const _me=(typeof sessionUser!=='undefined'&&sessionUser&&String(sessionUser.id||'')===ownerId)?sessionUser:null;const _nm=owner?.nome||_me?.nome||'';const _ph=String(z.phone||z.connectedPhone||z.number||'').replace(/\D/g,'');const name=_nm?`WhatsApp de ${_nm}${_ph?' · +'+_ph:''}`:(z.instanceId?`WhatsApp conectado · ${String(z.instanceId).slice(0,6)}…${String(z.instanceId).slice(-4)}`:'WhatsApp conectado');
+        const _me=(typeof sessionUser!=='undefined'&&sessionUser&&String(sessionUser.id||'')===ownerId)?sessionUser:null;const _fd=(ownerId==='zapi_main'||!ownerId)?usuarios.find(u=>_role(u.permissao||u.cargo)==='Fundador'):null;const _nm=owner?.nome||_me?.nome||_fd?.nome||'';const _ph=String(z.phone||z.connectedPhone||z.number||'').replace(/\D/g,'');const name=_nm?`WhatsApp de ${_nm}${_ph?' · +'+_ph:''}`:(z.instanceId?`WhatsApp conectado · ${String(z.instanceId).slice(0,6)}…${String(z.instanceId).slice(-4)}`:'WhatsApp conectado');
         return {id:z.id,name:'🟢 '+name.replace(/^WhatsApp conectado/,'WhatsApp conectado')};
       });
   }
