@@ -4883,8 +4883,6 @@ async function initGexCloudDataSync(isRetry){
     // if(typeof startGexAutomationEngine==='function')startGexAutomationEngine();
     rerenderActivePageAfterCloudSync();
     console.log('[GexCloudDB] ✅ Dados carregados/sincronizados com Supabase:',(data||[]).length,'registros');
-    // Reconstrói (estimado) o histórico de etapas dos leads antigos — só o Fundador, uma vez por leitura; não mexe em leads que já têm histórico.
-    try{setTimeout(()=>{try{if(typeof window.gexBackfillStageHistory==='function')window.gexBackfillStageHistory()}catch(e){}},4000)}catch(e){}
     return true;
   }catch(err){
     gexApplyingCloudPayload=false;
@@ -11541,10 +11539,13 @@ function gxStageFlow(leads,defs){
   const isMain=d=>!d.isLost&&!(d.parking===true||(d.parking!==false&&GX_PARK_RE.test(d.name||'')&&!d.isWon));
   const entered=defs.map(()=>0),adv=defs.map(()=>0),lostFrom=defs.map(()=>0),tsum=defs.map(()=>0),tcnt=defs.map(()=>0);
   let tracked=0,estCount=0,since=null;const now=Date.now();
+  let _funnels=[];try{_funnels=(typeof getCommercialFunnels==='function'?getCommercialFunnels():[])||[]}catch(e){}
   (leads||[]).forEach(l=>{
-    const h=Array.isArray(l.stageHistory)?l.stageHistory:[];
+    let h=Array.isArray(l.stageHistory)?l.stageHistory:[];
+    let isEst=!!l.stageHistoryEst;
+    if(h.length<1){h=gxEstimateHistory(l,_funnels)||[];isEst=h.length>0}
     if(h.length<1)return;
-    tracked++;if(l.stageHistoryEst)estCount++;
+    tracked++;if(isEst)estCount++;
     const seq=h.map(e=>({i:idx.has(norm(e.n))?idx.get(norm(e.n)):-1,t:e.at?Date.parse(e.at):NaN,seed:!!e.seed}));
     const last=seq[seq.length-1];
     if(!seq.some(e=>!e.seed&&!isNaN(e.t)&&(since===null||e.t<since)))void 0;
@@ -11577,37 +11578,30 @@ window.gxStageFlow=gxStageFlow;
 // Esta função monta um histórico ESTIMADO: ganho = passou por todas as etapas do caminho principal;
 // etapa do meio = passou pelas anteriores; perdido/parado (Follow, No Show...) = só a 1ª etapa.
 // Tudo marcado como estimado (stageHistoryEst) e sem datas inventadas (só criação e fechamento reais).
-window.gexBackfillStageHistory=function(){
+// Histórico estimado só em MEMÓRIA (nada é gravado no lead nem enviado à nuvem).
+function gxEstimateHistory(l,funnels){
   try{
-    if(typeof sessionUser==='undefined'||!sessionUser||(typeof resolveRole==='function'?resolveRole(sessionUser.permissao||sessionUser.cargo||''):sessionUser.permissao)!=='Fundador')return 0;
-    const leads=DB.get('leads')||[];if(!leads.length)return 0;
-    const funnels=(typeof getCommercialFunnels==='function'?getCommercialFunnels():[])||[];if(!funnels.length)return 0;
-    const norm=gxStageNorm,iso=v=>{const d=_pipeParseDate(v);return d?d.toISOString():''};
-    let n=0;
-    const out=leads.map(l=>{
-      if(!l||(Array.isArray(l.stageHistory)&&l.stageHistory.length>=1))return l;
-      const f=funnels.find(x=>String(x.id)===String(l.funnelId||''))||(!l.funnelId?funnels.find(x=>x.isDefault):null);
-      if(!f||!Array.isArray(f.stages)||!f.stages.length)return l;
-      const all=f.stages.slice().sort((a,b)=>(a.order||0)-(b.order||0));
-      const cur=all.find(x=>String(x.id)===String(l.stageId))||all.find(x=>norm(x.name)===norm(l.estagio));
-      if(!cur)return l;
-      const park=x=>!x.isLost&&!x.isWon&&GX_PARK_RE.test(x.name||'');
-      const main=all.filter(x=>!x.isLost&&!park(x));
-      if(!main.length)return l;
-      const gan=!!cur.isWon||/ganh/i.test(String(l.dealStatus||''));
-      let seq;
-      if(gan){const wi=main.findIndex(x=>x.isWon);seq=wi>=0?main.slice(0,wi+1):main.slice();}
-      else if(cur.isLost||park(cur)){seq=[main[0],cur];}
-      else{const ci=main.findIndex(x=>x.id===cur.id);seq=ci>=0?main.slice(0,ci+1):[main[0],cur];}
-      const t0=iso(l.createdAt||l.dataInicio),tEnd=gan?iso(l.dataFechamento||l.wonAt||l.closedAt):'';
-      const hist=seq.map((x,i)=>({s:x.id||'',n:x.name||'',f:f.id||'',at:i===0?t0:(i===seq.length-1?tEnd:''),seed:1,est:1}));
-      n++;
-      return {...l,stageHistory:hist,stageHistoryEst:1};
-    });
-    if(n>0){DB.set('leads',out);console.log('[GexFlow] Histórico de etapas estimado para',n,'leads antigos');}
-    return n;
-  }catch(e){console.warn('backfill histórico',e);return 0}
-};
+    if(!l)return null;
+    const norm=gxStageNorm;
+    const f=funnels.find(x=>String(x.id)===String(l.funnelId||''))||(!l.funnelId?funnels.find(x=>x.isDefault):null);
+    if(!f||!Array.isArray(f.stages)||!f.stages.length)return null;
+    const all=f.stages.slice().sort((a,b)=>(a.order||0)-(b.order||0));
+    const cur=all.find(x=>String(x.id)===String(l.stageId))||all.find(x=>norm(x.name)===norm(l.estagio));
+    if(!cur)return null;
+    const park=x=>!x.isLost&&!x.isWon&&GX_PARK_RE.test(x.name||'');
+    const main=all.filter(x=>!x.isLost&&!park(x));
+    if(!main.length)return null;
+    const gan=!!cur.isWon||/ganh/i.test(String(l.dealStatus||''));
+    let seq;
+    if(gan){const wi=main.findIndex(x=>x.isWon);seq=wi>=0?main.slice(0,wi+1):main.slice();}
+    else if(cur.isLost||park(cur)){seq=[main[0],cur];}
+    else{const ci=main.findIndex(x=>x.id===cur.id);seq=ci>=0?main.slice(0,ci+1):[main[0],cur];}
+    const iso=v=>{const d=_pipeParseDate(v);return d?d.toISOString():''};
+    const t0=iso(l.createdAt||l.dataInicio),tEnd=gan?iso(l.dataFechamento||l.wonAt||l.closedAt):'';
+    return seq.map((x,i)=>({s:x.id||'',n:x.name||'',f:f.id||'',at:i===0?t0:(i===seq.length-1?tEnd:''),seed:1,est:1}));
+  }catch(e){return null}
+}
+window.gexBackfillStageHistory=function(){return 0}; // desligado: o estimado agora é calculado só na tela
 function gxFlowLine(f,compact){
   if(!f||!f.entered)return '';
   if(f.parking)return `fora do caminho · ${f.entered} passaram`;
