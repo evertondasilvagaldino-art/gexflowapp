@@ -1987,6 +1987,15 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
 .gxi-conv-footer .gxi-btn.primary::before{content:"";width:15px;height:15px;background:center/contain no-repeat url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M20 6L9 17l-5-5'/></svg>")}
 .gxi-conv-footer .gxi-btn.primary:hover{filter:brightness(1.06);transform:translateY(-1px)}
 </style>
+<style id="gx-pipe-filter">
+.gx-quick{display:inline-flex;gap:6px;flex-wrap:wrap;margin-left:8px}
+.gx-qchip{border:1px solid var(--border,#E6E8F0);background:var(--card,#fff);color:var(--muted,#64748B);border-radius:999px;padding:5px 12px;font-size:11.5px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
+.gx-qchip:hover{border-color:#8B5CF6;color:#6D28D9}
+.gx-qchip.on{background:linear-gradient(135deg,#8B5CF6,#6D28D9);border-color:transparent;color:#fff;box-shadow:0 3px 10px rgba(109,40,217,.28)}
+.gx-psearch{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border,#E6E8F0);background:var(--card,#fff);border-radius:10px;padding:0 12px;height:34px;min-width:260px;color:var(--muted,#64748B)}
+.gx-psearch:focus-within{border-color:#8B5CF6;box-shadow:0 0 0 3px rgba(139,92,246,.15)}
+.gx-psearch input{border:none;outline:none;background:transparent;color:var(--text,inherit);font-size:12.5px;width:100%;font-family:inherit}
+</style>
 </head>
 <body class="gex-premium-ui">
 
@@ -2440,6 +2449,15 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
           <option value="2026">2026</option>
         </select>
         <span style="font-size:12px;color:var(--muted);margin-left:4px" id="pipeline-filter-info"></span>
+        <div class="gx-quick" id="pipe-quick">
+          <button class="gx-qchip" data-k="hoje" onclick="setPipelineQuick('hoje')">Hoje</button>
+          <button class="gx-qchip" data-k="ontem" onclick="setPipelineQuick('ontem')">Ontem</button>
+          <button class="gx-qchip" data-k="7d" onclick="setPipelineQuick('7d')">7 dias</button>
+          <button class="gx-qchip" data-k="30d" onclick="setPipelineQuick('30d')">30 dias</button>
+          <button class="gx-qchip" data-k="mes" onclick="setPipelineQuick('mes')">Este mês</button>
+          <button class="gx-qchip" data-k="mespassado" onclick="setPipelineQuick('mespassado')">Mês passado</button>
+        </div>
+        <div class="gx-psearch"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="pipe-search" type="search" placeholder="Buscar lead pelo nome, telefone, e-mail…" oninput="setPipelineSearch(this.value)" autocomplete="off"></div>
         <div style="margin-left:auto;display:flex;gap:6px">
           <button class="btn btn-ghost btn-sm" id="gx-cards-btn" onclick="gxCardsOpen()" title="Escolher o que aparece nos cards">⚙ Cards</button>
           <button class="btn btn-ghost btn-sm" id="pipe-view-kanban" onclick="setPipelineView('kanban')">🗂 Kanban</button>
@@ -2913,7 +2931,8 @@ let dashFilter = {mes: new Date().getMonth()+1, ano: new Date().getFullYear(), f
 // Filtro de período do Pipeline (Comercial) — independente do filtro do Início.
 // Começa em "Todos os meses / Todos os anos" pra não esconder leads de quem
 // ainda não filtrou nada (mesmo comportamento de antes desta função existir).
-let pipelineFilter = {mes: 0, ano: 0};
+let pipelineFilter = {mes: 0, ano: 0, quick: ''};
+let pipelineSearch = '';
 // Modo de visualização do Pipeline: 'kanban' (padrão, quadro com arrastar-e-soltar)
 // ou 'lista' (tabela). Lembrado por navegador via localStorage.
 let pipelineViewMode = (function(){
@@ -8867,7 +8886,40 @@ function leadInPeriod(l){
 function setPipelineFilter(){
   pipelineFilter.mes=parseInt(document.getElementById('pipe-mes')?.value||0);
   pipelineFilter.ano=parseInt(document.getElementById('pipe-ano')?.value||0);
+  pipelineFilter.quick='';
   renderComercial();
+}
+function setPipelineQuick(k){
+  pipelineFilter.quick=(pipelineFilter.quick===k)?'':k;
+  if(pipelineFilter.quick){pipelineFilter.mes=0;pipelineFilter.ano=0;}
+  renderComercial();
+}
+let _pipeSearchT=null;
+function setPipelineSearch(v){
+  pipelineSearch=String(v||'');
+  clearTimeout(_pipeSearchT);
+  _pipeSearchT=setTimeout(()=>renderComercial(),180);
+}
+function _pipeNorm(t){return String(t==null?'':t).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()}
+function leadMatchesPipelineSearch(l){
+  const q=_pipeNorm(pipelineSearch).trim();
+  if(!q)return true;
+  const hay=_pipeNorm([l.nome,l.empresa,l.email,l.telefone,l.whatsapp].filter(Boolean).join(' '));
+  const qd=q.replace(/\D/g,'');
+  if(hay.includes(q))return true;
+  return qd.length>=3&&String(l.telefone||l.whatsapp||'').replace(/\D/g,'').includes(qd);
+}
+function _pipeQuickRange(k){
+  const t=new Date();t.setHours(0,0,0,0);
+  const add=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+  const end=add(t,1);
+  if(k==='hoje')return [t,end];
+  if(k==='ontem')return [add(t,-1),t];
+  if(k==='7d')return [add(t,-6),end];
+  if(k==='30d')return [add(t,-29),end];
+  if(k==='mes')return [new Date(t.getFullYear(),t.getMonth(),1),end];
+  if(k==='mespassado')return [new Date(t.getFullYear(),t.getMonth()-1,1),new Date(t.getFullYear(),t.getMonth(),1)];
+  return null;
 }
 function setPipelineView(mode){
   pipelineViewMode=(mode==='lista')?'lista':'kanban';
@@ -8875,7 +8927,7 @@ function setPipelineView(mode){
   renderComercial();
 }
 function leadInPipelinePeriod(l){
-  if(!pipelineFilter.mes&&!pipelineFilter.ano)return true; // "Todos" nos dois selects
+  if(!pipelineFilter.quick&&!pipelineFilter.mes&&!pipelineFilter.ano)return true; // "Todos" nos dois selects
   // Negócio ganho/perdido entra no período pela data de FECHAMENTO (igual ao BI e ao Início);
   // os demais continuam pela data de início/criação.
   let ref=l.dataInicio||l.dataFechamento||l.createdAt;
@@ -8889,6 +8941,7 @@ function leadInPipelinePeriod(l){
   if(!ref)return true;
   const d=new Date(String(ref).includes('T')?ref:ref+'T00:00:00');
   if(isNaN(d.getTime()))return true;
+  if(pipelineFilter.quick){const r=_pipeQuickRange(pipelineFilter.quick);if(r)return d>=r[0]&&d<r[1];return true}
   if(pipelineFilter.mes&&(d.getMonth()+1)!==pipelineFilter.mes)return false;
   if(pipelineFilter.ano&&d.getFullYear()!==pipelineFilter.ano)return false;
   return true;
@@ -10801,17 +10854,19 @@ function renderComercial(){
   // Assim o filtro não traz ruído de outros funis e não some antes da sync do Supabase terminar.
   const ownerFilter=populateCommercialOwnerSelect('pipe-responsavel-filter', funnelLeadsBase, 'Todos os responsáveis');
   const funnelLeadsByOwner=filterOpportunitiesByOwner(funnelLeadsBase, ownerFilter);
-  const funnelLeads=funnelLeadsByOwner.filter(leadInPipelinePeriod);
+  const funnelLeads=funnelLeadsByOwner.filter(leadInPipelinePeriod).filter(leadMatchesPipelineSearch);
 
   // Sincroniza selects do filtro de período do Pipeline com o estado atual
   const pipeMesSel=document.getElementById('pipe-mes');
   const pipeAnoSel=document.getElementById('pipe-ano');
   if(pipeMesSel)pipeMesSel.value=pipelineFilter.mes;
   if(pipeAnoSel)pipeAnoSel.value=pipelineFilter.ano;
+  document.querySelectorAll('#pipe-quick .gx-qchip').forEach(b=>b.classList.toggle('on',b.dataset.k===pipelineFilter.quick));
   const pipeInfo=document.getElementById('pipeline-filter-info');
   if(pipeInfo){
     const MESES_PIPE=['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-    if(!pipelineFilter.mes&&!pipelineFilter.ano)pipeInfo.textContent='→ Todos os períodos';
+    if(pipelineFilter.quick)pipeInfo.textContent='→ '+({hoje:'Hoje',ontem:'Ontem','7d':'Últimos 7 dias','30d':'Últimos 30 dias',mes:'Este mês',mespassado:'Mês passado'}[pipelineFilter.quick]||'');
+    else if(!pipelineFilter.mes&&!pipelineFilter.ano)pipeInfo.textContent='→ Todos os períodos';
     else if(pipelineFilter.mes&&pipelineFilter.ano)pipeInfo.textContent=`→ ${MESES_PIPE[pipelineFilter.mes]} / ${pipelineFilter.ano}`;
     else if(pipelineFilter.mes)pipeInfo.textContent=`→ ${MESES_PIPE[pipelineFilter.mes]} (todos os anos)`;
     else pipeInfo.textContent=`→ Ano ${pipelineFilter.ano}`;
