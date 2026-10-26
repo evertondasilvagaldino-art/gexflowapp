@@ -4887,6 +4887,9 @@ async function initGexCloudDataSync(isRetry){
 
     gexPurgeDemoSeedForCompany();
     gexCloudReady=true;
+    // Parceiro novo (cadastro pelo link): cria o funil pessoal dele já no primeiro login, sem esperar abrir o Comercial.
+    // Só roda depois que a nuvem terminou de carregar (ensurePersonalCommercialFunnel já exige isso) e nunca duplica.
+    try{setTimeout(()=>{try{if(resolveRole(sessionUser?.permissao||sessionUser?.cargo||'')==='Gex Parceiro'&&typeof ensureDefaultCommercialFunnel==='function'){ensureDefaultCommercialFunnel()}}catch(e){}},1500)}catch(e){}
     startGexRecordsRealtime();
     // DESLIGADO DE PROPÓSITO (03/10/2026): o motor de automações agora roda
     // no SERVIDOR (Edge Function run-automations-cron, via pg_cron), de
@@ -6739,7 +6742,8 @@ function renderConfiguracoesPagamentos(){
       <div id="empresas-clientes-wrap" style="margin-top:14px">
         <div class="empty" style="padding:20px">Carregando…</div>
       </div>
-    </div>`;
+    </div>
+`;
   loadAssinaturasClientes();
   loadEmpresasClientes();
 }
@@ -6949,6 +6953,13 @@ async function loadAssinaturasClientes(){
     // Só entram na lista as assinaturas de quem ainda está na Gestão de Usuários (ativo ou inativo).
     const _achaUser=s=>users.find(u=>String(u.id)===String(s.id))||users.find(u=>normalizeLoginEmail(u.email)===normalizeLoginEmail(s.user_email||''));
     const subs=(subsRes.subscriptions||[]).filter(s=>!!_achaUser(s));
+    // Parceiros em teste grátis (cadastro pelo link) que ainda não têm assinatura: aparecem aqui também.
+    let trialRows=[];
+    try{
+      const {data:_tr}=await supabaseClient.from('gex_trials').select('user_id,nome,email,telefone,started_at,ends_at').order('started_at',{ascending:false}).limit(200);
+      const _todas=subsRes.subscriptions||[];
+      trialRows=(_tr||[]).filter(t=>!_todas.some(s=>String(s.id)===String(t.user_id)||normalizeLoginEmail(s.user_email||'')===normalizeLoginEmail(t.email||'')));
+    }catch(e){trialRows=[]}
     // Valor do plano: lê o número do texto do preço (ex.: "R$ 59,90/mês" -> 59.9)
     const _valorPlano=p=>{
       const m=String(p?.price_display||'').match(/(\d{1,3}(?:\.\d{3})*,\d{2}|\d+(?:,\d{1,2})?)/);
@@ -6968,13 +6979,25 @@ async function loadAssinaturasClientes(){
       <div class="cfg-kv-card"><div class="cfg-kv-lbl">Aguardando / atrasadas</div><div class="cfg-kv-val" style="color:#D97706">${_brl(totAguard)}</div><div style="font-size:11px;color:var(--muted)">${qtdAguard} assinatura${qtdAguard!==1?'s':''}</div></div>
       <div class="cfg-kv-card"><div class="cfg-kv-lbl">Total de todas as listadas</div><div class="cfg-kv-val">${_brl(totAtivo+totAguard)}</div><div style="font-size:11px;color:var(--muted)">${subs.length} no total, ${qtdCanc} cancelada${qtdCanc!==1?'s':''}</div></div>
     </div>`;
-    if(!subs.length){
+    if(!subs.length&&!trialRows.length){
       wrap.innerHTML='<div class="empty" style="padding:20px">Nenhuma assinatura gerada ainda — os links de pagamento aparecem aqui assim que forem criados.</div>';
       return;
     }
     wrap.innerHTML=resumo+`<div style="overflow-x:auto"><table class="table"><thead><tr>
       <th>Cliente</th><th>Plano</th><th>Valor</th><th>Status</th><th>Renovação/Fim</th><th>Atualizado em</th>
-    </tr></thead><tbody>${subs.map(s=>{
+    </tr></thead><tbody>${trialRows.map(t=>{
+      const fim=t.ends_at?new Date(t.ends_at).getTime():0,ativo=fim>Date.now();
+      const d=Math.max(1,Math.ceil((fim-Date.now())/864e5));
+      const [lab,cor]=ativo?['Em teste grátis','#6366F1']:['Teste vencido','#EF4444'];
+      return `<tr>
+        <td><div style="font-weight:600;font-size:13px">${escHtml(t.nome||'—')}</div><div style="font-size:11px;color:var(--muted)">${escHtml(t.email||'—')}</div></td>
+        <td>Teste grátis</td>
+        <td style="font-weight:600;font-size:13px">—</td>
+        <td><span style="background:${cor}20;color:${cor};padding:2px 8px;border-radius:10px;font-weight:700;font-size:11px">${escHtml(lab)}</span></td>
+        <td style="color:var(--muted);font-size:12px">${t.ends_at?new Date(t.ends_at).toLocaleDateString('pt-BR'):'—'}${ativo?` · faltam ${d} dia${d>1?'s':''}`:''}</td>
+        <td style="color:var(--muted);font-size:12px">${t.started_at?new Date(t.started_at).toLocaleString('pt-BR'):'—'}</td>
+      </tr>`;
+    }).join('')}${subs.map(s=>{
       const user=_achaUser(s);
       const nome=user?.nome||'—';
       const plan=plans.find(p=>p.id===s.plan_id);
