@@ -2030,6 +2030,16 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
 .gxf-card .gxf-lost b{font-size:12px}.gxf-card .gxf-lost small{font-size:10.5px}.gxf-card .gxf-lost-ico{width:22px;height:22px;font-size:11px}
 .gxf-card .gxf-lost{padding:8px 12px}
 </style>
+<style id="gx-pipe-zoom">
+@media (min-width:1000px){
+  #com-tab-pipeline.gx-z80{zoom:.8}
+  #com-tab-pipeline.gx-z80 .pipeline{height:calc((100vh - 300px)/.8)}
+}
+.gx-zbtn{display:inline-flex;border:1px solid var(--border,#E6E8F0);border-radius:10px;overflow:hidden;background:var(--card,#fff)}
+.gx-zbtn button{border:none;background:transparent;color:var(--muted,#64748B);font-size:11.5px;font-weight:700;padding:6px 10px;cursor:pointer;font-family:inherit}
+.gx-zbtn button.on{background:linear-gradient(135deg,#8B5CF6,#6D28D9);color:#fff}
+@media (max-width:999px){.gx-zbtn{display:none}}
+</style>
 </head>
 <body class="gex-premium-ui">
 
@@ -2502,6 +2512,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
         <span style="font-size:12px;color:var(--muted);margin-left:4px" id="pipeline-filter-info"></span>
         <div class="gx-psearch"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="pipe-search" type="search" placeholder="Buscar lead pelo nome, telefone, e-mail…" oninput="setPipelineSearch(this.value)" autocomplete="off"></div>
         <div style="margin-left:auto;display:flex;gap:6px">
+          <div class="gx-zbtn" id="gx-zbtn" title="Tamanho da tela do Pipeline"><button data-z="80" onclick="gxPipeZoom(80)">80%</button><button data-z="100" onclick="gxPipeZoom(100)">100%</button></div>
           <button class="btn btn-ghost btn-sm" id="gx-cards-btn" onclick="gxCardsOpen()" title="Escolher o que aparece nos cards">⚙ Cards</button>
           <button class="btn btn-ghost btn-sm" id="pipe-view-kanban" onclick="setPipelineView('kanban')">🗂 Kanban</button>
           <button class="btn btn-ghost btn-sm" id="pipe-view-lista" onclick="setPipelineView('lista')">📋 Lista</button>
@@ -4858,6 +4869,8 @@ async function initGexCloudDataSync(isRetry){
     // if(typeof startGexAutomationEngine==='function')startGexAutomationEngine();
     rerenderActivePageAfterCloudSync();
     console.log('[GexCloudDB] ✅ Dados carregados/sincronizados com Supabase:',(data||[]).length,'registros');
+    // Reconstrói (estimado) o histórico de etapas dos leads antigos — só o Fundador, uma vez por leitura; não mexe em leads que já têm histórico.
+    try{setTimeout(()=>{try{if(typeof window.gexBackfillStageHistory==='function')window.gexBackfillStageHistory()}catch(e){}},4000)}catch(e){}
     return true;
   }catch(err){
     gexApplyingCloudPayload=false;
@@ -8963,6 +8976,14 @@ function setPipelineFilter(){
   pipelineFilter.quick='';
   renderComercial();
 }
+// Tamanho da tela do Pipeline (80% = mais colunas e cards na mesma tela). Preferência só deste navegador.
+function gxPipeZoomGet(){try{const v=localStorage.getItem('gex_pipe_zoom');return v==='100'?100:80}catch(e){return 80}}
+function gxPipeZoomApply(){
+  const z=gxPipeZoomGet(),tab=document.getElementById('com-tab-pipeline');
+  if(tab)tab.classList.toggle('gx-z80',z===80);
+  document.querySelectorAll('#gx-zbtn button').forEach(b=>b.classList.toggle('on',+b.dataset.z===z));
+}
+function gxPipeZoom(z){try{localStorage.setItem('gex_pipe_zoom',String(z))}catch(e){}gxPipeZoomApply()}
 function setPipelineQuick(k){
   if(k==='todos'){pipelineFilter.quick='';pipelineFilter.mes=0;pipelineFilter.ano=0;renderComercial();return}
   pipelineFilter.quick=k;
@@ -10987,6 +11008,7 @@ function renderComercial(){
   const pipeAnoSel=document.getElementById('pipe-ano');
   if(pipeMesSel)pipeMesSel.value=pipelineFilter.quick?'':pipelineFilter.mes;
   if(pipeAnoSel)pipeAnoSel.value=pipelineFilter.quick?'':pipelineFilter.ano;
+  try{gxPipeZoomApply()}catch(e){}
   const _allOn=!pipelineFilter.quick&&!pipelineFilter.mes&&!pipelineFilter.ano;
   document.querySelectorAll('#pipe-quick .gx-qchip').forEach(b=>b.classList.toggle('on',b.dataset.k==='todos'?_allOn:b.dataset.k===pipelineFilter.quick));
   const pipeInfo=document.getElementById('pipeline-filter-info');
@@ -11492,11 +11514,11 @@ function gxStageFlow(leads,defs){
   defs.forEach((d,i)=>{if(!idx.has(norm(d.name)))idx.set(norm(d.name),i)});
   const isMain=d=>!d.isLost&&!(d.parking===true||(d.parking!==false&&GX_PARK_RE.test(d.name||'')&&!d.isWon));
   const entered=defs.map(()=>0),adv=defs.map(()=>0),lostFrom=defs.map(()=>0),tsum=defs.map(()=>0),tcnt=defs.map(()=>0);
-  let tracked=0,since=null;const now=Date.now();
+  let tracked=0,estCount=0,since=null;const now=Date.now();
   (leads||[]).forEach(l=>{
     const h=Array.isArray(l.stageHistory)?l.stageHistory:[];
-    if(h.length<2)return;
-    tracked++;
+    if(h.length<1)return;
+    tracked++;if(l.stageHistoryEst)estCount++;
     const seq=h.map(e=>({i:idx.has(norm(e.n))?idx.get(norm(e.n)):-1,t:e.at?Date.parse(e.at):NaN,seed:!!e.seed}));
     const last=seq[seq.length-1];
     if(!seq.some(e=>!e.seed&&!isNaN(e.t)&&(since===null||e.t<since)))void 0;
@@ -11517,7 +11539,7 @@ function gxStageFlow(leads,defs){
       for(let m=seq.length-2;m>=0;m--){if(seq[m].i>=0&&seq[m].i!==last.i){lostFrom[seq[m].i]++;break}}
     }
   });
-  const out={tracked,since:since?new Date(since):null,total:(leads||[]).length,by:{}};
+  const out={tracked,est:estCount,since:since?new Date(since):null,total:(leads||[]).length,by:{}};
   defs.forEach((d,i)=>{
     const main=isMain(d);
     out.by[norm(d.name)]={entered:entered[i],advanced:adv[i],conv:(main&&!d.isWon&&entered[i]>0)?Math.round(adv[i]/entered[i]*100):null,days:tcnt[i]?Math.round(tsum[i]/tcnt[i]*10)/10:null,lostFrom:lostFrom[i],parking:!d.isLost&&!main};
@@ -11525,6 +11547,41 @@ function gxStageFlow(leads,defs){
   return out;
 }
 window.gxStageFlow=gxStageFlow;
+// Leads antigos não têm o registro de por onde passaram (o sistema só guardava a etapa atual).
+// Esta função monta um histórico ESTIMADO: ganho = passou por todas as etapas do caminho principal;
+// etapa do meio = passou pelas anteriores; perdido/parado (Follow, No Show...) = só a 1ª etapa.
+// Tudo marcado como estimado (stageHistoryEst) e sem datas inventadas (só criação e fechamento reais).
+window.gexBackfillStageHistory=function(){
+  try{
+    if(typeof sessionUser==='undefined'||!sessionUser||(typeof resolveRole==='function'?resolveRole(sessionUser.permissao||sessionUser.cargo||''):sessionUser.permissao)!=='Fundador')return 0;
+    const leads=DB.get('leads')||[];if(!leads.length)return 0;
+    const funnels=(typeof getCommercialFunnels==='function'?getCommercialFunnels():[])||[];if(!funnels.length)return 0;
+    const norm=gxStageNorm,iso=v=>{const d=_pipeParseDate(v);return d?d.toISOString():''};
+    let n=0;
+    const out=leads.map(l=>{
+      if(!l||(Array.isArray(l.stageHistory)&&l.stageHistory.length>=1))return l;
+      const f=funnels.find(x=>String(x.id)===String(l.funnelId||''))||(!l.funnelId?funnels.find(x=>x.isDefault):null);
+      if(!f||!Array.isArray(f.stages)||!f.stages.length)return l;
+      const all=f.stages.slice().sort((a,b)=>(a.order||0)-(b.order||0));
+      const cur=all.find(x=>String(x.id)===String(l.stageId))||all.find(x=>norm(x.name)===norm(l.estagio));
+      if(!cur)return l;
+      const park=x=>!x.isLost&&!x.isWon&&GX_PARK_RE.test(x.name||'');
+      const main=all.filter(x=>!x.isLost&&!park(x));
+      if(!main.length)return l;
+      const gan=!!cur.isWon||/ganh/i.test(String(l.dealStatus||''));
+      let seq;
+      if(gan){const wi=main.findIndex(x=>x.isWon);seq=wi>=0?main.slice(0,wi+1):main.slice();}
+      else if(cur.isLost||park(cur)){seq=[main[0],cur];}
+      else{const ci=main.findIndex(x=>x.id===cur.id);seq=ci>=0?main.slice(0,ci+1):[main[0],cur];}
+      const t0=iso(l.createdAt||l.dataInicio),tEnd=gan?iso(l.dataFechamento||l.wonAt||l.closedAt):'';
+      const hist=seq.map((x,i)=>({s:x.id||'',n:x.name||'',f:f.id||'',at:i===0?t0:(i===seq.length-1?tEnd:''),seed:1,est:1}));
+      n++;
+      return {...l,stageHistory:hist,stageHistoryEst:1};
+    });
+    if(n>0){DB.set('leads',out);console.log('[GexFlow] Histórico de etapas estimado para',n,'leads antigos');}
+    return n;
+  }catch(e){console.warn('backfill histórico',e);return 0}
+};
 function gxFlowLine(f,compact){
   if(!f||!f.entered)return '';
   if(f.parking)return `fora do caminho · ${f.entered} passaram`;
@@ -11538,7 +11595,8 @@ function gxFlowNote(fl){
   if(!fl||!fl.total)return '';
   if(!fl.tracked)return 'Avanço por etapa: o histórico de etapas começou a ser gravado agora. Os percentuais aparecem conforme os negócios mudarem de etapa.';
   const d=fl.since?fl.since.toLocaleDateString('pt-BR'):'';
-  return `Avanço medido pelo histórico de etapas${d?` desde ${d}`:''} · ${fl.tracked} de ${fl.total} negócios com histórico.`;
+  const real=fl.tracked-(fl.est||0);
+  return `Avanço por etapa: ${real} negócio${real!==1?'s':''} com histórico real${d?` (desde ${d})`:''} e ${fl.est||0} reconstruído${(fl.est||0)!==1?'s':''} pela etapa atual (estimativa), de ${fl.total}.`;
 }
 function esc2(t){return String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 // Desenha o funil (faixas escalonadas). compact=true para os cartões lado a lado.
