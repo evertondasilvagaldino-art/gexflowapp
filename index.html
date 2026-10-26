@@ -15482,7 +15482,9 @@ function getVisibleCommercialFunnels(funnels){
       // ou com o dono sem acesso ao Comercial, ele não aparece mais no dia
       // a dia (nada é apagado — continua recuperável em Arquivados/pelo
       // banco).
-      const visiveis=list.filter(f=>f.isDefault||(f.createdBy&&isUserActiveById(f.createdBy,f.createdByEmail)&&funnelOwnerHasCommercialAccess(f.createdBy,f.createdByEmail)));
+      const _gxAtivoSel=getActiveFunnelId();
+      // CORREÇÃO (26/10/2026): o funil que o gestor já está usando não some da tela por uma checagem de acesso do dono que oscila enquanto a lista de usuários recarrega (isso fazia os leads "sumirem e voltarem"). Dono desativado continua escondendo normalmente.
+      const visiveis=list.filter(f=>f.isDefault||(f.createdBy&&isUserActiveById(f.createdBy,f.createdByEmail)&&(funnelOwnerHasCommercialAccess(f.createdBy,f.createdByEmail)||(_gxAtivoSel&&String(f.id)===String(_gxAtivoSel)))));
       // ACHADO (03/10/2026): quando sobra mais de um funil pessoal com o
       // MESMO dono (ex.: "Funil de BEATRIZ" duplicado de um bug antigo que
       // nunca foi limpo manualmente), os dois passavam no filtro acima e
