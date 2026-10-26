@@ -1886,6 +1886,29 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
 }
 
 </style>
+<style id="gx-sb-collapse">
+/* Menu lateral recolhível (só computador). Mobile continua com o menu hambúrguer. */
+#sb-collapse-btn{display:none}
+@media (min-width:1025px){
+  #sb-collapse-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-bottom:6px;padding:6px 0;border:1px solid rgba(255,255,255,.1);border-radius:8px;background:rgba(255,255,255,.04);color:rgba(255,255,255,.55);font-size:11px;cursor:pointer;font-family:inherit}
+  #sb-collapse-btn:hover{background:rgba(255,255,255,.09);color:#fff}
+  #sb-collapse-btn .sbc-open{display:none}
+  .sidebar{transition:width .2s ease,min-width .2s ease}
+  body.sb-collapsed .sidebar{width:60px!important;min-width:60px!important}
+  body.sb-collapsed .sb-company{padding:14px 0 10px}
+  body.sb-collapsed .sb-co-row{justify-content:center}
+  body.sb-collapsed .sb-co-row>:nth-child(n+2){display:none}
+  body.sb-collapsed .sidebar .nav-item,body.sb-collapsed .sidebar .nav-grp-hdr{font-size:0!important;gap:0!important;justify-content:center!important;padding:10px 0!important;margin-left:0!important;margin-right:0!important;border-radius:0!important}
+  body.sb-collapsed .sidebar .nav-item *:not(svg):not(path),body.sb-collapsed .sidebar .nav-grp-left,body.sb-collapsed .sidebar .nav-grp-left *:not(svg):not(path){font-size:0!important;gap:0!important}
+  body.sb-collapsed .sidebar .nav-item svg,body.sb-collapsed .sidebar .nav-grp-ico{width:18px!important;height:18px!important;opacity:.9;margin:0!important;flex-shrink:0}
+  body.sb-collapsed .sidebar .nav-grp-hdr:has(.nav-grp-left.dim){display:none!important}
+  body.sb-collapsed .sidebar .nav-chv,body.sb-collapsed .sidebar .nav-sub-wrap{display:none!important}
+  body.sb-collapsed .sb-bottom{padding:8px 8px 12px}
+  body.sb-collapsed .sb-bottom>*:not(#sb-collapse-btn){display:none!important}
+  body.sb-collapsed #sb-collapse-btn .sbc-close{display:none}
+  body.sb-collapsed #sb-collapse-btn .sbc-open{display:inline}
+}
+</style>
 </head>
 <body class="gex-premium-ui">
 
@@ -2147,6 +2170,7 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
     </div>
   </nav>
   <div class="sb-bottom">
+    <button id="sb-collapse-btn" type="button" onclick="gxToggleSidebar()" title="Recolher / abrir menu"><span class="sbc-close">‹ Recolher menu</span><span class="sbc-open">›</span></button>
     <button id="sb-partner-tutorial-row" onclick="gxShowPartnerWelcome()" style="display:none;width:100%;align-items:center;gap:8px;justify-content:center;cursor:pointer;background:rgba(139,92,246,.18);border:1px solid rgba(139,92,246,.45);color:#fff;border-radius:9px;padding:9px 10px;margin-bottom:8px;font-size:13.5px;font-weight:700;font-family:inherit">🎓 Como usar o sistema</button>
     <div class="sb-row"><span class="sb-lbl" style="cursor:pointer">Suporte</span><span style="font-size:9px;color:rgba(255,255,255,.2)">v3.1 Connect</span></div>
   </div>
@@ -25616,6 +25640,35 @@ body.gex-premium-ui .cal-cell,body.gex-premium-ui .cal-week-col{min-width:0}
       w.__gxB=1;window[n]=w;
     }catch(e){}
   });
+})();
+</script>
+<script>
+/* Menu lateral recolhível: guarda a escolha só neste navegador (chave fora do gx2_, não sincroniza com a nuvem). */
+(function(){
+  var KEY='gex_sb_collapsed';
+  function apply(on){document.body.classList.toggle('sb-collapsed',!!on);}
+  function titles(){
+    try{document.querySelectorAll('.sidebar .nav-item,.sidebar .nav-grp-hdr').forEach(function(e){
+      if(!e.getAttribute('title')){var t=(e.textContent||'').replace(/[▾›]/g,'').replace(/\s+/g,' ').trim();if(t)e.setAttribute('title',t);}
+    });}catch(e){}
+  }
+  window.gxToggleSidebar=function(){
+    var on=!document.body.classList.contains('sb-collapsed');
+    apply(on);
+    try{localStorage.setItem(KEY,on?'1':'0')}catch(e){}
+  };
+  function init(){
+    var on=false;try{on=localStorage.getItem(KEY)==='1'}catch(e){}
+    apply(on);titles();
+    var sb=document.querySelector('.sidebar');
+    if(sb)sb.addEventListener('click',function(ev){
+      // Com o menu recolhido, clicar num grupo abre o menu para mostrar os itens do grupo.
+      if(document.body.classList.contains('sb-collapsed')&&ev.target.closest&&ev.target.closest('.nav-grp-hdr')){
+        apply(false);try{localStorage.setItem(KEY,'0')}catch(e){}
+      }
+    },true);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
 </script>
 </body>
