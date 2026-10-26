@@ -23717,7 +23717,7 @@ ${gxlCloseScriptTag}`;
   }
 
   sync();
-  setInterval(sync, 4000);
+  setInterval(function(){ if(!document.hidden) sync(); }, 4000);
 })();
 </script>
 
