@@ -1929,6 +1929,18 @@ body.gex-premium-ui .gxb-tb td{padding:11px 8px}
 body.gex-premium-ui .gxb-tb th{background:transparent}
 @media(max-width:600px){body.gex-premium-ui .gxb-kpis .gxb-v{font-size:24px}}
 </style>
+<style id="gx-sb-pin">
+/* Setores fixos na parte de baixo do menu: Finanças, Recursos Humanos, Configurações e Meu Perfil */
+.sb-pin{flex-shrink:0;border-top:1px solid rgba(255,255,255,.07);padding:6px 0;max-height:58vh;overflow-y:auto}
+</style>
+<style id="gx-acc">
+/* Seções de conexão (E-mail, WhatsApp, Asaas) recolhíveis: clique no título para abrir/fechar */
+.gxi-acc>.gxi-conv-head{cursor:pointer;user-select:none;margin-bottom:0}
+.gxi-acc.gxi-open>.gxi-conv-head{margin-bottom:16px}
+.gxi-acc>.gxi-conv-head::after{content:'▾';margin-left:10px;color:var(--muted);font-size:14px;transition:transform .2s}
+.gxi-acc:not(.gxi-open)>.gxi-conv-head::after{transform:rotate(-90deg)}
+.gxi-acc:not(.gxi-open)>*:not(.gxi-conv-head){display:none!important}
+</style>
 </head>
 <body class="gex-premium-ui">
 
@@ -2135,6 +2147,17 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
       Automações
     </div>
 
+    <!-- INTEGRAÇÕES (ex.: conectar o próprio WhatsApp via Z-API) — item
+         próprio na barra lateral pra quem tem a permissão 'integracoes'
+         mas não tem acesso ao setor Configurações (ex.: Gex Parceiro).
+         Quem já chega lá por Configurações continua chegando por lá também. -->
+    <div class="nav-item" data-page="integracoes" onclick="navigate('integracoes')">
+      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clip-rule="evenodd"/></svg>
+      Integrações
+    </div>
+
+  </nav>
+  <div class="sb-pin" id="sb-pin">
     <!-- Finanças group (collapsed) -->
     <div class="nav-grp-hdr" id="grp-hdr-financas" onclick="toggleGrp('financas')">
       <div class="nav-grp-left">
@@ -2158,15 +2181,6 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
       Recursos Humanos
     </div>
 
-    <!-- INTEGRAÇÕES (ex.: conectar o próprio WhatsApp via Z-API) — item
-         próprio na barra lateral pra quem tem a permissão 'integracoes'
-         mas não tem acesso ao setor Configurações (ex.: Gex Parceiro).
-         Quem já chega lá por Configurações continua chegando por lá também. -->
-    <div class="nav-item" data-page="integracoes" onclick="navigate('integracoes')">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clip-rule="evenodd"/></svg>
-      Integrações
-    </div>
-
     <!-- CONFIGURAÇÕES -->
     <div class="nav-grp-hdr" id="grp-hdr-configuracoes" onclick="toggleGrp('configuracoes')">
       <div class="nav-grp-left">
@@ -2188,7 +2202,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
       <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
       Meu Perfil
     </div>
-  </nav>
+  </div>
   <div class="sb-bottom">
     <button id="sb-collapse-btn" type="button" onclick="gxToggleSidebar()" title="Recolher / abrir menu"><span class="sbc-close">‹ Recolher menu</span><span class="sbc-open">›</span></button>
     <button id="sb-partner-tutorial-row" onclick="gxShowPartnerWelcome()" style="display:none;width:100%;align-items:center;gap:8px;justify-content:center;cursor:pointer;background:rgba(139,92,246,.18);border:1px solid rgba(139,92,246,.45);color:#fff;border-radius:9px;padding:9px 10px;margin-bottom:8px;font-size:13.5px;font-weight:700;font-family:inherit">🎓 Como usar o sistema</button>
@@ -19885,6 +19899,9 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   const E=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   const A=E;
   // Ícones de marca (pacote público Simple Icons, domínio público): Meta, WhatsApp e Google Ads.
+  const GXI_ACC=new Set();
+  window.gxiAccToggle=function(k){const el=document.querySelector('.gxi-acc[data-acc="'+k+'"]');if(GXI_ACC.has(k)){GXI_ACC.delete(k);el&&el.classList.remove('gxi-open')}else{GXI_ACC.add(k);el&&el.classList.add('gxi-open')}};
+  window.gxiAccOpen=function(k){GXI_ACC.add(k);const el=document.querySelector('.gxi-acc[data-acc="'+k+'"]');el&&el.classList.add('gxi-open')};
   const GXI_BRAND={meta_ads:["M6.915 4.03c-1.968 0-3.683 1.28-4.871 3.113C.704 9.208 0 11.883 0 14.449c0 .706.07 1.369.21 1.973a6.624 6.624 0 0 0 .265.86 5.297 5.297 0 0 0 .371.761c.696 1.159 1.818 1.927 3.593 1.927 1.497 0 2.633-.671 3.965-2.444.76-1.012 1.144-1.626 2.663-4.32l.756-1.339.186-.325c.061.1.121.196.183.3l2.152 3.595c.724 1.21 1.665 2.556 2.47 3.314 1.046.987 1.992 1.22 3.06 1.22 1.075 0 1.876-.355 2.455-.843a3.743 3.743 0 0 0 .81-.973c.542-.939.861-2.127.861-3.745 0-2.72-.681-5.357-2.084-7.45-1.282-1.912-2.957-2.93-4.716-2.93-1.047 0-2.088.467-3.053 1.308-.652.57-1.257 1.29-1.82 2.05-.69-.875-1.335-1.547-1.958-2.056-1.182-.966-2.315-1.303-3.454-1.303zm10.16 2.053c1.147 0 2.188.758 2.992 1.999 1.132 1.748 1.647 4.195 1.647 6.4 0 1.548-.368 2.9-1.839 2.9-.58 0-1.027-.23-1.664-1.004-.496-.601-1.343-1.878-2.832-4.358l-.617-1.028a44.908 44.908 0 0 0-1.255-1.98c.07-.109.141-.224.211-.327 1.12-1.667 2.118-2.602 3.358-2.602zm-10.201.553c1.265 0 2.058.791 2.675 1.446.307.327.737.871 1.234 1.579l-1.02 1.566c-.757 1.163-1.882 3.017-2.837 4.338-1.191 1.649-1.81 1.817-2.486 1.817-.524 0-1.038-.237-1.383-.794-.263-.426-.464-1.13-.464-2.046 0-2.221.63-4.535 1.66-6.088.454-.687.964-1.226 1.533-1.533a2.264 2.264 0 0 1 1.088-.285z", "0467DF"],whatsapp:["M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z", "25D366"],whatsapp_oficial:["M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z", "25D366"],google_ads:["M3.9998 22.9291C1.7908 22.9291 0 21.1383 0 18.9293s1.7908-3.9998 3.9998-3.9998 3.9998 1.7908 3.9998 3.9998-1.7908 3.9998-3.9998 3.9998zm19.4643-6.0004L15.4632 3.072C14.3586 1.1587 11.9121.5028 9.9988 1.6074S7.4295 5.1585 8.5341 7.0718l8.0009 13.8567c1.1046 1.9133 3.5511 2.5679 5.4644 1.4646 1.9134-1.1046 2.568-3.5511 1.4647-5.4644zM7.5137 4.8438L1.5645 15.1484A4.5 4.5 0 0 1 4 14.4297c2.5597-.0075 4.6248 2.1585 4.4941 4.7148l3.2168-5.5723-3.6094-6.25c-.4499-.7793-.6322-1.6394-.5878-2.4784z", "4285F4"]};
   const gxiBrandIcon=p=>{const b=GXI_BRAND[p.id];return b?`<svg viewBox="0 0 24 24" width="26" height="26" role="img" aria-label="${A(p.name)}" fill="#${b[1]}"><path d="${b[0]}"/></svg>`:p.icon};
   const PROVIDERS=[
@@ -19991,14 +20008,14 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     return `${summaryHtml}<div class="gxi-grid">${VISIBLE_PROVIDERS.map(p=>{if(p.comingSoon){return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft};opacity:.85"><div class="gxi-card-top"><div class="gxi-icon">${gxiBrandIcon(p)}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill soon">Em breve</span></div><p>${p.desc}</p><div class="gxi-card-note">Fica registrado aqui como o próximo canal — ainda sem previsão fechada.</div><div class="gxi-card-actions"><button class="gxi-btn small" disabled style="opacity:.55;cursor:not-allowed">Em breve</button></div></article>`}
     if(p.id==='whatsapp'){
       const zs=getZapiSettings(),hasCreds=!!zs.connected;
-      return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft}"><div class="gxi-card-top"><div class="gxi-icon">${gxiBrandIcon(p)}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill ${hasCreds?'pending':'off'}" id="gxi-whatsapp-top-pill">${hasCreds?'Credenciais salvas':'Não conectado'}</span></div><p>${p.desc}</p><div class="gxi-card-note">${hasCreds?`Instância <b>${E(zs.instanceId||'')}</b> — status real logo abaixo, no card de conexão Z-API.`:'Configure a instância e o token da Z-API no card abaixo.'}</div><div class="gxi-card-actions" id="gxi-whatsapp-top-actions">${hasCreds?`<button class="gxi-btn small danger" onclick="gxiDisconnectZapi()">Desconectar</button>`:''}<button class="gxi-btn primary small" onclick="document.getElementById('gxi-zapi-card-anchor')?.scrollIntoView({behavior:'smooth',block:'start'})">${hasCreds?'Ver conexão':p.button}</button></div></article>`;
+      return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft}"><div class="gxi-card-top"><div class="gxi-icon">${gxiBrandIcon(p)}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill ${hasCreds?'pending':'off'}" id="gxi-whatsapp-top-pill">${hasCreds?'Credenciais salvas':'Não conectado'}</span></div><p>${p.desc}</p><div class="gxi-card-note">${hasCreds?`Instância <b>${E(zs.instanceId||'')}</b> — status real logo abaixo, no card de conexão Z-API.`:'Configure a instância e o token da Z-API no card abaixo.'}</div><div class="gxi-card-actions" id="gxi-whatsapp-top-actions">${hasCreds?`<button class="gxi-btn small danger" onclick="gxiDisconnectZapi()">Desconectar</button>`:''}<button class="gxi-btn primary small" onclick="gxiAccOpen('zapi');document.getElementById('gxi-zapi-card-anchor')?.scrollIntoView({behavior:'smooth',block:'start'})">${hasCreds?'Ver conexão':p.button}</button></div></article>`;
     }
     const c=connection(p.id),on=c.status==='connected',pending=c.status==='pending';return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft}"><div class="gxi-card-top"><div class="gxi-icon">${gxiBrandIcon(p)}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill ${on?'on':pending?'pending':'off'}">${on?'Conectado':pending?'Pendente':'Não conectado'}</span></div><p>${p.desc}</p><div class="gxi-card-note">${on?`Conta: ${E(c.assets?.name||c.assets?.account||'Conexão oficial')}`:'Autorização oficial, sem expor tokens no navegador.'}</div><div class="gxi-card-actions">${on?`<button class="gxi-btn small" onclick="gxiTestConnection('${p.id}')">Testar</button><button class="gxi-btn small danger" onclick="gxiDisconnect('${p.id}')">Desconectar</button>`:`<button class="gxi-btn primary small" onclick="gxiConnect('${p.id}')">${p.button}</button>`}</div></article>`}).join('')}${asaasTileHtml()}</div>${_visRole==='Colaborador'?zapiConfigHtml()+asaasConfigHtml():smtpConfigHtml()}`}
   function smtpConfigHtml(){
     const s=getEmailSmtpSettings(),on=!!s.connected;
     return `<div class="gxi-conv-grid" style="grid-template-columns:1fr;margin-top:13px">
-      <div class="gxi-conv-card">
-        <div class="gxi-conv-head"><div class="gxi-conv-logo" style="background:#DBEAFE;color:#2563EB">✉</div><div><h3>Conexão de e-mail (SMTP) — minha caixa</h3><p>Sua conexão pessoal: cada usuário conecta a própria caixa de e-mail, e as automações de e-mail dele são enviadas por ela.</p></div><span class="gxi-config-status ${on?'on':''}" style="margin-left:auto">${on?'Conectado':'Pendente'}</span></div>
+      <div class="gxi-conv-card gxi-acc${GXI_ACC.has('smtp')?' gxi-open':''}" data-acc="smtp">
+        <div class="gxi-conv-head" onclick="gxiAccToggle('smtp')"><div class="gxi-conv-logo" style="background:#DBEAFE;color:#2563EB"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="E-mail"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7.5 8.5 6 8.5-6"/></svg></div><div><h3>Conexão de e-mail (SMTP) — minha caixa</h3><p>Sua conexão pessoal: cada usuário conecta a própria caixa de e-mail, e as automações de e-mail dele são enviadas por ela.</p></div><span class="gxi-config-status ${on?'on':''}" style="margin-left:auto">${on?'Conectado':'Pendente'}</span></div>
         ${on?`<div class="gxi-card-note" style="margin-bottom:12px">Enviando por <b>${E(s.host||'')}</b> como <b>${E(s.fromEmail||s.username||'')}</b></div>`:''}
         <div class="gxi-form-grid" style="margin-bottom:11px">
           <label class="gxi-field"><span class="gxi-label">Servidor SMTP</span><input class="gxi-input" id="gxi-smtp-host" value="${A(s.host||'')}" placeholder="smtp.seudominio.com"></label>
@@ -20020,15 +20037,15 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   function asaasTileHtml(){
     if(!gxEspelhoAllowed())return '';
     const g=gxiAsaas,on=g.connected;
-    return `<article class="gxi-card" id="gxi-asaas-tile" style="--accent:#0030B9;--soft:#E8F1FF"><div class="gxi-card-top"><div class="gxi-icon" style="font-weight:800">A</div><div><h3>Asaas</h3><div class="gxi-card-cat">Pagamentos</div></div><span class="gxi-pill ${on?'on':'off'}">${on?'Conectado':'Não conectado'}</span></div><p>Conta de pagamentos. Os dados aparecem em Finanças &gt; Espelho do banco. Somente leitura.</p><div class="gxi-card-note">${on?`Ambiente: ${g.env==='sandbox'?'Sandbox':'Produção'}`:'Cole a chave de API no card de configuração abaixo.'}</div><div class="gxi-card-actions"><button class="gxi-btn ${on?'':'primary'} small" onclick="document.getElementById('gxi-asaas-card-anchor')?.scrollIntoView({behavior:'smooth',block:'center'})">${on?'Configurar':'Conectar Asaas'}</button>${on?`<button class="gxi-btn small danger" onclick="gxiAsaasDisconnect()">Desconectar</button>`:''}</div></article>`;
+    return `<article class="gxi-card" id="gxi-asaas-tile" style="--accent:#0030B9;--soft:#E8F1FF"><div class="gxi-card-top"><div class="gxi-icon" style="font-weight:800">A</div><div><h3>Asaas</h3><div class="gxi-card-cat">Pagamentos</div></div><span class="gxi-pill ${on?'on':'off'}">${on?'Conectado':'Não conectado'}</span></div><p>Conta de pagamentos. Os dados aparecem em Finanças &gt; Espelho do banco. Somente leitura.</p><div class="gxi-card-note">${on?`Ambiente: ${g.env==='sandbox'?'Sandbox':'Produção'}`:'Cole a chave de API no card de configuração abaixo.'}</div><div class="gxi-card-actions"><button class="gxi-btn ${on?'':'primary'} small" onclick="gxiAccOpen('asaas');document.getElementById('gxi-asaas-card-anchor')?.scrollIntoView({behavior:'smooth',block:'center'})">${on?'Configurar':'Conectar Asaas'}</button>${on?`<button class="gxi-btn small danger" onclick="gxiAsaasDisconnect()">Desconectar</button>`:''}</div></article>`;
   }
   function asaasConfigHtml(){
     if(!gxEspelhoAllowed())return '';
     const g=gxiAsaas,on=g.connected;
     const panel='';
     return `<div class="gxi-conv-grid" style="grid-template-columns:1fr;margin-top:13px" id="gxi-asaas-card-anchor">
-      <div class="gxi-conv-card">
-        <div class="gxi-conv-head"><div class="gxi-conv-logo" style="background:#E8F1FF;color:#0030B9">A</div><div><h3>Asaas — cobranças e recebimentos</h3><p>Conecte a sua conta Asaas. Os dados (recebido, a receber, atrasado, saídas e extrato) aparecem em Finanças &gt; Espelho do banco. Somente leitura: o sistema não cria nem altera cobranças.</p></div><span class="gxi-config-status ${on?'on':''}" style="margin-left:auto">${on?`Conectado · ${g.env==='sandbox'?'Sandbox':'Produção'}`:(g.loading?'Verificando…':'Não conectado')}</span></div>
+      <div class="gxi-conv-card gxi-acc${GXI_ACC.has('asaas')?' gxi-open':''}" data-acc="asaas">
+        <div class="gxi-conv-head" onclick="gxiAccToggle('asaas')"><div class="gxi-conv-logo" style="background:#E8F1FF;color:#0030B9">A</div><div><h3>Asaas — cobranças e recebimentos</h3><p>Conecte a sua conta Asaas. Os dados (recebido, a receber, atrasado, saídas e extrato) aparecem em Finanças &gt; Espelho do banco. Somente leitura: o sistema não cria nem altera cobranças.</p></div><span class="gxi-config-status ${on?'on':''}" style="margin-left:auto">${on?`Conectado · ${g.env==='sandbox'?'Sandbox':'Produção'}`:(g.loading?'Verificando…':'Não conectado')}</span></div>
         ${panel}
         <div class="gxi-form-grid" style="margin-bottom:11px">
           <label class="gxi-field"><span class="gxi-label">Ambiente</span><select class="gxi-input" id="gxi-asaas-env"><option value="producao" ${g.env!=='sandbox'?'selected':''}>Produção (conta real)</option><option value="sandbox" ${g.env==='sandbox'?'selected':''}>Sandbox (testes)</option></select></label>
@@ -20089,8 +20106,8 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   function zapiConfigHtml(){
     const s=getZapiSettings(),on=!!s.connected;
     return `<div class="gxi-conv-grid" style="grid-template-columns:1fr;margin-top:13px" id="gxi-zapi-card-anchor">
-      <div class="gxi-conv-card">
-        <div class="gxi-conv-head"><div class="gxi-conv-logo" style="background:#E7F9EF;color:#128C7E">◉</div><div><h3>Conexão de WhatsApp (Z-API) — meu número</h3><p>Sua conexão pessoal: cada usuário do sistema conecta o seu próprio WhatsApp, e todas as conexões da equipe ficam ativas ao mesmo tempo.</p></div><span class="gxi-config-status" id="gxi-zapi-live-status" style="margin-left:auto">${on?'Credenciais salvas':'Pendente'}</span></div>
+      <div class="gxi-conv-card gxi-acc${GXI_ACC.has('zapi')?' gxi-open':''}" data-acc="zapi">
+        <div class="gxi-conv-head" onclick="gxiAccToggle('zapi')"><div class="gxi-conv-logo" style="background:#E7F9EF;color:#128C7E">${gxiBrandIcon({id:'whatsapp',name:'WhatsApp'})}</div><div><h3>Conexão de WhatsApp (Z-API) — meu número</h3><p>Sua conexão pessoal: cada usuário do sistema conecta o seu próprio WhatsApp, e todas as conexões da equipe ficam ativas ao mesmo tempo.</p></div><span class="gxi-config-status" id="gxi-zapi-live-status" style="margin-left:auto">${on?'Credenciais salvas':'Pendente'}</span></div>
         <div class="gxi-warning" style="margin-bottom:12px">Z-API é uma integração não oficial com o WhatsApp — existe risco real de banimento do número conectado. Use um número dedicado só pra automações, nunca o WhatsApp principal da empresa. <a href="https://www.z-api.io" target="_blank" rel="noopener" style="color:#92400E;text-decoration:underline">Criar conta na Z-API</a>.</div>
         ${on?`<div class="gxi-card-note" style="margin-bottom:12px">Enviando pela instância <b>${E(s.instanceId||'')}</b>${s.webhookUrl?` · <a href="#" onclick="navigator.clipboard&&navigator.clipboard.writeText('${A(s.webhookUrl)}');toast('URL do webhook copiada ✓','#10B981');return false" style="color:#128C7E;text-decoration:underline">copiar URL do webhook</a>`:''}${on?` · <a href="#" onclick="window.wacOpenQr&&window.wacOpenQr();return false" style="color:#128C7E;text-decoration:underline">ver QR Code</a>`:''}</div>`:''}
         <div class="gxi-form-grid" style="margin-bottom:11px">
@@ -20131,7 +20148,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
         topPill.classList.toggle('pending',!liveConnected);
       }
       if(topActions){
-        topActions.innerHTML=liveConnected?`<button class="gxi-btn small danger" onclick="gxiDisconnectZapi()">Desconectar</button>`:`<button class="gxi-btn small danger" onclick="gxiDisconnectZapi()">Desconectar</button><button class="gxi-btn primary small" onclick="document.getElementById('gxi-zapi-card-anchor')?.scrollIntoView({behavior:'smooth',block:'start'})">Ver conexão</button>`;
+        topActions.innerHTML=liveConnected?`<button class="gxi-btn small danger" onclick="gxiDisconnectZapi()">Desconectar</button>`:`<button class="gxi-btn small danger" onclick="gxiDisconnectZapi()">Desconectar</button><button class="gxi-btn primary small" onclick="gxiAccOpen('zapi');document.getElementById('gxi-zapi-card-anchor')?.scrollIntoView({behavior:'smooth',block:'start'})">Ver conexão</button>`;
       }
     }catch(e){/* mantém o texto padrão */}
   }
