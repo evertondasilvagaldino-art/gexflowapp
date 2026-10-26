@@ -11594,7 +11594,7 @@ function gxStageFlow(leads,defs){
   const out={tracked,est:estCount,since:since?new Date(since):null,total:(leads||[]).length,by:{}};
   defs.forEach((d,i)=>{
     const main=isMain(d);
-    out.by[norm(d.name)]={entered:entered[i],advanced:adv[i],conv:(main&&!d.isWon&&entered[i]>0)?(()=>{let nx=-1;for(let j=i+1;j<defs.length;j++){if(isMain(defs[j])){nx=j;break}}return nx<0?null:Math.min(100,Math.round(entered[nx]/entered[i]*100))})():null,days:tcnt[i]?Math.round(tsum[i]/tcnt[i]*10)/10:null,lostFrom:lostFrom[i],parking:!d.isLost&&!main};
+    out.by[norm(d.name)]={entered:entered[i],advanced:adv[i],conv:(main&&!d.isWon&&entered[i]>0)?(()=>{let nx=-1;for(let j=i+1;j<defs.length;j++){if(isMain(defs[j])){nx=j;break}}return nx<0?null:Math.min(100,Math.round(entered[nx]/entered[i]*100))})():null,days:tcnt[i]?Math.round(tsum[i]/tcnt[i]*10)/10:null,lostFrom:lostFrom[i],parking:!d.isLost&&!main,fromPrev:(()=>{if(!main)return null;let pv=-1;for(let j=i-1;j>=0;j--){if(isMain(defs[j])){pv=j;break}}if(pv<0)return entered[i]>0?100:null;return entered[pv]>0?Math.min(100,Math.round(entered[i]/entered[pv]*100)):null})()};
   });
   return out;
 }
@@ -11630,12 +11630,12 @@ window.gexBackfillStageHistory=function(){return 0}; // desligado: o estimado ag
 function gxFlowLine(f,compact){
   if(!f||!f.entered)return '';
   if(f.parking)return '';
-  return f.conv!==null?`${f.entered} entraram · ${f.conv}% avançam`:`${f.entered} entraram`;
+  return f.fromPrev!=null?`${f.entered} entraram · ${f.fromPrev}% da etapa anterior`:`${f.entered} entraram`;
 }
 function gxFlowTip(f){
   if(!f||!f.entered)return '';
   const p=[`${f.entered} já passaram por esta etapa`];
-  if(f.conv!==null&&!f.parking){p.push(`${f.conv}% seguiram para a próxima etapa do funil`);const rest=f.entered-f.advanced-(f.lostFrom||0);if(rest>0)p.push(`${rest} ficaram parados/foram para Follow ou fora do caminho`)}
+  if(f.fromPrev!=null&&!f.parking)p.push(`${f.fromPrev}% dos que entraram na etapa anterior chegaram aqui`);
   if(f.days!==null&&f.days!==undefined)p.push(`${String(f.days).replace('.',',')} dia(s) em média na etapa`);
   if(f.lostFrom)p.push(`${f.lostFrom} perdido(s) nesta etapa`);
   return p.join(' · ');
