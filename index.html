@@ -11629,12 +11629,12 @@ window.gexBackfillStageHistory=function(){return 0}; // desligado: o estimado ag
 function gxFlowLine(f,compact){
   if(!f||!f.entered)return '';
   if(f.parking)return '';
-  return f.conv!==null?`→ ${f.conv}% avançam`:'';
+  return f.conv!==null?`${f.entered} entraram · ${f.conv}% avançam`:`${f.entered} entraram`;
 }
 function gxFlowTip(f){
   if(!f||!f.entered)return '';
   const p=[`${f.entered} já passaram por esta etapa`];
-  if(f.conv!==null&&!f.parking)p.push(`${f.conv}% avançaram`);
+  if(f.conv!==null&&!f.parking){p.push(`${f.conv}% seguiram para a próxima etapa do funil`);const rest=f.entered-f.advanced-(f.lostFrom||0);if(rest>0)p.push(`${rest} ficaram parados/foram para Follow ou fora do caminho`)}
   if(f.days!==null&&f.days!==undefined)p.push(`${String(f.days).replace('.',',')} dia(s) em média na etapa`);
   if(f.lostFrom)p.push(`${f.lostFrom} perdido(s) nesta etapa`);
   return p.join(' · ');
