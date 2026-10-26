@@ -4559,6 +4559,15 @@ const DB={
         if(k==='leads'&&data&&((data.stageId!==undefined&&String(data.stageId)!==String(x.stageId||''))||(data.estagio!==undefined&&String(data.estagio)!==String(x.estagio||'')))){
           const _now=new Date().toISOString();
           updated.stageChangedAt=_now;
+          try{ // rede de segurança: ganhou/perdeu por qualquer caminho => data de fechamento automática (hoje)
+            const _won=isWonOpportunity(updated),_lost=!_won&&isLostOpportunity(updated);
+            const _wasClosed=isWonOpportunity(x)||isLostOpportunity(x);
+            if((_won||_lost)&&!(data&&data.dataFechamento)&&(!_wasClosed||!x.dataFechamento)){
+              updated.dataFechamento=gxHojeLocal();updated.closedAt=_now;
+              if(_won)updated.wonAt=_now;else updated.lostAt=_now;
+              if(_won&&(!updated.dealStatus||!/ganh/i.test(updated.dealStatus)))updated.dealStatus='Ganho';
+            }
+          }catch(e){}
           // Histórico de etapas: guarda por onde o lead passou (base das métricas de avanço do funil).
           try{
             const h=Array.isArray(x.stageHistory)?x.stageHistory.slice():[];
@@ -5882,7 +5891,7 @@ function dropLead(e,stageId,stageName){
   if(stage){
     // Também grava a data de fechamento (como o outro caminho, syncDealStageAndStatus) — o BI e o
     // Início contam venda por essa data. Se já era ganho, mantém a data original.
-    const hojeISO=new Date().toISOString().slice(0,10);
+    const hojeISO=gxHojeLocal();
     if(stage.isWon){updates.dealStatus='Ganho';updates.wonAt=new Date().toISOString();updates.closedAt=new Date().toISOString();if(!wasAlreadyWon||!previousLead?.dataFechamento)updates.dataFechamento=hojeISO;else{delete updates.wonAt;delete updates.closedAt}}
     else if(stage.isLost){updates.dealStatus='Perdido';updates.lostAt=new Date().toISOString();updates.closedAt=new Date().toISOString();updates.dataFechamento=hojeISO;}
     else {updates.dealStatus='Em andamento';if(previousLead&&(previousLead.dealStatus==='Ganho'||previousLead.dealStatus==='Perdido')){updates.dataFechamento='';updates.closedAt='';updates.wonAt='';updates.lostAt='';}}
@@ -9004,6 +9013,7 @@ function gxIsParkedLead(l){
     if(st&&(st.isWon||st.isLost))return false;
     return GX_PARK_RE.test(nm);}catch(e){return false}
 }
+function gxHojeLocal(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 function gxPipeFit(){
   try{
     const pb=document.getElementById('pipeline-board');
@@ -17517,7 +17527,7 @@ function syncDealStageAndStatus(leadId,status,stage=null,funnel=null){
   funnel=funnel||getFunnelForLead(lead);
   if(!stage) stage=getStageForDealStatus(lead,status).stage;
 
-  const today=new Date().toISOString().slice(0,10);
+  const today=gxHojeLocal();
   const nowIso=new Date().toISOString();
   const updates={
     dealStatus:status,
