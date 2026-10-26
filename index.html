@@ -4372,6 +4372,24 @@ const DB={
   find(k,id){return DB.get(k).find(x=>String(x.id)===String(id))}
 };
 
+// ─── Campo de valor em dinheiro (R$ 10.080,00): digita só números, o formato aparece sozinho ───
+function gxBRLFormat(n){
+  const x=Number(n);
+  if(!isFinite(x)||n===''||n===null||n===undefined)return '';
+  return 'R$ '+x.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function gxBRLInput(el){
+  const dig=String(el.value||'').replace(/\D/g,'');
+  if(!dig){el.value='';return;}
+  el.value=gxBRLFormat(parseInt(dig,10)/100);
+}
+function gxParseBRL(str){
+  const t=String(str==null?'':str).trim();
+  if(!t)return 0;
+  if(/^-?\d+(\.\d+)?$/.test(t))return parseFloat(t)||0; // número puro (ex.: 10080 ou 10080.5)
+  const dig=t.replace(/\D/g,'');
+  return dig?parseInt(dig,10)/100:0;
+}
 function gexShouldSyncKV(key){
   return typeof key==='string'
     && key.startsWith('gx2_')
@@ -7501,7 +7519,7 @@ async function saveModal(type,id=''){
       const ownerPick=resolveLeadOwnerFromForm(oldLead);
       const obj={
         nome:v('f-nome'),empresa:v('f-empresa'),email:v('f-email'),telefone:v('f-tel'),
-        valor:parseFloat(v('f-valor'))||0,
+        valor:gxParseBRL(v('f-valor')),
         estagio:selectedStage?selectedStage.name:selectedStageName,
         funnelId:oldLead?.funnelId||activeFunnel?.id||'',
         stageId:selectedStage?.id||oldLead?.stageId||'',
@@ -7543,7 +7561,7 @@ async function saveModal(type,id=''){
       closeModal();renderComercial();if(currentDealId===id)renderDealDetail();toast(id?'Lead atualizado ✓':'Lead criado ✓','#10B981');
     },
     transacao(){
-      const obj={desc:v('f-desc'),cat:v('f-cat'),tipo:v('f-tipo'),valor:parseFloat(v('f-valor'))||0,data:v('f-data')};
+      const obj={desc:v('f-desc'),cat:v('f-cat'),tipo:v('f-tipo'),valor:gxParseBRL(v('f-valor')),data:v('f-data')};
       if(!obj.desc){toast('Descrição obrigatória','#EF4444');return}
       if(id)DB.update('transacoes',id,obj);else DB.push('transacoes',{id:uid(),...obj});
       closeModal();renderFinancas();toast(id?'Atualizada ✓':'Criada ✓','#10B981');
@@ -7988,7 +8006,7 @@ function formLead(d){
     </div>
   </div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">Valor (R$)</label><input class="form-input" id="f-valor" type="number" value="${d?.valor||''}"></div>
+    <div class="form-group"><label class="form-label">Valor (R$)</label><input class="form-input" id="f-valor" type="text" inputmode="numeric" autocomplete="off" placeholder="R$ 0,00" oninput="gxBRLInput(this)" value="${d?.valor?gxBRLFormat(d.valor):''}"></div>
     <div class="form-group"><label class="form-label">Estágio</label>
       <select class="form-input" id="f-estagio">
         ${stageObjs.map(s=>`<option value="${s.id}" ${(d?.stageId===s.id||d?.estagio===s.name)?'selected':''}>${s.name}</option>`).join('')}
@@ -8029,7 +8047,7 @@ function formTransacao(d){
     <div class="form-group"><label class="form-label">Tipo</label><select class="form-input" id="f-tipo"><option ${d?.tipo==='Receita'?'selected':''}>Receita</option><option ${d?.tipo==='Despesa'?'selected':''}>Despesa</option></select></div>
   </div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">Valor (R$)</label><input class="form-input" id="f-valor" type="number" step="0.01" value="${d?.valor||''}"></div>
+    <div class="form-group"><label class="form-label">Valor (R$)</label><input class="form-input" id="f-valor" type="text" inputmode="numeric" autocomplete="off" placeholder="R$ 0,00" oninput="gxBRLInput(this)" value="${d?.valor?gxBRLFormat(d.valor):''}"></div>
     <div class="form-group"><label class="form-label">Data</label><input class="form-input" id="f-data" type="date" value="${d?.data||new Date().toISOString().slice(0,10)}"></div>
   </div>`;
 }
