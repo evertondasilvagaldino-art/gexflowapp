@@ -11072,7 +11072,7 @@ function renderComercial(){
   // "Pipeline Total" e "Leads Ativos" devem refletir só negócios em aberto
   // (sem contar os já GANHOS, que têm card próprio, nem os PERDIDOS/Fora
   // ICP), senão o número infla e não bate com a tabela de vendedores.
-  const funnelLeadsAtivos=funnelLeads.filter(l=>{
+  const funnelLeadsAtivos=funnelLeadsByOwner.filter(l=>{
     let ganho=false,perdido=false;
     try{ganho=isWonOpportunity(l)}catch(e){ganho=normalizeSalesName(l.dealStatus||l.status).includes('ganh')}
     try{perdido=isLostOpportunityLocal(l)}catch(e){perdido=false}
@@ -25324,7 +25324,7 @@ function build(){
   if(cF)k.push(`<div class="gxb-card"><div class="gxb-l">Lucro líquido</div><div class="gxb-v" style="color:${lucro<0?'#a52a1b':'inherit'}">${brl(lucro)}${delta(lucro,lucroPrev)}</div><div class="gxb-s">Receita − despesas do período</div></div>`);
   if(cC){
     k.push(`<div class="gxb-card"><div class="gxb-l">Negócios ganhos</div><div class="gxb-v">${brl(vGanho)}${delta(vGanho,vGanhoPrev)}</div><div class="gxb-s">${ganhos.length} venda${ganhos.length!==1?'s':''} · ticket ${brl(ticket)}</div></div>`);
-    k.push(`<div class="gxb-card"><div class="gxb-l">Conversão (ganhos ÷ fechados)</div><div class="gxb-v">${String(conv).replace('.',',')}%${delta(conv,convPrev)}</div><div class="gxb-s">ganhos ÷ (ganhos + perdidos) · ${perdidos.length} perdido${perdidos.length!==1?'s':''}</div></div>`);
+    k.push(`<div class="gxb-card"><div class="gxb-l">Taxa de ganho</div><div class="gxb-v">${String(conv).replace('.',',')}%${delta(conv,convPrev)}</div><div class="gxb-s" title="Dos negócios que já terminaram no período (ganhos + perdidos), quantos foram ganhos">${ganhos.length} ganho${ganhos.length!==1?'s':''} de ${ganhos.length+perdidos.length} negócios encerrados · ${perdidos.length} perdido${perdidos.length!==1?'s':''}</div></div>`);
     k.push(`<div class="gxb-card"><div class="gxb-l">Ciclo médio</div><div class="gxb-v">${ciclo!==null?ciclo+' dias':'—'}</div><div class="gxb-s">${gc.length} fechado${gc.length!==1?'s':''} no período</div></div>`);
     k.push(`<div class="gxb-card"><div class="gxb-l">Investimento em Ads</div><div class="gxb-v">${brl(ads)}</div><div class="gxb-s">${dashSel?'Total da empresa':'Categoria Ads / Tráfego'}</div></div>`);
     k.push(`<div class="gxb-card"><div class="gxb-l">CAC</div><div class="gxb-v">${cac!==null?brl(cac):'—'}</div><div class="gxb-s">${dashSel?'Só no total geral':(cac!==null?`Ads ÷ ${nGanho} ganho${nGanho!==1?'s':''}`:'Sem dados')}</div></div>`);
@@ -25371,7 +25371,13 @@ function build(){
     try{
       const _dm=new Map((_fl&&_fl.by)?Object.entries(_fl.by):[]);
       const _lostN=new Set();try{const _fs2=getCommercialFunnels()||[];_fs2.forEach(f=>(f.stages||[]).forEach(x=>{if(x.isLost)_lostN.add(gxStageNorm(x.name))}))}catch(e){}
-      const _rows=etapas.filter(e=>!_lostN.has(gxStageNorm(e))).map(e=>{const it=atual.filter(l=>l.estagio===e);return {est:e,count:it.length,valor:it.reduce((a,l)=>a+(parseFloat(l.valor)||0),0)}});
+      let _rows;
+      const _fSelObj=dashFilter.funil?(getCommercialFunnels()||[]).find(x=>String(x.id)===String(dashFilter.funil)):null;
+      if(_fSelObj&&Array.isArray(_fSelObj.stages)&&_fSelObj.stages.length){
+        _rows=_fSelObj.stages.slice().sort((a,b)=>(a.order||0)-(b.order||0)).filter(st=>!st.isLost).map(st=>{const it=atual.filter(l=>l.stageId===st.id||(!l.stageId&&gxStageNorm(l.estagio)===gxStageNorm(st.name)));return {est:st.name,count:it.length,valor:it.reduce((a,l)=>a+(parseFloat(l.valor)||0),0)}});
+      }else{
+        _rows=etapas.filter(e=>!_lostN.has(gxStageNorm(e))).map(e=>{const it=atual.filter(l=>l.estagio===e);return {est:e,count:it.length,valor:it.reduce((a,l)=>a+(parseFloat(l.valor)||0),0)}});
+      }
       const _lostL=atual.filter(l=>lost(l));
       _funilHtml=_rows.length?gxFunnelBuild(_rows,atual,_lostL,_lostL.reduce((a,l)=>a+(parseFloat(l.valor)||0),0),false,_fl):'';
     }catch(e){_funilHtml=''}
