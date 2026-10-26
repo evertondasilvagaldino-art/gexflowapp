@@ -2054,6 +2054,30 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
 #page-comercial #comercial-header-actions .btn{padding:6px 12px;font-size:12px}
 #com-tab-pipeline #pipeline-filter-bar{padding:6px 12px;margin-bottom:8px;gap:8px}
 #com-tab-pipeline #funnel-selector-bar{padding:0 0 8px}
+/* Comercial limpo: uma barra só (funil · responsável · período · busca · visão) */
+#com-tab-pipeline .gx-ptool{position:relative;z-index:90;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:8px 12px;margin-bottom:10px}
+#com-tab-pipeline .gx-ptool #funnel-selector-bar{display:flex;align-items:center;gap:8px;padding:0;margin:0;flex-wrap:wrap}
+#com-tab-pipeline .gx-ptool #pipeline-filter-bar{display:flex;align-items:center;gap:8px;padding:0;margin:0;border:0;background:transparent;box-shadow:none;flex:1;min-width:300px;flex-wrap:wrap}
+#com-tab-pipeline .gx-ptool .gx-psearch{flex:1;min-width:180px}
+.gx-menu{position:relative;display:inline-block}
+.gx-menu-list{display:none;position:absolute;top:calc(100% + 6px);left:0;min-width:190px;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 14px 34px rgba(15,23,42,.18);padding:6px;z-index:600}
+.gx-menu.gx-right .gx-menu-list{left:auto;right:0}
+.gx-menu.open>.gx-menu-list{display:block}
+.gx-mi{display:flex;width:100%;align-items:center;gap:8px;text-align:left;border:0;background:transparent;padding:8px 10px;border-radius:8px;font-size:12.5px;font-weight:600;color:var(--txt);cursor:pointer;font-family:inherit;white-space:nowrap}
+.gx-mi:hover{background:var(--p-light);color:var(--p2)}
+.gx-mi.danger:hover{background:#FEF2F2;color:#EF4444}
+.gx-pbtn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--txt);font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap}
+.gx-pbtn:hover,.gx-menu.open>.gx-pbtn{border-color:#8B5CF6;color:#6D28D9}
+.gx-pbtn i{font-style:normal;font-size:10px;opacity:.7}
+.gx-pop-body{min-width:340px;padding:12px}
+.gx-pop-body .gx-quick{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.gx-pop-row{display:flex;gap:8px}.gx-pop-row select{flex:1}
+.gx-pviews{margin-left:auto;display:inline-flex;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.gx-pviews .btn{border:0;border-radius:0;margin:0}
+.gx-pviews .btn+.btn{border-left:1px solid var(--border)}
+#com-tab-pipeline #com-stats{display:flex;gap:10px;margin-bottom:10px}
+#com-tab-pipeline #com-stats .stat-card{flex:1;display:flex;align-items:baseline;gap:10px;padding:7px 14px;min-width:0}
+#com-tab-pipeline #com-stats .stat-lbl{margin:0 !important;white-space:nowrap}
 #com-tab-pipeline #com-stats{margin-bottom:8px!important;gap:8px}
 #com-tab-pipeline #com-stats .stat-card{padding:8px 14px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
 #com-tab-pipeline #com-stats .stat-card>*{margin:0!important}
@@ -2486,11 +2510,16 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
   <div class="page" id="page-comercial">
     <div class="page-header">
       <div><div class="page-title">Comercial</div><div class="page-sub">Arraste leads entre os estágios • clique no card para detalhes</div></div>
-      <div style="display:flex;gap:8px" id="comercial-header-actions">
-        <button class="btn btn-ghost" onclick="openProdutosModal()">📦 Produtos</button>
-        <button class="btn btn-ghost" onclick="openStagesModal()">Etapas</button>
-        <button class="btn btn-ghost" onclick="gxExportLeadsXLSX()">⬇️ Exportar</button>
-        <button class="btn btn-ghost" onclick="openImportLeadsModal()">⬆️ Importar</button>
+      <div style="display:flex;gap:8px;align-items:center" id="comercial-header-actions">
+        <div class="gx-menu gx-right">
+          <button class="btn btn-ghost" onclick="gxMenuToggle(this,event)" title="Produtos, etapas, exportar e importar">⋯ Mais</button>
+          <div class="gx-menu-list">
+            <button class="gx-mi" onclick="openProdutosModal()">📦 Produtos</button>
+            <button class="gx-mi" onclick="openStagesModal()">☰ Etapas</button>
+            <button class="gx-mi" onclick="gxExportLeadsXLSX()">⬇️ Exportar</button>
+            <button class="gx-mi" onclick="openImportLeadsModal()">⬆️ Importar</button>
+          </div>
+        </div>
       </div>
     </div>
     <!-- Tarefas do Dia — aba própria -->
@@ -2499,10 +2528,13 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
     </div>
     <!-- Pipeline -->
     <div id="com-tab-pipeline">
-      <!-- Filtro de período -->
+      <div class="gx-ptool" id="gx-ptool">
+      <div id="funnel-selector-bar" class="funnel-bar"></div>
       <div class="dash-filter-bar" id="pipeline-filter-bar">
-        <span class="dash-filter-label">📅 Período</span>
-        <div class="gx-quick" id="pipe-quick">
+        <div class="gx-menu gx-pop" id="pipe-period-menu">
+          <button class="gx-pbtn" onclick="gxMenuToggle(this,event)" title="Escolher o período">📅 <span id="pipe-period-lbl">Este mês</span> <i>▾</i></button>
+          <div class="gx-menu-list gx-pop-body">
+            <div class="gx-quick" id="pipe-quick">
           <button class="gx-qchip" data-k="hoje" onclick="setPipelineQuick('hoje')">Hoje</button>
           <button class="gx-qchip" data-k="ontem" onclick="setPipelineQuick('ontem')">Ontem</button>
           <button class="gx-qchip" data-k="7d" onclick="setPipelineQuick('7d')">7 dias</button>
@@ -2511,7 +2543,8 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
           <button class="gx-qchip" data-k="mespassado" onclick="setPipelineQuick('mespassado')">Mês passado</button>
           <button class="gx-qchip" data-k="todos" onclick="setPipelineQuick('todos')">Todos</button>
         </div>
-        <select class="dash-filter-sel" id="pipe-mes" onchange="setPipelineFilter()" title="Escolher um mês">
+            <div class="gx-pop-row">
+              <select class="dash-filter-sel" id="pipe-mes" onchange="setPipelineFilter()" title="Escolher um mês">
           <option value="" hidden>Escolher mês…</option>
           <option value="0">Todos os meses</option>
           <option value="1">Janeiro</option><option value="2">Fevereiro</option>
@@ -2521,7 +2554,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
           <option value="9">Setembro</option><option value="10">Outubro</option>
           <option value="11">Novembro</option><option value="12">Dezembro</option>
         </select>
-        <select class="dash-filter-sel" id="pipe-ano" onchange="setPipelineFilter()" title="Escolher um ano">
+              <select class="dash-filter-sel" id="pipe-ano" onchange="setPipelineFilter()" title="Escolher um ano">
           <option value="" hidden>Ano…</option>
           <option value="0">Todos os anos</option>
           <option value="2024">2024</option>
@@ -2529,16 +2562,18 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
           <option value="2026">2026</option>
           <option value="2027">2027</option>
         </select>
-        <span style="font-size:12px;color:var(--muted);margin-left:4px" id="pipeline-filter-info"></span>
+            </div>
+            <span id="pipeline-filter-info" style="display:none"></span>
+          </div>
+        </div>
         <div class="gx-psearch"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="pipe-search" type="search" placeholder="Buscar lead pelo nome, telefone, e-mail…" oninput="setPipelineSearch(this.value)" autocomplete="off"></div>
-        <div style="margin-left:auto;display:flex;gap:6px">
-          
-          <button class="btn btn-ghost btn-sm" id="gx-cards-btn" onclick="gxCardsOpen()" title="Escolher o que aparece nos cards">⚙ Cards</button>
+        <div class="gx-pviews">
           <button class="btn btn-ghost btn-sm" id="pipe-view-kanban" onclick="setPipelineView('kanban')">🗂 Kanban</button>
           <button class="btn btn-ghost btn-sm" id="pipe-view-lista" onclick="setPipelineView('lista')">📋 Lista</button>
+          <button class="btn btn-ghost btn-sm" id="gx-cards-btn" onclick="gxCardsOpen()" title="Escolher o que aparece nos cards">⚙ Cards</button>
         </div>
       </div>
-      <div id="funnel-selector-bar" class="funnel-bar"></div>
+      </div>
       <div class="grid-3" style="margin-bottom:16px" id="com-stats"></div>
       <div class="pipeline" id="pipeline-board"></div>
       <div class="card" id="pipeline-list-wrap" style="display:none">
@@ -9051,6 +9086,24 @@ function gxDashLeadInPeriod(l){
     return inP(_pipeParseDate(l.createdAt||l.created_at)||_pipeParseDate(l.dataInicio))||inP(_pipeParseDate(l.stageChangedAt));
   }catch(e){return true}
 }
+function gxMenuToggle(btn,ev){
+  try{
+    if(ev){ev.stopPropagation();ev.preventDefault()}
+    const m=btn.closest('.gx-menu');if(!m)return;
+    const was=m.classList.contains('open');
+    document.querySelectorAll('.gx-menu.open').forEach(x=>x.classList.remove('open'));
+    if(!was)m.classList.add('open');
+  }catch(e){}
+}
+document.addEventListener('click',e=>{
+  try{
+    const open=document.querySelectorAll('.gx-menu.open');if(!open.length)return;
+    const inItem=e.target.closest&&e.target.closest('.gx-mi,.gx-qchip');
+    open.forEach(m=>{if(inItem&&m.contains(e.target)){m.classList.remove('open');return}if(!m.contains(e.target))m.classList.remove('open')});
+  }catch(_){}
+});
+document.addEventListener('change',e=>{try{if(e.target.closest&&e.target.closest('.gx-pop-body'))e.target.closest('.gx-menu').classList.remove('open')}catch(_){}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.gx-menu.open').forEach(x=>x.classList.remove('open'))});
 function gxPipeFit(){
   try{
     const pb=document.getElementById('pipeline-board');
@@ -11136,6 +11189,7 @@ function renderComercial(){
     else if(pipelineFilter.mes&&pipelineFilter.ano)pipeInfo.textContent=`→ ${MESES_PIPE[pipelineFilter.mes]} / ${pipelineFilter.ano}`;
     else if(pipelineFilter.mes)pipeInfo.textContent=`→ ${MESES_PIPE[pipelineFilter.mes]} (todos os anos)`;
     else pipeInfo.textContent=`→ Ano ${pipelineFilter.ano}`;
+    const _pl=document.getElementById('pipe-period-lbl');if(_pl)_pl.textContent=pipeInfo.textContent.replace(/^→\s*/,'');
   }
 
   const wonStage=stages.find(s=>s.isWon)||stages.find(s=>String(s.name).toLowerCase().includes('fecha'))||stages[stages.length-1];
@@ -11179,7 +11233,7 @@ function renderComercial(){
 
   const comStats=document.getElementById('com-stats');
   if(comStats) comStats.innerHTML=`
-    <div class="stat-card"><div class="stat-lbl">Pipeline Total</div><div class="stat-val" style="font-size:18px">${fmtBRL(total)}</div>${_compHtml?`<div style="font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.4" title="${esc2(_compTip)}">${_compHtml}</div>`:''}</div>
+    <div class="stat-card"><div class="stat-lbl">Pipeline Total</div><div class="stat-val" style="font-size:18px" title="${esc2(_compTip)}">${fmtBRL(total)}</div></div>
     <div class="stat-card"><div class="stat-lbl">${wonStage?wonStage.name:'Fechamento'}</div><div class="stat-val" style="font-size:18px;color:var(--green)">${fmtBRL(fechados)}</div></div>
     <div class="stat-card"><div class="stat-lbl">Leads Ativos</div><div class="stat-val">${_ativosReais.length}</div></div>`;
 
@@ -16557,19 +16611,21 @@ function renderFunnelSelector(){
   const showOwnerFilter=(typeof hasTeamOwnerView!=='function')||hasTeamOwnerView();
   const canManageAnyFunnel=(typeof isSalesManagerView!=='function')||isSalesManagerView();
   const ownerFilterHtml=showOwnerFilter?`<div class="funnel-select-wrap">
-    <select class="funnel-select" id="pipe-responsavel-filter" onchange="onCommercialOwnerFilterChange('pipe-responsavel-filter','pipeline')" style="min-width:220px">
+    <select class="funnel-select" id="pipe-responsavel-filter" onchange="onCommercialOwnerFilterChange('pipe-responsavel-filter','pipeline')" style="min-width:170px">
       <option value="">Todos os responsáveis</option>
     </select>
     <span class="funnel-select-arrow">▼</span>
   </div>`:'';
 
-  const btnsHtml=`<div class="funnel-bar-btns">
-    ${canCreate?`<button class="fbtn fbtn-primary" onclick="openFunnelModal('new')">+ Novo Funil</button>`:''}
-    ${canEdit&&active&&(canManageAnyFunnel||!active.isDefault)?`<button class="fbtn" onclick="openFunnelModal('edit','${active.id}')">✏️ Editar Funil</button>`:''}
-    ${canCreate&&active?`<button class="fbtn" onclick="duplicateCommercialFunnel('${active.id}')">⧉ Duplicar</button>`:''}
-    ${canEdit&&active&&!active.isDefault?`<button class="fbtn fbtn-danger" onclick="confirmArchiveFunnel('${active.id}')">📦 Arquivar</button>`:''}
-    ${canOpenArchived?`<button class="fbtn" onclick="openArchivedFunnelsModal()">🗂️ Arquivados ${(()=>{const n=getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length+gxFunisDonoForaDeCena().length;return n?`(${n})`:''})()}</button>`:''}
-  </div>`;
+  const _arqN=canOpenArchived?(()=>{const n=getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length+gxFunisDonoForaDeCena().length;return n?` (${n})`:''})():'';
+  const _itens=[
+    canCreate?`<button class="gx-mi" onclick="openFunnelModal('new')">＋ Novo funil</button>`:'',
+    canEdit&&active&&(canManageAnyFunnel||!active.isDefault)?`<button class="gx-mi" onclick="openFunnelModal('edit','${active.id}')">✏️ Editar funil</button>`:'',
+    canCreate&&active?`<button class="gx-mi" onclick="duplicateCommercialFunnel('${active.id}')">⧉ Duplicar</button>`:'',
+    canEdit&&active&&!active.isDefault?`<button class="gx-mi danger" onclick="confirmArchiveFunnel('${active.id}')">📦 Arquivar</button>`:'',
+    canOpenArchived?`<button class="gx-mi" onclick="openArchivedFunnelsModal()">🗂️ Arquivados${_arqN}</button>`:''
+  ].filter(Boolean);
+  const btnsHtml=_itens.length?`<div class="gx-menu"><button class="fbtn" onclick="gxMenuToggle(this,event)" title="Novo funil, editar, duplicar, arquivar">⋯ Funil</button><div class="gx-menu-list">${_itens.join('')}</div></div>`:'';
 
   bar.innerHTML=selectHtml+ownerFilterHtml+btnsHtml;
   if(showOwnerFilter)populateCommercialOwnerSelect('pipe-responsavel-filter', getVisibleCommercialLeads(DB.get('leads')||[]), 'Todos os responsáveis');
