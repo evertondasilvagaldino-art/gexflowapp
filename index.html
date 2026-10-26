@@ -10603,6 +10603,21 @@ function leadInSalesPeriod(lead,period){
   return salesDateInPeriod(lead?.dataInicio||lead?.createdAt||lead?.created_at||lead?.dataCriacao,period);
 }
 
+// Dono ÚNICO do lead para as métricas de vendedores: cada lead conta para UM só vendedor
+// (responsável explícito primeiro; quem criou/importou só vale quando não há responsável).
+// Evita contar o mesmo lead para dois vendedores (ex.: quem importou/criou x quem é o responsável).
+function gxMetricOwner(l,users){
+  const norm=v=>normalizeSalesName(v||'');
+  const first=(...a)=>{for(const v of a){if(v!==undefined&&v!==null&&String(v).trim()!=='')return String(v).trim()}return ''};
+  const byId=id=>id?users.find(u=>String(u.id)===id||String(u.supabaseId||'')===id):null;
+  const byEmail=e=>{e=normalizeLoginEmail(e||'');return e?users.find(u=>normalizeLoginEmail(u.email||'')===e):null};
+  const byName=n=>{n=norm(n);return n?users.find(u=>norm(u.nome||u.name||'')===n):null};
+  let u=byId(first(l.responsavelId,l.ownerId,l.vendedorId,l.assignedToId));
+  if(!u)u=byEmail(first(l.responsavelEmail,l.ownerEmail,l.vendedorEmail,l.assignedToEmail));
+  if(!u)u=byName(first(l.responsavelNome,l.ownerName,l.vendedorNome,l.assignedTo,l.responsavel,l.vendedor));
+  if(!u)u=byId(first(l.createdById,l.userId))||byEmail(first(l.createdByEmail,l.userEmail))||byName(l.usuario);
+  return u||null;
+}
 function getSalesTeamMetrics(period='todos'){
   ensureDefaultCommercialFunnel();
   migrateOldOpportunitiesToDefaultFunnel();
@@ -10629,13 +10644,16 @@ function getSalesTeamMetrics(period='todos'){
   const _seen=new Set(),_union=[];
   visibleLeads.concat(closedInPeriod).forEach(l=>{const k=String(l.id);if(!_seen.has(k)){_seen.add(k);_union.push(l)}});
   const users=getVisibleSalesUsersForMetrics(_union);
+  const _donoMap=new Map();
+  visibleLeadsAtuais.concat(_union).forEach(l=>{const k=String(l.id);if(!_donoMap.has(k))_donoMap.set(k,gxMetricOwner(l,users))});
+  const _eDono=(l,u)=>{const d=_donoMap.get(String(l.id));return d?d===u:false};
   const activities=DB.get('atividades')||[];
   const tasks=getCommercialTasks?getCommercialTasks():[];
 
   const rows=users.map(u=>{
-    const userLeads=visibleLeads.filter(l=>isLeadOwnedByUser(l,u));
-    const userLeadsAtuais=visibleLeadsAtuais.filter(l=>isLeadOwnedByUser(l,u));
-    const userFechados=closedInPeriod.filter(l=>isLeadOwnedByUser(l,u));
+    const userLeads=visibleLeads.filter(l=>_eDono(l,u));
+    const userLeadsAtuais=visibleLeadsAtuais.filter(l=>_eDono(l,u));
+    const userFechados=closedInPeriod.filter(l=>_eDono(l,u));
     const ganhos=userFechados.filter(l=>{try{return isWonOpportunity(l)}catch(e){return normalizeSalesName(l.dealStatus||l.status).includes('ganh')}});
     const perdidos=userFechados.filter(isLostOpportunityLocal);
     const ganhosAtuais=userLeadsAtuais.filter(l=>{try{return isWonOpportunity(l)}catch(e){return normalizeSalesName(l.dealStatus||l.status).includes('ganh')}});
@@ -25223,6 +25241,15 @@ const BLUE='#7C3AED',ORG='#4C1D95',RAMP=['#2E1065','#4C1D95','#6D28D9','#7C3AED'
 const css=`
 #inicio-bi{display:none}
 body.gx-ini-novo #inicio-bi{display:block}
+#gx-ini-orgbtn.on{background:linear-gradient(135deg,#8B5CF6,#6D28D9)!important;color:#fff!important;border-color:transparent!important}
+#inicio-bi #gx-org-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px;padding:10px 14px;border-radius:12px;background:rgba(139,92,246,.10);border:1px dashed #8B5CF6;font-size:12.5px;color:var(--txt)}
+#inicio-bi #gx-org-bar button{border:1px solid var(--border);background:var(--card);color:var(--txt);border-radius:8px;font:600 12px Inter,sans-serif;padding:6px 12px;cursor:pointer;margin-left:8px}
+#inicio-bi #gx-org-bar button.on{background:linear-gradient(135deg,#8B5CF6,#6D28D9);color:#fff;border-color:transparent}
+#inicio-bi.gxb-org [data-gxk]{cursor:grab;outline:2px dashed rgba(139,92,246,.7);outline-offset:-2px;position:relative;user-select:none}
+#inicio-bi.gxb-org [data-gxk]::after{content:"⠿";position:absolute;top:6px;right:10px;color:#8B5CF6;font-size:16px;line-height:1;pointer-events:none}
+#inicio-bi.gxb-org [data-gxk] *{pointer-events:none}
+#inicio-bi .gxb-drag{opacity:.45}
+#inicio-bi .gxb-over{outline:3px solid #6D28D9!important;background:rgba(139,92,246,.10)!important}
 body.gx-ini-novo #page-inicio>:not(.welcome-box):not(#dash-filter-bar):not(#inicio-bi){display:none!important}
 #gx-ini-toggle{display:inline-flex;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-left:8px}
 #gx-ini-toggle button{border:0;background:var(--card);color:var(--muted);font:600 12px Inter,sans-serif;padding:6px 12px;cursor:pointer}
@@ -25312,6 +25339,9 @@ function paintToggle(mode){
   let cb=document.getElementById('gx-ini-custbtn');
   if(!cb){cb=document.createElement('button');cb.id='gx-ini-custbtn';cb.textContent='⚙ Personalizar';cb.onclick=()=>window.gxIniOpenCust();cb.style.cssText='border:1px solid var(--border);background:var(--card);color:var(--txt);border-radius:8px;font:600 12px Inter,sans-serif;padding:6px 12px;cursor:pointer;margin-left:auto';tg.insertAdjacentElement('beforebegin',cb)}
   cb.style.display=mode==='novo'?'':'none';
+  let ob=document.getElementById('gx-ini-orgbtn');
+  if(!ob){ob=document.createElement('button');ob.id='gx-ini-orgbtn';ob.type='button';ob.textContent='↕ Organizar';ob.onclick=()=>window.gxIniOrganizar();ob.style.cssText='border:1px solid var(--border);background:var(--card);color:var(--txt);border-radius:8px;font:600 12px Inter,sans-serif;padding:6px 12px;cursor:pointer;margin-left:8px';cb.insertAdjacentElement('afterend',ob)}
+  ob.style.display=mode==='novo'?'':'none';
 }
 
 const _wm=new WeakMap();
@@ -25402,6 +25432,70 @@ function applyCust(box){
     if(g.classList.contains('gxb-2')||g.classList.contains('gxb-2e')){g.style.gridTemplateColumns=vis.length===1?'minmax(0,1fr)':''}
   });
 }
+/* ── Organizar: arrastar os cards para onde quiser (guardado neste navegador) ── */
+const OKEY='gxIniOrder';
+function getOrd(){try{const v=JSON.parse(localStorage.getItem(OKEY)||'{}');return v&&typeof v==='object'&&!Array.isArray(v)?v:{}}catch(e){return {}}}
+function setOrd(o){try{localStorage.setItem(OKEY,JSON.stringify(o))}catch(e){}}
+let orgOn=false,dragEl=null;
+function zoneOf(el){return el.closest&&el.closest('.gxb-kpis')?'k':'b'}
+function applyOrder(box){
+  const ord=getOrd();const its=itemsOf(box);
+  ['k','b'].forEach(z=>{
+    const saved=ord[z];if(!Array.isArray(saved)||!saved.length)return;
+    const list=its.filter(i=>zoneOf(i.el)===z);
+    const idx=k=>{const n=saved.indexOf(k);return n<0?1e6+list.findIndex(i=>i.k===k):n};
+    const desired=list.slice().sort((a,b)=>idx(a.k)-idx(b.k));
+    const slots=list.map(i=>{const ph=document.createComment('s');i.el.replaceWith(ph);return ph});
+    desired.forEach((i,n)=>slots[n].replaceWith(i.el));
+  });
+}
+function saveOrder(box){
+  const its=itemsOf(box);
+  setOrd({k:its.filter(i=>zoneOf(i.el)==='k').map(i=>i.k),b:its.filter(i=>zoneOf(i.el)==='b').map(i=>i.k)});
+}
+// Move um card: indicadores (linha de cima) são inseridos antes/depois; blocos trocam de lugar com o card alvo.
+window.gxIniMove=function(fromEl,toEl,after){
+  const box=document.getElementById('inicio-bi');if(!box||!fromEl||!toEl||fromEl===toEl)return false;
+  if(zoneOf(fromEl)!==zoneOf(toEl))return false;
+  if(zoneOf(fromEl)==='k'){toEl.parentNode.insertBefore(fromEl,after?toEl.nextSibling:toEl)}
+  else{const ph=document.createComment('x');fromEl.replaceWith(ph);toEl.replaceWith(fromEl);ph.replaceWith(toEl)}
+  saveOrder(box);try{applyCust(box)}catch(e){}return true;
+};
+function orgPaint(box){
+  if(!box)return;
+  box.classList.toggle('gxb-org',orgOn);
+  itemsOf(box).forEach(i=>{i.el.draggable=orgOn;if(orgOn)i.el.dataset.gxk=i.k;else{i.el.removeAttribute('data-gxk');i.el.removeAttribute('draggable')}});
+  let bar=box.querySelector('#gx-org-bar');
+  if(orgOn&&!bar){
+    bar=document.createElement('div');bar.id='gx-org-bar';
+    bar.innerHTML='<span><b>Organizar:</b> arraste um card e solte sobre outro para mudar de lugar. Indicadores com indicadores, blocos com blocos.</span><span><button type="button" id="gx-org-reset">Restaurar ordem</button><button type="button" id="gx-org-ok" class="on">Concluir</button></span>';
+    box.insertBefore(bar,box.firstChild);
+    bar.querySelector('#gx-org-ok').onclick=()=>window.gxIniOrganizar(false);
+    bar.querySelector('#gx-org-reset').onclick=()=>{setOrd({});try{window.renderInicio()}catch(e){}};
+  }
+  if(!orgOn&&bar)bar.remove();
+  const b=document.getElementById('gx-ini-orgbtn');if(b){b.classList.toggle('on',orgOn);b.textContent=orgOn?'✓ Concluir':'↕ Organizar'}
+}
+window.gxIniOrganizar=function(on){orgOn=(typeof on==='boolean')?on:!orgOn;orgPaint(document.getElementById('inicio-bi'))};
+function orgClear(){document.querySelectorAll('#inicio-bi .gxb-over,#inicio-bi .gxb-drag').forEach(x=>x.classList.remove('gxb-over','gxb-drag'))}
+document.addEventListener('dragstart',e=>{
+  if(!orgOn)return;const c=e.target.closest&&e.target.closest('#inicio-bi [data-gxk]');if(!c)return;
+  dragEl=c;try{e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',c.dataset.gxk)}catch(_){}
+  setTimeout(()=>c.classList.add('gxb-drag'),0);
+});
+document.addEventListener('dragover',e=>{
+  if(!orgOn||!dragEl)return;const t=e.target.closest&&e.target.closest('#inicio-bi [data-gxk]');
+  if(!t||t===dragEl||zoneOf(t)!==zoneOf(dragEl))return;
+  e.preventDefault();orgClear();dragEl.classList.add('gxb-drag');t.classList.add('gxb-over');
+});
+document.addEventListener('drop',e=>{
+  if(!orgOn||!dragEl)return;const t=e.target.closest&&e.target.closest('#inicio-bi [data-gxk]');
+  if(!t||t===dragEl||zoneOf(t)!==zoneOf(dragEl)){orgClear();dragEl=null;return}
+  e.preventDefault();const r=t.getBoundingClientRect();
+  window.gxIniMove(dragEl,t,e.clientX>r.left+r.width/2);
+  orgClear();dragEl=null;orgPaint(document.getElementById('inicio-bi'));
+});
+document.addEventListener('dragend',()=>{orgClear();dragEl=null});
 window.gxIniOpenCust=function(){
   const box=document.getElementById('inicio-bi');if(!box)return;
   const hide=new Set(getHide());const its=itemsOf(box);
@@ -25577,7 +25671,7 @@ function renderInicioInner(){
     if(mode==='novo'&&box){
       const h=build();
       box.innerHTML=h;
-      try{applyCust(box)}catch(e){}
+      try{applyOrder(box);applyCust(box);orgPaint(box)}catch(e){}
       document.body.classList.add('gx-ini-novo');
     }else{
       document.body.classList.remove('gx-ini-novo');
