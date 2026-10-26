@@ -8991,6 +8991,13 @@ function leadInPipelinePeriod(l){
     // Atalhos (Hoje, 7 dias...): lead ENTROU no período (criação) ou MUDOU DE ETAPA no período.
     const r=_pipeQuickRange(pipelineFilter.quick);if(!r)return true;
     const inR=d=>!!d&&d>=r[0]&&d<r[1];
+    // Ganho/perdido: vale a data de FECHAMENTO (mesma regra do Início e do BI).
+    try{
+      if(typeof window.gxCloseKey==='function'&&(isWonOpportunity(l)||isLostOpportunityLocal(l))){
+        const ck=_pipeParseDate(window.gxCloseKey(l));
+        if(ck)return inR(ck);
+      }
+    }catch(e){}
     const ent=_pipeParseDate(l.createdAt||l.created_at)||_pipeParseDate(l.dataInicio);
     if(inR(ent))return true;
     if(inR(_pipeParseDate(l.stageChangedAt)))return true;
