@@ -2002,7 +2002,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
 .gxf-svg{width:100%;height:auto;display:block}
 .gxf-seg{animation:gxfIn .5s ease both;transform-origin:center}
 @keyframes gxfIn{from{opacity:0;transform:scaleX(.85)}to{opacity:1;transform:none}}
-.gxf-t1{fill:#fff;font-size:17px;font-weight:700;font-family:inherit}
+.gxf-t1{fill:#fff;font-size:19px;font-weight:700;font-family:inherit}
 .gxf-t2{fill:rgba(255,255,255,.88);font-size:13px;font-family:inherit}
 .gxf-side{flex:1;display:flex;flex-direction:column;justify-content:center;gap:4px}
 .gxf-chip{align-self:flex-start;font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:999px;background:rgba(124,58,237,.14);color:#7C3AED}
@@ -11590,23 +11590,23 @@ function renderRelatorioComercial(){
   if(funilEl){
     const rows=funilAberto;
     const totalOps=ops.length;
-    const W=760,rowH=62,gap=6,H=rows.length*(rowH+gap);
-    const maxR=Math.max(1,...rows.map(r=>r.reached));
-    const wOf=r=>Math.max(0.46,r.reached/maxR)*W;
-    const palette=['#7C3AED','#8B5CF6','#9F6FF8','#A78BFA','#B79DFB','#C4B5FD'];
+    const W=760,rowH=64,gap=10,n=rows.length,H=n*rowH+(n-1)*gap;
+    const minTop=W*0.34,stepW=n>1?(W-minTop)/(n-1):0;
     const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const c0=[11,79,99],c1=[28,198,214];
+    const col=i=>{const t=n>1?i/(n-1):0;return 'rgb('+c0.map((v,k)=>Math.round(v+(c1[k]-v)*t)).join(',')+')'};
     const shapes=rows.map((r,i)=>{
-      const w1=wOf(r),w2=i<rows.length-1?wOf(rows[i+1]):Math.max(w1*0.86,W*0.40);
-      const y=i*(rowH+gap),x1=(W-w1)/2,x2=(W-w2)/2;
-      const fill=r.isGanho?'url(#gxfg)':palette[Math.min(i,palette.length-1)];
-      const lbl=esc(r.est.length>26?r.est.slice(0,25)+'…':r.est);
-      return `<g class="gxf-seg" style="animation-delay:${i*90}ms"><polygon points="${x1},${y} ${W-x1},${y} ${W-x2},${y+rowH} ${x2},${y+rowH}" fill="${fill}"/>
-        <text x="${W/2}" y="${y+rowH/2-4}" text-anchor="middle" class="gxf-t1">${lbl}</text>
-        <text x="${W/2}" y="${y+rowH/2+14}" text-anchor="middle" class="gxf-t2">${r.reached} ${r.reached===1?'negócio':'negócios'} · ${r.pctGeral}% do total</text></g>`;
+      const topW=W-i*stepW,botW=topW-stepW*0.62;
+      const y=i*(rowH+gap),x1=(W-topW)/2,x2=(W-botW)/2;
+      const fill=col(i);
+      const lbl=esc(r.est.length>28?r.est.slice(0,27)+'…':r.est);
+      return `<g class="gxf-seg" style="animation-delay:${i*90}ms"><polygon points="${x1},${y} ${W-x1},${y} ${W-x2},${y+rowH} ${x2},${y+rowH}" fill="${fill}" stroke="${fill}" stroke-width="6" stroke-linejoin="round"/>
+        <text x="${W/2}" y="${y+rowH/2-3}" text-anchor="middle" class="gxf-t1">${lbl}</text>
+        <text x="${W/2}" y="${y+rowH/2+16}" text-anchor="middle" class="gxf-t2">${r.reached} ${r.reached===1?'negócio':'negócios'} · ${r.pctGeral}% do total</text></g>`;
     }).join('');
     const side=rows.map((r,i)=>`<div class="gxf-side">${i===0?`<span class="gxf-chip">Entrada</span>`:`<span class="gxf-chip ${r.pctAvanco>=50?'ok':r.pctAvanco>=25?'mid':'low'}">${r.pctAvanco}% da etapa anterior</span>`}<span class="gxf-val">${fmtBRL(r.reachedValor)}</span></div>`).join('');
     const lostPct=totalOps?Math.round((lostOps.length/totalOps)*100):0;
-    funilEl.innerHTML=rows.length?`<div class="gxf-wrap"><svg class="gxf-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Funil de vendas"><defs><linearGradient id="gxfg" x1="0" x2="1"><stop offset="0" stop-color="#059669"/><stop offset="1" stop-color="#34D399"/></linearGradient></defs>${shapes}</svg><div class="gxf-sides">${side}</div></div>
+    funilEl.innerHTML=rows.length?`<div class="gxf-wrap"><svg class="gxf-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Funil de vendas">${shapes}</svg><div class="gxf-sides">${side}</div></div>
       <div class="gxf-lost"><span class="gxf-lost-ico">✕</span><div><b>${lostOps.length} perdido${lostOps.length!==1?'s':''}</b><small>${lostPct}% do total · ${fmtBRL(totalLost)}</small></div><span class="gxf-note">Cada etapa mostra os negócios que chegaram até ela (etapa atual ou posterior).</span></div>`
       :'<div class="sales-team-empty">Sem etapas para mostrar neste funil.</div>';
   }
