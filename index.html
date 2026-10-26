@@ -6756,8 +6756,8 @@ function renderConfiguracoesPagamentos(){
     <div class="cfg-panel" style="margin-top:18px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
         <div>
-          <div style="font-weight:700;font-size:15px">Assinaturas dos clientes</div>
-          <div style="font-size:12px;color:var(--muted)">Todo mundo que já recebeu um link de pagamento — ativo, aguardando, atrasado ou cancelado.</div>
+          <div style="font-weight:700;font-size:15px">Assinantes Parceiros Gex</div>
+          <div style="font-size:12px;color:var(--muted)">Parceiros Gex em teste grátis ou que já receberam um link de pagamento — ativo, aguardando, atrasado ou cancelado.</div>
         </div>
         <button class="cfg-btn" onclick="loadAssinaturasClientes()">🔄 Atualizar</button>
       </div>
@@ -9221,7 +9221,7 @@ function gxIniFunnelBlock(atual,funilId){
     return {est:st.name,count:it.length,valor:it.reduce((a,l)=>a+(parseFloat(l.valor)||0),0)};
   });
   const lostL=atual.filter(l=>{try{return isLostOpportunityLocal(l)}catch(e){return false}});
-  return gxFunnelBuild(rows,atual,lostL,lostL.reduce((a,l)=>a+(parseFloat(l.valor)||0),0),false,flow)+`<div class="gxb-flnote" style="font-size:11px;color:var(--muted);margin-top:6px">${esc2(gxFlowNote(flow))}</div>`;
+  return gxFunnelBuild(rows,atual,lostL,lostL.reduce((a,l)=>a+(parseFloat(l.valor)||0),0),false,flow);
 }
 function renderInicio(){
   try{gxDashQuickSync()}catch(e){}
@@ -11394,17 +11394,24 @@ function filterOpportunitiesByPeriod(ops,period){
   ops=Array.isArray(ops)?ops:[];
   if(!period||period==='todos') return ops;
   const now=new Date();
-  return ops.filter(o=>{
-    let d=null;
-    try{if(typeof window.gxCloseKey==='function'&&(isWonOpportunity(o)||isLostOpportunity(o))){const ck=window.gxCloseKey(o);if(ck)d=_parseReportDate(ck)}}catch(e){}
-    if(!d)d=_parseReportDate(o.dataInicio||o.createdAt||o.dataCriacao||o.created_at);
-    if(!d) return period==='todos';
+  const inP=d=>{
     const _x=gxPeriodMatch(d,period);if(_x!==null)return _x;
     if(period==='mes') return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
     if(period==='30dias'){const c=new Date(now);c.setDate(c.getDate()-30);return d>=c;}
     if(period==='90dias'){const c=new Date(now);c.setDate(c.getDate()-90);return d>=c;}
     if(period==='ano') return d.getFullYear()===now.getFullYear();
     return true;
+  };
+  return ops.filter(o=>{
+    // Mesma regra do Pipeline CRM e do Início: ganho/perdido pela data de FECHAMENTO;
+    // em aberto por ENTRADA ou por MUDANÇA DE ETAPA dentro do período.
+    let d=null,fechado=false;
+    try{if(typeof window.gxCloseKey==='function'&&(isWonOpportunity(o)||isLostOpportunity(o))){fechado=true;const ck=window.gxCloseKey(o);if(ck)d=_parseReportDate(ck)}}catch(e){}
+    if(!d)d=_pipeParseDate(o.createdAt||o.created_at||o.dataCriacao)||_parseReportDate(o.dataInicio);
+    if(!d) return period==='todos';
+    if(inP(d))return true;
+    if(!fechado&&o.stageChangedAt){const sc=_pipeParseDate(o.stageChangedAt);if(sc&&inP(sc))return true}
+    return false;
   });
 }
 
@@ -11881,8 +11888,11 @@ function renderRelatorioComercial(){
   let maiorQueda=0;
   const funilAberto=funil.filter(r=>!r.isLost&&r.openPos>=0).sort((a,b)=>a.openPos-b.openPos);
   const _emAberto=ops.length-wonOps.length-lostOps.length;
-  const _acum=funilAberto.filter(r=>!r.isGanho).sort((a,b)=>b.count-a.count)[0];
-  if(_acum&&_acum.count>0&&_emAberto>0)gargaloMsg=`<b>${_acum.est}</b> concentra ${_acum.count} de ${_emAberto} negócios em aberto (${Math.round(_acum.count/_emAberto*100)}%)${_acum.valor?` · ${fmtBRL(_acum.valor)}`:''}.`;
+  const _parkRows=funilAberto.filter(r=>!r.isGanho&&GX_PARK_RE.test(r.est||''));
+  const _parkN=_parkRows.reduce((a,r)=>a+r.count,0);
+  const _emAndamento=Math.max(0,_emAberto-_parkN);
+  const _acum=funilAberto.filter(r=>!r.isGanho&&!GX_PARK_RE.test(r.est||'')).sort((a,b)=>b.count-a.count)[0];
+  if(_acum&&_acum.count>0&&_emAndamento>0)gargaloMsg=`<b>${_acum.est}</b> concentra ${_acum.count} de ${_emAndamento} negócios em andamento (${Math.round(_acum.count/_emAndamento*100)}%)${_acum.valor?` · ${fmtBRL(_acum.valor)}`:''}${_parkN?` — fora ${_parkN} parados em Follow/No Show`:''}.`;
 
   // ── KPIs ──
   const kpis=[
@@ -25519,7 +25529,7 @@ function build(){
       const _lostL=atual.filter(l=>lost(l));
       _funilHtml=_rows.length?gxFunnelBuild(_rows,atual,_lostL,_lostL.reduce((a,l)=>a+(parseFloat(l.valor)||0),0),false,_fl):'';
     }catch(e){_funilHtml=''}
-    fun=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">Funil comercial</div><div class="gxb-sub">${ativos.length} ativos agora · ${brl(pipeVal)} em aberto</div></div></div>${_funilHtml||'<div class="gxb-empty">Sem etapas.</div>'}${_fl?`<div class="gxb-flnote">${E(gxFlowNote(_fl))}</div>`:''}</div>`;
+    fun=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">Funil comercial</div><div class="gxb-sub">${ativos.length} ativos agora · ${brl(pipeVal)} em aberto</div></div></div>${_funilHtml||'<div class="gxb-empty">Sem etapas.</div>'}</div>`;
   }
   html+=`<div class="gxb-grid gxb-2">${fat||''}${fun||''}</div>`;
 
