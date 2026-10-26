@@ -1974,6 +1974,19 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
 .gxi-map-panel:not(.adv) .gxi-map-row{grid-template-columns:28px minmax(120px,1fr) minmax(140px,1fr) minmax(130px,1fr) 90px}
 .gxi-map-panel:not(.adv) .gxi-map-google{display:none}
 </style>
+<style id="gx-leadgen-ui">
+.gxi-lg-conn{padding:14px 16px;border:1px solid var(--border,#E6E8F0);border-radius:14px;background:linear-gradient(180deg,rgba(24,119,242,.05),rgba(24,119,242,.015));gap:12px 14px!important}
+.gxi-lg-conn .meta-oauth-btn{padding:11px 20px;border-radius:12px;font-size:12.5px;letter-spacing:.1px;background:linear-gradient(135deg,#2B8CFF 0%,#1877F2 55%,#0F5FD1 100%);box-shadow:0 6px 16px rgba(24,119,242,.30),inset 0 1px 0 rgba(255,255,255,.22)}
+.gxi-lg-conn .meta-oauth-btn::before{content:"";width:18px;height:18px;flex:none;background:center/contain no-repeat url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='12' fill='white'/><path fill='%231877F2' d='M13.4 21v-7.2h2.4l.4-2.8h-2.8V9.3c0-.8.2-1.4 1.4-1.4h1.5V5.4c-.3 0-1.2-.1-2.2-.1-2.2 0-3.7 1.3-3.7 3.8V11H8v2.8h2.4V21z'/></svg>")}
+.gxi-lg-conn .meta-oauth-btn:hover{box-shadow:0 9px 20px rgba(24,119,242,.38),inset 0 1px 0 rgba(255,255,255,.22)}
+.gxi-lg-conn .gxi-btn.danger{border-radius:12px;padding:10px 16px;font-weight:700;background:transparent}
+.gxi-lg-conn .gxi-btn.danger:hover{background:rgba(239,68,68,.08)}
+.gxi-lg-conn>span:last-child{flex-basis:100%;font-size:11.5px!important;line-height:1.5}
+.gxi-conv-footer{border-radius:14px}
+.gxi-conv-footer .gxi-btn.primary{color:#fff;border:none;padding:12px 26px;border-radius:12px;font-weight:800;background:linear-gradient(135deg,#8B5CF6,#6D28D9);box-shadow:0 6px 16px rgba(109,40,217,.30);display:inline-flex;align-items:center;gap:8px}
+.gxi-conv-footer .gxi-btn.primary::before{content:"";width:15px;height:15px;background:center/contain no-repeat url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><path d='M20 6L9 17l-5-5'/></svg>")}
+.gxi-conv-footer .gxi-btn.primary:hover{filter:brightness(1.06);transform:translateY(-1px)}
+</style>
 </head>
 <body class="gex-premium-ui">
 
@@ -20042,7 +20055,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     // e eventos comerciais da empresa, não fazem sentido pra esse papel).
     const _hdrRole=(typeof resolveRole==='function'&&typeof sessionUser!=='undefined')?resolveRole(sessionUser?.permissao||sessionUser?.cargo||''):'';
     const _tabs=_hdrRole==='Colaborador'?[['connections','Conexões']]:[['connections','Conexões'],['tracking','Tracking Manual'],['monitor','Monitoramento']];
-    return `<div class="gxi-head"><div><div class="gxi-kicker">GEX Connect</div><div class="gxi-title">Integrações e rastreamento</div><div class="gxi-sub">Conecte seus canais, crie regras comerciais e acompanhe automaticamente o caminho do lead até a venda.</div></div><div class="gxi-head-actions">${view==='tracking'?`<button class="gxi-btn primary" onclick="gxiNewTracking()">+ Novo rastreamento</button>`:''}</div></div><div class="gxi-tabs">${_tabs.map(([id,label])=>`<button class="gxi-tab ${view===id?'active':''}" onclick="gxiSetView('${id}')">${gxiIco(id)}${label}</button>`).join('')}</div>`}
+    return `<div class="gxi-head"><div><div class="gxi-kicker">GEX Connect</div><div class="gxi-title">Integrações e rastreamento</div><div class="gxi-sub">Conecte seus canais, crie regras comerciais e acompanhe automaticamente o caminho do lead até a venda.</div></div><div class="gxi-head-actions"></div></div><div class="gxi-tabs">${_tabs.map(([id,label])=>`<button class="gxi-tab ${view===id?'active':''}" onclick="gxiSetView('${id}')">${gxiIco(id)}${label}</button>`).join('')}</div>`}
   function connectionsHtml(){const rules=getTrackings();
     // Gex Parceiro é um papel enxuto pra parceiro externo — só pode
     // conectar o próprio WhatsApp, não deve ver/mexer em Meta Ads, Google
@@ -20322,7 +20335,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
           <span style="flex:1;min-width:220px">Encontramos ${(s.oauthChoicePending.pages||[]).length} Páginas na sua conta do Facebook. Escolha qual deve alimentar o Pipeline:</span>
           <select class="gxi-select" id="gxi-lg-oauth-choice" style="max-width:260px">${(s.oauthChoicePending.pages||[]).map(p=>`<option value="${A(p.id)}">${E(p.name)}</option>`).join('')}</select>
           <button class="gxi-btn primary small" onclick="gxiConfirmLeadgenOAuthPage()">Confirmar Página</button>
-        </div>`:`<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+        </div>`:`<div class="gxi-lg-conn" style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
           <button class="meta-oauth-btn" id="leadgen-oauth-connect-btn" onclick="connectLeadgenOAuth()">${s.hasToken?'Reconectar com Facebook':'Conectar com Facebook'}</button>
           ${s.hasToken?`<button class="gxi-btn danger small" onclick="confirmDelete(()=>disconnectLeadgenOAuth(),{icon:'🔌',title:'Desconectar Meta Leads',message:'Os leads do Facebook/Instagram param de chegar até você reconectar.',okText:'Desconectar'})">Desconectar</button>`:''}
           ${s.hasToken?`<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:#059669;background:#D1FAE5;border-radius:20px;padding:5px 12px"><span style="width:7px;height:7px;border-radius:50%;background:#059669;display:inline-block"></span>Conectado${s.pageName?`: ${E(s.pageName)}`:''}${s.pageId?` <span style="color:#047857;font-weight:600">(ID ${E(s.pageId)})</span>`:''}</span>`:''}
