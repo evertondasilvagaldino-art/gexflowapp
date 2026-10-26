@@ -8913,12 +8913,46 @@ function renderInicio(){
     metricsEl.style.display='none';
   }
 
+  // Comparação REAL com o período anterior (mês anterior, ou ano anterior se o filtro for "todos os meses").
+  // Usa as mesmas regras de filtro do período atual; só lê, não altera dados.
+  let prevR=null,prevL=null,prevG=null;
+  const _cmpLbl=dashFilter.mes?'mês ant.':'ano ant.';
+  try{
+    const bakM=dashFilter.mes,bakA=dashFilter.ano;
+    let pm=bakM,pa=bakA;
+    if(pm){pm=pm-1;if(pm<1){pm=12;pa=pa-1}}else{pa=pa-1}
+    dashFilter.mes=pm;dashFilter.ano=pa;
+    try{
+      const ptx=txsAll.filter(txInPeriod);
+      prevR=ptx.filter(t=>t.tipo==='Receita').reduce((a,t)=>a+t.valor,0);
+      prevL=prevR-ptx.filter(t=>t.tipo==='Despesa').reduce((a,t)=>a+t.valor,0);
+      if(typeof window.gxCloseKey==='function'){
+        const baseP=dashSel?leads.filter(dashLeadMatchesSelection):excludePartnerFunnelLeads(leads);
+        prevG=baseP.filter(l=>{
+          let w;try{w=isWonOpportunity(l)}catch(e){w=false}
+          if(!w)return false;
+          const k=window.gxCloseKey(l);if(!k)return false;
+          const d=new Date(k+'T00:00:00');
+          if(dashFilter.mes&&(d.getMonth()+1)!==dashFilter.mes)return false;
+          return d.getFullYear()===dashFilter.ano;
+        }).reduce((a,l)=>a+(parseFloat(l.valor)||0),0);
+      }
+    }finally{dashFilter.mes=bakM;dashFilter.ano=bakA}
+  }catch(e){prevR=prevL=prevG=null}
+  const _cmp=(cur,prev)=>{
+    if(prev===null||prev===undefined||isNaN(prev))return {txt:'sem comparação',dir:'neutral'};
+    if(prev===0)return cur>0?{txt:`novo vs ${_cmpLbl}`,dir:'up'}:{txt:`0% vs ${_cmpLbl}`,dir:'neutral'};
+    const pc=(cur-prev)/Math.abs(prev)*100;
+    const r=Math.round(pc*10)/10;
+    return {txt:`${r>0?'+':''}${String(r).replace('.',',')}% vs ${_cmpLbl}`,dir:r>0?'up':(r<0?'down':'neutral')};
+  };
+  const _cR=_cmp(receita,prevR),_cL=_cmp(lucro,prevL),_cG=_cmp(negociosGanhosTotal,prevG);
   // KPI Cards — filtrados por permissão do papel atual
   const allKpis=[
-    {label:'Receita do Mês',value:fmtBRL(receita),accent:'#10B981',delta:'+12% vs mês ant.',dir:'up',mod:'financas'},
-    {label:'Lucro Líquido',value:fmtBRL(lucro),accent:'#7C3AED',delta:lucro>0?'+operação positiva':'Atenção',dir:lucro>0?'up':'down',mod:'financas'},
+    {label:'Receita do Mês',value:fmtBRL(receita),accent:'#10B981',delta:_cR.txt,dir:_cR.dir,mod:'financas'},
+    {label:'Lucro Líquido',value:fmtBRL(lucro),accent:'#7C3AED',delta:_cL.txt,dir:_cL.dir,mod:'financas'},
     {label:'Clientes Ativos',value:cls.filter(c=>c.status==='Ativo').length,accent:'#3B82F6',delta:`${churnRisk.length} em risco de churn`,dir:churnRisk.length?'down':'neutral',mod:'clientes'},
-    {label:'Negócios Ganhos',value:fmtBRL(negociosGanhosTotal),accent:'#10B981',delta:`${negociosGanhosHome.length} negócio${negociosGanhosHome.length!==1?'s':''} ganho${negociosGanhosHome.length!==1?'s':''}`,dir:negociosGanhosHome.length?'up':'neutral',mod:'comercial'},
+    {label:'Negócios Ganhos',value:fmtBRL(negociosGanhosTotal),accent:'#10B981',delta:`${negociosGanhosHome.length} negócio${negociosGanhosHome.length!==1?'s':''} ganho${negociosGanhosHome.length!==1?'s':''} · ${_cG.txt}`,dir:_cG.dir==='neutral'&&negociosGanhosHome.length?'up':_cG.dir,mod:'comercial'},
     {label:'Health Score Médio',value:avgH,accent:healthColor(avgH),delta:avgH>=70?'Equipe saudável':'Atenção necessária',dir:avgH>=70?'up':'down',mod:'clientes'},
     {label:'Membros Ativos',value:mbs.filter(m=>m.status==='Ativo').length,accent:'#14B8A6',delta:`de ${mbs.length} total`,dir:'neutral',mod:'rh'},
   ];
