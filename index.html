@@ -5008,10 +5008,16 @@ function startGexRecordsRealtime(){
             if(row.deleted_at){
               arr=arr.filter(x=>String(x.id)!==String(row.record_id));
             }else{
-              const next={...(row.data||{}),id:String(row.record_id)};
+              // Proteção: evento sem dados úteis (ex.: coluna grande omitida pelo realtime) NÃO pode apagar o lead local.
+              const _inc=(row.data&&typeof row.data==='object')?row.data:null;
               const idx=arr.findIndex(x=>String(x.id)===String(row.record_id));
-              if(idx>=0)arr[idx]=next;
-              else arr.push(next);
+              if(!_inc||Object.keys(_inc).length<2){ if(idx<0&&!_inc)return; }
+              else{
+                // Mescla sobre o que já existe (não substitui o lead inteiro): campos ausentes no evento são mantidos.
+                const next=idx>=0?{...arr[idx],..._inc,id:String(row.record_id)}:{..._inc,id:String(row.record_id)};
+                if(idx>=0)arr[idx]=next;
+                else arr.push(next);
+              }
             }
             gexWriteLocalCollection(row.collection,arr);
           }
@@ -5940,7 +5946,7 @@ function dropLead(e,stageId,stageName){
   const stage=activeFunnel?(activeFunnel.stages||[]).find(s=>s.id===stageId):null;
   const previousLead=DB.find('leads',dragId);
   const wasAlreadyWon=previousLead?.dealStatus==='Ganho';
-  const updates={estagio:stageName,stageId,funnelId:activeFunnel?.id||''};
+  const updates={estagio:stageName,stageId,funnelId:(previousLead&&previousLead.funnelId)||activeFunnel?.id||''};
   if(stage){
     // Também grava a data de fechamento (como o outro caminho, syncDealStageAndStatus) — o BI e o
     // Início contam venda por essa data. Se já era ganho, mantém a data original.
@@ -11303,9 +11309,11 @@ function renderComercial(){
   }
 
   const nextPipelineGridTemplate=`repeat(${Math.max(stages.length,1)},minmax(180px,1fr))`;
+  const _gxStageIdSet=new Set(stages.map(x=>String(x.id))),_gxStageNameSet=new Set(stages.map(x=>String(x.name)));
   const nextPipelineBoardHtml=stages.map((stage,idx)=>{
     const dot=stage.color||STAGE_COLORS[idx%STAGE_COLORS.length];
-    const items=funnelLeads.filter(l=>l.stageId===stage.id||((!l.stageId)&&l.estagio===stage.name));
+    // Rede de segurança: lead cujo stageId/estágio não bate com nenhuma etapa do funil aparece na 1ª etapa (em vez de sumir do kanban).
+    const items=funnelLeads.filter(l=>l.stageId===stage.id||((!l.stageId)&&l.estagio===stage.name)||(idx===0&&!_gxStageIdSet.has(String(l.stageId||''))&&!_gxStageNameSet.has(String(l.estagio||'')))); 
     const sub=items.reduce((a,l)=>a+(+l.valor||0),0);
     const wonBadge=stage.isWon?'<span style="font-size:9px;background:#DCFCE7;color:#166534;border-radius:4px;padding:1px 5px;font-weight:700">GANHO</span>':'';
     const lostBadge=stage.isLost?'<span style="font-size:9px;background:#FEE2E2;color:#991B1B;border-radius:4px;padding:1px 5px;font-weight:700">PERDIDO</span>':'';
