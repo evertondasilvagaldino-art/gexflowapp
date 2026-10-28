@@ -4342,8 +4342,12 @@ function gexBatchRun(fn){
   _gxBatch++;
   try{return fn()}finally{_gxBatch--;if(!_gxBatch)_gxBatchC={}}
 }
+// Cópia em memória usada SÓ quando o localStorage estoura a cota: sem ela, a tela lia o cache
+// antigo/truncado e os leads "sumiam" até atualizar a página (a nuvem continuava certa).
+const _gxMem={};
 function gexReadLocalCollection(collection){
   const key=gexCacheKey(collection);
+  if(_gxMem[key])return _gxMem[key].slice();
   const raw=localStorage.getItem(key)||'[]';
   if(_gxBatch>0){
     const c=_gxBatchC[key];
@@ -4357,9 +4361,18 @@ function gexReadLocalCollection(collection){
 }
 function gexWriteLocalCollection(collection,value){
   if(collection==='usuarios')_gxUsrVal=null;
+  const _gxKey=gexCacheKey(collection),_gxArr=Array.isArray(value)?value:[];
   try{
-    localStorage.setItem(gexCacheKey(collection),JSON.stringify(Array.isArray(value)?value:[]));
+    localStorage.setItem(_gxKey,JSON.stringify(_gxArr));
+    delete _gxMem[_gxKey];
   }catch(e){
+    // cota cheia: libera espaço de caches descartáveis (logs) e tenta de novo; se ainda falhar, guarda em memória
+    try{
+      let freed=false;
+      (typeof GEX_LOG_COLLECTIONS!=='undefined'?GEX_LOG_COLLECTIONS:[]).forEach(c=>{const k=gexCacheKey(c);if(k!==_gxKey&&localStorage.getItem(k)){localStorage.removeItem(k);freed=true}});
+      if(freed){localStorage.setItem(_gxKey,JSON.stringify(_gxArr));delete _gxMem[_gxKey];return}
+    }catch(e2){}
+    _gxMem[_gxKey]=_gxArr.slice();
     // Estouro de cota do localStorage (comum quando várias fotos de perfil em
     // base64 se acumulam no cache de "usuarios") não pode travar quem chamou
     // esta função sem avisar — antes disso acontecia de forma silenciosa e
