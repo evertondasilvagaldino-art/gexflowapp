@@ -2503,6 +2503,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
       </div>
       <span id="contr-search-count" style="font-size:12px;color:var(--muted)"></span>
     </div>
+    <div id="contr-filtros" style="display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 14px"></div>
     <div id="contratos-content"></div>
   </div>
 
@@ -8004,7 +8005,16 @@ async function saveModal(type,id=''){
     contrato(){
       const obj={titulo:v('f-cont-titulo'),clienteId:v('f-cont-cliente'),valor:v('f-cont-valor'),inicio:v('f-cont-inicio'),vencimento:v('f-cont-venc'),status:v('f-cont-status')};
       if(!obj.titulo){toast('Título obrigatório','#EF4444');return}
-      if(id)DB.update('contratos',id,obj);else DB.push('contratos',{id:uid(),...obj});
+      if(id){
+        try{
+          const old=DB.find('contratos',id)||{};const L=[];
+          if(String(old.status||'')!==String(obj.status||''))L.push(`Status: ${old.status||'—'} → ${obj.status||'—'}`);
+          if(String(old.vencimento||'')!==String(obj.vencimento||''))L.push(`Vencimento: ${old.vencimento||'—'} → ${obj.vencimento||'—'}`);
+          if((typeof gxParseBRL==='function'?gxParseBRL(old.valor):parseFloat(old.valor))!==(typeof gxParseBRL==='function'?gxParseBRL(obj.valor):parseFloat(obj.valor)))L.push(`Valor: ${old.valor||'—'} → ${obj.valor||'—'}`);
+          if(L.length)obj.notas=(Array.isArray(old.notas)?old.notas.slice():[]).concat([{id:uid(),txt:L.join(' · '),at:new Date().toISOString(),by:sessionUser?.nome||'',auto:1}]);
+        }catch(e){}
+        DB.update('contratos',id,obj);
+      }else DB.push('contratos',{id:uid(),...obj});
       closeModal();renderContratos();toast(id?'Atualizado ✓':'Contrato adicionado ✓','#10B981');
     },
   };
@@ -8865,7 +8875,7 @@ function updateRolePreview(){
     </div>`;
 }
 
-function formContrato(d){
+function _formContratoCampos(d){
   const clis=DB.get('clientes').map(c=>`<option value="${c.id}" ${d?.clienteId===c.id?'selected':''}>${c.nome}</option>`).join('');
   return `<div class="form-group"><label class="form-label">Título do Contrato *</label><input class="form-input" id="f-cont-titulo" value="${d?.titulo||''}"></div>
   <div class="form-row">
@@ -8879,6 +8889,83 @@ function formContrato(d){
   <div class="form-group"><label class="form-label">Status</label>
     <select class="form-input" id="f-cont-status"><option ${d?.status==='Ativo'?'selected':''}>Ativo</option><option ${d?.status==='Encerrado'?'selected':''}>Encerrado</option><option ${d?.status==='Renovação'?'selected':''}>Renovação</option><option ${d?.status==='Pendente'?'selected':''}>Pendente</option></select>
   </div>`;
+}
+
+
+function formContrato(d){
+  const campos=_formContratoCampos(d);
+  if(!d||!d.id)return campos;
+  return `<div class="tab-nav" style="margin-bottom:14px">
+    <button type="button" class="tab-btn active" onclick="gxContrTab(this,'ct-pane-dados')">📋 Dados</button>
+    <button type="button" class="tab-btn" onclick="gxContrTab(this,'ct-pane-notas')">📝 Histórico e anotações <span id="ct-notas-n" class="badge badge-gray" style="margin-left:4px">${(d.notas||[]).length}</span></button>
+    <button type="button" class="tab-btn" onclick="gxContrTab(this,'ct-pane-wpp','${d.id}')">💬 WhatsApp</button>
+  </div>
+  <div class="tab-pane active" id="ct-pane-dados">${campos}</div>
+  <div class="tab-pane" id="ct-pane-notas">${gxContrNotasHtml(d.id)}</div>
+  <div class="tab-pane" id="ct-pane-wpp"><div class="empty"><div class="empty-ico">💬</div><div class="empty-txt">Carregando conversa...</div></div></div>`;
+}
+function gxContrTab(btn,pane,id){
+  const root=document.getElementById('modal-body');if(!root)return;
+  root.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  root.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  const el=document.getElementById(pane);if(el)el.classList.add('active');
+  if(pane==='ct-pane-wpp'&&id)gxContrWpp(id);
+}
+function gxContrNotasHtml(id){
+  const c=DB.find('contratos',id)||{};
+  const notas=(Array.isArray(c.notas)?c.notas:[]).slice().sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
+  const fmt=iso=>{try{return new Date(iso).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}catch(e){return ''}};
+  return `<div class="fu-add" style="margin:0 0 14px">
+      <div class="form-label">Nova anotação</div>
+      <textarea class="form-input" id="ct-nota-txt" rows="3" placeholder="Registre uma conversa, combinado, renegociação, aviso de renovação..."></textarea>
+      <button type="button" class="btn btn-primary btn-sm" style="margin-top:8px" onclick="gxContrAddNota('${id}')">+ Adicionar ao histórico</button>
+    </div>
+    <div style="max-height:300px;overflow-y:auto">${notas.length?notas.map(n=>`<div class="fu-entry" style="${n.auto?'opacity:.85;border-left:3px solid var(--p3)':''}">
+      <div class="fu-meta">${n.auto?'⚙️ Automático':'📝 Anotação'} · ${escHtml(fmt(n.at))}${n.by?' · '+escHtml(n.by):''}</div>
+      <div class="fu-text">${escHtml(n.txt||'')}</div>
+      ${n.auto?'':`<button type="button" style="background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;margin-top:4px" onclick="gxContrDelNota('${id}','${n.id}')">Excluir</button>`}
+    </div>`).join(''):'<div class="empty"><div class="empty-ico">📝</div><div class="empty-txt">Nenhuma anotação ainda</div></div>'}</div>`;
+}
+function gxContrRefreshNotas(id){
+  const el=document.getElementById('ct-pane-notas');if(el)el.innerHTML=gxContrNotasHtml(id);
+  const c=DB.find('contratos',id)||{};const n=document.getElementById('ct-notas-n');if(n)n.textContent=(c.notas||[]).length;
+}
+function gxContrAddNota(id){
+  const t=(document.getElementById('ct-nota-txt')?.value||'').trim();
+  if(!t){toast('Escreva a anotação','#EF4444');return}
+  const c=DB.find('contratos',id);if(!c)return;
+  const notas=(Array.isArray(c.notas)?c.notas.slice():[]);
+  notas.push({id:uid(),txt:t,at:new Date().toISOString(),by:sessionUser?.nome||''});
+  DB.update('contratos',id,{notas});
+  gxContrRefreshNotas(id);toast('Anotação registrada ✓','#10B981');
+}
+function gxContrDelNota(id,nid){
+  const c=DB.find('contratos',id);if(!c)return;
+  DB.update('contratos',id,{notas:(c.notas||[]).filter(n=>n.id!==nid)});
+  gxContrRefreshNotas(id);
+}
+// Conversa de WhatsApp do cliente do contrato (somente leitura), igual ao card do Pipeline.
+async function gxContrWpp(id){
+  const box=document.getElementById('ct-pane-wpp');if(!box)return;
+  const c=DB.find('contratos',id)||{};
+  const cli=(DB.get('clientes')||[]).find(x=>x.id===c.clienteId)||{};
+  const phone=(typeof dealNormalizePhone==='function')?dealNormalizePhone(cli.telefone||cli.whatsapp||''):String(cli.telefone||'').replace(/\D/g,'');
+  const vazio=t=>{box.innerHTML=`<div class="empty"><div class="empty-ico">💬</div><div class="empty-txt">${t}</div></div>`};
+  if(!phone){vazio('O cliente deste contrato não tem telefone cadastrado');return}
+  try{
+    const token=await getGexSupabaseToken();
+    const res=await fetch(`${getSupabaseFunctionUrl('whatsapp-inbox-get')}?phone=${encodeURIComponent(phone)}&ownerId=${encodeURIComponent(sessionUser?.id||'')}`,{headers:{Authorization:`Bearer ${token}`}});
+    const j=await res.json().catch(()=>({}));
+    if(!document.getElementById('ct-pane-wpp'))return;
+    if(!j||j.ok===false){vazio('Não foi possível carregar a conversa');return}
+    const msgs=j.messages||[];
+    if(!msgs.length){vazio('Nenhuma mensagem de WhatsApp com esse número na sua conexão');return}
+    const hora=m=>{try{return new Date(m.momment).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}catch(e){return ''}};
+    box.innerHTML=`<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button type="button" class="btn btn-ghost btn-sm" onclick="closeModal();navigate('whatsapp-chat');setTimeout(()=>window.wacSelectChat&&window.wacSelectChat('${phone}'),500)">Abrir conversa completa →</button></div>
+    <div style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column">${msgs.map(m=>`<div style="max-width:78%;margin:${m.from_me?'4px 0 4px auto':'4px auto 4px 0'};background:${m.from_me?'#DCF8C6':'#fff'};border:1px solid var(--border);border-radius:10px;padding:8px 10px;font-size:12px;color:var(--txt)">${escHtml(m.text||m.body||m.message||(m.media_type?'['+m.media_type+']':''))}<div style="font-size:10px;color:var(--muted);margin-top:3px;text-align:right">${hora(m)}</div></div>`).join('')}</div>`;
+    const sc=box.querySelector('div[style*="overflow-y:auto"]');if(sc)sc.scrollTop=sc.scrollHeight;
+  }catch(e){vazio('Falha ao carregar a conversa do WhatsApp')}
 }
 
 // ═══ CLIENT DETAIL ═══
@@ -15445,6 +15532,13 @@ function renderContratos(){
   const clientes=DB.get('clientes');
   const cont=document.getElementById('contratos-content');
   if(!cont)return;
+  // Filtro por status (chips com contagem)
+  const _fk=['todos','ativo','avencer','vencido','renovacao','pendente','encerrado'];
+  const _fl={todos:'Todos',ativo:'Ativos',avencer:'A vencer',vencido:'Vencidos',renovacao:'Em renovação',pendente:'Pendentes',encerrado:'Encerrados'};
+  if(!_fk.includes(window._gxContrFil))window._gxContrFil='todos';
+  const _cnt={todos:contratos.length};contratos.forEach(c=>{const k=contratoSituacao(c);_cnt[k]=(_cnt[k]||0)+1});
+  const _fb=document.getElementById('contr-filtros');
+  if(_fb)_fb.innerHTML=_fk.filter(k=>k==='todos'||_cnt[k]||window._gxContrFil===k).map(k=>`<button type="button" class="btn ${window._gxContrFil===k?'btn-primary':'btn-ghost'} btn-sm" onclick="window._gxContrFil='${k}';renderContratos()">${_fl[k]} <span style="opacity:.75;font-weight:600">${_cnt[k]||0}</span></button>`).join('');
   if(!contratos.length){
     cont.innerHTML=contratosResumoHtml()+`<div class="card"><div class="empty"><div class="empty-ico">📄</div><div class="empty-txt">Nenhum contrato cadastrado</div></div></div>`;
     return;
@@ -15453,6 +15547,7 @@ function renderContratos(){
   const qRaw=(document.getElementById('contr-search')?.value||'').trim();
   const q=gxNormalizeHeader(qRaw);
   let contratosOrd=ordenaContratosPorValor(contratos);
+  if(window._gxContrFil!=='todos')contratosOrd=contratosOrd.filter(c=>contratoSituacao(c)===window._gxContrFil);
   if(q){
     contratosOrd=contratosOrd.filter(c=>{
       const sit=contratoSituacao(c);
@@ -15461,7 +15556,7 @@ function renderContratos(){
     });
   }
   const cntEl=document.getElementById('contr-search-count');
-  if(cntEl)cntEl.textContent=q?`${contratosOrd.length} de ${contratos.length} contrato(s)`:'';
+  if(cntEl)cntEl.textContent=(q||window._gxContrFil!=='todos')?`${contratosOrd.length} de ${contratos.length} contrato(s)`:'';
   cont.innerHTML=contratosResumoHtml()+`<div class="card"><div class="tbl-wrap"><table><thead><tr>
     <th>Título</th><th>Cliente</th><th>Valor</th><th>Início</th><th>Vencimento</th><th>Status</th><th>Ações</th>
   </tr></thead><tbody>${contratosOrd.length?'':`<tr><td colspan="7"><div class="empty"><div class="empty-ico">🔍</div><div class="empty-txt">Nenhum contrato encontrado para "${escHtml(qRaw)}"</div></div></td></tr>`}${contratosOrd.map(c=>{
