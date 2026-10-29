@@ -4657,9 +4657,20 @@ function gxParseBRL(str){
   const dig=t.replace(/\D/g,'');
   return dig?parseInt(dig,10)/100:0;
 }
+// CORREÇÃO (29/10/2026) — BUG DOS LEADS QUE SOMEM: o espelho de localStorage mandava TAMBÉM o cache de cada
+// coleção (gx2_leads, gx2_clientes...) para a tabela kv, e todo navegador aplicava essa cópia de volta no seu
+// próprio cache — então o cache (às vezes quase vazio) de UM navegador sobrescrevia o de TODOS, e os leads
+// "sumiam" até atualizar a página. As coleções já têm sincronização própria (linha a linha), então o cache delas
+// NUNCA pode passar pelo kv.
+function gexIsCollectionCacheKey(key){
+  if(typeof key!=='string'||!key.startsWith('gx2_'))return false;
+  const c=key.slice(4);
+  return c==='usuarios'||(Array.isArray(GEX_DB_COLLECTIONS)&&GEX_DB_COLLECTIONS.includes(c));
+}
 function gexShouldSyncKV(key){
   return typeof key==='string'
     && key.startsWith('gx2_')
+    && !gexIsCollectionCacheKey(key)
     && !GEX_KV_EXCLUDED.has(key)
     && !key.startsWith('gx2_tmp_');
 }
