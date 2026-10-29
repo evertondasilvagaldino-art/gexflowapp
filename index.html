@@ -15777,6 +15777,8 @@ function _normalizeFunnel(f,idx=0){
 // ativo, ou que seja da Beatriz pelo nome). Roda 1 vez (idempotente —
 // restaurar de novo não tem efeito colateral se já estiver restaurado).
 function gexRestoreWronglyArchivedFunnels(){
+  // DESLIGADO (29/10/2026): correção histórica já aplicada. Em navegador novo ela desarquivava funis com "beatriz" no nome.
+  return;
   if(gxIsOtherWorkspace())return; // correção histórica da Gex Company: não se aplica a empresas clientes
   try{
     if(localStorage.getItem('gex_fix_archived_funnels_2026_10_v2')==='1')return;
@@ -16026,6 +16028,9 @@ function gexBeatrizReimportCore(){
 }
 
 function gexRunOneTimeBeatrizFix(){
+  // DESLIGADO (29/10/2026): correção histórica de 03/10 já aplicada. Rodava de novo em todo navegador novo de gestor
+  // (aba anônima, cache limpo) e VOLTAVA os leads da Beatriz para as etapas da planilha antiga e recriava leads já excluídos.
+  return;
   if(gxIsOtherWorkspace())return; // correção histórica da Gex Company: não se aplica a empresas clientes
   try{
     if(localStorage.getItem('gex_fix_beatriz_reimport_2026_10_v9')==='1')return;
@@ -16359,7 +16364,12 @@ function getVisibleCommercialFunnels(funnels){
     if(typeof isSalesManagerView==='function'&&isSalesManagerView()){
       // CORREÇÃO (29/10/2026): o FUNDADOR enxerga TODOS os funis (todos os usuários, ativos ou não, logados ou não),
       // sem nenhum filtro de dono/duplicata. A regra restritiva abaixo continua só para Adm Gerente.
-      try{if(resolveRole(sessionUser?.permissao||sessionUser?.cargo||'')==='Fundador')return list}catch(e){}
+      try{if(resolveRole(sessionUser?.permissao||sessionUser?.cargo||'')==='Fundador'){
+        // Fundador: todos os funis EM USO (de qualquer usuário/parceiro ativo). Inativos/duplicados ficam de fora (limpeza pelo menu ⋯ Funil).
+        const cls=gxFunilClassificaMemo(list.filter(f=>f&&!f.isArchived));
+        const sel=typeof getActiveFunnelId==='function'?getActiveFunnelId():'';
+        return list.filter(f=>f&&(f.isArchived||!cls.get(f.id)||cls.get(f.id).ativo));
+      }}catch(e){}
       // Fundador/Adm Gerente vê o funil padrão da empresa (esse não tem
       // "dono" pessoal, é o modelo compartilhado) mais os funis pessoais de
       // usuários ATIVOS e que ainda têm acesso ao setor Comercial hoje. Um
@@ -16772,6 +16782,35 @@ function gxFunilClassifica(funnels){
   }catch(e){}
   return out;
 }
+let _gxFunClsMemo={k:'',t:0,v:null};
+function gxFunilClassificaMemo(funnels){
+  try{
+    const k=funnels.map(f=>f.id+':'+(f.createdBy||'')+':'+(f.name||'')).join(',')+'|'+(DB.get('leads')||[]).length+'|'+((typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios'))||[]).length+'|'+(typeof getActiveFunnelId==='function'?getActiveFunnelId():'');
+    if(_gxFunClsMemo.v&&_gxFunClsMemo.k===k&&Date.now()-_gxFunClsMemo.t<3000)return _gxFunClsMemo.v;
+    const v=gxFunilClassifica(funnels);_gxFunClsMemo={k,t:Date.now(),v};return v;
+  }catch(e){return gxFunilClassifica(funnels)}
+}
+// Fundador: exclui de uma vez os funis inativos/duplicados e todos os arquivados.
+// Leads que estiverem neles vão para o funil padrão (mesma regra do "Excluir" de Arquivados) — nenhum lead é apagado.
+function gxLimparFunisInativos(){
+  let ehFundador=false;try{ehFundador=resolveRole(sessionUser?.permissao||sessionUser?.cargo||'')==='Fundador'}catch(e){}
+  if(!ehFundador){toast('Só o fundador pode fazer essa limpeza','#EF4444');return}
+  if(typeof gexCloudReady!=='undefined'&&!gexCloudReady&&typeof supabaseClient!=='undefined'&&supabaseClient){toast('Aguarde os dados terminarem de carregar e tente de novo','#F59E0B');return}
+  const all=getCommercialFunnels();
+  const cls=gxFunilClassifica(all.filter(f=>f&&!f.isArchived));
+  const alvo=all.filter(f=>f&&!f.isDefault&&(f.isArchived||(cls.get(f.id)&&!cls.get(f.id).ativo)));
+  if(!alvo.length){toast('Nenhum funil inativo ou arquivado para excluir','#10B981');return}
+  const linhas=alvo.map(f=>`• ${f.name||'Funil sem nome'} — ${f.isArchived?'arquivado':(cls.get(f.id)||{}).motivo} (${getFunnelLeadCount(f.id)} lead(s))`).join('\n');
+  const comLeads=alvo.reduce((n,f)=>n+getFunnelLeadCount(f.id),0);
+  if(!confirm(`Excluir ${alvo.length} funil(is)?\n\n${linhas}\n\n${comLeads?comLeads+' lead(s) desses funis serão movidos para o funil padrão (nenhum lead é apagado).':'Nenhum deles tem leads.'}`))return;
+  const funnels=getCommercialFunnels();
+  alvo.forEach(a=>{const t=funnels.find(x=>x.id===a.id);if(t&&!t.isArchived){t.isArchived=true;t.updatedAt=new Date().toISOString()}});
+  saveCommercialFunnels(funnels);
+  let ok=0;alvo.forEach(a=>{try{deleteArchivedFunnel(a.id,{moveLeadsToDefault:true});ok++}catch(e){}});
+  _gxFunClsMemo={k:'',t:0,v:null};
+  try{renderFunnelSelector();renderComercial()}catch(e){}
+  toast(`${ok} funil(is) excluído(s) ✓`,'#10B981');
+}
 function gxFunilOptionsHtml(funnels,selId){
   const esc=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   let ehFundador=false;try{ehFundador=resolveRole(sessionUser?.permissao||sessionUser?.cargo||'')==='Fundador'}catch(e){}
@@ -16854,7 +16893,8 @@ function renderFunnelSelector(){
     canEdit&&active&&(canManageAnyFunnel||!active.isDefault)?`<button class="gx-mi" onclick="openFunnelModal('edit','${active.id}')">✏️ Editar funil</button>`:'',
     canCreate&&active?`<button class="gx-mi" onclick="duplicateCommercialFunnel('${active.id}')">⧉ Duplicar</button>`:'',
     canEdit&&active&&!active.isDefault?`<button class="gx-mi danger" onclick="confirmArchiveFunnel('${active.id}')">📦 Arquivar</button>`:'',
-    canOpenArchived?`<button class="gx-mi" onclick="openArchivedFunnelsModal()">🗂️ Arquivados${_arqN}</button>`:''
+    canOpenArchived?`<button class="gx-mi" onclick="openArchivedFunnelsModal()">🗂️ Arquivados${_arqN}</button>`:'',
+    (()=>{try{return resolveRole(sessionUser?.permissao||sessionUser?.cargo||'')==='Fundador'}catch(e){return false}})()?`<button class="gx-mi danger" onclick="gxLimparFunisInativos()">🧹 Excluir inativos e arquivados</button>`:''
   ].filter(Boolean);
   const btnsHtml=_itens.length?`<div class="gx-menu"><button class="fbtn" onclick="gxMenuToggle(this,event)" title="Novo funil, editar, duplicar, arquivar">⋯ Funil</button><div class="gx-menu-list">${_itens.join('')}</div></div>`:'';
 
