@@ -23402,10 +23402,10 @@ ${gxlCloseScriptTag}`;
     return `<div class="wac-shell">
       <div class="wac-topbar">
         <div class="wac-topbar-brand">
-          <div class="wac-topbar-icon">💬</div>
+          
           <div>
-            <div class="wac-topbar-title">Caixa de Conversas — WhatsApp</div>
-            <div class="wac-topbar-sub">Conversas recebidas e enviadas pela conexão de WhatsApp</div>
+            <div class="wac-topbar-title">Caixa de conversas</div>
+            <div class="wac-topbar-sub">Mensagens recebidas e enviadas pela sua conexão de WhatsApp</div>
           </div>
         </div>
         <div class="wac-topbar-right">
@@ -23447,7 +23447,7 @@ ${gxlCloseScriptTag}`;
     return `<div class="wac-item ${c.phone===wacSelectedPhone?'active':''}" onclick="wacSelectChat('${esc(c.phone)}')">
       <div class="wac-item-avatar ${c.is_group?'group':''}" style="background:${color}">${avatarInnerHtml(c)}</div>
       <div class="wac-item-body">
-        <div class="wac-item-name-row"><span class="wac-item-name">${esc(c.name||c.phone)}</span>${c.is_group?`<span class="wac-group-badge" title="Grupo">👥</span>`:''}</div>
+        <div class="wac-item-name-row"><span class="wac-item-name">${esc(c.name||c.phone)}</span>${c.is_group?`<span class="wac-group-badge" title="Grupo"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-left:5px;opacity:.6"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>`:''}</div>
         <div class="wac-item-msg">${esc(c.last_message||'')}</div>
         ${(c.tags&&c.tags.length)?`<div class="wac-item-tags">${c.tags.map(tagPillHtml).join('')}</div>`:''}
       </div>
@@ -23488,13 +23488,13 @@ ${gxlCloseScriptTag}`;
   }
 
   function threadHtml(){
-    if(!wacSelectedPhone)return `<div class="wac-thread-empty"><i>💬</i>Selecione uma conversa à esquerda pra ver o histórico de mensagens.</div>`;
+    if(!wacSelectedPhone)return `<div class="wac-thread-empty"><i><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></i>Selecione uma conversa à esquerda pra ver o histórico de mensagens.</div>`;
     const chat=wacChats.find(c=>c.phone===wacSelectedPhone)||{phone:wacSelectedPhone};
     const color=avatarColor(chat.phone);
     return `<div class="wac-thread-head">
       <div class="wac-thread-head-avatar ${chat.is_group?'group':''}" style="background:${color}">${avatarInnerHtml(chat)}</div>
       <div class="wac-thread-head-info">
-        <div class="wac-thread-head-name">${esc(chat.name||wacSelectedPhone)}${chat.is_group?`<span title="Grupo">👥</span>`:''}</div>
+        <div class="wac-thread-head-name">${esc(chat.name||wacSelectedPhone)}${chat.is_group?`<span title="Grupo"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-left:5px;opacity:.6"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>`:''}</div>
         <div class="wac-thread-head-phone">${esc(wacSelectedPhone)}</div>
         ${(chat.tags&&chat.tags.length)?`<div class="wac-item-tags" style="margin-top:4px">${chat.tags.map(tagPillHtml).join('')}</div>`:''}
       </div>
@@ -23507,9 +23507,9 @@ ${gxlCloseScriptTag}`;
     ${wacPendingAttachment?attachPreviewHtml():''}
     <div class="wac-composer">
       <input type="file" id="wac-file-input" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none" onchange="wacPickFile(this.files[0])">
-      <button class="wac-attach-btn" onclick="document.getElementById('wac-file-input').click()" ${wacConn.connected?'':'disabled'} title="Anexar arquivo">📎</button>
+      <button class="wac-attach-btn" onclick="document.getElementById('wac-file-input').click()" ${wacConn.connected?'':'disabled'} title="Anexar arquivo"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
       <input id="wac-input" placeholder="Escreva uma mensagem..." onkeydown="if(event.key==='Enter')wacSendMessage()">
-      <button onclick="wacSendMessage()" id="wac-send-btn" ${wacConn.connected?'':'disabled'} title="Enviar">➤</button>
+      <button onclick="wacSendMessage()" id="wac-send-btn" ${wacConn.connected?'':'disabled'} title="Enviar"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></button>
     </div>`;
   }
 
@@ -27361,6 +27361,47 @@ html body .auto-card-ico.whatsapp{color:#059669}
 <style id="gx-autotab-v2">
 html body .auto-tab{height:34px;border-radius:9px;font-size:13px;font-weight:600;padding:0 14px;border:1px solid var(--g-line,var(--border));background:var(--g-card,#fff);color:var(--g-mu,var(--muted))}
 html body .auto-tab.active{background:#7C3AED!important;border-color:#7C3AED!important;color:#fff!important}
+</style>
+<style id="gx-wac-v2">
+/* ═══ WHATSAPP (caixa de conversas) v2 (29/10/2026): mesmo padrão das outras telas. Só aparência. ═══ */
+html body .wac-topbar{background:none!important;box-shadow:none!important;padding:0!important;border-radius:0!important;color:var(--g-tx,var(--txt))!important;margin-bottom:16px;align-items:flex-end;flex-wrap:wrap}
+html body .wac-topbar-title{font-size:26px!important;font-weight:800!important;letter-spacing:-.02em;color:var(--g-tx,var(--txt))}
+html body .wac-topbar-sub{font-size:14px!important;color:var(--g-mu,var(--muted))!important;margin-top:3px}
+html body .wac-topbar-status{height:38px;padding:0 14px!important;font-size:13px!important;font-weight:600!important;border-radius:10px!important;background:var(--g-card,#fff)!important;border:1px solid var(--g-line,var(--border));color:var(--g-mu,var(--muted))!important}
+html body .wac-topbar-status::before{content:"";width:8px;height:8px;border-radius:50%;background:#94A3B8}
+html body .wac-topbar-status.on{color:#059669!important}
+html body .wac-topbar-status.on::before{background:#10B981}
+html body .wac-btn-solid{height:38px!important;border-radius:10px!important;background:#7C3AED!important;color:#fff!important;font-size:13px!important;font-weight:600!important}
+html body .wac-btn-danger,html body .wac-btn-ghost{height:38px!important;border-radius:10px!important;background:var(--g-card,#fff)!important;border:1px solid var(--g-line,var(--border))!important;color:#DC2626!important;font-size:13px!important;font-weight:600!important}
+html body .wac-btn-ghost{color:var(--g-tx,var(--txt))!important}
+html body .wac-list,html body .wac-thread{border-radius:14px!important}
+html body .wac-search input{height:38px;border-radius:10px;font-size:13px}
+html body .wac-filters{display:inline-flex;gap:2px;padding:3px;border-radius:10px;border:1px solid var(--g-line,var(--border));background:var(--g-soft,#F7F6FB)}
+html body .wac-filter-chip{height:30px!important;border:0!important;border-radius:7px!important;background:none!important;color:var(--g-mu,var(--muted))!important;font-size:13px!important;font-weight:600!important}
+html body .wac-filter-chip.active{background:var(--g-card,#fff)!important;color:#6D28D9!important;box-shadow:0 1px 3px rgba(26,26,46,.14)}
+html body .wac-item-name{font-size:14px}
+html body .wac-item-msg{font-size:13px}
+html body .wac-item.active{background:rgba(139,92,246,.08)!important}
+html body .wac-badge{background:#7C3AED!important}
+html body .wac-thread-head-name{font-size:15px;font-weight:700}
+html body .wac-tag-btn{height:34px;border-radius:9px;font-size:12.5px;font-weight:600}
+html body .wac-composer button{background:#7C3AED!important}
+html body .wac-attach-btn{background:rgba(139,92,246,.12)!important;color:#6D28D9!important}
+html body #wac-input{height:42px;border-radius:12px;font-size:14px}
+html body .wac-thread-empty i{color:#8B5CF6}
+@media(max-width:700px){
+  html body .wac-topbar-title{font-size:22px!important}
+  html body .wac-topbar-right{justify-content:flex-start;width:100%}
+  html body .wac-thread-head{flex-wrap:wrap;gap:8px}
+}
+/* celular: ícones do topo não sobrepõem a faixa de feriados */
+@media(max-width:700px){
+  html body .topbar .ico-btn[title^="Configurar Webhook"],html body .topbar .ico-btn[title^="Sons"]{display:none!important}
+  html body .topbar{height:auto!important;min-height:58px;flex-wrap:wrap!important;row-gap:8px;padding-top:10px!important;padding-bottom:10px!important}
+  html body .topbar .search{order:10;flex:1 1 100%!important;width:100%!important;max-width:none!important;margin:0!important}
+  html body .topbar .tb-right{margin-left:auto}
+  html body .wac-thread-head-info{flex:1 1 calc(100% - 60px);min-width:0}
+}
 </style>
 </body>
 </html>
