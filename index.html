@@ -2444,6 +2444,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
         <button class="btn btn-primary" onclick="openModal('cliente')">+ Novo Cliente</button>
       </div>
     </div>
+    <div id="cli-resumo"></div>
     <div class="filters" style="flex-wrap:wrap;gap:10px">
       <div class="filter-tabs" id="cli-tabs"></div>
       <input class="search-inline" id="cli-search" placeholder="Buscar cliente..." oninput="renderClientes()">
@@ -2547,7 +2548,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
         <div class="gx-psearch"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="pipe-search" type="search" placeholder="Buscar lead pelo nome, telefone, e-mail…" oninput="setPipelineSearch(this.value)" autocomplete="off"></div>
         <div class="gx-pviews">
           <button class="btn btn-ghost btn-sm" id="pipe-view-kanban" onclick="setPipelineView('kanban')">🗂 Kanban</button>
-          <button class="btn btn-ghost btn-sm" id="pipe-view-lista" onclick="setPipelineView('lista')">📋 Lista</button>
+          <button class="btn btn-ghost btn-sm" id="pipe-view-lista" onclick="setPipelineView('lista')">Lista</button>
           <button class="btn btn-ghost btn-sm" id="gx-cards-btn" onclick="gxCardsOpen()" title="Escolher o que aparece nos cards">⚙ Cards</button>
         </div>
       </div>
@@ -5043,7 +5044,7 @@ function startGexRecordsRealtime(){
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,5);
 const _gxBRLfmt=new Intl.NumberFormat('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtBRL=n=>'R$ '+_gxBRLfmt.format(Number(n));
-const initials=s=>s.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
+const initials=s=>String(s||'').split(/\s+/).filter(w=>/[A-Za-zÀ-ÿ0-9]/.test(w)).slice(0,2).map(w=>(w.match(/[A-Za-zÀ-ÿ0-9]/)||[''])[0]).join('').toUpperCase()||'?';
 const now=()=>new Date().toLocaleString('pt-BR');
 
 // Seed (nunca em cache de empresa cliente)
@@ -8885,9 +8886,9 @@ function formContrato(d){
   const campos=_formContratoCampos(d);
   if(!d||!d.id)return campos;
   return `<div class="tab-nav" style="margin-bottom:14px">
-    <button type="button" class="tab-btn active" onclick="gxContrTab(this,'ct-pane-dados')">📋 Dados</button>
-    <button type="button" class="tab-btn" onclick="gxContrTab(this,'ct-pane-notas')">📝 Histórico e anotações <span id="ct-notas-n" class="badge badge-gray" style="margin-left:4px">${(d.notas||[]).length}</span></button>
-    <button type="button" class="tab-btn" onclick="gxContrTab(this,'ct-pane-wpp','${d.id}')">💬 WhatsApp</button>
+    <button type="button" class="tab-btn active" onclick="gxContrTab(this,'ct-pane-dados')"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Dados</button>
+    <button type="button" class="tab-btn" onclick="gxContrTab(this,'ct-pane-notas')"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Histórico e anotações <span id="ct-notas-n" class="badge badge-gray" style="margin-left:4px">${(d.notas||[]).length}</span></button>
+    <button type="button" class="tab-btn" onclick="gxContrTab(this,'ct-pane-wpp','${d.id}')"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>WhatsApp</button>
   </div>
   <div class="tab-pane active" id="ct-pane-dados">${campos}</div>
   <div class="tab-pane" id="ct-pane-notas">${gxContrNotasHtml(d.id)}</div>
@@ -8963,7 +8964,7 @@ function openDetail(id){
   detailId=id;
   const c=DB.find('clientes',id);
   if(!c) return;
-  document.getElementById('detail-title').textContent='👤 '+c.nome;
+  document.getElementById('detail-title').textContent=c.nome;
   renderDetailBody();
   document.getElementById('detail-ov').classList.add('open');
 }
@@ -8982,13 +8983,13 @@ function renderDetailBody(){
         <div style="font-size:12px;color:var(--muted)">${c.email||'—'} · ${c.telefone||'—'}</div>
         <div style="display:flex;gap:6px;margin-top:6px">${badge(c.status)}<span class="badge badge-gray">Health: <b style="color:${healthColor(c.health||0)}">${c.health||0}</b></span><span class="badge badge-purple">${c.ltv}</span></div>
       </div>
-      <button class="btn btn-ghost btn-sm" onclick="closeDetail();openModal('cliente','${c.id}')">✏️ Editar</button>
+      <button class="btn btn-ghost btn-sm gx-ibtn" onclick="closeDetail();openModal('cliente','${c.id}')">${gxIc('edit')}Editar</button>
     </div>
 
     <div class="tab-nav">
-      <button class="tab-btn active" onclick="switchTab(this,'tab-dados')">📋 Dados</button>
-      <button class="tab-btn" onclick="switchTab(this,'tab-followup')">📝 Histórico Follow-up</button>
-      <button class="tab-btn" onclick="switchTab(this,'tab-tarefas')">📅 Tarefas / Agendamentos</button>
+      <button class="tab-btn active" onclick="switchTab(this,'tab-dados')"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Dados</button>
+      <button class="tab-btn" onclick="switchTab(this,'tab-followup')"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Histórico follow-up</button>
+      <button class="tab-btn" onclick="switchTab(this,'tab-tarefas')"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Tarefas e agendamentos</button>
     </div>
 
     <div class="tab-pane active" id="tab-dados">
@@ -9674,17 +9675,17 @@ function cliPill(k,n){
 function cliRowHtml(c){
   const onb=(DB.get('onboarding')||[]).find(o=>o.clienteId===c.id);
   return `<tr>
-    <td><div style="display:flex;align-items:center;gap:8px"><div style="width:30px;height:30px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials(c.nome)}</div><div><div style="font-weight:600;font-size:13px">${escHtml(c.nome||'')}</div>${c.desc?`<div style="font-size:10px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(c.desc)}</div>`:''}</div></div></td>
+    <td><div style="display:flex;align-items:center;gap:10px"><div class="gx-av">${initials(c.nome)}</div><div style="min-width:0"><div class="gx-cli-n" onclick='openDetail("${c.id}")'>${escHtml(c.nome||'')}</div>${c.desc?`<div style="font-size:10px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(c.desc)}</div>`:''}</div></div></td>
     <td style="color:var(--muted);font-size:12px">${escHtml(c.email||'—')}</td>
     <td style="color:var(--muted);font-size:12px">${escHtml(c.telefone||'—')}</td>
     <td style="font-weight:600;color:var(--green)">${escHtml(c.ltv||'—')}</td>
-    <td><span style="font-weight:700;color:${healthColor(c.health||0)}">${c.health||0}</span></td>
+    <td><span class="gx-health ${(c.health||0)>=70?'ok':(c.health||0)>=50?'warn':'bad'}">${c.health||0}</span></td>
     <td><div class="td-actions">
-      <button class="btn btn-ghost btn-sm" title="Ver detalhes" onclick='openDetail("${c.id}")'>Ver</button>
-      ${can('clientes','edit')?`<button class="btn btn-ghost btn-sm" title="Editar" onclick='openModal("cliente","${c.id}")'>Editar</button>`:''}
-      ${can('clientes','delete')?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" title="Excluir" onclick='confirmDelete(()=>{DB.remove("clientes","${c.id}");renderClientes();renderInicio();toast("Removido","#EF4444")})'>Excluir</button>`:''}
+      <button class="btn btn-ghost btn-sm btn-icon" title="Ver detalhes" onclick='openDetail("${c.id}")'>${gxIc('ver')}</button>
+      ${can('clientes','edit')?`<button class="btn btn-ghost btn-sm btn-icon" title="Editar" onclick='openModal("cliente","${c.id}")'>${gxIc('edit')}</button>`:''}
+      ${can('clientes','delete')?`<button class="btn btn-ghost btn-sm btn-icon gx-del" title="Excluir" onclick='confirmDelete(()=>{DB.remove("clientes","${c.id}");renderClientes();renderInicio();toast("Removido","#EF4444")})'>${gxIc('del')}</button>`:''}
     </div></td>
-    <td>${c.status==='Aguardando'?`<button class="btn btn-primary btn-sm" style="white-space:nowrap;font-size:11px" onclick='openModal("cliente","${c.id}")' title="Ative o cliente para enviá-lo ao Onboarding">✅ Ativar</button>`:''}${c.status==='Ativo'&&!onb?`<button class="btn btn-ghost btn-sm" style="white-space:nowrap;font-size:11px" onclick='sendToOperacional("${c.id}")' title="Enviar para Onboarding">📤</button>`:''}</td>
+    <td>${c.status==='Aguardando'?`<button class="btn btn-primary btn-sm" style="white-space:nowrap;font-size:11px" onclick='openModal("cliente","${c.id}")' title="Ative o cliente para enviá-lo ao Onboarding">✅ Ativar</button>`:''}${c.status==='Ativo'&&!onb?`<button class="btn btn-ghost btn-sm" style="white-space:nowrap;font-size:11px" onclick='sendToOperacional("${c.id}")' title="Enviar para Onboarding">${gxIc('send')}<span>Onboarding</span></button>`:''}</td>
   </tr>`;
 }
 function cliListaHtml(data){
@@ -9758,11 +9759,26 @@ function cliDrop(e,novoStatus){
     renderClientes();renderInicio();
   }catch(err){try{toast('Não foi possível mover o cliente','#EF4444')}catch(x){}}
 }
+function gxCliResumoHtml(){
+  const all=(DB.get('clientes')||[]).filter(Boolean);
+  const at=all.filter(c=>c.status==='Ativo');
+  const risco=at.filter(c=>(c.health||0)<50).length;
+  const ltv=at.reduce((a,c)=>a+((typeof gxParseBRL==='function'?gxParseBRL(c.ltv):parseFloat(String(c.ltv||'').replace(/[^\d,]/g,'').replace(',','.')))||0),0);
+  const hm=at.length?Math.round(at.reduce((a,c)=>a+(c.health||0),0)/at.length):0;
+  const ic=p=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+  return `<div class="gx-kpis">
+    <div class="gx-kpi hero"><div class="gx-kpi-l">${ic('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>')}Clientes ativos</div><div class="gx-kpi-v">${at.length}</div><div class="gx-kpi-s">de ${all.length} na base</div></div>
+    <div class="gx-kpi"><div class="gx-kpi-l">${ic('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>')}LTV dos ativos</div><div class="gx-kpi-v">${fmtBRL(ltv)}</div><div class="gx-kpi-s">Soma do LTV cadastrado</div></div>
+    <div class="gx-kpi"><div class="gx-kpi-l">${ic('<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>')}Health score médio</div><div class="gx-kpi-v">${hm}</div><div class="gx-kpi-s"><span class="gx-pill ${hm>=70?'ok':hm>=50?'warn':'bad'}">${hm>=70?'Saudável':hm>=50?'Atenção':'Crítico'}</span>clientes ativos</div></div>
+    <div class="gx-kpi"><div class="gx-kpi-l">${ic('<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>')}Em risco de churn</div><div class="gx-kpi-v"${risco?' style="color:#DC2626"':''}>${risco}</div><div class="gx-kpi-s">Ativos com health abaixo de 50</div></div>
+  </div>`;
+}
 function renderClientes(){
   const q=(document.getElementById('cli-search')?.value||'').toLowerCase();
   let data=(DB.get('clientes')||[]).filter(c=>c);
   if(q)data=data.filter(c=>String(c.nome||'').toLowerCase().includes(q)||String(c.email||'').toLowerCase().includes(q)||String(c.telefone||'').toLowerCase().includes(q));
   data=ordenaClientesPorValor(data);
+  try{const rs=document.getElementById('cli-resumo');if(rs)rs.innerHTML=gxCliResumoHtml()}catch(e){}
   // abas de filtro com contagem
   const tabs=document.getElementById('cli-tabs');
   if(tabs){
@@ -9772,7 +9788,7 @@ function renderClientes(){
   }
   const view=cliView();
   const tg=document.getElementById('cli-viewtoggle');
-  if(tg)tg.innerHTML=`<button class="btn btn-sm ${view==='lista'?'btn-primary':'btn-ghost'}" onclick="setCliView('lista')">📋 Lista</button><button class="btn btn-sm ${view==='quadro'?'btn-primary':'btn-ghost'}" onclick="setCliView('quadro')">🗂 Quadro</button>${(()=>{let o=null;try{o=localStorage.getItem('gxCliOrder')}catch(e){}return o?`<button class="btn btn-ghost btn-sm" onclick="cliResetOrder()" title="Voltar à ordem padrão das listas">↺ Ordem padrão</button>`:''})()}`;
+  if(tg)tg.innerHTML=`<button class="btn btn-sm ${view==='lista'?'btn-primary':'btn-ghost'}" onclick="setCliView('lista')">Lista</button><button class="btn btn-sm ${view==='quadro'?'btn-primary':'btn-ghost'}" onclick="setCliView('quadro')">Quadro</button>${(()=>{let o=null;try{o=localStorage.getItem('gxCliOrder')}catch(e){}return o?`<button class="btn btn-ghost btn-sm" onclick="cliResetOrder()" title="Voltar à ordem padrão das listas">↺ Ordem padrão</button>`:''})()}`;
   if(cliFilter!=='todos')data=data.filter(c=>cliGroupOf(c)===cliFilter);
   const sub=document.getElementById('cli-sub');if(sub)sub.textContent=data.length+' cliente(s)';
   const box=document.getElementById('cli-view');if(!box)return;
@@ -11279,6 +11295,7 @@ const _GX_IC={
  prev:'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
  ver:'<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',
  edit:'<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
+ send:'<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
  del:'<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'
 };
 function gxIc(n){return `<svg class="pc-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${_GX_IC[n]||''}</svg>`}
@@ -27156,6 +27173,55 @@ html body .deal-val-big{font-size:28px;letter-spacing:-.02em}
   html body .deal-sidebar{width:auto!important;min-width:0!important;border-left:0!important;border-top:1px solid var(--g-line,var(--border));overflow:visible!important;padding:16px 14px}
   html body .act-tabs,html body .deal-main>div:first-child{flex-wrap:wrap}
 }
+</style>
+<style id="gx-cli-forms-v2">
+/* ═══ CLIENTES + FORMULÁRIOS v2 (29/10/2026). Só aparência. ═══ */
+html body #page-clientes .filters{background:var(--g-card,var(--card));border:1px solid var(--g-line,var(--border));border-radius:14px;padding:12px 14px;margin-bottom:14px;gap:10px!important}
+html body .filter-tabs{align-items:center;padding:3px;border-radius:10px;border:1px solid var(--g-line,var(--border));background:var(--g-soft,#F7F6FB);flex-wrap:wrap;min-height:38px}
+html body .ftab{height:30px;border-radius:7px;font-size:13px;font-weight:600;padding:0 11px}
+html body .ftab.active{background:var(--g-card,#fff);color:#6D28D9;box-shadow:0 1px 3px rgba(26,26,46,.14)}
+html[data-theme="dark"] body .ftab.active{color:#C4B5FD}
+html body .search-inline{height:38px;border-radius:10px;font-size:13px;padding:0 12px}
+html body #page-clientes .search-inline{flex:1 1 200px;max-width:320px}
+html body #cli-viewtoggle{display:inline-flex!important;gap:2px!important;padding:3px;border-radius:10px;border:1px solid var(--g-line,var(--border));background:var(--g-soft,#F7F6FB)}
+html body #cli-viewtoggle .btn{height:30px;border:0!important;border-radius:7px!important;background:none!important;color:var(--g-mu,var(--muted))!important;font-size:13px;font-weight:600;box-shadow:none!important}
+html body #cli-viewtoggle .btn.btn-primary{background:var(--g-card,#fff)!important;color:#6D28D9!important;box-shadow:0 1px 3px rgba(26,26,46,.14)!important}
+.gx-av{width:34px;height:34px;border-radius:50%;background:rgba(139,92,246,.15);color:#6D28D9;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+html[data-theme="dark"] .gx-av{color:#C4B5FD}
+.gx-cli-n{font-weight:700;font-size:13.5px;cursor:pointer}
+.gx-cli-n:hover{color:#6D28D9}
+.gx-health{display:inline-block;min-width:38px;text-align:center;font-size:12.5px;font-weight:800;padding:3px 9px;border-radius:999px;font-variant-numeric:tabular-nums}
+.gx-health.ok{background:rgba(16,185,129,.14);color:#059669}.gx-health.warn{background:rgba(245,158,11,.16);color:#B45309}.gx-health.bad{background:rgba(239,68,68,.12);color:#DC2626}
+html body .td-actions{gap:4px}
+html body .td-actions .btn-icon{width:32px;height:32px;padding:0;display:inline-grid;place-items:center;border-radius:8px;color:var(--g-mu,var(--muted))}
+html body .td-actions .btn-icon svg{width:16px;height:16px}
+html body .td-actions .btn-icon:hover{color:#6D28D9;background:rgba(139,92,246,.1)}
+html body .td-actions .gx-del:hover{color:#DC2626;background:rgba(239,68,68,.1)}
+html body #page-clientes td .btn[title="Enviar para Onboarding"]{display:inline-flex;align-items:center;gap:6px;height:32px;border-radius:8px;font-size:12.5px!important;font-weight:600}
+html body #page-clientes td .btn[title="Enviar para Onboarding"] svg{width:15px;height:15px}
+html body #page-clientes td .btn[title="Enviar para Onboarding"]{width:32px;padding:0!important;justify-content:center}
+html body #page-clientes td .btn[title="Enviar para Onboarding"] span{display:none}
+html body select.form-input[multiple]{min-height:86px;padding:6px 8px}
+html body #page-clientes table th{font-size:11.5px;letter-spacing:.06em}
+.gx-ibtn{display:inline-flex!important;align-items:center;gap:6px}
+.gx-ibtn svg{width:15px;height:15px}
+/* janela de detalhes */
+html body #detail-ov .modal{border-radius:18px;max-width:640px}
+html body #detail-title{font-size:18px;font-weight:800}
+html body .tab-nav{gap:4px;border-bottom:1px solid var(--g-line,var(--border));margin-bottom:16px}
+html body .tab-btn{display:inline-flex;align-items:center;gap:7px;padding:10px 14px;font-size:13px;font-weight:600;background:none!important;border-radius:0!important;color:var(--g-mu,var(--muted))!important;border-bottom:2px solid transparent!important}
+html body .tab-btn.active{color:#6D28D9!important;border-bottom-color:#7C3AED!important}
+html[data-theme="dark"] body .tab-btn.active{color:#C4B5FD!important}
+html body .tab-btn .dl-ic{width:15px;height:15px}
+/* formulários e janelas (todas as telas) */
+html body .modal{border-radius:18px}
+html body .modal-title{font-size:17px;font-weight:800;letter-spacing:-.01em}
+html body .form-label{font-size:12.5px;font-weight:600;color:var(--g-mu,var(--muted));margin-bottom:6px}
+html body .form-input{border-width:1px;border-radius:10px;font-size:13.5px;padding:10px 12px}
+html body input.form-input,html body select.form-input:not([multiple]){min-height:40px}
+html body .form-input:focus{border-color:#8B5CF6!important;box-shadow:0 0 0 3px rgba(139,92,246,.15)!important;outline:none}
+html body .modal-footer .btn{height:38px;border-radius:10px;font-weight:600}
+@media(max-width:700px){html body #page-clientes .search-inline{max-width:none}}
 </style>
 </body>
 </html>
