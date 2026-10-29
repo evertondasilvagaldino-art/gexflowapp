@@ -2325,7 +2325,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
   </div>
   <div class="sb-bottom">
     <button id="sb-collapse-btn" type="button" onclick="gxToggleSidebar()" title="Recolher / abrir menu"><span class="sbc-close">‹ Recolher menu</span><span class="sbc-open">›</span></button>
-    <button id="sb-partner-tutorial-row" onclick="gxShowPartnerWelcome()" style="display:none;width:100%;align-items:center;gap:8px;justify-content:center;cursor:pointer;background:rgba(139,92,246,.18);border:1px solid rgba(139,92,246,.45);color:#fff;border-radius:9px;padding:9px 10px;margin-bottom:8px;font-size:13.5px;font-weight:700;font-family:inherit">🎓 Como usar o sistema</button>
+    <button id="sb-partner-tutorial-row" onclick="gxShowPartnerWelcome()" style="display:none;width:100%;align-items:center;gap:8px;justify-content:center;cursor:pointer;background:rgba(139,92,246,.18);border:1px solid rgba(139,92,246,.45);color:#fff;border-radius:9px;padding:9px 10px;margin-bottom:8px;font-size:13.5px;font-weight:700;font-family:inherit">Como usar o sistema</button>
     <div class="sb-row"><span class="sb-lbl" style="cursor:pointer">Suporte</span><span style="font-size:9px;color:rgba(255,255,255,.2)">v3.1 Connect</span></div>
   </div>
 </aside>
@@ -2379,7 +2379,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
     </div>
     <!-- Filtro de período -->
     <div class="dash-filter-bar" id="dash-filter-bar">
-      <span class="dash-filter-label">📅 Período</span>
+      <span class="dash-filter-label">Período</span>
       <select class="dash-filter-sel" id="dash-mes" onchange="setDashFilter()">
         <option value="0">Todos os meses</option>
         <option value="1">Janeiro</option><option value="2">Fevereiro</option>
@@ -2493,7 +2493,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
         <div class="gx-menu gx-right">
           <button class="btn btn-ghost" onclick="gxMenuToggle(this,event)" title="Produtos, etapas, exportar e importar">⋯ Mais</button>
           <div class="gx-menu-list">
-            <button class="gx-mi" onclick="openProdutosModal()">📦 Produtos</button>
+            <button class="gx-mi" onclick="openProdutosModal()">Produtos</button>
             <button class="gx-mi" onclick="openStagesModal()">☰ Etapas</button>
             <button class="gx-mi" onclick="gxExportLeadsXLSX()"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Exportar</button>
             <button class="gx-mi" onclick="openImportLeadsModal()"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Importar</button>
@@ -2547,9 +2547,9 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
         </div>
         <div class="gx-psearch"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="pipe-search" type="search" placeholder="Buscar lead pelo nome, telefone, e-mail…" oninput="setPipelineSearch(this.value)" autocomplete="off"></div>
         <div class="gx-pviews">
-          <button class="btn btn-ghost btn-sm" id="pipe-view-kanban" onclick="setPipelineView('kanban')">🗂 Kanban</button>
+          <button class="btn btn-ghost btn-sm" id="pipe-view-kanban" onclick="setPipelineView('kanban')">Kanban</button>
           <button class="btn btn-ghost btn-sm" id="pipe-view-lista" onclick="setPipelineView('lista')">Lista</button>
-          <button class="btn btn-ghost btn-sm" id="gx-cards-btn" onclick="gxCardsOpen()" title="Escolher o que aparece nos cards">⚙ Cards</button>
+          <button class="btn btn-ghost btn-sm" id="gx-cards-btn" onclick="gxCardsOpen()" title="Escolher o que aparece nos cards">Cards</button>
         </div>
       </div>
       </div>
@@ -2570,7 +2570,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
     <div id="com-tab-relatorio" style="display:none">
       <!-- Filtros -->
       <div class="rel-filter-bar">
-        <span class="rel-filter-lbl">⚙️ Filtros</span>
+        <span class="rel-filter-lbl">Filtros</span>
         <select id="rel-periodo" class="rel-sel" onchange="renderRelatorioComercial()">
           <option value="hoje">Hoje</option><option value="ontem">Ontem</option><option value="7dias">Últimos 7 dias</option>
           <option value="30dias">Últimos 30 dias</option><option value="mes" selected>Este mês</option><option value="mespassado">Mês passado</option>
@@ -2616,7 +2616,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
     </div>
     <div class="fin-summary" id="fin-sum"></div>
     <div class="card">
-      <div class="sec-hdr"><div class="sec-ico">📊</div><div style="flex:1"><div class="sec-title">Transações</div></div>
+      <div class="sec-hdr"><div class="sec-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><div style="flex:1"><div class="sec-title">Transações</div></div>
         <button class="btn btn-ghost btn-sm" onclick="gxExportFinancasXLSX()"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Exportar Excel</button>
       </div>
       <div class="rel-filter-bar" id="fin-filter-bar">
@@ -2650,7 +2650,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
     <div class="page-header">
       <div><div class="page-title">Recursos Humanos</div><div class="page-sub">Gerencie squads e membros da sua equipe</div></div>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost" onclick="openSquadMgr()">🏷️ Gerenciar Squads</button>
+        <button class="btn btn-ghost" onclick="openSquadMgr()">Gerenciar Squads</button>
         <button class="btn btn-primary" onclick="openModal('membro')">+ Novo Membro</button>
       </div>
     </div>
@@ -2664,7 +2664,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
   <div class="overlay" id="squad-mgr-ov" onclick="if(event.target===this)closeSquadMgr()">
     <div class="modal" onclick="event.stopPropagation()">
       <div class="modal-header">
-        <div class="modal-title">🏷️ Gerenciar Squads</div>
+        <div class="modal-title">Gerenciar Squads</div>
         <button class="modal-close" onclick="closeSquadMgr()">✕</button>
       </div>
       <div class="modal-body">
@@ -2720,7 +2720,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
 <!-- COMENTÁRIOS DO PROJETO -->
 <div class="overlay" id="proj-com-ov" onclick="if(event.target===this)closeProjComments()">
   <div class="modal" style="width:460px;max-width:95vw">
-    <div class="modal-header"><div class="modal-title" id="proj-com-title">💬 Comentários</div><button class="modal-close" onclick="closeProjComments()">✕</button></div>
+    <div class="modal-header"><div class="modal-title" id="proj-com-title">Comentários</div><button class="modal-close" onclick="closeProjComments()">✕</button></div>
     <div class="modal-body" id="proj-com-body" style="max-height:50vh;overflow-y:auto"></div>
     <div class="modal-footer" style="flex-direction:column;align-items:stretch;gap:8px">
       <textarea class="form-input" id="proj-com-input" rows="2" placeholder="Escreva um comentário..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();addProjComment()}"></textarea>
@@ -2752,7 +2752,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
 <!-- WEBHOOK MODAL -->
 <div class="overlay" id="wh-ov" onclick="if(event.target===this)document.getElementById('wh-ov').classList.remove('open')">
   <div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-header"><div class="modal-title">🔗 Webhook / API</div><button class="modal-close" onclick="document.getElementById('wh-ov').classList.remove('open')">✕</button></div>
+    <div class="modal-header"><div class="modal-title">Webhook / API</div><button class="modal-close" onclick="document.getElementById('wh-ov').classList.remove('open')">✕</button></div>
     <div class="modal-body">
       <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Configuração salva no servidor (não fica só neste navegador) — toda a equipe vê a mesma conexão. O envio passa por uma função segura, então dá pra saber de verdade se o destino recebeu ou recusou.</div>
       <div class="form-group">
@@ -2778,13 +2778,13 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
       <div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:16px">
         <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Exportar tudo agora</div>
         <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Envia, de uma vez, todos os clientes, leads e projetos atuais pra URL configurada acima (evento <code>export.completo</code>) — útil pra popular um sistema externo pela primeira vez.</div>
-        <button class="btn btn-ghost" id="wh-export-btn" onclick="exportAllDataWebhook()">📤 Exportar tudo agora</button>
+        <button class="btn btn-ghost" id="wh-export-btn" onclick="exportAllDataWebhook()">Exportar tudo agora</button>
       </div>
       <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Log de envios recentes</div>
       <div class="wh-log" id="wh-log"><div style="color:var(--light);font-size:12px;text-align:center;padding:16px">Nenhum evento enviado ainda</div></div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="testWebhook()">🧪 Testar webhook</button>
+      <button class="btn btn-ghost" onclick="testWebhook()">Testar webhook</button>
       <button class="btn btn-primary" onclick="saveWebhook()">Salvar</button>
     </div>
   </div>
@@ -2794,7 +2794,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
 <div class="overlay" id="stages-ov" onclick="if(event.target===this)closeStagesModal()">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header">
-      <div class="modal-title">⚙️ Gerenciar Etapas do Pipeline</div>
+      <div class="modal-title">Gerenciar Etapas do Pipeline</div>
       <button class="modal-close" onclick="closeStagesModal()">✕</button>
     </div>
     <div class="modal-body">
@@ -2833,7 +2833,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
   <div class="fm-box" onclick="event.stopPropagation()">
     <div class="fm-header">
       <div>
-        <div class="fm-title">📦 Funis Arquivados</div>
+        <div class="fm-title">Funis Arquivados</div>
         <div style="font-size:11px;color:var(--muted);margin-top:3px">Restaure ou exclua definitivamente funis que foram arquivados.</div>
       </div>
       <button class="modal-close" onclick="closeArchivedFunnelsModal()">✕</button>
@@ -2849,7 +2849,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
 <div class="overlay" id="produtos-ov" onclick="if(event.target===this)closeProdutosModal()">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header">
-      <div class="modal-title">📦 Gerenciar Produtos / Serviços</div>
+      <div class="modal-title">Gerenciar Produtos / Serviços</div>
       <button class="modal-close" onclick="closeProdutosModal()">✕</button>
     </div>
     <div class="modal-body">
@@ -5856,7 +5856,7 @@ function renderProjComments(){
   const p=DB.find(currentComentarioCollection,currentProjComentarioId);
   const coms=p?.comentarios||[];
   const body=document.getElementById('proj-com-body');
-  if(!coms.length){body.innerHTML=`<div class="empty"><div class="empty-ico">💬</div><div class="empty-txt">Nenhum comentário ainda</div></div>`;return}
+  if(!coms.length){body.innerHTML=`<div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></div><div class="empty-txt">Nenhum comentário ainda</div></div>`;return}
   body.innerHTML=coms.map(c=>`<div style="padding:10px 0;border-bottom:1px solid var(--border)">
     <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:4px"><b style="color:var(--txt)">${(c.autor||'Usuário').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}</b><span>${new Date(c.data).toLocaleString('pt-BR')}</span></div>
     <div style="font-size:13px">${(c.texto||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}</div>
@@ -6536,7 +6536,7 @@ function renderConfiguracoesHome(){
         <div class="cfg-title">Configurações</div>
         <div class="cfg-sub">Central administrativa do Gex Flow para integrações, API, pagamentos, usuários, empresa, segurança e preferências do sistema.</div>
       </div>
-      <div class="cfg-badge">⚡ Administração segura</div>
+      <div class="cfg-badge">Administração segura</div>
     </div>
     <div class="cfg-grid">
       ${allowed.map(t=>`
@@ -6557,7 +6557,7 @@ function renderConfiguracoesIntegracoes(){
         <div class="cfg-title">Configurações</div>
         <div class="cfg-sub">Integrações ficam centralizadas aqui, sem misturar API/Webhook, pagamentos e dados da empresa.</div>
       </div>
-      <div class="cfg-badge">🔌 Apps parceiros</div>
+      <div class="cfg-badge">Apps parceiros</div>
     </div>
     ${configTabbar('config-integracoes')}
     <div class="cfg-panel">
@@ -6569,12 +6569,12 @@ function renderConfiguracoesIntegracoes(){
         <button class="cfg-btn primary" onclick="navigate('integracoes')">Abrir central de integrações</button>
       </div>
       <div class="cfg-grid">
-        <div class="cfg-card"><div class="cfg-ico">📣</div><div class="cfg-card-title">Meta Ads</div><div class="cfg-card-desc">Conexão nativa ou configuração segura com parceiro.</div></div>
-        <div class="cfg-card"><div class="cfg-ico">🎯</div><div class="cfg-card-title">Google Ads</div><div class="cfg-card-desc">Campanhas, conversões e mídia paga.</div></div>
-        <div class="cfg-card"><div class="cfg-ico">📅</div><div class="cfg-card-title">Google Agenda</div><div class="cfg-card-desc">Reuniões, follow-ups e compromissos.</div></div>
-        <div class="cfg-card"><div class="cfg-ico">💬</div><div class="cfg-card-title">WhatsApp/SMS</div><div class="cfg-card-desc">Comunicação, lembretes e cobrança.</div></div>
-        <div class="cfg-card"><div class="cfg-ico">💳</div><div class="cfg-card-title">Stripe</div><div class="cfg-card-desc">Pagamentos e assinatura.</div></div>
-        <div class="cfg-card"><div class="cfg-ico">🧩</div><div class="cfg-card-title">Make</div><div class="cfg-card-desc">Automação externa quando necessário.</div></div>
+        <div class="cfg-card"><div class="cfg-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg></div><div class="cfg-card-title">Meta Ads</div><div class="cfg-card-desc">Conexão nativa ou configuração segura com parceiro.</div></div>
+        <div class="cfg-card"><div class="cfg-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div><div class="cfg-card-title">Google Ads</div><div class="cfg-card-desc">Campanhas, conversões e mídia paga.</div></div>
+        <div class="cfg-card"><div class="cfg-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><div class="cfg-card-title">Google Agenda</div><div class="cfg-card-desc">Reuniões, follow-ups e compromissos.</div></div>
+        <div class="cfg-card"><div class="cfg-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></div><div class="cfg-card-title">WhatsApp/SMS</div><div class="cfg-card-desc">Comunicação, lembretes e cobrança.</div></div>
+        <div class="cfg-card"><div class="cfg-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div><div class="cfg-card-title">Stripe</div><div class="cfg-card-desc">Pagamentos e assinatura.</div></div>
+        <div class="cfg-card"><div class="cfg-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.44 12.06a2.5 2.5 0 1 0-3.53-3.53L15 9.44V6a2 2 0 0 0-2-2H9.56l.91-.91A2.5 2.5 0 1 0 6.94.06L6 1v3H3a2 2 0 0 0-2 2v3.44l.91-.91a2.5 2.5 0 1 1 3.53 3.53L4.53 13H8v3a2 2 0 0 0 2 2h3.44l-.91.91a2.5 2.5 0 1 0 3.53 3.53L17 21.53V18h2a2 2 0 0 0 2-2v-3l-1.56.06z"/></svg></div><div class="cfg-card-title">Make</div><div class="cfg-card-desc">Automação externa quando necessário.</div></div>
       </div>
       <div class="cfg-note">As chaves sensíveis devem ficar no Supabase Secrets/Edge Functions. Não exponha service_role, tokens privados ou secrets no HTML.</div>
     </div>`;
@@ -6701,7 +6701,7 @@ function cfgWebhookPanelHtml(){
       <div class="cfg-copy-row" style="margin-top:8px"><code>${escHtml(url+'?key='+key)}</code><button class="cfg-btn primary" onclick="copyTextSafe('${escAttr(url+'?key='+key)}','URL com chave')">Copiar URL com chave</button></div>
       <div class="cfg-note"><b>Para Eduzz, Hotmart, Kiwify e similares</b> (que não deixam configurar header nem campo extra): cole a <b>URL com chave</b> acima no campo "URL para envio de dados". Quem tiver essa URL consegue enviar leads — se vazar, use "Gerar nova chave".</div>
       <div class="cfg-actions" style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <button class="cfg-btn" onclick="cfgWebhookRegenerate()">🔄 Gerar nova chave</button>
+        <button class="cfg-btn" onclick="cfgWebhookRegenerate()">Gerar nova chave</button>
         <label style="display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:#475569;margin-left:auto">
           <input type="checkbox" id="cfg-whk-active" ${k.active!==false?'checked':''} onchange="cfgWebhookToggleActive(this.checked)"> Webhook ativo
         </label>
@@ -6769,7 +6769,7 @@ function renderConfiguracoesPagamentos(){
           <div style="font-weight:700;font-size:15px">Assinantes Parceiros Gex</div>
           <div style="font-size:12px;color:var(--muted)">Parceiros Gex em teste grátis ou que já receberam um link de pagamento — ativo, aguardando, atrasado ou cancelado.</div>
         </div>
-        <button class="cfg-btn" onclick="loadAssinaturasClientes()">🔄 Atualizar</button>
+        <button class="cfg-btn" onclick="loadAssinaturasClientes()">Atualizar</button>
       </div>
       <div id="assinaturas-clientes-wrap" style="margin-top:14px">
         <div class="empty" style="padding:20px">Carregando…</div>
@@ -6782,7 +6782,7 @@ function renderConfiguracoesPagamentos(){
           <div style="font-weight:700;font-size:15px">Empresas clientes</div>
           <div style="font-size:12px;color:var(--muted)">Novas empresas que usam o GexFlow: teste grátis, assinatura e situação de cada uma.</div>
         </div>
-        <button class="cfg-btn" onclick="loadEmpresasClientes()">🔄 Atualizar</button>
+        <button class="cfg-btn" onclick="loadEmpresasClientes()">Atualizar</button>
       </div>
       <div id="empresas-clientes-wrap" style="margin-top:14px">
         <div class="empty" style="padding:20px">Carregando…</div>
@@ -7130,7 +7130,7 @@ function renderConfiguracoesPreferencias(){
       <div style="border-top:1px solid var(--border);margin-top:18px;padding-top:16px">
         <div style="font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">Notificações de lead, negócio e tarefa</div>
         <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Quando um lead novo chega no Pipeline, um negócio é marcado como Ganho, ou uma tarefa é concluída, todo usuário Ativo recebe um e-mail e (se o sininho 🔔 no topo estiver ligado) toca um som no navegador. O e-mail sai pela caixa do Gmail configurada nos Secrets do Supabase — sem isso configurado, só o som funciona.</div>
-        <button class="cfg-btn" onclick="testarNotificacoes()">🔔 Testar som e e-mail agora</button>
+        <button class="cfg-btn" onclick="testarNotificacoes()">Testar som e e-mail agora</button>
       </div>
     </div>`;
 }
@@ -7679,7 +7679,7 @@ function renderIntegrationLog(){
   if(!el)return;
   const logs=JSON.parse(localStorage.getItem('gx2_integrations_log')||'[]');
   if(!logs.length){
-    el.innerHTML=`<div class="int-empty"><div class="int-empty-ico">📡</div>Nenhum evento de integração ainda.</div>`;
+    el.innerHTML=`<div class="int-empty"><div class="int-empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/></svg></div>Nenhum evento de integração ainda.</div>`;
     return;
   }
   el.innerHTML=logs.map(l=>`<div class="int-log-row">
@@ -8107,7 +8107,7 @@ function formCliente(d,contexto='full'){
   </div>
   <div style="font-size:10.5px;color:var(--muted);margin:-6px 0 12px">A data de início é preenchida sozinha na 1ª vez que o cliente fica <b>Ativo</b>. A data de saída vale para “Pediu para sair” e “Inativo” — se ficar em branco, mantém a data já registrada ou usa a de hoje.</div>
   <div class="form-group"><label class="form-label">Descrição / Observações</label><textarea class="form-input" id="f-desc" rows="3">${d?.desc||''}</textarea></div>
-  ${(()=>{try{if(!d?.id||typeof can!=='function'||!can('contratos','view'))return '';}catch(e){return '';}return `<div class="form-group" style="margin-top:4px;padding-top:12px;border-top:1px dashed var(--border)"><button type="button" class="btn btn-ghost" onclick="enviarClienteParaContratos('${d.id}')">📄 Enviar para contratos</button><div style="font-size:10.5px;color:var(--muted);margin-top:5px">Cria um contrato com o MRR calculado (LTV ÷ período) como valor mensal, começando hoje e vencendo ao fim do período. O financeiro administra em Clientes → Contratos.</div></div>`})()}`;
+  ${(()=>{try{if(!d?.id||typeof can!=='function'||!can('contratos','view'))return '';}catch(e){return '';}return `<div class="form-group" style="margin-top:4px;padding-top:12px;border-top:1px dashed var(--border)"><button type="button" class="btn btn-ghost" onclick="enviarClienteParaContratos('${d.id}')">Enviar para contratos</button><div style="font-size:10.5px;color:var(--muted);margin-top:5px">Cria um contrato com o MRR calculado (LTV ÷ período) como valor mensal, começando hoje e vencendo ao fim do período. O financeiro administra em Clientes → Contratos.</div></div>`})()}`;
 }
 
 // Cria, em Contratos, um contrato já ligado a este cliente (o mesmo cadastro,
@@ -8175,7 +8175,7 @@ function formClienteCarteira(d){
     <input type="hidden" id="f-health" value="${d?.health||0}">
     <input type="hidden" id="f-desc" value="${esc(d?.desc)}">`;
   return `${cabecalho}${preservados}
-  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:10px">📊 Carteira — Squad de Tráfego</div>
+  <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:10px">Carteira — Squad de Tráfego</div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Status da conta</label>
       <select class="form-input" id="f-conta-status">${CONTA_STATUS_ORDEM.map(s=>`<option ${(d?.contaStatus||'Integração')===s?'selected':''}>${s}</option>`).join('')}</select></div>
@@ -8189,12 +8189,12 @@ function formClienteCarteira(d){
       <select class="form-input" id="f-conta-resp" multiple size="3">${DB.get('membros').map(m=>`<option value="${m.id}" ${(d?.contaResponsaveis||[]).includes(m.id)?'selected':''}>${m.nome}</option>`).join('')}</select></div>
   </div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">🔗 Drive</label><input class="form-input" id="f-link-drive" placeholder="https://drive.google.com/..." value="${d?.linkDrive||''}"></div>
-    <div class="form-group"><label class="form-label">🔗 Meta Ads</label><input class="form-input" id="f-link-meta" placeholder="https://adsmanager.facebook.com/..." value="${d?.linkMeta||''}"></div>
+    <div class="form-group"><label class="form-label">Drive</label><input class="form-input" id="f-link-drive" placeholder="https://drive.google.com/..." value="${d?.linkDrive||''}"></div>
+    <div class="form-group"><label class="form-label">Meta Ads</label><input class="form-input" id="f-link-meta" placeholder="https://adsmanager.facebook.com/..." value="${d?.linkMeta||''}"></div>
   </div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">🔗 Google Ads</label><input class="form-input" id="f-link-googleads" placeholder="https://ads.google.com/..." value="${d?.linkGoogleAds||''}"></div>
-    <div class="form-group"><label class="form-label">🔗 GMN (Google Meu Negócio)</label><input class="form-input" id="f-link-gmn" placeholder="https://share.google/..." value="${d?.linkGmn||''}"></div>
+    <div class="form-group"><label class="form-label">Google Ads</label><input class="form-input" id="f-link-googleads" placeholder="https://ads.google.com/..." value="${d?.linkGoogleAds||''}"></div>
+    <div class="form-group"><label class="form-label">GMN (Google Meu Negócio)</label><input class="form-input" id="f-link-gmn" placeholder="https://share.google/..." value="${d?.linkGmn||''}"></div>
   </div>`;
 }
 
@@ -8220,31 +8220,31 @@ function formProjeto(d){
       <select class="form-input" id="f-status">${STATUS_ENTREGA.map(s=>`<option ${statusAtual===s?'selected':''}>${s}</option>`).join('')}</select></div>
   </div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">📁 Squad</label>
+    <div class="form-group"><label class="form-label">Squad</label>
       <select class="form-input" id="f-squad"><option value="">— Baseado no cliente —</option>${squadOptsProjeto}</select>
       <div style="font-size:11px;color:var(--muted);margin-top:4px">Deixe em "Baseado no cliente" para herdar o squad do cliente selecionado, ou escolha um squad específico pra este projeto.</div></div>
   </div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">🎬 Formato</label>
+    <div class="form-group"><label class="form-label">Formato</label>
       <select class="form-input" id="f-formato"><option value="">— Selecionar —</option>${FORMATO_OPCOES.map(f=>`<option ${d?.formato===f?'selected':''}>${f}</option>`).join('')}</select></div>
-    <div class="form-group"><label class="form-label">🎯 Objetivo do post</label>
+    <div class="form-group"><label class="form-label">Objetivo do post</label>
       <select class="form-input" id="f-objetivo"><option value="">— Selecionar —</option>${OBJETIVO_OPCOES.map(o=>`<option ${d?.objetivoPost===o?'selected':''}>${o}</option>`).join('')}</select></div>
   </div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">📅 Data de veiculação</label><input class="form-input" id="f-data-veiculacao" type="date" value="${d?.dataVeiculacao||''}"></div>
-    <div class="form-group"><label class="form-label">📤 Data da postagem</label><input class="form-input" id="f-data-postagem" type="date" value="${d?.dataPostagem||''}"></div>
+    <div class="form-group"><label class="form-label">Data de veiculação</label><input class="form-input" id="f-data-veiculacao" type="date" value="${d?.dataVeiculacao||''}"></div>
+    <div class="form-group"><label class="form-label">Data da postagem</label><input class="form-input" id="f-data-postagem" type="date" value="${d?.dataPostagem||''}"></div>
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Prazo</label><input class="form-input" id="f-prazo" type="date" value="${d?.prazo||''}"></div>
-    <div class="form-group"><label class="form-label">🚩 Prioridade</label>
+    <div class="form-group"><label class="form-label">Prioridade</label>
       <select class="form-input" id="f-prioridade"><option ${(d?.prioridade||'Normal')==='Urgente'?'selected':''}>Urgente</option><option ${(d?.prioridade||'Normal')==='Alta'?'selected':''}>Alta</option><option ${(!d?.prioridade||d?.prioridade==='Normal')?'selected':''}>Normal</option></select></div>
   </div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">🤝 Nível de relacionamento</label>
+    <div class="form-group"><label class="form-label">Nível de relacionamento</label>
       <select class="form-input" id="f-score"><option value="0">— Não avaliado</option><option value="1" ${d?.score==1?'selected':''}>⭐ Ruim</option><option value="2" ${d?.score==2?'selected':''}>⭐⭐ Bom</option><option value="3" ${d?.score==3?'selected':''}>⭐⭐⭐ Ótimo</option><option value="4" ${d?.score==4?'selected':''}>⭐⭐⭐⭐ Excelente</option></select></div>
   </div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">📈 Nível de resultado</label>
+    <div class="form-group"><label class="form-label">Nível de resultado</label>
       <select class="form-input" id="f-resultado"><option value="0">— Não avaliado</option><option value="1" ${d?.resultado==1?'selected':''}>◆ Ruim</option><option value="2" ${d?.resultado==2?'selected':''}>◆◆ Bom</option><option value="3" ${d?.resultado==3?'selected':''}>◆◆◆ Ótimo</option><option value="4" ${d?.resultado==4?'selected':''}>◆◆◆◆ Excelente</option></select></div>
     <div style="display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:13px"><div style="font-size:11px;color:var(--muted)">★ = Relacionamento &nbsp;◆ = Resultado</div></div>
   </div>
@@ -8410,11 +8410,11 @@ function formUsuario(d){
     <div class="form-group"></div>
   </div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-status"><option ${(d?.status||(isNew&&!gxIsOtherWorkspace()?'Inativo':'Ativo'))==='Ativo'?'selected':''}>Ativo</option><option ${(d?.status||(isNew&&!gxIsOtherWorkspace()?'Inativo':'Ativo'))==='Inativo'?'selected':''}>Inativo</option></select>${isNew&&!gxIsOtherWorkspace()?'<div style="font-size:11px;color:var(--muted);margin-top:5px">Novo usuário já entra Inativo — você ativa manualmente (grátis) ou gera o link de pagamento pra ele ativar sozinho ao pagar.</div>':''}<div id="f-status-billing-note" style="display:none;font-size:11px;color:#B45309;margin-top:5px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:6px 8px">⚠️ Este usuário tem assinatura Stripe vinculada — o campo foi bloqueado pra evitar que uma alteração manual aqui apague, sem querer, o que o pagamento já definiu. <a href="#" onclick="unlockManualStatus();return false" style="color:#B45309;text-decoration:underline;font-weight:700">Editar mesmo assim</a></div></div>
+    <div class="form-group"><label class="form-label">Status</label><select class="form-input" id="f-status"><option ${(d?.status||(isNew&&!gxIsOtherWorkspace()?'Inativo':'Ativo'))==='Ativo'?'selected':''}>Ativo</option><option ${(d?.status||(isNew&&!gxIsOtherWorkspace()?'Inativo':'Ativo'))==='Inativo'?'selected':''}>Inativo</option></select>${isNew&&!gxIsOtherWorkspace()?'<div style="font-size:11px;color:var(--muted);margin-top:5px">Novo usuário já entra Inativo — você ativa manualmente (grátis) ou gera o link de pagamento pra ele ativar sozinho ao pagar.</div>':''}<div id="f-status-billing-note" style="display:none;font-size:11px;color:#B45309;margin-top:5px;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:6px 8px">Este usuário tem assinatura Stripe vinculada — o campo foi bloqueado pra evitar que uma alteração manual aqui apague, sem querer, o que o pagamento já definiu. <a href="#" onclick="unlockManualStatus();return false" style="color:#B45309;text-decoration:underline;font-weight:700">Editar mesmo assim</a></div></div>
     <div class="form-group"><label class="form-label">Senha ${d?'(nova)':''}</label><div class="gx-pwd-wrap"><input class="form-input" id="f-senha" type="password" placeholder="••••••••" autocomplete="new-password"><button type="button" class="gx-pwd-eye" title="Mostrar senha" onclick="toggleGxPwdEye('f-senha',this)"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 10s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6z"/><circle cx="10" cy="10" r="2.6"/></svg></button></div>${newPwdHint}</div>
   </div>
   ${!isNew&&!gxIsOtherWorkspace()?`<div class="user-origin-info" style="margin-top:14px">
-    <div class="uo-ico">💳</div>
+    <div class="uo-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
     <div style="flex:1">
       <div class="uo-title">Cobrança — manter este usuário ativo</div>
       <div class="uo-sub" style="margin-bottom:10px">Gere um link de pagamento (assinatura recorrente) e mande pro cliente. Quando ele pagar, o acesso continua ativo automaticamente; se ele parar de pagar ou cancelar, o sistema desativa sozinho (mesmo efeito de "Status: Inativo").</div>
@@ -8892,7 +8892,7 @@ function formContrato(d){
   </div>
   <div class="tab-pane active" id="ct-pane-dados">${campos}</div>
   <div class="tab-pane" id="ct-pane-notas">${gxContrNotasHtml(d.id)}</div>
-  <div class="tab-pane" id="ct-pane-wpp"><div class="empty"><div class="empty-ico">💬</div><div class="empty-txt">Carregando conversa...</div></div></div>`;
+  <div class="tab-pane" id="ct-pane-wpp"><div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></div><div class="empty-txt">Carregando conversa...</div></div></div>`;
 }
 function gxContrTab(btn,pane,id){
   const root=document.getElementById('modal-body');if(!root)return;
@@ -8915,7 +8915,7 @@ function gxContrNotasHtml(id){
       <div class="fu-meta">${n.auto?'⚙️ Automático':'📝 Anotação'} · ${escHtml(fmt(n.at))}${n.by?' · '+escHtml(n.by):''}</div>
       <div class="fu-text">${escHtml(n.txt||'')}</div>
       ${n.auto?'':`<button type="button" style="background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;margin-top:4px" onclick="gxContrDelNota('${id}','${n.id}')">Excluir</button>`}
-    </div>`).join(''):'<div class="empty"><div class="empty-ico">📝</div><div class="empty-txt">Nenhuma anotação ainda</div></div>'}</div>`;
+    </div>`).join(''):'<div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div><div class="empty-txt">Nenhuma anotação ainda</div></div>'}</div>`;
 }
 function gxContrRefreshNotas(id){
   const el=document.getElementById('ct-pane-notas');if(el)el.innerHTML=gxContrNotasHtml(id);
@@ -8941,7 +8941,7 @@ async function gxContrWpp(id){
   const c=DB.find('contratos',id)||{};
   const cli=(DB.get('clientes')||[]).find(x=>x.id===c.clienteId)||{};
   const phone=(typeof dealNormalizePhone==='function')?dealNormalizePhone(cli.telefone||cli.whatsapp||''):String(cli.telefone||'').replace(/\D/g,'');
-  const vazio=t=>{box.innerHTML=`<div class="empty"><div class="empty-ico">💬</div><div class="empty-txt">${t}</div></div>`};
+  const vazio=t=>{box.innerHTML=`<div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></div><div class="empty-txt">${t}</div></div>`};
   if(!phone){vazio('O cliente deste contrato não tem telefone cadastrado');return}
   try{
     const token=await getGexSupabaseToken();
@@ -9001,7 +9001,7 @@ function renderDetailBody(){
     </div>
 
     <div class="tab-pane" id="tab-followup">
-      ${fus.length?fus.map(f=>`<div class="fu-entry"><div class="fu-meta">📅 ${f.data}</div><div class="fu-text">${f.nota}</div><button style="background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;margin-top:4px" onclick="deleteFollowup('${f.id}')">🗑 Remover</button></div>`).join(''):'<div class="empty"><div class="empty-ico">📝</div><div class="empty-txt">Sem histórico ainda</div></div>'}
+      ${fus.length?fus.map(f=>`<div class="fu-entry"><div class="fu-meta">${f.data}</div><div class="fu-text">${f.nota}</div><button style="background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;margin-top:4px" onclick="deleteFollowup('${f.id}')">Remover</button></div>`).join(''):'<div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div><div class="empty-txt">Sem histórico ainda</div></div>'}
       <div class="fu-add">
         <div class="form-label">Nova entrada</div>
         <textarea class="form-input" id="fu-text" rows="3" placeholder="Anotação sobre reunião, ligação, email..."></textarea>
@@ -9014,10 +9014,10 @@ function renderDetailBody(){
         <div class="task-check ${t.status==='Concluída'?'done':''}" onclick="toggleTask('${t.id}')">${t.status==='Concluída'?'✓':''}</div>
         <div class="task-txt">
           <div class="task-desc">${t.desc}</div>
-          <div class="task-date">📅 ${t.prazo||'Sem prazo'}</div>
+          <div class="task-date">${t.prazo||'Sem prazo'}</div>
         </div>
         <button style="background:none;border:none;color:var(--red);font-size:12px;cursor:pointer;margin-left:8px" onclick="deleteTask('${t.id}')">🗑</button>
-      </div>`).join('')||'<div class="empty"><div class="empty-ico">📅</div><div class="empty-txt">Sem tarefas agendadas</div></div>'}
+      </div>`).join('')||'<div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><div class="empty-txt">Sem tarefas agendadas</div></div>'}
       <div class="fu-add">
         <div class="form-label">Agendar nova tarefa</div>
         <div class="form-row">
@@ -9405,13 +9405,13 @@ function renderInicio(){
       </div>
       <div class="metric-card">
         <div class="metric-accent" style="background:#F59E0B"></div>
-        <div class="metric-label">💰 Investimento em Ads no período</div>
+        <div class="metric-label">Investimento em Ads no período</div>
         <div class="metric-value">${fmtBRL(adsSpend)}</div>
         <div class="metric-sub">${dashSel?'Total da empresa (não separa por funil/responsável)':`Categoria "Ads / Tráfego Pago" nas transações · ${filterLabel}`}</div>
       </div>
       <div class="metric-card">
         <div class="metric-accent" style="background:#10B981"></div>
-        <div class="metric-label">🎯 CAC — Custo por cliente</div>
+        <div class="metric-label">CAC — Custo por cliente</div>
         <div class="metric-value" style="color:${cac!==null&&cac>0?'var(--txt)':'var(--muted)'}">${cac!==null?fmtBRL(cac):'—'}</div>
         <div class="metric-sub">${dashSel?'CAC só no total geral (sem filtro de funil/responsável)':(cac!==null?`Ads ÷ ${novosClientes} cliente${novosClientes!==1?'s':''} ganho${novosClientes!==1?'s':''}`:'Registre Ads e leads ganhos para calcular')}</div>
       </div>`;
@@ -9685,7 +9685,7 @@ function cliRowHtml(c){
       ${can('clientes','edit')?`<button class="btn btn-ghost btn-sm btn-icon" title="Editar" onclick='openModal("cliente","${c.id}")'>${gxIc('edit')}</button>`:''}
       ${can('clientes','delete')?`<button class="btn btn-ghost btn-sm btn-icon gx-del" title="Excluir" onclick='confirmDelete(()=>{DB.remove("clientes","${c.id}");renderClientes();renderInicio();toast("Removido","#EF4444")})'>${gxIc('del')}</button>`:''}
     </div></td>
-    <td>${c.status==='Aguardando'?`<button class="btn btn-primary btn-sm" style="white-space:nowrap;font-size:11px" onclick='openModal("cliente","${c.id}")' title="Ative o cliente para enviá-lo ao Onboarding">✅ Ativar</button>`:''}${c.status==='Ativo'&&!onb?`<button class="btn btn-ghost btn-sm" style="white-space:nowrap;font-size:11px" onclick='sendToOperacional("${c.id}")' title="Enviar para Onboarding">${gxIc('send')}<span>Onboarding</span></button>`:''}</td>
+    <td>${c.status==='Aguardando'?`<button class="btn btn-primary btn-sm" style="white-space:nowrap;font-size:11px" onclick='openModal("cliente","${c.id}")' title="Ative o cliente para enviá-lo ao Onboarding">Ativar</button>`:''}${c.status==='Ativo'&&!onb?`<button class="btn btn-ghost btn-sm" style="white-space:nowrap;font-size:11px" onclick='sendToOperacional("${c.id}")' title="Enviar para Onboarding">${gxIc('send')}<span>Onboarding</span></button>`:''}</td>
   </tr>`;
 }
 function cliListaHtml(data){
@@ -9730,7 +9730,7 @@ function cliQuadroHtml(data){
         <div class="card" ${canEdit?`draggable="true" ondragstart="event.dataTransfer.setData('text/plain','${c.id}')"`:''} onclick='openDetail("${c.id}")' style="padding:10px 12px;cursor:pointer">
           <div style="display:flex;align-items:center;gap:8px"><div style="width:26px;height:26px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials(c.nome)}</div><div style="font-weight:600;font-size:13px;line-height:1.25">${escHtml(c.nome||'')}</div></div>
           <div style="font-size:11px;color:var(--muted);margin-top:6px">${escHtml(c.telefone||c.email||'—')}</div>
-          <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11.5px"><span style="font-weight:600;color:var(--green)">${escHtml(c.ltv||'—')}</span><span style="font-weight:700;color:${healthColor(c.health||0)}">♥ ${c.health||0}</span></div>
+          <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11.5px"><span style="font-weight:600;color:var(--green)">${escHtml(c.ltv||'—')}</span><span style="font-weight:700;color:${healthColor(c.health||0)}">${c.health||0}</span></div>
         </div>`).join('')}${items.length?'':'<div style="font-size:11px;color:var(--muted);text-align:center;padding:10px">Vazio</div>'}</div>
     </div>`}).join('')}</div>`;
 }
@@ -9792,7 +9792,7 @@ function renderClientes(){
   if(cliFilter!=='todos')data=data.filter(c=>cliGroupOf(c)===cliFilter);
   const sub=document.getElementById('cli-sub');if(sub)sub.textContent=data.length+' cliente(s)';
   const box=document.getElementById('cli-view');if(!box)return;
-  if(!data.length&&view==='lista'){box.innerHTML=`<div class="card"><div class="empty"><div class="empty-ico">👥</div><div class="empty-txt">Nenhum cliente</div></div></div>`;return}
+  if(!data.length&&view==='lista'){box.innerHTML=`<div class="card"><div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="empty-txt">Nenhum cliente</div></div></div>`;return}
   box.innerHTML=view==='quadro'?cliQuadroHtml(data):cliListaHtml(data);
 }
 
@@ -10911,7 +10911,7 @@ function renderSalesTeamHome(){
   sec.innerHTML=`<div class="sales-team-card">
     <div class="sales-team-head">
       <div>
-        <div class="sales-team-title">🏆 ${title}</div>
+        <div class="sales-team-title">${title}</div>
         <div class="sales-team-sub">${salesPeriodLabel(period)} · ${isSalesManagerView()?'visão de equipe para Fundador/Gerência':'visão individual do vendedor'}</div>
       </div>
       <div class="sales-team-actions">
@@ -10967,7 +10967,7 @@ function renderTopProdutosHome(){
   sec.innerHTML=`<div class="sales-team-card">
     <div class="sales-team-head">
       <div>
-        <div class="sales-team-title">📦 Produtos mais vendidos</div>
+        <div class="sales-team-title">Produtos mais vendidos</div>
         <div class="sales-team-sub">${salesPeriodLabel(period)} · negócios ganhos por produto/serviço</div>
       </div>
     </div>
@@ -10993,7 +10993,7 @@ function renderSalesTeamDashboard(){
   const el=document.getElementById('sales-team-dashboard');
   if(!el)return;
   if(!can('comercial','view')){
-    el.innerHTML=`<div class="access-denied"><div class="access-denied-icon">🔒</div><div class="access-denied-title">Sem acesso ao Comercial</div><div class="access-denied-sub">Você não tem permissão para visualizar performance comercial.</div></div>`;
+    el.innerHTML=`<div class="access-denied"><div class="access-denied-icon"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div><div class="access-denied-title">Sem acesso ao Comercial</div><div class="access-denied-sub">Você não tem permissão para visualizar performance comercial.</div></div>`;
     return;
   }
   const period=document.getElementById('sales-team-period')?.value||'mes';
@@ -11010,7 +11010,7 @@ function renderSalesTeamDashboard(){
     </div>
   </div>
   <div class="sales-filter-bar">
-    <span class="rel-filter-lbl">📅 Período</span>
+    <span class="rel-filter-lbl">Período</span>
     <select id="sales-team-period" class="rel-sel" onchange="renderSalesTeamDashboard()">
       ${gxPeriodOptionsHtml(period)}
     </select>
@@ -11086,6 +11086,7 @@ function gxEmojiIco(e){
    '🔐':'<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
    '⚙️':'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>'
   };
+  Object.assign(P,{"💬": "<path d=\"M7.9 20A9 9 0 1 0 4 16.1L2 22Z\"/>", "✉️": "<rect x=\"2\" y=\"4\" width=\"20\" height=\"16\" rx=\"2\"/><path d=\"m22 7-10 6L2 7\"/>", "📩": "<rect x=\"2\" y=\"4\" width=\"20\" height=\"16\" rx=\"2\"/><path d=\"m22 7-10 6L2 7\"/>", "📧": "<rect x=\"2\" y=\"4\" width=\"20\" height=\"16\" rx=\"2\"/><path d=\"m22 7-10 6L2 7\"/>", "🆕": "<path d=\"m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z\"/>", "🚦": "<rect x=\"7\" y=\"2\" width=\"10\" height=\"20\" rx=\"3\"/><circle cx=\"12\" cy=\"7\" r=\"1.5\"/><circle cx=\"12\" cy=\"12\" r=\"1.5\"/><circle cx=\"12\" cy=\"17\" r=\"1.5\"/>", "🏷️": "<path d=\"M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z\"/><line x1=\"7\" y1=\"7\" x2=\"7.01\" y2=\"7\"/>", "🔔": "<path d=\"M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9\"/><path d=\"M10.3 21a1.94 1.94 0 0 0 3.4 0\"/>", "📋": "<rect x=\"8\" y=\"2\" width=\"8\" height=\"4\" rx=\"1\"/><path d=\"M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2\"/>", "📝": "<path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><polyline points=\"14 2 14 8 20 8\"/><line x1=\"16\" y1=\"13\" x2=\"8\" y2=\"13\"/><line x1=\"16\" y1=\"17\" x2=\"8\" y2=\"17\"/>", "📊": "<line x1=\"18\" y1=\"20\" x2=\"18\" y2=\"10\"/><line x1=\"12\" y1=\"20\" x2=\"12\" y2=\"4\"/><line x1=\"6\" y1=\"20\" x2=\"6\" y2=\"14\"/>", "💰": "<line x1=\"12\" y1=\"1\" x2=\"12\" y2=\"23\"/><path d=\"M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6\"/>", "💼": "<rect x=\"2\" y=\"7\" width=\"20\" height=\"14\" rx=\"2\"/><path d=\"M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16\"/>", "📌": "<line x1=\"12\" y1=\"17\" x2=\"12\" y2=\"22\"/><path d=\"M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z\"/>", "🗓️": "<rect x=\"3\" y=\"4\" width=\"18\" height=\"18\" rx=\"2\"/><line x1=\"16\" y1=\"2\" x2=\"16\" y2=\"6\"/><line x1=\"8\" y1=\"2\" x2=\"8\" y2=\"6\"/><line x1=\"3\" y1=\"10\" x2=\"21\" y2=\"10\"/>", "📞": "<path d=\"M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z\"/>", "✅": "<path d=\"M22 11.08V12a10 10 0 1 1-5.93-9.14\"/><polyline points=\"22 4 12 14.01 9 11.01\"/>", "📁": "<path d=\"M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z\"/>", "⚡": "<polygon points=\"13 2 3 14 12 14 11 22 21 10 12 10 13 2\"/>", "🎁": "<rect x=\"3\" y=\"8\" width=\"18\" height=\"4\" rx=\"1\"/><path d=\"M12 8v13\"/><path d=\"M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7\"/><path d=\"M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5\"/>", "🔌": "<path d=\"M12 22v-5\"/><path d=\"M9 8V2\"/><path d=\"M15 8V2\"/><path d=\"M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z\"/>", "🚀": "<path d=\"M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z\"/><path d=\"m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z\"/>", "🧲": "<path d=\"m6 15-4-4 6.75-6.77a7.79 7.79 0 0 1 11 11L13 22l-4-4 6.39-6.36a2.14 2.14 0 0 0-3-3L6 15\"/>", "🧾": "<path d=\"M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z\"/><path d=\"M16 8H8\"/><path d=\"M16 12H8\"/>"});
   const p=P[String(e||'').trim()];
   return p?`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`:(e||'');
 }
@@ -11441,7 +11442,7 @@ function renderComercial(){
 
   if(!stages.length){
     board.style.gridTemplateColumns='1fr';
-    board.innerHTML=`<div class="card card-pad empty"><div class="empty-ico">⚠️</div><div class="empty-txt">Nenhuma etapa encontrada</div><div>Edite ou recrie o funil comercial.</div></div>`;
+    board.innerHTML=`<div class="card card-pad empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="empty-txt">Nenhuma etapa encontrada</div><div>Edite ou recrie o funil comercial.</div></div>`;
     return;
   }
 
@@ -11541,7 +11542,7 @@ function renderPipelineListBody(leads,stages){
       <td>${l.dataInicio?new Date(l.dataInicio+'T00:00:00').toLocaleDateString('pt-BR'):'—'}</td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;gap:5px">
-          <button class="btn btn-ghost btn-sm btn-icon" title="Abrir detalhes" onclick="openDealDetail('${l.id}')">👁</button>
+          <button class="btn btn-ghost btn-sm btn-icon" title="Abrir detalhes" onclick="openDealDetail('${l.id}')"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></button>
           <button class="btn btn-ghost btn-sm btn-icon" onclick="openModal('lead','${l.id}')" title="Editar">${gxIc('edit')}</button>
           <button class="btn btn-ghost btn-sm btn-icon" onclick="confirmDelete(()=>{DB.remove('leads','${l.id}');renderComercial();toast('Removido','#EF4444')})">${gxIc('del')}</button>
         </div>
@@ -12186,7 +12187,7 @@ function renderRelatorioComercial(){
   if(gargaloEl){
     const _multi=funnelFilter==='todos'&&getReportFunnels().length>1;
     gargaloEl.innerHTML=(gargaloMsg&&!_multi)
-      ?`<div class="gargalo-box"><div class="gargalo-title">⚠️ Maior acúmulo no funil</div>${gargaloMsg}</div>`
+      ?`<div class="gargalo-box"><div class="gargalo-title">Maior acúmulo no funil</div>${gargaloMsg}</div>`
       :'';
   }
 
@@ -12374,7 +12375,7 @@ function renderEspelhoBanco(){
       ${stat('Atrasado',gxEspBRL(r.vencido),`${r.qtdVenc||0} vencida(s)`,'#DC2626',"gxEspAbrir('atrasadas')")}
     </div>
     ${(d.truncado||d.truncExtrato)?'<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Volume muito grande: alguns totais consideram só as primeiras 3.000 movimentações. Reduza o período para ver tudo.</div>':''}
-    <div class="card" style="margin-bottom:14px"><div class="sec-hdr"><div class="sec-ico">📈</div><div style="flex:1"><div class="sec-title">Entradas × saídas ${d.mensal?'por mês':'por dia'}</div></div><span style="font-size:11px;color:var(--muted)"><span style="color:#059669">■</span> Entradas &nbsp;<span style="color:#DC2626">■</span> Saídas</span></div><div style="padding:4px 14px 12px">${gxEspChart(d.serie,d.mensal)}</div></div>
+    <div class="card" style="margin-bottom:14px"><div class="sec-hdr"><div class="sec-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></div><div style="flex:1"><div class="sec-title">Entradas × saídas ${d.mensal?'por mês':'por dia'}</div></div><span style="font-size:11px;color:var(--muted)"><span style="color:#059669">■</span> Entradas &nbsp;<span style="color:#DC2626">■</span> Saídas</span></div><div style="padding:4px 14px 12px">${gxEspChart(d.serie,d.mensal)}</div></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;margin-bottom:14px">
       <div class="card"><div class="sec-hdr"><div class="sec-ico">⬆️</div><div style="flex:1"><div class="sec-title">De onde vem o dinheiro</div></div></div><div style="padding:6px 16px 8px">${gxEspBreak(d.categoriasEntrada,ent,'#059669')}</div></div>
       <div class="card"><div class="sec-hdr"><div class="sec-ico">⬇️</div><div style="flex:1"><div class="sec-title">Para onde vai o dinheiro</div></div></div><div style="padding:6px 16px 8px">${gxEspBreak(d.categoriasSaida,sai,'#DC2626')}</div></div>
@@ -12494,8 +12495,8 @@ function renderSquadMgrList(){
       <div style="width:12px;height:12px;border-radius:50%;background:${s.cor||'var(--muted)'};flex-shrink:0"></div>
       <input class="form-input" style="flex:1;padding:5px 10px;font-size:13px;font-weight:600" value="${s.nome}" onchange="updateSquadName('${s.id}',this.value)" id="sq-input-${s.id}">
       <select class="form-input" style="width:auto;padding:4px 8px;font-size:11px;flex-shrink:0" title="Tipo de tela em Projetos > Gestão de Entregas" onchange="updateSquadTipo('${s.id}',this.value)">
-        <option value="conteudo" ${(s.tipo||'conteudo')==='conteudo'?'selected':''}>📱 Conteúdo</option>
-        <option value="trafego" ${s.tipo==='trafego'?'selected':''}>📊 Tráfego</option>
+        <option value="conteudo" ${(s.tipo||'conteudo')==='conteudo'?'selected':''}>Conteúdo</option>
+        <option value="trafego" ${s.tipo==='trafego'?'selected':''}>Tráfego</option>
       </select>
       <span style="font-size:12px;color:var(--muted);flex-shrink:0">${mbs.filter(m=>m.squad===s.nome).length} membros</span>
       <div style="display:flex;gap:4px;flex-wrap:wrap;max-width:120px">
@@ -12758,7 +12759,7 @@ function renderUsuarios(opts={}){
       <td>${badge(u.status)}</td>
       <td><div class="td-actions">
         ${canEdit?`<button class="btn btn-ghost btn-sm" onclick='openModal("usuario","${u.id}")'>Editar</button>`:''}
-        ${uRole==='Gex Parceiro'?`<button class="btn btn-ghost btn-sm" style="color:var(--p2)" title="Copiar o link do Portal do Parceiro pra compartilhar com ${escAttr(u.nome||'')}" onclick="copiarLinkPortalParceiro()">🔗 Link</button>`:''}
+        ${uRole==='Gex Parceiro'?`<button class="btn btn-ghost btn-sm" style="color:var(--p2)" title="Copiar o link do Portal do Parceiro pra compartilhar com ${escAttr(u.nome||'')}" onclick="copiarLinkPortalParceiro()">Link</button>`:''}
         ${canDelete?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick='confirmDelete(()=>desativarUsuarioSeguro("${u.id}"))'>Desativar</button><button class="btn btn-ghost btn-sm" style="color:#991B1B" title="Apaga o login no Supabase e o cadastro — irreversível" onclick='excluirUsuarioPermanente("${u.id}")'>Excluir</button>`:''}
         ${!canEdit&&!canDelete&&uRole!=='Gex Parceiro'?`<span style="font-size:11px;color:var(--light)">—</span>`:''}
       </div></td>
@@ -13128,13 +13129,13 @@ function renderPerfil(){
     </div>
     ${(role==='Gex Parceiro'||(role==='Fundador'&&gxIsOtherWorkspace()))?`
     <div class="card card-pad" id="minha-assinatura-card" style="margin-top:14px;max-width:980px">
-      <div style="font-size:14px;font-weight:600;margin-bottom:4px">💳 Minha Assinatura</div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px">Minha Assinatura</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Veja sua data de vigência, cancele, reative ou contrate um plano — direto por aqui.</div>
       <div id="minha-assinatura-content">${_minhaAssinaturaCache?_minhaAssinaturaCache.html:'<div class="empty-txt" style="font-size:12px">Consultando...</div>'}</div>
     </div>`:''}
     ${role==='Gex Parceiro'?`
     <div class="card card-pad" id="minha-equipe-card" style="margin-top:14px;max-width:980px">
-      <div style="font-size:14px;font-weight:600;margin-bottom:4px">👥 Minha Equipe</div>
+      <div style="font-size:14px;font-weight:600;margin-bottom:4px">Minha Equipe</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Crie contas pra pessoas do seu time acessarem só o Pipeline de um funil seu — elas não veem mais nada além disso (nem seus outros funis, se você tiver mais de um).</div>
       <div class="profile-edit-grid" style="margin-bottom:10px">
         <div class="form-group"><label class="form-label">Nome</label><input class="form-input" id="me-nome" placeholder="Nome da pessoa"></div>
@@ -13624,27 +13625,27 @@ function renderEntregasFolders(pros){
     const cnt=pros.filter(p=>projectSquads(p).includes(s.nome)).length;
     return `<div class="squad-folder-card" onclick="openProjSquadFolder('${s.nome.replace(/'/g,"\\'")}')">
       <div class="squad-folder-bar" style="background:${s.cor||'var(--muted)'}"></div>
-      <div class="squad-folder-ico" style="background:${s.cor||'var(--muted)'}22;color:${s.cor||'var(--muted)'}">📁</div>
+      <div class="squad-folder-ico" style="background:${s.cor||'var(--muted)'}22;color:${s.cor||'var(--muted)'}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg></div>
       <div class="squad-folder-name">${s.nome}</div>
       <div class="squad-folder-cnt">${cnt} projeto${cnt===1?'':'s'}</div>
     </div>`;
   }).join('');
   const semSquadCard=`<div class="squad-folder-card" onclick="openProjSquadFolder('${SEM_SQUAD_KEY}')">
     <div class="squad-folder-bar" style="background:var(--light)"></div>
-    <div class="squad-folder-ico" style="background:#F3F4F6;color:var(--muted)">🗂️</div>
+    <div class="squad-folder-ico" style="background:#F3F4F6;color:var(--muted)"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg></div>
     <div class="squad-folder-name">Sem squad</div>
     <div class="squad-folder-cnt">${semSquadCount} projeto${semSquadCount===1?'':'s'}</div>
   </div>`;
   document.getElementById('proj-content').innerHTML=`
     <div class="page-header">
-      <div><div class="page-title">📦 Gestão de Entregas</div><div class="page-sub">Projetos organizados por squad — igual à divisão de clientes da operação</div></div>
+      <div><div class="page-title">Gestão de Entregas</div><div class="page-sub">Projetos organizados por squad — igual à divisão de clientes da operação</div></div>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost" onclick="openSquadMgr()">⚙️ Gerenciar Squads</button>
+        <button class="btn btn-ghost" onclick="openSquadMgr()">Gerenciar Squads</button>
         <button class="btn btn-primary" onclick="openModal('projeto')">+ Novo Projeto</button>
       </div>
     </div>
     <div class="squad-folder-grid">${cards}${semSquadCard}</div>
-    ${!squads.length?`<div class="empty" style="margin-top:20px"><div class="empty-ico">🧩</div><div class="empty-txt">Nenhum squad cadastrado ainda — clique em "Gerenciar Squads" para criar o primeiro.</div></div>`:''}`;
+    ${!squads.length?`<div class="empty" style="margin-top:20px"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.44 12.06a2.5 2.5 0 1 0-3.53-3.53L15 9.44V6a2 2 0 0 0-2-2H9.56l.91-.91A2.5 2.5 0 1 0 6.94.06L6 1v3H3a2 2 0 0 0-2 2v3.44l.91-.91a2.5 2.5 0 1 1 3.53 3.53L4.53 13H8v3a2 2 0 0 0 2 2h3.44l-.91.91a2.5 2.5 0 1 0 3.53 3.53L17 21.53V18h2a2 2 0 0 0 2-2v-3l-1.56.06z"/></svg></div><div class="empty-txt">Nenhum squad cadastrado ainda — clique em "Gerenciar Squads" para criar o primeiro.</div></div>`:''}`;
 }
 
 function contaLinkCell(url,icon){
@@ -13734,11 +13735,11 @@ function atualizarContaGroupsEl(clientesDoSquad){
   if(!groupsEl)return;
   const clientes=applyContaFiltro(clientesDoSquad);
   if(!clientesDoSquad.length){
-    groupsEl.innerHTML=`<div class="empty"><div class="empty-ico">📊</div><div class="empty-txt">Nenhum cliente atribuído a este squad ainda</div></div>`;
+    groupsEl.innerHTML=`<div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div><div class="empty-txt">Nenhum cliente atribuído a este squad ainda</div></div>`;
     return;
   }
   if(!clientes.length&&contaViewMode!=='kanban'){
-    groupsEl.innerHTML=`<div class="empty"><div class="empty-ico">🔎</div><div class="empty-txt">Nenhum cliente corresponde aos filtros aplicados</div></div>`;
+    groupsEl.innerHTML=`<div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div><div class="empty-txt">Nenhum cliente corresponde aos filtros aplicados</div></div>`;
     return;
   }
   groupsEl.innerHTML=contaViewMode==='kanban'?buildContaKanbanHtml(clientes):buildContaStatusGroupsHtml(clientes);
@@ -13772,7 +13773,7 @@ function buildContaKanbanHtml(clientes){
         <div class="kcard-footer">
           <div style="display:flex;gap:6px">${contaLinkCell(c.linkDrive,'📁')}${contaLinkCell(c.linkMeta,'∞')}</div>
           <div style="display:flex;align-items:center;gap:6px">
-            <span style="cursor:pointer;font-size:11px;color:var(--muted)" onclick="event.stopPropagation();openProjComments('${c.id}','clientes')">💬 ${nComentarios||''}</span>
+            <span style="cursor:pointer;font-size:11px;color:var(--muted)" onclick="event.stopPropagation();openProjComments('${c.id}','clientes')">${nComentarios||''}</span>
           </div>
         </div>
       </div>`;
@@ -13792,13 +13793,13 @@ function renderEntregasTrafego(){
   const clientesDoSquad=(DB.get('clientes')||[]).filter(c=>clienteSquads(c).includes(folderNome));
 
   document.getElementById('proj-content').innerHTML=`
-    <div class="proj-breadcrumb"><span class="bc-back" onclick="backToProjFolders()">📁 Squads</span> / <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${folderCor};display:inline-block"></span><b>${folderNome}</b></span></div>
+    <div class="proj-breadcrumb"><span class="bc-back" onclick="backToProjFolders()">Squads</span> / <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${folderCor};display:inline-block"></span><b>${folderNome}</b></span></div>
     <div class="page-header">
-      <div><div class="page-title">📊 ${folderNome}</div><div class="page-sub">Carteira de contas, agrupada por status</div></div>
+      <div><div class="page-title">${folderNome}</div><div class="page-sub">Carteira de contas, agrupada por status</div></div>
       <div style="display:flex;gap:8px;align-items:center">
         <div style="display:flex;gap:2px;background:var(--bg);border-radius:8px;padding:3px">
-          <button class="btn btn-sm" style="background:${contaViewMode==='lista'?'#fff':'transparent'};color:${contaViewMode==='lista'?'var(--p2)':'var(--muted)'};box-shadow:${contaViewMode==='lista'?'0 1px 3px rgba(0,0,0,.1)':'none'}" onclick="toggleContaView('lista')">📋 Lista</button>
-          <button class="btn btn-sm" style="background:${contaViewMode==='kanban'?'#fff':'transparent'};color:${contaViewMode==='kanban'?'var(--p2)':'var(--muted)'};box-shadow:${contaViewMode==='kanban'?'0 1px 3px rgba(0,0,0,.1)':'none'}" onclick="toggleContaView('kanban')">🗂️ Kanban</button>
+          <button class="btn btn-sm" style="background:${contaViewMode==='lista'?'#fff':'transparent'};color:${contaViewMode==='lista'?'var(--p2)':'var(--muted)'};box-shadow:${contaViewMode==='lista'?'0 1px 3px rgba(0,0,0,.1)':'none'}" onclick="toggleContaView('lista')">Lista</button>
+          <button class="btn btn-sm" style="background:${contaViewMode==='kanban'?'#fff':'transparent'};color:${contaViewMode==='kanban'?'var(--p2)':'var(--muted)'};box-shadow:${contaViewMode==='kanban'?'0 1px 3px rgba(0,0,0,.1)':'none'}" onclick="toggleContaView('kanban')">Kanban</button>
         </div>
         <button class="btn btn-primary" onclick="openModal('cliente',{squad:'${folderNome.replace(/'/g,"\\'")}'},'carteira')">+ Novo Cliente</button>
       </div>
@@ -13836,7 +13837,7 @@ function buildContaStatusGroupsHtml(clientes){
           </select>
         </td>
         <td onclick="event.stopPropagation()" style="white-space:nowrap">${avatares}</td>
-        <td onclick="event.stopPropagation();openProjComments('${c.id}','clientes')" style="cursor:pointer;color:var(--muted);font-size:12px">💬 ${nComentarios||''}</td>
+        <td onclick="event.stopPropagation();openProjComments('${c.id}','clientes')" style="cursor:pointer;color:var(--muted);font-size:12px">${nComentarios||''}</td>
         <td>${contaLinkCell(c.linkDrive,'📁')}</td>
         <td>${contaLinkCell(c.linkMeta,'∞')}</td>
         <td>${contaLinkCell(c.linkGoogleAds,'🎯')}</td>
@@ -13883,15 +13884,15 @@ function renderEntregasClientes(prosAll){
   }
 
   document.getElementById('proj-content').innerHTML=`
-    <div class="proj-breadcrumb"><span class="bc-back" onclick="backToProjFolders()">📁 Squads</span> / <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${folderCor};display:inline-block"></span><b>${folderNome}</b></span></div>
+    <div class="proj-breadcrumb"><span class="bc-back" onclick="backToProjFolders()">Squads</span> / <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${folderCor};display:inline-block"></span><b>${folderNome}</b></span></div>
     <div class="page-header">
-      <div><div class="page-title">📦 ${folderNome}</div><div class="page-sub">Carteira de clientes deste squad — clique num cliente para ver as entregas</div></div>
+      <div><div class="page-title">${folderNome}</div><div class="page-sub">Carteira de clientes deste squad — clique num cliente para ver as entregas</div></div>
     </div>
     <div class="squad-folder-grid" id="cliente-folder-grid"></div>`;
 
   const grid=document.getElementById('cliente-folder-grid');
   if(!clientes.length){
-    grid.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="empty-ico">👥</div><div class="empty-txt">${isSemSquad?'Nenhum projeto sem squad no momento.':'Nenhum cliente atribuído a este squad ainda. Defina o squad no cadastro do cliente.'}</div></div>`;
+    grid.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="empty-txt">${isSemSquad?'Nenhum projeto sem squad no momento.':'Nenhum cliente atribuído a este squad ainda. Defina o squad no cadastro do cliente.'}</div></div>`;
     return;
   }
   grid.innerHTML=clientes.map(c=>{
@@ -13982,11 +13983,11 @@ function atualizarEntregasGroupsEl(prosDoCliente){
   const clienteNome=projClienteView;
   const pros=applyEntregasFiltro(prosDoCliente);
   if(!prosDoCliente.length){
-    groupsEl.innerHTML=`<div class="empty"><div class="empty-ico">📦</div><div class="empty-txt">Nenhuma entrega cadastrada para este cliente ainda</div></div>`;
+    groupsEl.innerHTML=`<div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/></svg></div><div class="empty-txt">Nenhuma entrega cadastrada para este cliente ainda</div></div>`;
     return;
   }
   if(!pros.length && entregasViewMode!=='kanban'){
-    groupsEl.innerHTML=`<div class="empty"><div class="empty-ico">🔎</div><div class="empty-txt">Nenhuma entrega corresponde aos filtros aplicados</div></div>`;
+    groupsEl.innerHTML=`<div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div><div class="empty-txt">Nenhuma entrega corresponde aos filtros aplicados</div></div>`;
     return;
   }
   groupsEl.innerHTML=entregasViewMode==='kanban'?buildEntregasKanbanHtml(pros,clienteNome):buildEntregasStatusGroupsHtml(pros,clienteNome);
@@ -14015,9 +14016,9 @@ function buildEntregasKanbanHtml(pros,clienteNome){
           <span class="badge" style="background:${PRIORIDADE_COR[p.prioridade||'Normal']}22;color:${PRIORIDADE_COR[p.prioridade||'Normal']}">${p.prioridade||'Normal'}</span>
         </div>
         <div class="kcard-footer">
-          <div class="kcard-date">📅 ${p.dataPostagem?new Date(p.dataPostagem+'T00:00:00').toLocaleDateString('pt-BR'):(p.dataVeiculacao?new Date(p.dataVeiculacao+'T00:00:00').toLocaleDateString('pt-BR'):'—')}</div>
+          <div class="kcard-date">${p.dataPostagem?new Date(p.dataPostagem+'T00:00:00').toLocaleDateString('pt-BR'):(p.dataVeiculacao?new Date(p.dataVeiculacao+'T00:00:00').toLocaleDateString('pt-BR'):'—')}</div>
           <div style="display:flex;align-items:center;gap:6px">
-            <span style="cursor:pointer;font-size:11px;color:var(--muted)" onclick="event.stopPropagation();openProjComments('${p.id}')">💬 ${nComentarios||''}</span>
+            <span style="cursor:pointer;font-size:11px;color:var(--muted)" onclick="event.stopPropagation();openProjComments('${p.id}')">${nComentarios||''}</span>
             <span style="cursor:pointer;font-size:13px" onclick="event.stopPropagation();confirmDelete(function(){deleteProjetoSafe('${p.id}')})">🗑</span>
           </div>
         </div>
@@ -14048,7 +14049,7 @@ function buildEntregasStatusGroupsHtml(pros,clienteNome){
         </td>
         <td style="color:var(--muted);font-size:12px;white-space:nowrap">${p.dataVeiculacao?new Date(p.dataVeiculacao+'T00:00:00').toLocaleDateString('pt-BR'):'—'}</td>
         <td style="color:var(--muted);font-size:12px;white-space:nowrap">${p.dataPostagem?new Date(p.dataPostagem+'T00:00:00').toLocaleDateString('pt-BR'):'—'}</td>
-        <td onclick="event.stopPropagation();openProjComments('${p.id}')" style="cursor:pointer;color:var(--muted);font-size:12px">💬 ${nComentarios||''}</td>
+        <td onclick="event.stopPropagation();openProjComments('${p.id}')" style="cursor:pointer;color:var(--muted);font-size:12px">${nComentarios||''}</td>
         <td onclick="event.stopPropagation()" style="white-space:nowrap">
           <span style="cursor:pointer;font-size:13px" onclick="openModal('projeto','${p.id}')">✏️</span>
           <span style="cursor:pointer;font-size:13px;margin-left:6px" onclick="confirmDelete(function(){deleteProjetoSafe('${p.id}')})">🗑</span>
@@ -14080,16 +14081,16 @@ function renderEntregasClienteBoard(prosAll){
 
   document.getElementById('proj-content').innerHTML=`
     <div class="proj-breadcrumb">
-      <span class="bc-back" onclick="backToProjFolders()">📁 Squads</span> /
+      <span class="bc-back" onclick="backToProjFolders()">Squads</span> /
       <span class="bc-back" onclick="backToProjClientes()" style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${folderCor};display:inline-block"></span>${folderNome}</span> /
       <b>${clienteLabel}</b>
     </div>
     <div class="page-header">
-      <div><div class="page-title">📦 ${clienteLabel}</div><div class="page-sub">Entregas agrupadas por etapa</div></div>
+      <div><div class="page-title">${clienteLabel}</div><div class="page-sub">Entregas agrupadas por etapa</div></div>
       <div style="display:flex;gap:8px;align-items:center">
         <div style="display:flex;gap:2px;background:var(--bg);border-radius:8px;padding:3px">
-          <button class="btn btn-sm" style="background:${entregasViewMode==='lista'?'#fff':'transparent'};color:${entregasViewMode==='lista'?'var(--p2)':'var(--muted)'};box-shadow:${entregasViewMode==='lista'?'0 1px 3px rgba(0,0,0,.1)':'none'}" onclick="toggleEntregasView('lista')">📋 Lista</button>
-          <button class="btn btn-sm" style="background:${entregasViewMode==='kanban'?'#fff':'transparent'};color:${entregasViewMode==='kanban'?'var(--p2)':'var(--muted)'};box-shadow:${entregasViewMode==='kanban'?'0 1px 3px rgba(0,0,0,.1)':'none'}" onclick="toggleEntregasView('kanban')">🗂️ Kanban</button>
+          <button class="btn btn-sm" style="background:${entregasViewMode==='lista'?'#fff':'transparent'};color:${entregasViewMode==='lista'?'var(--p2)':'var(--muted)'};box-shadow:${entregasViewMode==='lista'?'0 1px 3px rgba(0,0,0,.1)':'none'}" onclick="toggleEntregasView('lista')">Lista</button>
+          <button class="btn btn-sm" style="background:${entregasViewMode==='kanban'?'#fff':'transparent'};color:${entregasViewMode==='kanban'?'var(--p2)':'var(--muted)'};box-shadow:${entregasViewMode==='kanban'?'0 1px 3px rgba(0,0,0,.1)':'none'}" onclick="toggleEntregasView('kanban')">Kanban</button>
         </div>
         <button class="btn btn-primary" onclick="openModal('projeto',{cliente:'${clienteNome.replace(/'/g,"\\'")}'})">+ Nova Entrega</button>
       </div>
@@ -14161,7 +14162,7 @@ function renderOnboarding(){
               <div class="ob-av">${initials(cli.nome)}</div>
               <span>${cli.nome}</span>
             </div>
-            ${resps.length?`<div class="ob-resp-chips">${resps.map(r=>`<div class="ob-chip">👤 ${r}</div>`).join('')}</div>`:''}
+            ${resps.length?`<div class="ob-resp-chips">${resps.map(r=>`<div class="ob-chip">${r}</div>`).join('')}</div>`:''}
             <div class="ob-prog-row">
               <div class="ob-prog-bar"><div class="ob-prog-fill" style="width:${pct}%;background:${OB_COLORS[col]}"></div></div>
               <span style="font-weight:600;color:${pct===100?'var(--green)':'var(--muted)'}">${pct}%</span>
@@ -14203,7 +14204,7 @@ function renderObDetail(){
   const respChips=respIds.map(rid=>{
     const m=membros.find(m=>m.id===rid);
     if(!m)return'';
-    return `<div class="ob-chip" style="background:var(--p-light);color:var(--p2);border-color:var(--p3)">👤 ${m.nome}${isProjectFounderView()?`<span style="cursor:pointer;margin-left:4px;opacity:.6" onclick="removeObResp('${rid}')">×</span>`:''}</div>`;
+    return `<div class="ob-chip" style="background:var(--p-light);color:var(--p2);border-color:var(--p3)">${m.nome}${isProjectFounderView()?`<span style="cursor:pointer;margin-left:4px;opacity:.6" onclick="removeObResp('${rid}')">×</span>`:''}</div>`;
   }).join('');
 
   const membrosDisponiveis=membros.filter(m=>!respIds.includes(m.id));
@@ -14249,14 +14250,14 @@ function renderObDetail(){
             <option value="">— Responsável</option>
             ${membros.map(m=>`<option value="${m.nome}" ${s.responsavel===m.nome?'selected':''}>${m.nome}</option>`).join('')}
           </select>
-          <button class="btn btn-ghost btn-sm btn-icon" onclick="removeObStep(${i})">🗑</button>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="removeObStep(${i})"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
         </div>`;
       }).join('')}
     </div>
     <button class="btn btn-ghost btn-sm" style="margin-top:12px;width:100%;justify-content:center;border-style:dashed" onclick="addObStep()">+ Nova etapa</button>`;
 
   document.getElementById('ob-footer').innerHTML=`
-    <button class="btn btn-danger" onclick="confirmDelete(()=>{const obs=DB.get('onboarding').filter(o=>o.id!=='${currentObId}');DB.set('onboarding',obs);closeObModal();renderOnboarding();toast('Removido','#EF4444')})">🗑️ Remover</button>
+    <button class="btn btn-danger" onclick="confirmDelete(()=>{const obs=DB.get('onboarding').filter(o=>o.id!=='${currentObId}');DB.set('onboarding',obs);closeObModal();renderOnboarding();toast('Removido','#EF4444')})">Remover</button>
     <div style="flex:1"></div>
     <button class="btn btn-ghost" onclick="closeObModal()">Fechar</button>`;
 }
@@ -14395,7 +14396,7 @@ function renderTarefasProj(){
   const getName=id=>cls.find(c=>c.id===id)?.nome||'—';
   document.getElementById('proj-content').innerHTML=`
     <div class="page-header">
-      <div><div class="page-title">✅ Tarefas</div><div class="page-sub">${isProjectFounderView()?'Todas as tarefas e agendamentos de clientes':'Somente suas tarefas atribuídas'}</div></div>
+      <div><div class="page-title">Tarefas</div><div class="page-sub">${isProjectFounderView()?'Todas as tarefas e agendamentos de clientes':'Somente suas tarefas atribuídas'}</div></div>
       ${can('tarefas','create')?`<button class="btn btn-primary" onclick="openModalTarefaGlobal()">+ Nova Tarefa</button>`:''}
     </div>
     <div class="card">
@@ -14412,7 +14413,7 @@ function renderTarefasProj(){
             <button class="btn btn-ghost btn-sm btn-icon" onclick="openModalTarefaGlobal('${t.id}')" title="Editar">${gxIc('edit')}</button>
             <button class="btn btn-ghost btn-sm btn-icon" onclick="confirmDelete(function(){deleteTarefaProjetoSafe('${t.id}')})">${gxIc('del')}</button>
           </div></td>
-        </tr>`).join(''):`<tr><td colspan="6"><div class="empty"><div class="empty-ico">✅</div><div class="empty-txt">Sem tarefas cadastradas</div></div></td></tr>`}
+        </tr>`).join(''):`<tr><td colspan="6"><div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div><div class="empty-txt">Sem tarefas cadastradas</div></div></td></tr>`}
         </tbody>
       </table></div>
     </div>`;
@@ -14523,7 +14524,7 @@ function renderAgendaProj(){
 
   document.getElementById('proj-content').innerHTML=`
     <div class="page-header">
-      <div><div class="page-title">📅 Agenda de Projetos</div><div class="page-sub">Prazos e entregas organizados por mês</div></div>
+      <div><div class="page-title">Agenda de Projetos</div><div class="page-sub">Prazos e entregas organizados por mês</div></div>
       <button class="btn btn-primary" onclick="openModal('projeto')">+ Novo Projeto</button>
     </div>
     <div class="card" style="padding:18px">
@@ -14550,7 +14551,7 @@ function renderAprovacao(){
       <div class="aprov-col-hdr" style="color:${color};border-color:${borderColor}">${title} <span style="font-size:12px;background:${borderColor}22;padding:1px 8px;border-radius:10px;font-weight:700">${arr.length}</span></div>
       ${arr.map(c=>`<div class="aprov-card">
         <div class="aprov-card-title">${c.titulo}</div>
-        <div class="aprov-card-meta">🏢 ${c.cliente} · ${c.tipo} · 👤 ${c.responsavel}</div>
+        <div class="aprov-card-meta">${c.cliente} · ${c.tipo} · 👤 ${c.responsavel}</div>
         <div class="aprov-actions">
           ${c.status!=='Aprovado'?`<button class="btn btn-sm" style="background:#DCFCE7;color:#166534;border:none" onclick="setConteudo('${c.id}','Aprovado')">✓ Aprovar</button>`:''}
           ${c.status!=='Reprovado'?`<button class="btn btn-sm" style="background:#FEE2E2;color:#991B1B;border:none" onclick="setConteudo('${c.id}','Reprovado')">✕ Reprovar</button>`:''}
@@ -14561,7 +14562,7 @@ function renderAprovacao(){
     </div>`;
   document.getElementById('proj-content').innerHTML=`
     <div class="page-header">
-      <div><div class="page-title">🖼️ Aprovação de Conteúdo</div><div class="page-sub">Gerencie aprovações de posts, anúncios e materiais</div></div>
+      <div><div class="page-title">Aprovação de Conteúdo</div><div class="page-sub">Gerencie aprovações de posts, anúncios e materiais</div></div>
       <button class="btn btn-primary" onclick="openModalConteudo()">+ Novo Conteúdo</button>
     </div>
     <div class="aprov-board">
@@ -15125,12 +15126,12 @@ function renderEsquemas(){
     </div>
     <div class="esquema-grid">
       ${esquemas.map(e=>`<div class="esquema-card">
-        <div class="esquema-ico">${e.ico}</div>
+        <div class="esquema-ico">${gxEmojiIco(e.ico)}</div>
         <div class="esquema-name">${e.nome}</div>
         <div class="esquema-desc">${e.desc}</div>
         <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn btn-primary btn-sm" onclick="usarEsquema('${e.id}')">📋 Usar</button>
-          ${podeEditar?`<button class="btn btn-ghost btn-sm" onclick="openModalEsquema('${e.id}')">✏️ Editar</button>`:''}
+          <button class="btn btn-primary btn-sm" onclick="usarEsquema('${e.id}')">Usar</button>
+          ${podeEditar?`<button class="btn btn-ghost btn-sm" onclick="openModalEsquema('${e.id}')">Editar</button>`:''}
           ${podeExcluir&&!ESQUEMAS_DEFAULT.find(d=>d.id===e.id)?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="confirmDelete(()=>{DB.remove('esquemas','${e.id}');renderEsquemas();toast('Esquema removido','#EF4444')})">🗑️</button>`:''}
         </div>
       </div>`).join('')}
@@ -15147,7 +15148,7 @@ function usarEsquema(id){
     <textarea id="esq-viewer" style="width:100%;height:420px;font-family:monospace;font-size:12px;line-height:1.6;border:1px solid var(--border);border-radius:8px;padding:14px;resize:vertical;background:#FAFAFA;color:var(--txt)">${e.conteudo}</textarea>`;
   document.getElementById('modal-footer').innerHTML=`
     <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
-    <button class="btn btn-primary" onclick="copyEsquema()">📋 Copiar texto</button>`;
+    <button class="btn btn-primary" onclick="copyEsquema()">Copiar texto</button>`;
   document.getElementById('modal-box').className='modal modal-lg';
   document.getElementById('modal-ov').classList.add('open');
 }
@@ -15213,7 +15214,7 @@ function renderFornecedores(){
   const forn=DB.get('fornecedores');
   document.getElementById('proj-content').innerHTML=`
     <div class="page-header">
-      <div><div class="page-title">🏪 Fornecedores</div><div class="page-sub">Parceiros e prestadores de serviço</div></div>
+      <div><div class="page-title">Fornecedores</div><div class="page-sub">Parceiros e prestadores de serviço</div></div>
       <button class="btn btn-primary" onclick="openModalFornecedor()">+ Novo Fornecedor</button>
     </div>
     <div class="card">
@@ -15229,7 +15230,7 @@ function renderFornecedores(){
             <button class="btn btn-ghost btn-sm btn-icon" onclick="openModalFornecedor(${JSON.stringify(f).replace(/'/g,"&#39;")})" title="Editar">${gxIc('edit')}</button>
             <button class="btn btn-ghost btn-sm btn-icon" onclick="confirmDelete(()=>{DB.remove('fornecedores','${f.id}');renderFornecedores();toast('Removido','#EF4444')})">${gxIc('del')}</button>
           </div></td>
-        </tr>`).join(''):`<tr><td colspan="6"><div class="empty"><div class="empty-ico">🏪</div><div class="empty-txt">Sem fornecedores</div></div></td></tr>`}
+        </tr>`).join(''):`<tr><td colspan="6"><div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9 4.5 4h15L21 9"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/></svg></div><div class="empty-txt">Sem fornecedores</div></div></td></tr>`}
         </tbody>
       </table></div>
     </div>`;
@@ -15264,7 +15265,7 @@ function renderCreators(){
   const crs=DB.get('creators');
   document.getElementById('proj-content').innerHTML=`
     <div class="page-header">
-      <div><div class="page-title">🎥 Creators</div><div class="page-sub">Criadores de conteúdo parceiros da agência</div></div>
+      <div><div class="page-title">Creators</div><div class="page-sub">Criadores de conteúdo parceiros da agência</div></div>
       <button class="btn btn-primary" onclick="openModalCreator()">+ Novo Creator</button>
     </div>
     <div class="creator-grid">${crs.length?crs.map(c=>`<div class="creator-card">
@@ -15275,13 +15276,13 @@ function renderCreators(){
         <div><span class="creator-stat-val">${c.seguidores}</span>Seguidores</div>
         <div><span class="creator-stat-val">${c.projetos}</span>Projetos</div>
       </div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">📱 ${c.plataforma}</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">${c.plataforma}</div>
       ${badge(c.status)}
       <div style="display:flex;gap:6px;justify-content:center;margin-top:10px">
         <button class="btn btn-ghost btn-sm btn-icon" onclick="openModalCreator(${JSON.stringify(c).replace(/'/g,"&#39;")})" title="Editar">${gxIc('edit')}</button>
         <button class="btn btn-ghost btn-sm btn-icon" onclick="confirmDelete(()=>{DB.remove('creators','${c.id}');renderCreators();toast('Removido','#EF4444')})">${gxIc('del')}</button>
       </div>
-    </div>`).join(''):`<div class="empty" style="grid-column:1/-1"><div class="empty-ico">🎥</div><div class="empty-txt">Nenhum creator cadastrado</div></div>`}
+    </div>`).join(''):`<div class="empty" style="grid-column:1/-1"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m22 8-6 4 6 4z"/></svg></div><div class="empty-txt">Nenhum creator cadastrado</div></div>`}
     </div>`;
 }
 
@@ -15589,7 +15590,7 @@ function renderContratos(){
   const _fb=document.getElementById('contr-filtros');
   if(_fb)_fb.innerHTML=_fk.filter(k=>k==='todos'||_cnt[k]||window._gxContrFil===k).map(k=>`<button type="button" class="btn ${window._gxContrFil===k?'btn-primary':'btn-ghost'} btn-sm" onclick="window._gxContrFil='${k}';renderContratos()">${_fl[k]} <span style="opacity:.75;font-weight:600">${_cnt[k]||0}</span></button>`).join('');
   if(!contratos.length){
-    cont.innerHTML=`<div class="card"><div class="empty"><div class="empty-ico">📄</div><div class="empty-txt">Nenhum contrato cadastrado</div></div></div>`;
+    cont.innerHTML=`<div class="card"><div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="empty-txt">Nenhum contrato cadastrado</div></div></div>`;
     return;
   }
   const nomeCliente=id=>clientes.find(c=>c.id===id)?.nome||'—';
@@ -15608,7 +15609,7 @@ function renderContratos(){
   if(cntEl)cntEl.textContent=(q||window._gxContrFil!=='todos')?`${contratosOrd.length} de ${contratos.length} contrato(s)`:'';
   cont.innerHTML=`<div class="card gx-tcard"><div class="tbl-wrap"><table><thead><tr>
     <th>Contrato</th><th class="n">Valor</th><th>Início</th><th>Vencimento</th><th>Status</th><th class="n">Ações</th>
-  </tr></thead><tbody>${contratosOrd.length?'':`<tr><td colspan="6"><div class="empty"><div class="empty-ico">🔍</div><div class="empty-txt">Nenhum contrato encontrado para "${escHtml(qRaw)}"</div></div></td></tr>`}${contratosOrd.map(c=>{
+  </tr></thead><tbody>${contratosOrd.length?'':`<tr><td colspan="6"><div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div><div class="empty-txt">Nenhum contrato encontrado para "${escHtml(qRaw)}"</div></div></td></tr>`}${contratosOrd.map(c=>{
     const hoje=new Date();const venc=new Date(c.vencimento||'');
     const diasVenc=Math.ceil((venc-hoje)/(1000*60*60*24));
     const alertVenc=diasVenc>=0&&diasVenc<=30;
@@ -16959,11 +16960,11 @@ function renderFunnelSelector(){
   const _arqN=canOpenArchived?(()=>{const n=getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&f.isArchived)).length+gxFunisDonoForaDeCena().length;return n?` (${n})`:''})():'';
   const _itens=[
     canCreate?`<button class="gx-mi" onclick="openFunnelModal('new')">＋ Novo funil</button>`:'',
-    canEdit&&active&&(canManageAnyFunnel||!active.isDefault)?`<button class="gx-mi" onclick="openFunnelModal('edit','${active.id}')">✏️ Editar funil</button>`:'',
+    canEdit&&active&&(canManageAnyFunnel||!active.isDefault)?`<button class="gx-mi" onclick="openFunnelModal('edit','${active.id}')">Editar funil</button>`:'',
     canCreate&&active?`<button class="gx-mi" onclick="duplicateCommercialFunnel('${active.id}')">⧉ Duplicar</button>`:'',
-    canEdit&&active&&!active.isDefault?`<button class="gx-mi danger" onclick="confirmArchiveFunnel('${active.id}')">📦 Arquivar</button>`:'',
-    canOpenArchived?`<button class="gx-mi" onclick="openArchivedFunnelsModal()">🗂️ Arquivados${_arqN}</button>`:'',
-    (()=>{try{return resolveRole(sessionUser?.permissao||sessionUser?.cargo||'')==='Fundador'}catch(e){return false}})()?`<button class="gx-mi danger" onclick="gxLimparFunisInativos()">🧹 Excluir inativos e arquivados</button>`:''
+    canEdit&&active&&!active.isDefault?`<button class="gx-mi danger" onclick="confirmArchiveFunnel('${active.id}')">Arquivar</button>`:'',
+    canOpenArchived?`<button class="gx-mi" onclick="openArchivedFunnelsModal()">Arquivados${_arqN}</button>`:'',
+    (()=>{try{return resolveRole(sessionUser?.permissao||sessionUser?.cargo||'')==='Fundador'}catch(e){return false}})()?`<button class="gx-mi danger" onclick="gxLimparFunisInativos()">Excluir inativos e arquivados</button>`:''
   ].filter(Boolean);
   const btnsHtml=_itens.length?`<div class="gx-menu"><button class="fbtn" onclick="gxMenuToggle(this,event)" title="Novo funil, editar, duplicar, arquivar">⋯ Funil</button><div class="gx-menu-list">${_itens.join('')}</div></div>`:'';
 
@@ -17024,11 +17025,11 @@ function renderArchivedFunnelsModal(){
     <div style="font-size:12px;color:var(--muted);line-height:1.45;margin-bottom:8px">Esses funis já não aparecem no Pipeline. Nada foi apagado: exclua só quando tiver certeza.</div>
     ${fora.map(({f,motivo})=>`<div class="archived-funnel-summary">
       <div class="archived-funnel-info">
-        <div class="archived-funnel-name">👤 ${escHtml(f.name||'Funil sem nome')}</div>
+        <div class="archived-funnel-name">${escHtml(f.name||'Funil sem nome')}</div>
         <div class="archived-funnel-meta">${getFunnelLeadCount(f.id)} oportunidade(s) • ${escHtml(motivo)}${f.createdByEmail?' • '+escHtml(f.createdByEmail):''}</div>
       </div>
       <div class="archived-funnel-actions">
-        ${canDeleteFunnel?`<button class="btn btn-danger btn-sm" onclick="gxExcluirFunilDonoFora('${escAttr(f.id)}')">🗑️ Excluir</button>`:''}
+        ${canDeleteFunnel?`<button class="btn btn-danger btn-sm" onclick="gxExcluirFunilDonoFora('${escAttr(f.id)}')">Excluir</button>`:''}
       </div>
     </div>`).join('')}`:'';
 
@@ -17052,12 +17053,12 @@ function renderArchivedFunnelsModal(){
       const updated=f.updatedAt?new Date(f.updatedAt).toLocaleString('pt-BR'):'—';
       return `<div class="archived-funnel-summary">
         <div class="archived-funnel-info">
-          <div class="archived-funnel-name">📦 ${f.name||'Funil sem nome'}</div>
+          <div class="archived-funnel-name">${f.name||'Funil sem nome'}</div>
           <div class="archived-funnel-meta">${count} oportunidade(s) • ${stages} etapa(s) • arquivado/atualizado em ${updated}</div>
         </div>
         <div class="archived-funnel-actions">
           ${canEditFunnel?`<button class="btn btn-ghost btn-sm" onclick="restoreArchivedFunnel('${f.id}')">↩ Restaurar</button>`:''}
-          ${canDeleteFunnel?`<button class="btn btn-danger btn-sm" onclick="confirmDeleteArchivedFunnel('${f.id}')">🗑️ Excluir</button>`:''}
+          ${canDeleteFunnel?`<button class="btn btn-danger btn-sm" onclick="confirmDeleteArchivedFunnel('${f.id}')">Excluir</button>`:''}
         </div>
       </div>`;
     }).join('')}
@@ -17256,7 +17257,7 @@ function renderFunnelModalBody(){
         <input class="form-input" id="fm-new-stage" placeholder="Nome da nova etapa..." style="flex:1">
         <button class="btn btn-ghost" onclick="addFmStage()">+ Adicionar etapa</button>
       </div>
-      ${wonCount>1||lostCount>1?`<div style="font-size:11px;color:#EF4444;margin-top:4px">⚠️ Máximo de 1 etapa "Ganha" e 1 etapa "Perdida"</div>`:''}
+      ${wonCount>1||lostCount>1?`<div style="font-size:11px;color:#EF4444;margin-top:4px">Máximo de 1 etapa "Ganha" e 1 etapa "Perdida"</div>`:''}
     </div>`;
 }
 
@@ -18180,7 +18181,7 @@ function taskRecurrenceRowHtml(idPrefix,current){
 /* ── Linha "Videochamada" (Google Meet) reutilizada nos modais de evento ── */
 function taskMeetRowHtml(idPrefix,meetLink){
   const body=meetLink
-    ?`<a href="${escAttr(meetLink)}" target="_blank" rel="noopener" class="gcal-static" style="color:var(--p);font-weight:600;text-decoration:none;display:inline-block">🎥 Participar com o Google Meet</a>
+    ?`<a href="${escAttr(meetLink)}" target="_blank" rel="noopener" class="gcal-static" style="color:var(--p);font-weight:600;text-decoration:none;display:inline-block">Participar com o Google Meet</a>
        <div class="gcal-row-sub">Videochamada já adicionada a este evento</div>`
     :`<label style="display:flex;align-items:center;gap:8px;font-size:13.5px;color:var(--txt);cursor:pointer;padding:5px 2px">
         <input type="checkbox" id="${idPrefix}-meet" style="width:16px;height:16px;accent-color:var(--p)">
@@ -18188,7 +18189,7 @@ function taskMeetRowHtml(idPrefix,meetLink){
       </label>
       <div class="gcal-row-sub">O link é gerado ao salvar, se sua Google Agenda estiver conectada</div>`;
   return `<div class="gcal-row">
-    <div class="gcal-ico">🎥</div>
+    <div class="gcal-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m22 8-6 4 6 4z"/></svg></div>
     <div class="gcal-row-content">${body}</div>
   </div>`;
 }
@@ -18525,9 +18526,9 @@ function openTaskEditModal(taskId){
   document.getElementById('task-edit-body').innerHTML=`
     <div class="gcal-form">
       <input class="gcal-title-input" id="te-title" value="${escAttr(t.title||'')}" placeholder="Adicionar título">
-      <div class="gcal-tabs"><div class="gcal-tab active">📅 Evento</div></div>
+      <div class="gcal-tabs"><div class="gcal-tab active">Evento</div></div>
       <div class="gcal-row">
-        <div class="gcal-ico">🕐</div>
+        <div class="gcal-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
         <div class="gcal-row-content">
           <div class="gcal-row-main">
             <input class="gcal-inline-input" id="te-date" type="date" value="${t.dueDate||''}">
@@ -18539,7 +18540,7 @@ function openTaskEditModal(taskId){
       ${taskRecurrenceRowHtml('te',t.recurrence)}
       ${taskMeetRowHtml('te',t.meetLink)}
       <div class="gcal-row">
-        <div class="gcal-ico">👤</div>
+        <div class="gcal-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
         <div class="gcal-row-content">
           <div class="gcal-row-main">
             ${isFounderTaskAdmin()
@@ -18553,7 +18554,7 @@ function openTaskEditModal(taskId){
         </div>
       </div>
       <div class="gcal-row">
-        <div class="gcal-ico">📝</div>
+        <div class="gcal-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
         <div class="gcal-row-content">
           <textarea class="gcal-inline-input" id="te-desc" rows="2" placeholder="Adicionar descrição">${t.description||''}</textarea>
         </div>
@@ -18568,7 +18569,7 @@ function openTaskEditModal(taskId){
           <div class="gcal-row-sub">Tipo e prioridade</div>
         </div>
       </div>
-      ${can('comercial','delete')?`<div style="padding:6px 2px 0"><button class="btn btn-ghost" style="color:var(--red);font-size:12px" onclick="deleteCommercialTask('${taskId}');closeTaskEditModal()">🗑 Excluir tarefa</button></div>`:''}
+      ${can('comercial','delete')?`<div style="padding:6px 2px 0"><button class="btn btn-ghost" style="color:var(--red);font-size:12px" onclick="deleteCommercialTask('${taskId}');closeTaskEditModal()">Excluir tarefa</button></div>`:''}
     </div>`;
   document.getElementById('task-edit-ov').classList.add('open');
 }
@@ -18624,14 +18625,14 @@ function openQuickTaskModal(forceDealId,presetDate){
   // Seletor de oportunidade (aparece quando não há deal fixo)
   const oppRow=dealId
     ?`<div class="gcal-row">
-        <div class="gcal-ico">📎</div>
+        <div class="gcal-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></div>
         <div class="gcal-row-content">
           <div class="gcal-static"><strong>${l.nome||'Oportunidade'}</strong>${l.empresa?' · '+l.empresa:''}</div>
           <div class="gcal-row-sub">Vinculada a esta oportunidade</div>
         </div>
       </div>`
     :`<div class="gcal-row">
-        <div class="gcal-ico">📎</div>
+        <div class="gcal-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></div>
         <div class="gcal-row-content">
           <select class="gcal-inline-input" id="qt-opp" style="width:100%">
             <option value="">— Nenhuma (tarefa geral) —</option>
@@ -18645,9 +18646,9 @@ function openQuickTaskModal(forceDealId,presetDate){
   document.getElementById('modal-body').innerHTML=`
     <div class="gcal-form">
       <input class="gcal-title-input" id="qt-title" placeholder="Adicionar título">
-      <div class="gcal-tabs"><div class="gcal-tab active">📅 Evento</div></div>
+      <div class="gcal-tabs"><div class="gcal-tab active">Evento</div></div>
       <div class="gcal-row">
-        <div class="gcal-ico">🕐</div>
+        <div class="gcal-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
         <div class="gcal-row-content">
           <div class="gcal-row-main">
             <input class="gcal-inline-input" id="qt-date" type="date" value="${presetDate||today}">
@@ -18659,7 +18660,7 @@ function openQuickTaskModal(forceDealId,presetDate){
       ${taskRecurrenceRowHtml('qt','none')}
       ${taskMeetRowHtml('qt','')}
       <div class="gcal-row">
-        <div class="gcal-ico">👤</div>
+        <div class="gcal-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
         <div class="gcal-row-content">
           <div class="gcal-row-main">
             ${isFounderTaskAdmin()
@@ -18671,7 +18672,7 @@ function openQuickTaskModal(forceDealId,presetDate){
       </div>
       ${oppRow}
       <div class="gcal-row">
-        <div class="gcal-ico">📝</div>
+        <div class="gcal-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
         <div class="gcal-row-content">
           <textarea class="gcal-inline-input" id="qt-desc" rows="2" placeholder="Adicionar descrição"></textarea>
         </div>
@@ -18852,7 +18853,7 @@ function renderDealMain(){
   // edita o lead).
   const leadDescText=humanizeLegacyLeadDesc(l.desc||'',l.origem||'');
   const descBlockHtml=leadDescText?`<div class="activity-item" style="background:var(--p-light,#F5F3FF);border-radius:10px;padding:12px 14px;margin-bottom:14px">
-    <div style="font-size:11px;font-weight:700;color:var(--p2,#7C3AED);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">📝 Descrição / Observações do lead</div>
+    <div style="font-size:11px;font-weight:700;color:var(--p2,#7C3AED);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Descrição / Observações do lead</div>
     <div style="font-size:13px;white-space:pre-wrap;line-height:1.5">${escHtml(leadDescText)}</div>
   </div>`:'';
 
@@ -18863,11 +18864,11 @@ function renderDealMain(){
       <div class="act-content">
         <div class="act-header">
           <span class="act-type" style="background:${at.color};color:${at.text}">${a.tipo}</span>
-          <span class="act-user">👤 ${a.usuario||'Everton'}</span>
+          <span class="act-user">${a.usuario||'Everton'}</span>
           <span class="act-time">${a.data}</span>
         </div>
         <div class="act-text">${a.texto}</div>
-        <button style="background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;margin-top:5px" onclick="deleteDealActivity('${a.id}')">🗑 Remover</button>
+        <button style="background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;margin-top:5px" onclick="deleteDealActivity('${a.id}')">Remover</button>
       </div>
     </div>`;
   }).join(''):(descBlockHtml?'':`<div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">Nenhuma atividade ainda</div><div style="font-size:12px;color:var(--light);margin-top:4px">Use as abas acima para registrar ações</div></div>`));
@@ -18900,7 +18901,7 @@ function renderDealMain(){
       <textarea class="act-textarea" id="deal-activity-text" placeholder="${placeholders[currentActionType]||'Descreva a atividade...'}"></textarea>
       <div class="lembrete-toggle-row" onclick="event.stopPropagation();document.getElementById('lembrete-chk').click()">
         <input type="checkbox" id="lembrete-chk" onclick="event.stopPropagation()" onchange="toggleActivityTaskFields()">
-        <label for="lembrete-chk" onclick="event.stopPropagation()">🔔 Criar lembrete / tarefa para essa atividade</label>
+        <label for="lembrete-chk" onclick="event.stopPropagation()">Criar lembrete / tarefa para essa atividade</label>
       </div>
       <div class="lembrete-fields" id="lembrete-fields">
         <div class="form-row" style="gap:10px">
@@ -18960,7 +18961,7 @@ function renderDealMain(){
       <button class="htab${currentHistTab==='tarefas'?' active':''}" onclick="setHistTab('tarefas')"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>Tarefas ${pendingDealTasks.length?`<span style="background:#7C3AED20;color:#7C3AED;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;margin-left:4px">${pendingDealTasks.length}</span>`:''}</button>
       <button class="htab${currentHistTab==='wpp'?' active':''}" onclick="setHistTab('wpp')"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>WhatsApp</button>
     </div>
-    ${currentHistTab==='hist'?histHtml:currentHistTab==='tarefas'?dealTasksHtml:`<div id="deal-wpp-mirror" style="padding:4px 2px"><div class="empty"><div class="empty-ico">💬</div><div class="empty-txt">Carregando conversa do WhatsApp...</div></div></div>`}`;
+    ${currentHistTab==='hist'?histHtml:currentHistTab==='tarefas'?dealTasksHtml:`<div id="deal-wpp-mirror" style="padding:4px 2px"><div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></div><div class="empty-txt">Carregando conversa do WhatsApp...</div></div></div>`}`;
 
   if(currentHistTab==='wpp')loadDealWhatsappMirror(l,currentDealId);
 }
@@ -18983,7 +18984,7 @@ async function loadDealWhatsappMirror(l,dealIdAtRequest){
   if(!box)return;
   const phone=dealNormalizePhone(l?.telefone||l?.whatsapp||'');
   if(!phone){
-    box.innerHTML=`<div class="empty"><div class="empty-ico">💬</div><div class="empty-txt">Este lead não tem telefone cadastrado</div></div>`;
+    box.innerHTML=`<div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></div><div class="empty-txt">Este lead não tem telefone cadastrado</div></div>`;
     return;
   }
   // Cada usuário tem sua própria conexão de WhatsApp agora — o espelho
@@ -18992,7 +18993,7 @@ async function loadDealWhatsappMirror(l,dealIdAtRequest){
   // vendedor nunca veria nada.
   const ownerId=(typeof getLeadOwnerId==='function'?getLeadOwnerId(l):'')||'';
   if(!ownerId){
-    box.innerHTML=`<div class="empty"><div class="empty-ico">💬</div><div class="empty-txt">Este lead ainda não tem um responsável definido — atribua um vendedor pra ver a conversa de WhatsApp dele aqui.</div></div>`;
+    box.innerHTML=`<div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></div><div class="empty-txt">Este lead ainda não tem um responsável definido — atribua um vendedor pra ver a conversa de WhatsApp dele aqui.</div></div>`;
     return;
   }
   try{
@@ -19003,12 +19004,12 @@ async function loadDealWhatsappMirror(l,dealIdAtRequest){
     if(currentHistTab!=='wpp'||currentDealId!==dealIdAtRequest||!document.getElementById('deal-wpp-mirror'))return;
     const box2=document.getElementById('deal-wpp-mirror');
     if(!j||j.ok===false){
-      box2.innerHTML=`<div class="empty"><div class="empty-ico">💬</div><div class="empty-txt">Não foi possível carregar a conversa</div></div>`;
+      box2.innerHTML=`<div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></div><div class="empty-txt">Não foi possível carregar a conversa</div></div>`;
       return;
     }
     const msgs=j.messages||[];
     if(!msgs.length){
-      box2.innerHTML=`<div class="empty"><div class="empty-ico">💬</div><div class="empty-txt">Nenhuma mensagem de WhatsApp com esse número ainda</div></div><div style="text-align:center;margin-top:8px"><button class="gl-btn sm" onclick="dealOpenWhatsappChat('${phone.replace(/'/g,"")}')">Abrir Caixa de Conversas →</button></div>`;
+      box2.innerHTML=`<div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></div><div class="empty-txt">Nenhuma mensagem de WhatsApp com esse número ainda</div></div><div style="text-align:center;margin-top:8px"><button class="gl-btn sm" onclick="dealOpenWhatsappChat('${phone.replace(/'/g,"")}')">Abrir Caixa de Conversas →</button></div>`;
       return;
     }
     const bubble=m=>{
@@ -19016,7 +19017,7 @@ async function loadDealWhatsappMirror(l,dealIdAtRequest){
       if(m.media_type==='image')media=`<img src="${String(m.media_url||'').replace(/"/g,'&quot;')}" style="max-width:220px;border-radius:8px;display:block;margin-bottom:4px">`;
       else if(m.media_type==='video')media=`<video src="${String(m.media_url||'').replace(/"/g,'&quot;')}" controls style="max-width:220px;border-radius:8px;display:block;margin-bottom:4px"></video>`;
       else if(m.media_type==='audio')media=`<audio src="${String(m.media_url||'').replace(/"/g,'&quot;')}" controls style="display:block;margin-bottom:4px"></audio>`;
-      else if(m.media_type==='document')media=`<a href="${String(m.media_url||'').replace(/"/g,'&quot;')}" target="_blank" rel="noopener" style="display:block;margin-bottom:4px">📎 ${escHtml(m.media_filename||'Arquivo')}</a>`;
+      else if(m.media_type==='document')media=`<a href="${String(m.media_url||'').replace(/"/g,'&quot;')}" target="_blank" rel="noopener" style="display:block;margin-bottom:4px">${escHtml(m.media_filename||'Arquivo')}</a>`;
       const time=(()=>{try{return new Date(m.momment).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}catch(e){return ''}})();
       return `<div style="max-width:78%;margin:${m.from_me?'4px 0 4px auto':'4px auto 4px 0'};background:${m.from_me?'#DCF8C6':'#fff'};border:1px solid var(--border);border-radius:10px;padding:8px 10px;font-size:12px;color:var(--txt)">${media}${m.text?escHtml(m.text):''}<div style="text-align:right;font-size:9.5px;color:var(--muted);margin-top:3px">${time}</div></div>`;
     };
@@ -19024,7 +19025,7 @@ async function loadDealWhatsappMirror(l,dealIdAtRequest){
     const scroller=box2.querySelector('div[style*="overflow-y:auto"]');
     if(scroller)scroller.scrollTop=scroller.scrollHeight;
   }catch(e){
-    if(document.getElementById('deal-wpp-mirror'))document.getElementById('deal-wpp-mirror').innerHTML=`<div class="empty"><div class="empty-ico">💬</div><div class="empty-txt">Falha ao carregar a conversa do WhatsApp</div></div>`;
+    if(document.getElementById('deal-wpp-mirror'))document.getElementById('deal-wpp-mirror').innerHTML=`<div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg></div><div class="empty-txt">Falha ao carregar a conversa do WhatsApp</div></div>`;
   }
 }
 window.dealOpenWhatsappChat=function(phone){
@@ -19066,7 +19067,7 @@ function renderDealSidebar(){
       <div class="sb-sec-title"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Dados do negócio</div>
       <div class="sb-field"><span class="sb-field-lbl">Estágio</span><span class="sb-field-val">${badge(l.estagio)}</span></div>
       <div class="sb-field"><span class="sb-field-lbl">Status</span><span class="sb-field-val">${badge(l.dealStatus||'Em andamento')}</span></div>
-      ${l.produto?`<div class="sb-field"><span class="sb-field-lbl">Produto / Serviço</span><span class="sb-field-val" style="color:var(--p1);font-weight:600">📦 ${l.produto}</span></div>`:''}
+      ${l.produto?`<div class="sb-field"><span class="sb-field-lbl">Produto / Serviço</span><span class="sb-field-val" style="color:var(--p1);font-weight:600">${l.produto}</span></div>`:''}
       <div class="sb-field"><span class="sb-field-lbl">Responsável</span><span class="sb-field-val">Everton Galdino</span></div>
       <div class="sb-field"><span class="sb-field-lbl">Data início</span><span class="sb-field-val">${l.dataInicio?new Date(l.dataInicio+'T00:00:00').toLocaleDateString('pt-BR'):(l.createdAt?new Date(l.createdAt).toLocaleDateString('pt-BR'):'—')}</span></div>
       ${(()=>{const t=leadEntradaLabel(l);const hm=t&&t.includes(' ')?t.split(' ')[1]:'';return hm?`<div class="sb-field"><span class="sb-field-lbl">Hora de entrada</span><span class="sb-field-val">${hm}</span></div>`:''})()}
@@ -19083,8 +19084,8 @@ function renderDealSidebar(){
     </div>
     ${gxLeadFormExtrasHtml(l)}
     <div class="sb-section">
-      <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:12px" onclick="editCurrentDeal()">✏️ Editar dados do negócio</button>
-      <button class="btn btn-danger" style="width:100%;justify-content:center;font-size:12px;margin-top:8px" onclick="confirmDelete(()=>{DB.remove('leads','${l.id}');closeDealDetail();renderComercial();toast('Lead removido','#EF4444')})">🗑️ Excluir negócio</button>
+      <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:12px" onclick="editCurrentDeal()">Editar dados do negócio</button>
+      <button class="btn btn-danger" style="width:100%;justify-content:center;font-size:12px;margin-top:8px" onclick="confirmDelete(()=>{DB.remove('leads','${l.id}');closeDealDetail();renderComercial();toast('Lead removido','#EF4444')})">Excluir negócio</button>
     </div>`;
   // Renderiza painel de lembretes após montar o sidebar
   renderCommercialReminders();
@@ -19659,7 +19660,7 @@ document.getElementById('sound-indicator')?.classList.toggle('active',isSoundEna
 if(IS_PREVIEW_ENV){
   const hint=document.getElementById('login-demo-hint');
   if(hint){
-    hint.innerHTML='<b>🔒 Ambiente de visualização</b> — Supabase não está disponível aqui (restrição CSP do claude.ai).<br>Use as credenciais demo para visualizar:<br><b>Email:</b> evertondasilvagaldino@gmail.com<br><b>Senha:</b> gex@2025';
+    hint.innerHTML='<b>Ambiente de visualização</b> — Supabase não está disponível aqui (restrição CSP do claude.ai).<br>Use as credenciais demo para visualizar:<br><b>Email:</b> evertondasilvagaldino@gmail.com<br><b>Senha:</b> gex@2025';
     hint.style.display='block';
   }
 }
@@ -21075,7 +21076,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
           <label class="gxi-field"><span class="gxi-label">Token</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-zapi-token" type="password" value="" placeholder="${s.hasToken?'Token protegido no servidor':'Cole o token da instância'}"><button class="gxi-secret-action" onclick="gxiToggleSecret('gxi-zapi-token')">Mostrar</button></div></label>
           <label class="gxi-field full"><span class="gxi-label">Client-Token (segurança da conta)</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-zapi-client-token" type="password" value="" placeholder="${s.hasClientToken?'Client-Token protegido no servidor':'Cole o Client-Token da conta Z-API'}"><button class="gxi-secret-action" onclick="gxiToggleSecret('gxi-zapi-client-token')">Mostrar</button></div></label>
         </div>
-        <div class="gxi-conv-footer"><span>Token e Client-Token são enviados para uma função segura e nunca são gravados no navegador.</span><div style="display:flex;gap:7px">${on?`<button class="gxi-btn" onclick="window.wacOpenQr&&window.wacOpenQr()">📷 Ver QR Code</button>`:''}<button class="gxi-btn danger" id="gxi-zapi-disconnect-btn" style="display:none" onclick="gxiDisconnectZapi()">Desconectar</button><button class="gxi-btn primary" onclick="gxiSaveZapiConfig()">Salvar conexão</button></div></div>
+        <div class="gxi-conv-footer"><span>Token e Client-Token são enviados para uma função segura e nunca são gravados no navegador.</span><div style="display:flex;gap:7px">${on?`<button class="gxi-btn" onclick="window.wacOpenQr&&window.wacOpenQr()">Ver QR Code</button>`:''}<button class="gxi-btn danger" id="gxi-zapi-disconnect-btn" style="display:none" onclick="gxiDisconnectZapi()">Desconectar</button><button class="gxi-btn primary" onclick="gxiSaveZapiConfig()">Salvar conexão</button></div></div>
       </div>
     </div>`;
   }
@@ -21864,7 +21865,7 @@ ${gxlCloseScriptTag}`;
       <div style="display:flex;gap:10px;margin:14px 0 12px;border-bottom:1px solid #E2E8F0;flex-wrap:wrap">${tabBtns}</div>
       <p style="font-size:12px;color:#64748B;margin-bottom:12px">${active[3]}</p>
       <textarea readonly style="width:100%;height:280px;font-family:monospace;font-size:11px;border:1px solid #E2E8F0;border-radius:10px;padding:12px;background:#F8FAFC;box-sizing:border-box" id="gl-code-text">${esc(active[2])}</textarea>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="gl-btn" onclick="document.getElementById('gl-code-ov').remove()">Fechar</button><button class="gl-btn primary" onclick="gxlCopyFormCode()">📋 Copiar código</button></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="gl-btn" onclick="document.getElementById('gl-code-ov').remove()">Fechar</button><button class="gl-btn primary" onclick="gxlCopyFormCode()">Copiar código</button></div>
     </div>`;
   }
   window.gxlSwitchCodeTab=function(tab){
@@ -22254,7 +22255,7 @@ ${gxlCloseScriptTag}`;
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h3 style="font-size:16px">Código de instalação — ${esc(w.nome)}</h3><span style="cursor:pointer;font-size:20px;color:#94A3B8" onclick="document.getElementById('gxw-code-ov').remove()">×</span></div>
       <p style="font-size:12px;color:#64748B;margin-bottom:14px">Cole este código antes do <code>&lt;/body&gt;</code> do site. O botão flutuante aparece sozinho, sem precisar de mais nada.</p>
       <textarea readonly style="width:100%;height:220px;font-family:monospace;font-size:11px;border:1px solid #E2E8F0;border-radius:10px;padding:12px;background:#F8FAFC;box-sizing:border-box" id="gxw-code-text">${esc(code)}</textarea>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="gl-btn" onclick="document.getElementById('gxw-code-ov').remove()">Fechar</button><button class="gl-btn primary" onclick="gxwCopyCode()">📋 Copiar código</button></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px"><button class="gl-btn" onclick="document.getElementById('gxw-code-ov').remove()">Fechar</button><button class="gl-btn primary" onclick="gxwCopyCode()">Copiar código</button></div>
     </div>`;
     document.body.appendChild(ov);
   };
@@ -22425,7 +22426,7 @@ ${gxlCloseScriptTag}`;
     const cards=TEMPLATES.map(t=>{
       if(t.locked){
         return `<div class="auto-card locked">
-          <div class="auto-card-ico locked">${t.icon}</div>
+          <div class="auto-card-ico locked">${gxEmojiIco(t.icon)}</div>
           <div class="auto-card-name">${esc(t.nome)}</div>
           <div class="auto-card-desc">${esc(t.desc)}</div>
           <div class="auto-card-foot"><span class="auto-pill">Em breve · integração externa</span></div>
@@ -22434,7 +22435,7 @@ ${gxlCloseScriptTag}`;
       const inst=instanceOf(t.key);
       const status=inst?(inst.ativo!==false?'on':'paused'):'novo';
       return `<div class="auto-card">
-        <div class="auto-card-ico ${t.canal}">${t.icon}</div>
+        <div class="auto-card-ico ${t.canal}">${gxEmojiIco(t.icon)}</div>
         <div class="auto-card-name">${esc(t.nome)}</div>
         <div class="auto-card-desc">${esc(t.desc)}</div>
         <div class="auto-card-foot">
@@ -22515,8 +22516,8 @@ ${gxlCloseScriptTag}`;
     <div class="gl-panel" id="auto-canal-panel" style="${gAtivEtapa||gCadencia||gAvisoResp?'display:none':''}">
       <h3>Canal</h3><p>Por onde a ação será preparada.</p>
       <div class="auto-seg" id="auto-canal-seg">
-        <button type="button" class="${d.canal==='whatsapp'?'active whatsapp':''}" onclick="autoSetCanal('whatsapp')" id="auto-canal-whatsapp">💬 WhatsApp</button>
-        <button type="button" class="${d.canal==='email'?'active email':''}" onclick="autoSetCanal('email')" id="auto-canal-email">✉️ E-mail</button>
+        <button type="button" class="${d.canal==='whatsapp'?'active whatsapp':''}" onclick="autoSetCanal('whatsapp')" id="auto-canal-whatsapp">WhatsApp</button>
+        <button type="button" class="${d.canal==='email'?'active email':''}" onclick="autoSetCanal('email')" id="auto-canal-email">E-mail</button>
       </div>
       <input type="hidden" id="auto-canal" value="${esc(canalEfetivo||'whatsapp')}">
     </div>
@@ -23410,7 +23411,7 @@ ${gxlCloseScriptTag}`;
         <div class="wac-topbar-right">
           <span class="wac-topbar-status ${wacConn.connected?'on':''}" id="wac-status-label">${wacConn.connected?'Conectado':wacConn.configured?'Desconectado':'Sem conexão configurada'}</span>
           ${wacConn.connected?`<button class="wac-btn-danger" onclick="wacDisconnect()" id="wac-disconnect-btn">Desconectar</button>`:''}
-          <button class="wac-btn-solid" onclick="wacOpenQr()">📷 ${wacConn.connected?'Reconectar':'Conectar com QR Code'}</button>
+          <button class="wac-btn-solid" onclick="wacOpenQr()">${wacConn.connected?'Reconectar':'Conectar com QR Code'}</button>
         </div>
       </div>
       <div class="wac-body">
@@ -23497,9 +23498,9 @@ ${gxlCloseScriptTag}`;
         <div class="wac-thread-head-phone">${esc(wacSelectedPhone)}</div>
         ${(chat.tags&&chat.tags.length)?`<div class="wac-item-tags" style="margin-top:4px">${chat.tags.map(tagPillHtml).join('')}</div>`:''}
       </div>
-      ${(typeof can==='function'?can('comercial','create'):true)?`<button class="wac-tag-btn wac-tag-btn-primary" onclick="wacSendToPipeline('${A(wacSelectedPhone)}')" title="Criar um lead no Pipeline a partir desta conversa">📥 Enviar para o Pipeline</button>`:''}
-      <button class="wac-tag-btn" onclick="wacToggleTagEditor()">🏷️ Etiquetas</button>
-      <button class="wac-tag-btn wac-tag-btn-danger" onclick="wacDeleteChat('${A(wacSelectedPhone)}')" title="Excluir esta conversa">🗑️ Excluir</button>
+      ${(typeof can==='function'?can('comercial','create'):true)?`<button class="wac-tag-btn wac-tag-btn-primary" onclick="wacSendToPipeline('${A(wacSelectedPhone)}')" title="Criar um lead no Pipeline a partir desta conversa">Enviar para o Pipeline</button>`:''}
+      <button class="wac-tag-btn" onclick="wacToggleTagEditor()">Etiquetas</button>
+      <button class="wac-tag-btn wac-tag-btn-danger" onclick="wacDeleteChat('${A(wacSelectedPhone)}')" title="Excluir esta conversa">Excluir</button>
     </div>
     ${tagEditorHtml(chat)}
     <div class="wac-thread-msgs" id="wac-thread-msgs">${messagesHtml()}</div>
@@ -24157,14 +24158,14 @@ function expandTaskOccurrencesInMonth(t,year,month){
 
 function calGoogleHeaderHtml(){
   if(_calGoogleStatus===null){
-    return `<button class="btn btn-ghost" disabled style="opacity:.65">📅 Verificando...</button>`;
+    return `<button class="btn btn-ghost" disabled style="opacity:.65">Verificando...</button>`;
   }
   if(_calGoogleStatus.connected){
     return `<span class="badge badge-green" style="padding:7px 12px" title="${escAttr(_calGoogleStatus.googleEmail||'')}">✓ Google Agenda conectada</span>
       <button class="btn btn-ghost" onclick="disconnectGoogleCalendar()">Desconectar</button>`;
   }
-  return `<span class="badge badge-gray" style="padding:7px 12px">📅 Não conectado</span>
-    <button class="btn btn-ghost" id="cal-gcal-connect-btn" onclick="connectGoogleCalendarOAuth()">🔗 Conectar Google Agenda</button>`;
+  return `<span class="badge badge-gray" style="padding:7px 12px">Não conectado</span>
+    <button class="btn btn-ghost" id="cal-gcal-connect-btn" onclick="connectGoogleCalendarOAuth()">Conectar Google Agenda</button>`;
 }
 
 /* Retorna os monthKeys ('YYYY-MM') tocados por um intervalo [start,end] —
@@ -24297,7 +24298,7 @@ function renderCalendario(){
       </div>`);
     const eventRows=dayEvents.map(ev=>`<div class="cal-day-row gcal" onclick="openGcalEventModal('${ev.id}','${geventMonthOf[ev.id]||primaryMonthKey}')">
         <div class="cal-day-row-time">${ev.time||'Dia todo'}</div>
-        <div class="cal-day-row-body"><div class="cal-day-row-title">📅 ${escHtml(ev.title||'')}</div></div>
+        <div class="cal-day-row-body"><div class="cal-day-row-title">${escHtml(ev.title||'')}</div></div>
       </div>`);
     const allRows=[...taskRows,...eventRows];
     bodyHtml=`<div class="cal-day-agenda">
@@ -24542,9 +24543,9 @@ function openGcalEventModal(eventId,monthKey){
   document.getElementById('modal-body').innerHTML=`
     <div class="gcal-form">
       <input class="gcal-title-input" id="ge-title" value="${escAttr(ev.title||'')}" placeholder="Adicionar título">
-      <div class="gcal-tabs"><div class="gcal-tab active">📅 Evento</div></div>
+      <div class="gcal-tabs"><div class="gcal-tab active">Evento</div></div>
       <div class="gcal-row">
-        <div class="gcal-ico">🕐</div>
+        <div class="gcal-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
         <div class="gcal-row-content">
           <div class="gcal-row-main">
             <input class="gcal-inline-input" id="ge-date" type="date" value="${ev.date||''}">
@@ -24564,7 +24565,7 @@ function openGcalEventModal(eventId,monthKey){
       </div>
     </div>`;
   document.getElementById('modal-footer').innerHTML=`
-    <button class="btn btn-ghost" style="color:var(--red)" onclick="deleteGcalEventModal('${eventId}','${monthKey}')">🗑 Excluir do Google</button>
+    <button class="btn btn-ghost" style="color:var(--red)" onclick="deleteGcalEventModal('${eventId}','${monthKey}')">Excluir do Google</button>
     <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
     <button class="btn btn-primary btn-pill" onclick="saveGcalEventModal('${eventId}','${monthKey}')">Salvar</button>`;
   document.getElementById('modal-box').className='modal';
@@ -24866,7 +24867,7 @@ window.renderEntregas=function(){
   if(S.legacy&&typeof legacyRender==='function'){
     legacyRender();
     const c=document.getElementById('proj-content');
-    if(c)c.insertAdjacentHTML('afterbegin','<div style="margin-bottom:10px"><button class="btn btn-primary btn-sm" onclick="opLegacy(false)">✨ Voltar para o novo Operacional</button></div>');
+    if(c)c.insertAdjacentHTML('afterbegin','<div style="margin-bottom:10px"><button class="btn btn-primary btn-sm" onclick="opLegacy(false)">Voltar para o novo Operacional</button></div>');
     return;
   }
   renderOp();
@@ -24886,7 +24887,7 @@ function sidebarHtml(){
     </div>`;
   }).join('');
   return `<div class="op-side"><h4>Operacional</h4>${body||'<div style="font-size:12px;color:var(--light);padding:8px">Nenhum squad disponível para você ainda.</div>'}
-    ${manage?`<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px"><div class="op-add" style="padding-left:8px" onclick="openSquadMgr()">⚙️ Gerenciar squads</div></div>`:''}</div>`;
+    ${manage?`<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px"><div class="op-add" style="padding-left:8px" onclick="openSquadMgr()">Gerenciar squads</div></div>`:''}</div>`;
 }
 
 function mentionsPending(){
@@ -24921,10 +24922,10 @@ function topHtml(l,sq){
       ${[['lista','Lista'],['quadro','Quadro'],['tabela','Tabela']].map(([k,n])=>`<button class="${S.view===k?'on':''}" onclick="opView('${k}')">${n}</button>`).join('')}
     </div>
     <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-ghost btn-sm" onclick="opMentions()" title="Comentários que marcaram você">🔔 Menções${pend?` <b style="color:#EF4444">(${pend})</b>`:''}</button>
-      ${canManage()?`<button class="btn btn-ghost btn-sm" onclick="opConfigLista('${l.id}')">⚙️ Configurar lista</button>`:''}
-      ${canManage()?`<button class="btn btn-ghost btn-sm" onclick="opAcessos()">👥 Acessos</button>`:''}
-      ${podeEditar(l)?`<button class="btn btn-primary btn-sm" onclick="opNewTask('')">+ Tarefa</button>`:`<span class="op-chip" style="background:var(--bg);color:var(--muted)">👁 Somente visualização</span>`}
+      <button class="btn btn-ghost btn-sm" onclick="opMentions()" title="Comentários que marcaram você">Menções${pend?` <b style="color:#EF4444">(${pend})</b>`:''}</button>
+      ${canManage()?`<button class="btn btn-ghost btn-sm" onclick="opConfigLista('${l.id}')">Configurar lista</button>`:''}
+      ${canManage()?`<button class="btn btn-ghost btn-sm" onclick="opAcessos()">Acessos</button>`:''}
+      ${podeEditar(l)?`<button class="btn btn-primary btn-sm" onclick="opNewTask('')">+ Tarefa</button>`:`<span class="op-chip" style="background:var(--bg);color:var(--muted)">Somente visualização</span>`}
     </div>
   </div>`;
 }
@@ -24967,7 +24968,7 @@ function cellHtml(l,t,c){
     return `<div onclick="event.stopPropagation()"><select class="form-input" ${podeEditar(l)?'':'disabled'} style="padding:3px 6px;font-size:11px;font-weight:700;width:auto;max-width:130px;${op?`color:${ea(op.cor)};background:${ea(op.cor)}18;border-color:${ea(op.cor)}55`:''}" onchange="opSetCampo('${t.id}','${c.id}',this.value)"><option value="">—</option>${(c.opcoes||[]).map(o=>`<option value="${o.id}" ${o.id===v?'selected':''}>${esc(o.nome)}</option>`).join('')}</select></div>`;
   }
   if(!v&&v!==0&&v!==false)return '<span style="color:var(--light)">—</span>';
-  if(c.tipo==='link')return `<a class="op-link" href="${ea(safeUrl(v))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">🔗 ${esc(hostOf(v))}</a>`;
+  if(c.tipo==='link')return `<a class="op-link" href="${ea(safeUrl(v))}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(hostOf(v))}</a>`;
   if(c.tipo==='data')return esc(fmtData(v));
   if(c.tipo==='checkbox')return v?'✅':'—';
   return `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${esc(v)}</span>`;
@@ -24977,12 +24978,12 @@ function rowHtml(l,t,showSt){
   const pr=t.prioridade;
   const p=ckProg(t);
   return `<div class="op-row" style="grid-template-columns:${cols(l)}" onclick="opOpenTask('${t.id}')">
-    <div class="op-name" title="${ea(t.titulo)}">${showSt?pill(statusOf(l,t)||{nome:'—',cor:'#999'})+' ':''}${esc(t.titulo||'Sem título')}${p.b?` <span style="font-weight:500;color:var(--light);font-size:11px">☑ ${p.a}/${p.b}</span>`:''}${nComentarios(t)?` <span style="font-weight:500;color:var(--light);font-size:11px">💬 ${nComentarios(t)}</span>`:''}</div>
+    <div class="op-name" title="${ea(t.titulo)}">${showSt?pill(statusOf(l,t)||{nome:'—',cor:'#999'})+' ':''}${esc(t.titulo||'Sem título')}${p.b?` <span style="font-weight:500;color:var(--light);font-size:11px">${p.a}/${p.b}</span>`:''}${nComentarios(t)?` <span style="font-weight:500;color:var(--light);font-size:11px">${nComentarios(t)}</span>`:''}</div>
     <div style="display:flex">${avs(t.resp)}</div>
     <div style="${atrasada?'color:#EF4444;font-weight:700':''}">${t.venc?esc(fmtData(t.venc)):'<span style="color:var(--light)">—</span>'}</div>
     <div>${pr?`<span class="op-chip" style="background:${PRIORIDADES[pr]}22;color:${PRIORIDADES[pr]}">${esc(pr)}</span>`:'<span style="color:var(--light)">—</span>'}</div>
     ${(l.campos||[]).map(c=>`<div>${cellHtml(l,t,c)}</div>`).join('')}
-    <div>${podeEditar(l)?`<button class="op-x" title="Excluir tarefa" onclick="event.stopPropagation();opExcluirTask('${t.id}')">🗑</button>`:''}</div>
+    <div>${podeEditar(l)?`<button class="op-x" title="Excluir tarefa" onclick="event.stopPropagation();opExcluirTask('${t.id}')"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>`:''}</div>
   </div>`;
 }
 
@@ -25012,7 +25013,7 @@ function kanbanHtml(l,ts){
         return `<div class="op-card" draggable="${podeEditar(l)}" ondragstart="opDragStart(event,'${t.id}')" onclick="opOpenTask('${t.id}')">
           <div class="t">${esc(t.titulo||'Sem título')}</div>
           <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">${sel}</div>
-          <div class="m"><span style="display:flex">${avs(t.resp)}</span>${t.venc?`<span style="${t.venc<hoje()&&!s.concluido?'color:#EF4444;font-weight:700':''}">📅 ${esc(fmtData(t.venc))}</span>`:''}${p.b?`<span>☑ ${p.a}/${p.b}</span>`:''}${nComentarios(t)?`<span>💬 ${nComentarios(t)}</span>`:''}</div>
+          <div class="m"><span style="display:flex">${avs(t.resp)}</span>${t.venc?`<span style="${t.venc<hoje()&&!s.concluido?'color:#EF4444;font-weight:700':''}">${esc(fmtData(t.venc))}</span>`:''}${p.b?`<span>${p.a}/${p.b}</span>`:''}${nComentarios(t)?`<span>${nComentarios(t)}</span>`:''}</div>
         </div>`;}).join('')}
       ${podeEditar(l)?`<button class="op-ghost" style="width:100%" onclick="opNewTask('${s.id}')">+ Adicionar</button>`:''}
     </div>`;}).join('')}</div>`;
@@ -25107,7 +25108,7 @@ function renderTaskInner(keepScroll){
   const ckHtml=(t.checklists||[]).map(c=>{
     const tot=(c.itens||[]).length,dn=(c.itens||[]).filter(i=>i.feito).length;
     return `<div class="op-ck">
-      <div style="display:flex;align-items:center;gap:8px"><input class="form-input" style="flex:1;font-weight:700;padding:4px 8px;font-size:13px" value="${ea(c.nome)}" onchange="opCkRename('${c.id}',this.value)"><span style="font-size:11px;color:var(--muted)">${dn}/${tot}</span><button class="op-x" title="Remover checklist" onclick="opCkDel('${c.id}')">🗑</button></div>
+      <div style="display:flex;align-items:center;gap:8px"><input class="form-input" style="flex:1;font-weight:700;padding:4px 8px;font-size:13px" value="${ea(c.nome)}" onchange="opCkRename('${c.id}',this.value)"><span style="font-size:11px;color:var(--muted)">${dn}/${tot}</span><button class="op-x" title="Remover checklist" onclick="opCkDel('${c.id}')"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>
       <div class="op-bar"><i style="width:${tot?Math.round(dn/tot*100):0}%"></i></div>
       ${(c.itens||[]).map(i=>`<div class="op-ck-it ${i.feito?'done':''}" style="cursor:pointer" onclick="opCkToggle('${c.id}','${i.id}')"><span class="op-ckc ${i.feito?'on':''}">${i.feito?'✓':''}</span><span class="tx" style="flex:1">${esc(i.texto)}</span>${i.resp?`<span class="op-av" style="margin:0" title="${ea(personById(i.resp)?.nome||'')}">${esc(ini(personById(i.resp)?.nome))}</span>`:''}<button class="op-x" onclick="event.stopPropagation();opCkItemDel('${c.id}','${i.id}')">✕</button></div>`).join('')}
       <div style="display:flex;gap:6px;margin-top:6px"><input class="form-input" id="op-ckin-${c.id}" placeholder="Novo item… (Enter para adicionar)" style="padding:4px 8px;font-size:12.5px" onkeydown="if(event.key==='Enter')opCkAdd('${c.id}')"><button class="op-ghost" onclick="opCkAdd('${c.id}')">Adicionar</button></div>
@@ -25118,7 +25119,7 @@ function renderTaskInner(keepScroll){
     :`<div class="op-act-it"><b style="color:var(--txt)">${esc(a.autor)}</b> ${esc(a.texto)} <span style="color:var(--light)">· ${esc(new Date(a.data).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}))}</span></div>`).join('');
   ov.innerHTML=`<div class="op-drawer">
     <div class="op-main">
-      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)"><span>${esc(squad(l.squadId)?.nome||'')} / ${esc(l.nome)}</span><span style="margin-left:auto"></span><button class="btn btn-ghost btn-sm" onclick="opDelTask('${t.id}')" title="Esconde a tarefa, mas mantém os dados salvos">🗄 Arquivar</button><button class="btn btn-ghost btn-sm" style="color:#EF4444" onclick="opExcluirTask('${t.id}')" title="Apaga a tarefa de vez">🗑 Excluir</button><button class="btn btn-ghost btn-sm" onclick="opCloseTask()">✕ Fechar</button></div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)"><span>${esc(squad(l.squadId)?.nome||'')} / ${esc(l.nome)}</span><span style="margin-left:auto"></span><button class="btn btn-ghost btn-sm" onclick="opDelTask('${t.id}')" title="Esconde a tarefa, mas mantém os dados salvos">Arquivar</button><button class="btn btn-ghost btn-sm" style="color:#EF4444" onclick="opExcluirTask('${t.id}')" title="Apaga a tarefa de vez">Excluir</button><button class="btn btn-ghost btn-sm" onclick="opCloseTask()">✕ Fechar</button></div>
       <input class="op-title" value="${ea(t.titulo)}" onchange="opSetTitulo('${t.id}',this.value)">
       <div class="op-props">
         <div class="op-pr"><span>Status</span><div style="display:flex;gap:6px"><select class="form-input" style="font-weight:800;color:#fff;background:${ea(st?.cor||'#999')};border-color:${ea(st?.cor||'#999')}" onchange="opSetStatus('${t.id}',this.value)">${(l.statuses||[]).map(s=>`<option value="${s.id}" ${s.id===st?.id?'selected':''} style="background:#fff;color:#111">${esc(s.nome)}</option>`).join('')}</select><button class="btn btn-ghost btn-sm" title="Concluir tarefa (move para o status final)" onclick="opConcluir('${t.id}')">${st?.concluido?'✅':'✓'}</button></div></div>
@@ -25149,7 +25150,7 @@ function renderTaskInner(keepScroll){
     ov.querySelectorAll('.op-main input,.op-main select,.op-main textarea').forEach(e=>{e.disabled=true});
     ov.querySelectorAll('.op-ghost,.op-x,.op-cmbox,.op-sec label').forEach(e=>{e.style.display='none'});
     ov.querySelectorAll('.op-main .btn').forEach(e=>{if(!/opCloseTask/.test(e.getAttribute('onclick')||''))e.style.display='none'});
-    const ta=ov.querySelector('.op-act-list');if(ta)ta.insertAdjacentHTML('beforeend','<div class="op-act-it" style="text-align:center">👁 Você tem acesso somente para visualizar.</div>');
+    const ta=ov.querySelector('.op-act-list');if(ta)ta.insertAdjacentHTML('beforeend','<div class="op-act-it" style="text-align:center">Você tem acesso somente para visualizar.</div>');
   }
   const dr=document.getElementById('op-cm-in');if(dr&&draft)dr.value=draft;
   const m=ov.querySelector('.op-main'),a=ov.querySelector('.op-act-list');
@@ -25346,7 +25347,7 @@ window.opMentions=function(){
     if(a.tipo==='comentario'&&(a.mencoes||[]).some(id=>{const p=personById(id);return p&&personIsMe(p)}))out.push({t,a});
   }));
   out.sort((x,y)=>String(y.a.data).localeCompare(String(x.a.data)));
-  openModal2(`<div style="display:flex;align-items:center;margin-bottom:12px"><h3 style="margin:0;font-size:16px">🔔 Menções para você</h3><button class="op-x" style="margin-left:auto" onclick="opCloseModal()">✕</button></div>
+  openModal2(`<div style="display:flex;align-items:center;margin-bottom:12px"><h3 style="margin:0;font-size:16px">Menções para você</h3><button class="op-x" style="margin-left:auto" onclick="opCloseModal()">✕</button></div>
    ${out.length?out.slice(0,60).map(({t,a})=>`<div class="op-cm" style="cursor:pointer" onclick="opCloseModal();opGoTask('${t.id}')"><b>${esc(a.autor)}</b> em <b>${esc(t.titulo)}</b><span class="d">${esc(new Date(a.data).toLocaleString('pt-BR'))}</span>${(a.lidoPor||[]).includes(me().id)?'':' <span style="color:#EF4444;font-weight:800;font-size:11px">● nova</span>'}<div style="margin-top:4px">${mentionHtml(a.texto)}</div></div>`).join(''):'<div style="color:var(--light);padding:16px;text-align:center">Ninguém marcou você ainda.</div>'}`);
 };
 window.opGoTask=function(id){
@@ -25405,7 +25406,7 @@ window.opConfigLista=function(lid){
 function renderCfg(){
   const l=lista(CFG.id);
   const usados=sid=>tarefasDaLista(CFG.id).filter(t=>(t.statusId||CFG.statuses[0]?.id)===sid).length;
-  openModal2(`<div style="display:flex;align-items:center;margin-bottom:12px"><h3 style="margin:0;font-size:16px">⚙️ Configurar lista</h3><button class="op-x" style="margin-left:auto" onclick="opCloseModal()">✕</button></div>
+  openModal2(`<div style="display:flex;align-items:center;margin-bottom:12px"><h3 style="margin:0;font-size:16px">Configurar lista</h3><button class="op-x" style="margin-left:auto" onclick="opCloseModal()">✕</button></div>
    <label class="form-label">Nome da lista</label><input class="form-input" value="${ea(CFG.nome)}" oninput="CFG_set('nome',this.value)">
    <div class="op-sec">Status (colunas)</div>
    ${CFG.statuses.map((s,i)=>`<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
@@ -25413,7 +25414,7 @@ function renderCfg(){
      <input class="form-input" style="flex:1;padding:5px 8px" value="${ea(s.nome)}" onchange="CFG_st(${i},'nome',this.value)">
      <label style="font-size:11px;color:var(--muted);display:flex;gap:4px;align-items:center" title="Tarefas neste status não ficam 'atrasadas'"><input type="checkbox" ${s.concluido?'checked':''} onchange="CFG_st(${i},'concluido',this.checked)">final</label>
      <button class="op-x" onclick="CFG_mv('statuses',${i},-1)">↑</button><button class="op-x" onclick="CFG_mv('statuses',${i},1)">↓</button>
-     <button class="op-x" title="${usados(s.id)?'Há tarefas neste status':'Remover'}" onclick="CFG_delSt(${i})">🗑</button></div>`).join('')}
+     <button class="op-x" title="${usados(s.id)?'Há tarefas neste status':'Remover'}" onclick="CFG_delSt(${i})"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>`).join('')}
    <button class="op-ghost" onclick="CFG_addSt()">+ Novo status</button>
    <div class="op-sec">Campos personalizados</div>
    ${CFG.campos.map((c,i)=>`<div style="border:1px solid var(--border);border-radius:10px;padding:8px 10px;margin-bottom:8px">
@@ -25421,7 +25422,7 @@ function renderCfg(){
        <input class="form-input" style="flex:1;padding:5px 8px" value="${ea(c.nome)}" onchange="CFG_cp(${i},'nome',this.value)">
        <select class="form-input" style="width:auto;padding:5px 8px" onchange="CFG_cp(${i},'tipo',this.value);renderCfgPub()">${Object.entries(TIPOS_CAMPO).map(([k,n])=>`<option value="${k}" ${c.tipo===k?'selected':''}>${n}</option>`).join('')}</select>
        <button class="op-x" onclick="CFG_mv('campos',${i},-1)">↑</button><button class="op-x" onclick="CFG_mv('campos',${i},1)">↓</button>
-       <button class="op-x" onclick="CFG_delCp(${i})">🗑</button></div>
+       <button class="op-x" onclick="CFG_delCp(${i})"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>
      ${c.tipo==='select'?`<div style="margin-top:6px;padding-left:4px">${(c.opcoes||[]).map((o,j)=>`<div style="display:flex;gap:6px;align-items:center;margin-bottom:4px"><input type="color" value="${ea(o.cor)}" onchange="CFG_op(${i},${j},'cor',this.value)" style="width:28px;height:26px;border:0;background:none"><input class="form-input" style="flex:1;padding:3px 8px;font-size:12px" value="${ea(o.nome)}" onchange="CFG_op(${i},${j},'nome',this.value)"><button class="op-x" onclick="CFG_delOp(${i},${j})">✕</button></div>`).join('')}<button class="op-ghost" onclick="CFG_addOp(${i})">+ opção</button></div>`:''}
    </div>`).join('')}
    <button class="op-ghost" onclick="CFG_addCp()">+ Novo campo</button>
@@ -25429,7 +25430,7 @@ function renderCfg(){
    <div style="font-size:12px;color:var(--muted);margin-bottom:6px">Traz os clientes que já estão neste squad (e o status, resultado, relacionamento e links da Carteira antiga) como tarefas desta lista. Não apaga nem altera nada do módulo antigo e não duplica clientes já importados.</div>
    <button class="op-ghost" onclick="opImportClientes()">⬇ Importar clientes do squad</button>
    <div style="display:flex;gap:8px;justify-content:space-between;margin-top:20px;border-top:1px solid var(--border);padding-top:14px">
-     <div style="display:flex;gap:8px"><button class="btn btn-ghost" onclick="opArchiveLista()" title="Esconde, mas mantém os dados">🗄 Arquivar lista</button><button class="btn btn-ghost" style="color:#EF4444" onclick="opExcluirLista()">🗑 Excluir lista</button></div>
+     <div style="display:flex;gap:8px"><button class="btn btn-ghost" onclick="opArchiveLista()" title="Esconde, mas mantém os dados">Arquivar lista</button><button class="btn btn-ghost" style="color:#EF4444" onclick="opExcluirLista()">Excluir lista</button></div>
      <div style="display:flex;gap:8px"><button class="btn btn-ghost" onclick="opCloseModal()">Cancelar</button><button class="btn btn-primary" onclick="opSaveCfg()">Salvar</button></div>
    </div>`);
 }
@@ -25497,7 +25498,7 @@ window.opAcessos=function(){
   const ls=listasDoSquad(sq.id);
   const gs=col('op_acessos').filter(g=>g.squadId===sq.id);
   const ps=people();
-  openModal2(`<div style="display:flex;align-items:center;margin-bottom:6px"><h3 style="margin:0;font-size:16px">👥 Acessos · ${esc(sq.nome)}</h3><button class="op-x" style="margin-left:auto" onclick="opCloseModal()">✕</button></div>
+  openModal2(`<div style="display:flex;align-items:center;margin-bottom:6px"><h3 style="margin:0;font-size:16px">Acessos · ${esc(sq.nome)}</h3><button class="op-x" style="margin-left:auto" onclick="opCloseModal()">✕</button></div>
    <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Quem não é fundador só vê os squads e listas liberados aqui. "Ver" mostra tudo sem permitir alterar; "Editar" permite criar, mover e editar tarefas.</div>
    <div style="display:grid;grid-template-columns:1.3fr 1.3fr .8fr auto;gap:8px;align-items:center">
      <select class="form-input" id="op-ac-p"><option value="">Pessoa…</option>${ps.map(p=>`<option value="${ea(p.id)}">${esc(p.nome)}${p.cargo?' · '+esc(p.cargo):''}</option>`).join('')}</select>
@@ -26071,7 +26072,7 @@ window.gxCardsOpen=function(){
   var m=document.createElement('div');m.id='gx-cards-modal';
   m.style.cssText='position:fixed;inset:0;background:rgba(15,10,30,.45);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px';
   m.innerHTML='<div style="background:var(--card,#fff);color:var(--txt,#1a1530);border-radius:14px;max-width:380px;width:100%;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.3);max-height:90vh;overflow:auto">'
-   +'<div style="font-size:15px;font-weight:700;margin-bottom:4px">⚙ O que aparece no card</div>'
+   +'<div style="font-size:15px;font-weight:700;margin-bottom:4px">O que aparece no card</div>'
    +'<div style="font-size:11.5px;color:var(--muted);margin-bottom:12px">Marque o que você quer ver. Vale só para você, neste navegador. Não altera os dados dos leads.</div>'
    +OPTS.map(function(x){return '<label style="display:flex;align-items:center;gap:9px;padding:7px 4px;font-size:13px;cursor:pointer"><input type="checkbox" data-k="'+x.k+'" '+(on(o,x)?'checked':'')+'> '+x.l+'</label>'}).join('')
    +'<div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end"><button class="btn btn-ghost btn-sm" id="gx-cards-reset">Restaurar padrão</button><button class="btn btn-sm" style="background:var(--p2,#6D28D9);color:#fff" id="gx-cards-ok">Pronto</button></div></div>';
@@ -27343,6 +27344,23 @@ html body .cfg-sub{font-size:14px!important}
 html body .cfg-badge{font-size:12px!important;font-weight:700;padding:5px 12px!important;border-radius:999px!important;background:rgba(139,92,246,.14)!important;color:#6D28D9!important;border:0!important}
 /* RH */
 html body #page-rh .stat-card{border-radius:14px}
+</style>
+<style id="gx-icos-v2">
+html body .empty-ico{color:#8B5CF6}
+html body .empty-ico svg{width:34px;height:34px}
+html body .sec-ico svg,html body .gcal-ico svg,html body .uo-ico svg{width:17px;height:17px;color:#7C3AED}
+html body .op-x svg{width:14px;height:14px}
+html body .access-denied-icon svg,html body .int-empty-ico svg{width:34px;height:34px;color:#8B5CF6}
+html body .squad-folder-ico svg{width:20px;height:20px;color:#7C3AED}
+</style>
+<style id="gx-icos2-v2">
+html body .auto-card-ico svg,html body .esquema-ico svg{width:22px;height:22px}
+html body .auto-card-ico,html body .esquema-ico{color:#7C3AED}
+html body .auto-card-ico.whatsapp{color:#059669}
+</style>
+<style id="gx-autotab-v2">
+html body .auto-tab{height:34px;border-radius:9px;font-size:13px;font-weight:600;padding:0 14px;border:1px solid var(--g-line,var(--border));background:var(--g-card,#fff);color:var(--g-mu,var(--muted))}
+html body .auto-tab.active{background:#7C3AED!important;border-color:#7C3AED!important;color:#fff!important}
 </style>
 </body>
 </html>
