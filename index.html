@@ -4950,6 +4950,7 @@ async function initGexCloudDataSync(isRetry){
     // Parceiro novo (cadastro pelo link): cria o funil pessoal dele já no primeiro login, sem esperar abrir o Comercial.
     // Só roda depois que a nuvem terminou de carregar (ensurePersonalCommercialFunnel já exige isso) e nunca duplica.
     try{setTimeout(()=>{try{if(resolveRole(sessionUser?.permissao||sessionUser?.cargo||'')==='Gex Parceiro'&&typeof ensureDefaultCommercialFunnel==='function'){ensureDefaultCommercialFunnel()}}catch(e){}},1500)}catch(e){}
+    try{setTimeout(()=>{try{if(gxProvisionarFunisParceiros()>0)rerenderActivePageAfterCloudSync()}catch(e){}},2500)}catch(e){}
     startGexRecordsRealtime();
     // DESLIGADO DE PROPÓSITO (03/10/2026): o motor de automações agora roda
     // no SERVIDOR (Edge Function run-automations-cron, via pg_cron), de
@@ -16566,6 +16567,38 @@ function ensurePersonalCommercialFunnel(funnels){
     setActiveFunnelId(starter.id);
     return next;
   }catch(e){return list}
+}
+
+// Cria o funil padrão do parceiro (cópia do Funil Comercial Principal) SEM depender do primeiro login dele:
+// roda no navegador do Fundador, depois que a nuvem carregou. Mesmo nome/estrutura que ensurePersonalCommercialFunnel
+// criaria; como o dono (createdBy) é o próprio parceiro, quando ele entrar o sistema já encontra o funil e não duplica.
+function gxProvisionarFunisParceiros(){
+  try{
+    if(resolveRole(sessionUser?.permissao||sessionUser?.cargo||'')!=='Fundador')return 0;
+    if(typeof gexCloudReady!=='undefined'&&!gexCloudReady)return 0;
+    if(typeof gxIsOtherWorkspace==='function'&&gxIsOtherWorkspace())return 0;
+    const us=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[])||[];
+    const parceiros=us.filter(u=>u&&resolveRole(u.permissao||u.cargo||'')==='Gex Parceiro'&&String(u.status||'Ativo')!=='Inativo');
+    if(!parceiros.length)return 0;
+    let list=getCommercialFunnels();
+    const base=list.find(f=>f.isDefault&&!f.isArchived);
+    if(!base||!Array.isArray(base.stages)||!base.stages.length)return 0;
+    const novos=[];
+    parceiros.forEach(u=>{
+      const ids=[u.supabaseId,u.id].filter(Boolean).map(String);
+      const email=normalizeLoginEmail(u.email||'');
+      const temFunil=list.some(f=>f&&!f.isArchived&&!f.isDefault&&(ids.includes(String(f.createdBy||''))||(email&&normalizeLoginEmail(f.createdByEmail||'')===email)));
+      if(temFunil)return;
+      const uidDono=String(u.supabaseId||u.id||'');if(!uidDono)return;
+      const primeiro=String(u.nome||u.name||'').trim().split(' ')[0]||'Parceiro';
+      const agora=new Date().toISOString();
+      novos.push({id:'funnel_'+uid(),name:`Funil de ${primeiro}`,description:'Copiado do funil padrão como ponto de partida — é só seu, edite à vontade.',isDefault:false,isArchived:false,createdBy:uidDono,createdByEmail:u.email||'',createdAt:agora,updatedAt:agora,stages:(base.stages||[]).map(s=>({...s,id:'stage_'+uid()}))});
+    });
+    if(!novos.length)return 0;
+    saveCommercialFunnels([...list,...novos]);
+    try{toast(`Funil padrão criado para ${novos.length} parceiro(s) ✓`,'#10B981')}catch(e){}
+    return novos.length;
+  }catch(e){console.warn('[GexFlow] provisionar funis de parceiros:',e);return 0}
 }
 
 function getActiveFunnel(){
