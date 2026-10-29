@@ -11928,7 +11928,7 @@ function gxFunnelBuild(rows,opsF,lostF,lostValor,compact,flow){
   const has3=lines.some(Boolean);
   const W=compact?272:760,rowH=compact?(has3?50:38):(has3?78:64),gap=compact?5:10,n=rows.length,H=n*rowH+(n-1)*gap;
   const minTop=W*(compact?0.66:0.56),stepW=n>1?(W-minTop)/(n-1):0;
-  const c0=[11,79,99],c1=[28,198,214];
+  const c0=[76,29,149],c1=[139,92,246];
   const col=i=>{const t=n>1?i/(n-1):0;return 'rgb('+c0.map((v,k)=>Math.round(v+(c1[k]-v)*t)).join(',')+')'};
   const maxLbl=compact?24:28;
   const shapes=rows.map((r,i)=>{
@@ -25605,7 +25605,7 @@ function won(l){const r=_fl(l);if(r.w===undefined){try{r.w=!!isWonOpportunity(l)
 function lost(l){const r=_fl(l);if(r.l===undefined){try{r.l=!!isLostOpportunityLocal(l)}catch(e){r.l=false}}return r.l}
 function delta(cur,prev,invert){
   if(!prev&&!cur)return '';
-  if(!prev)return '<span class="gxb-d neutral">novo</span>';
+  if(!prev)return '';
   const p=Math.round((cur-prev)/Math.abs(prev)*100);
   if(p===0)return '<span class="gxb-d neutral">= anterior</span>';
   const good=invert?p<0:p>0;
@@ -25686,6 +25686,7 @@ function applyCust(box){
     g.style.display=vis.length?'':'none';
     if(g.classList.contains('gxb-2')||g.classList.contains('gxb-2e')){g.style.gridTemplateColumns=vis.length===1?'minmax(0,1fr)':''}
   });
+  box.querySelectorAll('.gxb-sec').forEach(h=>{const g=h.nextElementSibling;h.style.display=(g&&g.style.display==='none')?'none':''});
 }
 /* ── Organizar: arrastar os cards para onde quiser (guardado neste navegador) ── */
 const OKEY='gxIniOrder';
@@ -25775,6 +25776,36 @@ function stColor(n,i){
   if(/perd|lost|fora icp|desqualif|descart/.test(t))return '#d64533';
   return BLUE;
 }
+
+// ── Início v2: ícones nos indicadores, botões no topo e data no subtítulo (só aparência) ──
+const GXI_ICO={
+ 'Receita':'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+ 'Lucro líquido':'<polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>',
+ 'Negócios ganhos':'<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+ 'Taxa de conversão':'<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
+ 'Ciclo médio':'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+ 'Investimento em Ads':'<path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>',
+ 'CAC':'<circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/>',
+ 'Clientes ativos':'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+ 'Health score médio':'<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+ 'Membros ativos':'<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>'
+};
+function gxIniDecor(box){
+  box.querySelectorAll('.gxb-kpis .gxb-l').forEach(l=>{
+    if(l.querySelector('svg'))return;
+    const k=(l.textContent||'').split(' · ')[0].trim();const ic=GXI_ICO[k];if(!ic)return;
+    l.insertAdjacentHTML('afterbegin',`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ic}</svg>`);
+  });
+}
+function gxIniTopo(){
+  const wa=document.getElementById('welcome-actions');
+  if(wa)['gx-ini-custbtn','gx-ini-orgbtn','gx-ini-toggle'].forEach(id=>{const el=document.getElementById(id);if(el&&el.parentNode!==wa)wa.appendChild(el)});
+  const ws=document.getElementById('welcome-sub');
+  if(ws){
+    let dl='';try{dl=new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});dl=dl.charAt(0).toUpperCase()+dl.slice(1)}catch(e){}
+    if(dl&&ws.textContent.indexOf(dl)!==0)ws.textContent=dl+' · '+ws.textContent;
+  }
+}
 function build(){
   const cls=DB.get('clientes')||[],mbs=DB.get('membros')||[],leads=DB.get('leads')||[];
   const txsAll=DB.get('transacoes')||[];
@@ -25816,23 +25847,23 @@ function build(){
 
   const cF=can('financas','view'),cC=can('comercial','view'),cCl=can('clientes','view'),cR=can('rh','view');
   const sub=`${label}${dashSel?' · recorte de funil/responsável':''}`;
-  const k=[];
+  const k=[],k2=[];
   if(cF)k.push(`<div class="gxb-card gxb-hero"><div class="gxb-l">Receita · ${E(label)}</div><div class="gxb-v">${brl(rec)}${delta(rec,recPrev)}</div><div class="gxb-s">vs ${E(pp.lbl)}: ${brl(recPrev)}${dashSel?' · empresa toda':''}</div></div>`);
   if(cF)k.push(`<div class="gxb-card"><div class="gxb-l">Lucro líquido</div><div class="gxb-v" style="color:${lucro<0?'#a52a1b':'inherit'}">${brl(lucro)}${delta(lucro,lucroPrev)}</div><div class="gxb-s">Receita − despesas do período</div></div>`);
   if(cC){
     k.push(`<div class="gxb-card"><div class="gxb-l">Negócios ganhos</div><div class="gxb-v">${brl(vGanho)}${delta(vGanho,vGanhoPrev)}</div><div class="gxb-s">${ganhos.length} venda${ganhos.length!==1?'s':''} · ticket ${brl(ticket)}</div></div>`);
     k.push(`<div class="gxb-card"><div class="gxb-l">Taxa de conversão</div><div class="gxb-v">${String(conv).replace('.',',')}%${delta(conv,convPrev)}</div><div class="gxb-s" title="Quantos leads que entraram no período viraram ganho">${ganhos.length} ganho${ganhos.length!==1?'s':''} ÷ ${leadsP.length} lead${leadsP.length!==1?'s':''} que entraram</div></div>`);
     k.push(`<div class="gxb-card"><div class="gxb-l">Ciclo médio</div><div class="gxb-v">${ciclo!==null?ciclo+' dias':'—'}</div><div class="gxb-s">${gc.length} fechado${gc.length!==1?'s':''} no período</div></div>`);
-    k.push(`<div class="gxb-card"><div class="gxb-l">Investimento em Ads</div><div class="gxb-v">${brl(ads)}</div><div class="gxb-s">${dashSel?'Total da empresa':'Categoria Ads / Tráfego'}</div></div>`);
-    k.push(`<div class="gxb-card"><div class="gxb-l">CAC</div><div class="gxb-v">${cac!==null?brl(cac):'—'}</div><div class="gxb-s">${dashSel?'Só no total geral':(cac!==null?`Ads ÷ ${nGanho} ganho${nGanho!==1?'s':''}`:'Sem dados')}</div></div>`);
+    k2.push(`<div class="gxb-card"><div class="gxb-l">Investimento em Ads</div><div class="gxb-v">${brl(ads)}</div><div class="gxb-s">${dashSel?'Total da empresa':'Categoria Ads / Tráfego'}</div></div>`);
+    k2.push(`<div class="gxb-card"><div class="gxb-l">CAC</div><div class="gxb-v">${cac!==null?brl(cac):'—'}</div><div class="gxb-s">${dashSel?'Só no total geral':(cac!==null?`Ads ÷ ${nGanho} ganho${nGanho!==1?'s':''}`:'Sem dados')}</div></div>`);
   }
   if(cCl){
-    k.push(`<div class="gxb-card"><div class="gxb-l">Clientes ativos</div><div class="gxb-v">${num(cAtivos)}</div><div class="gxb-s">${risco} em risco de churn</div></div>`);
-    k.push(`<div class="gxb-card"><div class="gxb-l">Health score médio</div><div class="gxb-v" style="color:${healthColor(avgH)}">${avgH}</div><div class="gxb-s">${avgH>=70?'Saudável':'Atenção necessária'}</div></div>`);
+    k2.push(`<div class="gxb-card"><div class="gxb-l">Clientes ativos</div><div class="gxb-v">${num(cAtivos)}</div><div class="gxb-s">${risco} em risco de churn</div></div>`);
+    k2.push(`<div class="gxb-card"><div class="gxb-l">Health score médio</div><div class="gxb-v" style="color:${healthColor(avgH)}">${avgH}</div><div class="gxb-s">${avgH>=70?'Saudável':'Atenção necessária'}</div></div>`);
   }
-  if(cR)k.push(`<div class="gxb-card"><div class="gxb-l">Membros ativos</div><div class="gxb-v">${num(mAtivos)}</div><div class="gxb-s">de ${mbs.length} no total</div></div>`);
+  if(cR)k2.push(`<div class="gxb-card"><div class="gxb-l">Membros ativos</div><div class="gxb-v">${num(mAtivos)}</div><div class="gxb-s">de ${mbs.length} no total</div></div>`);
 
-  let html=`<div class="gxb-grid gxb-kpis">${k.join('')}</div>`;
+  let html=(k.length?`<div class="gxb-sec">Resultado do período</div><div class="gxb-grid gxb-kpis">${k.join('')}</div>`:'')+(k2.length?`<div class="gxb-sec">Operação</div><div class="gxb-grid gxb-kpis">${k2.join('')}</div>`:'');
 
   // Faturamento por mês
   let fat='';
@@ -25876,7 +25907,7 @@ function build(){
         _rows=etapas.filter(e=>!_lostN.has(gxStageNorm(e))).map(e=>{const it=atual.filter(l=>l.estagio===e);return {est:e,count:it.length,valor:it.reduce((a,l)=>a+(parseFloat(l.valor)||0),0)}});
       }
       const _lostL=atual.filter(l=>lost(l));
-      _funilHtml=_rows.length?gxFunnelBuild(_rows,atual,_lostL,_lostL.reduce((a,l)=>a+(parseFloat(l.valor)||0),0),false,_fl):'';
+      _funilHtml=_rows.length?gxFunnelBuild(_rows,atual,_lostL,_lostL.reduce((a,l)=>a+(parseFloat(l.valor)||0),0),true,_fl):'';
     }catch(e){_funilHtml=''}
     fun=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">Funil comercial</div><div class="gxb-sub">${ativos.length} ativos agora · ${brl(pipeVal)} em aberto</div></div></div>${_funilHtml||'<div class="gxb-empty">Sem etapas.</div>'}</div>`;
   }
@@ -25894,7 +25925,7 @@ function build(){
     srows=srows.sort((a,b)=>b.valorGanho-a.valorGanho||b.ganhos-a.ganhos||b.leads-a.leads);
     srows=srows.filter(r=>r.leads||r.ganhos||r.ativos).slice(0,8);
     let tit='Ranking de vendedores';try{if(!isSalesManagerView())tit='Minha performance'}catch(e){}
-    rank=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">${tit}</div><div class="gxb-sub">${E(label)} · mesma regra do Pipeline: leads que entraram ou mudaram de etapa no período; ganhos pela data de fechamento</div></div></div>${srows.length?`<div class="gxb-tw"><table class="gxb-tb"><thead><tr><th>Vendedor</th><th>Leads</th><th>Ativos</th><th>Ganhos</th><th>Conversão</th><th>Vendido</th><th>Pipeline</th></tr></thead><tbody>${srows.map(r=>`<tr><td title="${E(r.user&&r.user.nome)}">${E(r.user&&r.user.nome||'—')}</td><td>${r.leads}</td><td>${r.ativos}</td><td>${r.ganhos}</td><td><span class="gxb-pill">${r.conv}%</span></td><td>${brl(r.valorGanho)}</td><td>${brl(r.pipelineAtivo)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="gxb-empty">Sem vendedores com movimento.</div>'}</div>`;
+    rank=`<div class="gxb-card"><div class="gxb-h"><div><div class="gxb-t">${tit}</div><div class="gxb-sub">${E(label)} · mesma regra do Pipeline: leads que entraram ou mudaram de etapa no período; ganhos pela data de fechamento</div></div></div>${srows.length?`<div class="gxb-tw"><table class="gxb-tb"><thead><tr><th>Vendedor</th><th>Leads</th><th>Ativos</th><th>Ganhos</th><th>Conversão</th><th>Vendido</th><th>Pipeline</th></tr></thead><tbody>${srows.map(r=>`<tr><td title="${E(r.user&&r.user.nome)}"><span class="gxb-who"><i>${E(String(r.user&&r.user.nome||'?').trim().split(/\s+/).slice(0,2).map(x=>x[0]||'').join('').toUpperCase())}</i>${E(String(r.user&&r.user.nome||'—').toLowerCase().replace(/(^|\s)\S/g,m=>m.toUpperCase()))}</span></td><td>${r.leads}</td><td>${r.ativos}</td><td>${r.ganhos}</td><td><span class="gxb-pill">${r.conv}%</span></td><td>${brl(r.valorGanho)}</td><td>${brl(r.pipelineAtivo)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="gxb-empty">Sem vendedores com movimento.</div>'}</div>`;
   }
   if(ori||rank)html+=`<div class="gxb-grid gxb-2e">${ori}${rank}</div>`;
 
@@ -25924,10 +25955,12 @@ function renderInicioInner(){
     mode=getMode();
     const box=ensureShell();
     paintToggle(mode);
+    try{gxIniTopo()}catch(e){}
     if(mode==='novo'&&box){
       const h=build();
       box.innerHTML=h;
       try{applyOrder(box);applyCust(box);orgPaint(box)}catch(e){}
+      try{gxIniDecor(box)}catch(e){}
       document.body.classList.add('gx-ini-novo');
     }else{
       document.body.classList.remove('gx-ini-novo');
@@ -26872,5 +26905,77 @@ html[data-theme="dark"] .gx-crumb b,html[data-theme="dark"] .tb-name{color:var(-
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
 </script>
+<style id="gx-inicio-v2">
+/* ═══ INÍCIO v2 (29/10/2026): topo limpo, filtros numa linha, indicadores em blocos, funil e tabelas padronizados. Só aparência. ═══ */
+html body #page-inicio .welcome-box{background:none!important;border:0!important;box-shadow:none!important;padding:0!important;margin:0 0 18px!important;align-items:flex-end;gap:16px;flex-wrap:wrap}
+html body #page-inicio .welcome-av{display:none}
+html body #page-inicio .welcome-title{font-size:26px;font-weight:800;letter-spacing:-.02em;color:var(--g-tx,var(--txt))}
+html body #page-inicio .welcome-sub{font-size:14px;color:var(--g-mu,var(--muted));margin-top:3px}
+html body #page-inicio #welcome-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+html body #page-inicio #welcome-actions>button.btn-ghost[onclick*="perfil"]{display:none}
+html body #gx-ini-custbtn,html body #gx-ini-orgbtn{height:38px!important;padding:0 14px!important;border-radius:10px!important;font:600 13px Inter,sans-serif!important;margin:0!important;border:1px solid var(--g-line,var(--border))!important;background:var(--g-card,var(--card))!important;color:var(--g-tx,var(--txt))!important}
+html body #gx-ini-orgbtn.on{background:#7C3AED!important;color:#fff!important;border-color:#7C3AED!important}
+html body #gx-ini-toggle{display:inline-flex;height:38px;padding:3px;gap:2px;border-radius:10px;border:1px solid var(--g-line,var(--border));background:var(--g-soft,#F7F6FB);margin:0;overflow:visible}
+html body #gx-ini-toggle button{border:0;background:none;border-radius:7px;font:600 13px Inter,sans-serif;color:var(--g-mu,var(--muted));padding:0 12px;cursor:pointer}
+html body #gx-ini-toggle button.on{background:var(--g-card,#fff);color:#6D28D9;box-shadow:0 1px 3px rgba(26,26,46,.14)}
+html[data-theme="dark"] body #gx-ini-toggle button.on{color:#C4B5FD}
+/* filtros */
+html body #dash-filter-bar{border-radius:14px!important;padding:12px 14px!important;gap:10px!important;margin-bottom:22px!important;box-shadow:none!important}
+html body #dash-filter-bar .dash-filter-label{display:none}
+html body #dash-filter-bar .dash-filter-sel{height:38px;border-radius:10px;font-size:13px;font-weight:600;padding:0 30px 0 12px}
+html body #dash-mes{width:132px}html body #dash-ano{width:104px}html body #dash-funil,html body #dash-resp{max-width:210px!important}
+html body #dash-quick{display:inline-flex;height:38px;padding:3px;gap:2px;border-radius:10px;border:1px solid var(--g-line,var(--border));background:var(--g-soft,#F7F6FB)}
+html body #dash-quick .gx-qchip{border:0;background:none;box-shadow:none;border-radius:7px;font-size:13px;font-weight:600;padding:0 12px;color:var(--g-mu,var(--muted))}
+html body #dash-quick .gx-qchip.on{background:var(--g-card,#fff);color:#6D28D9;box-shadow:0 1px 3px rgba(26,26,46,.14)}
+html[data-theme="dark"] body #dash-quick .gx-qchip.on{color:#C4B5FD}
+html body #dash-filter-info{margin-left:auto!important;font-size:12.5px!important}
+/* blocos e indicadores */
+#inicio-bi .gxb-sec{font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--g-mu,var(--muted));margin:4px 0 10px}
+#inicio-bi .gxb-grid{gap:14px;margin-bottom:22px}
+#inicio-bi .gxb-kpis{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+#inicio-bi .gxb-card{border-radius:14px;padding:18px 20px;box-shadow:none}
+#inicio-bi .gxb-kpis>.gxb-card{display:flex;flex-direction:column;gap:10px;min-height:128px;justify-content:flex-start}
+#inicio-bi .gxb-kpis .gxb-l{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;text-transform:none;letter-spacing:0;margin:0;color:var(--g-mu,var(--muted))}
+#inicio-bi .gxb-kpis .gxb-l svg{width:17px;height:17px;flex-shrink:0}
+#inicio-bi .gxb-kpis .gxb-v{font-size:27px;font-weight:800;letter-spacing:-.02em;line-height:1.1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-start}
+#inicio-bi .gxb-kpis .gxb-s{margin-top:auto;font-size:12.5px}
+#inicio-bi .gxb-d{font-size:11.5px;padding:2px 8px;margin-left:0}
+#inicio-bi .gxb-d.up{background:rgba(16,185,129,.14);color:#059669}
+#inicio-bi .gxb-d.down{background:rgba(239,68,68,.12);color:#DC2626}
+#inicio-bi .gxb-d.neutral{background:rgba(107,107,128,.12);color:var(--g-mu,var(--muted))}
+#inicio-bi .gxb-hero{background:linear-gradient(150deg,#6D28D9,#4C1D95)!important;border:0!important;color:#fff}
+#inicio-bi .gxb-hero .gxb-l,#inicio-bi .gxb-hero .gxb-s{color:rgba(255,255,255,.78)!important}
+#inicio-bi .gxb-hero .gxb-d.up,#inicio-bi .gxb-hero .gxb-d.down,#inicio-bi .gxb-hero .gxb-d.neutral{background:rgba(255,255,255,.18);color:#fff}
+/* cartões grandes */
+#inicio-bi .gxb-h{margin-bottom:16px;align-items:flex-start}
+#inicio-bi .gxb-t{font-size:15.5px;font-weight:700}
+#inicio-bi .gxb-sub{font-size:12.5px;margin-top:2px}
+#inicio-bi .gxb-sw{height:32px;padding:0 12px;border-radius:8px;font-size:12.5px;color:#6D28D9;border-color:var(--g-line,var(--border))}
+#inicio-bi .gxb-bars{height:210px;gap:10px;border-bottom:1px solid var(--g-line,var(--border));background:repeating-linear-gradient(to top,transparent 0,transparent 51px,var(--g-line2,#F0EFF6) 51px,var(--g-line2,#F0EFF6) 52px)}
+#inicio-bi .gxb-bar i{max-width:40px;border-radius:6px 6px 0 0;background:rgba(139,92,246,.32)}
+#inicio-bi .gxb-bar.cur i{background:#7C3AED}
+#inicio-bi .gxb-bar.dim i{opacity:1}
+#inicio-bi .gxb-xl{gap:10px;margin-top:8px}#inicio-bi .gxb-xl span{font-size:11.5px}
+#inicio-bi .gxf-wrap.compact{max-width:380px;margin:0 auto}
+#inicio-bi .gxf-t1.sm{font-size:11.5px}#inicio-bi .gxf-t3.sm{font-size:8.6px}#inicio-bi .gxf-t2.sm{font-size:8.6px;opacity:.9}
+#inicio-bi .gxf-lost{margin-top:12px}
+/* tabelas */
+#inicio-bi .gxb-tb{font-size:13.5px}
+#inicio-bi .gxb-tb th{font-size:11.5px;letter-spacing:.06em;padding:0 10px 10px;border-bottom:1px solid var(--g-line,var(--border))}
+#inicio-bi .gxb-tb td{padding:12px 10px;border-bottom:1px solid var(--g-line2,#F0EFF6)}
+#inicio-bi .gxb-tb tr:last-child td{border-bottom:0}
+#inicio-bi .gxb-pill{background:rgba(16,185,129,.14);color:#059669;font-size:11.5px;padding:2px 8px}
+#inicio-bi .gxb-who{display:inline-flex;align-items:center;gap:10px}
+#inicio-bi .gxb-who i{width:30px;height:30px;border-radius:50%;display:inline-grid;place-items:center;font-style:normal;font-size:11.5px;font-weight:800;color:#6D28D9;background:rgba(139,92,246,.16);flex-shrink:0}
+html[data-theme="dark"] #inicio-bi .gxb-who i{color:#C4B5FD}
+#inicio-bi .gxb-tb td:first-child{max-width:240px}
+@media(max-width:600px){
+  html body #page-inicio .welcome-title{font-size:22px}
+  #inicio-bi .gxb-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  #inicio-bi .gxb-kpis .gxb-v{font-size:21px}
+  html body #dash-filter-info{margin-left:0!important;width:100%}
+}
+@media(max-width:380px){#inicio-bi .gxb-kpis{grid-template-columns:minmax(0,1fr)}}
+</style>
 </body>
 </html>
