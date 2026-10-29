@@ -22529,6 +22529,80 @@ ${gxlCloseScriptTag}`;
   };
   window.autoSwitch=v=>{autoView=v;window.renderAutomacoes()};
 
+  // ═══ MODELOS OFICIAIS (Meta) ═══
+  function autoIsMeta(){try{const id=`zapi_main__${(typeof sessionUser!=='undefined'&&sessionUser?.id)||''}`;const z=(DB.get('zapi_settings')||[]).find(x=>x.id===id);return !!(z&&z.connected&&z.provider==='meta')}catch(e){return false}}
+  function metaCardHtml(){
+    const on=autoIsMeta();
+    return `<div class="auto-card auto-card-meta">
+      <div class="auto-card-ico whatsapp"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div>
+      <div class="auto-card-name">Modelos oficiais do WhatsApp</div>
+      <div class="auto-card-desc">${on?'Crie e acompanhe os modelos aprovados pela Meta. Nas automações de WhatsApp, escolha "Modelo oficial" para a mensagem sair mesmo depois de 24h sem resposta do lead. Já vem com modelos prontos para usar.':'Disponível na conexão WhatsApp Oficial (Meta): mensagens aprovadas que podem ser enviadas a qualquer momento, inclusive em automações. Conecte em Integrações para usar.'}</div>
+      <div class="auto-card-foot"><span class="auto-pill ${on?'on':''}">${on?'WhatsApp Oficial conectado':'Requer WhatsApp Oficial'}</span>${on?`<button class="gl-btn sm primary" onclick="gxWaTemplates()">Ver modelos</button>`:`<button class="gl-btn sm" onclick="navigate('integracoes')">Conectar</button>`}</div>
+    </div>`;
+  }
+  // Variáveis que o sistema sabe preencher a partir do lead.
+  const MT_VARS=[['nome','Primeiro nome do lead'],['nome_completo','Nome completo'],['empresa','Empresa'],['telefone','Telefone'],['origem','Origem'],['etapa','Etapa atual'],['texto','Texto fixo…']];
+  let autoMetaTpl=null; // modelo da automação de mensagem única
+  window.__gxAutoTpls=window.__gxAutoTpls||null;
+  async function autoLoadTpls(force){
+    if(window.__gxAutoTpls&&!force)return window.__gxAutoTpls;
+    try{
+      const token=await getGexSupabaseToken();
+      const res=await fetch(getSupabaseFunctionUrl('wa-meta-templates'),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({action:'list'})});
+      const j=await res.json().catch(()=>({}));
+      window.__gxAutoTpls=j&&j.ok?(j.templates||[]).filter(t=>t.status==='APPROVED'):[];
+    }catch(e){window.__gxAutoTpls=[]}
+    return window.__gxAutoTpls;
+  }
+  // Texto equivalente do modelo com as variáveis do GexFlow (vira a mensagem da tarefa e o texto
+  // usado se o envio sair por Evolution/Z-API).
+  function mtToText(mt,body){return String(body||mt?.body||'').replace(/\{\{(\d+)\}\}/g,(m,n)=>{const v=(mt?.vars||[])[Number(n)-1]||'';return v.startsWith('texto:')?v.slice(6):(v?`{{${v}}}`:m)})}
+  function mtBlockHtml(key,mt){
+    const list=window.__gxAutoTpls;
+    if(list===null)return `<div class="auto-mt-note">Carregando modelos aprovados…</div>`;
+    const use=!!(mt&&mt.name);
+    const tpl=use?list.find(t=>t.name===mt.name):null;
+    const n=tpl?tpl.params:(mt?.vars||[]).length;
+    return `<div class="auto-mt-row">
+      <label class="gl-field"><span>Tipo de mensagem</span><select class="gl-select" onchange="autoMtSet('${key}','use',this.value)"><option value="">Texto livre</option><option value="1" ${use?'selected':''}>Modelo oficial (Meta)</option></select></label>
+      ${use?`<label class="gl-field"><span>Modelo aprovado</span><select class="gl-select" onchange="autoMtSet('${key}','name',this.value)">${list.length?list.map(t=>`<option value="${esc(t.name)}" ${t.name===mt.name?'selected':''}>${esc(t.name)}</option>`).join(''):'<option value="">Nenhum modelo aprovado</option>'}${mt.name&&!tpl?`<option value="${esc(mt.name)}" selected>${esc(mt.name)} (não aprovado agora)</option>`:''}</select></label>`:''}
+    </div>
+    ${use&&n?`<div class="auto-mt-vars">${Array.from({length:n},(_,i)=>{const v=(mt.vars||[])[i]||'nome';const isTxt=v.startsWith('texto:');return `<div class="auto-mt-var"><span>{{${i+1}}}</span><select class="gl-select" onchange="autoMtSet('${key}','var',this.value,${i})">${MT_VARS.map(([k,l])=>`<option value="${k}" ${(isTxt?'texto':v)===k?'selected':''}>${l}</option>`).join('')}</select>${isTxt?`<input class="gl-input" placeholder="Texto fixo" value="${esc(v.slice(6))}" oninput="autoMtSet('${key}','txt',this.value,${i})">`:''}</div>`}).join('')}</div>`:''}
+    ${use?`<div class="auto-mt-note">${tpl?'O texto da mensagem foi preenchido com o modelo. Na conexão oficial sai o modelo aprovado (vale mesmo depois de 24h); nas outras conexões sai esse mesmo texto.':'Escolha um modelo aprovado. Crie novos no card "Modelos oficiais do WhatsApp".'}</div>`:''}`;
+  }
+  function mtGet(key){if(key==='single')return autoMetaTpl;const i=Number(key);return (autoCadenciaSteps||[])[i]?.metaTpl||null}
+  function mtPut(key,mt){if(key==='single'){if(mt)mt.__ruleId=autoEditId||'';autoMetaTpl=mt}else{const i=Number(key);if(autoCadenciaSteps&&autoCadenciaSteps[i])autoCadenciaSteps[i].metaTpl=mt}}
+  window.autoMtSet=(key,field,value,idx)=>{
+    const list=window.__gxAutoTpls||[];
+    let mt=mtGet(key)?{...mtGet(key),vars:[...(mtGet(key).vars||[])]}:null;
+    if(field==='use'){mt=value?{name:(list[0]||{}).name||'',language:(list[0]||{}).language||'pt_BR',vars:[]}:null}
+    if(field==='name'&&mt){const t=list.find(x=>x.name===value);mt={name:value,language:t?.language||'pt_BR',vars:[]}}
+    if(mt&&(field==='use'||field==='name')){const t=list.find(x=>x.name===mt.name);mt.body=t?.body||'';mt.vars=Array.from({length:t?.params||0},(_,i)=>i===0?'nome':'empresa')}
+    if(field==='var'&&mt)mt.vars[idx]=value==='texto'?'texto:':value;
+    if(field==='txt'&&mt)mt.vars[idx]='texto:'+value;
+    mtPut(key,mt);
+    // Preenche o texto da mensagem com o modelo (fica igual ao que o lead vai receber)
+    if(mt&&mt.name){
+      const txt=mtToText(mt);
+      if(key==='single'){const ta=document.getElementById('auto-mensagem');if(ta)ta.value=txt}
+      else{const i=Number(key);if(autoCadenciaSteps[i])autoCadenciaSteps[i].mensagem=txt}
+    }
+    if(field==='txt')return; // não redesenha enquanto digita
+    autoMtPaint();
+  };
+  function autoMtPaint(){
+    const box=document.getElementById('auto-mt-single');if(box)box.innerHTML=mtBlockHtml('single',autoMetaTpl);
+    const steps=document.getElementById('auto-cadencia-steps');
+    if(steps&&document.getElementById('auto-canal')?.value==='whatsapp')steps.innerHTML=cadenciaStepsHtml();
+  }
+  window.autoMtVisibility=()=>{
+    const panel=document.getElementById('auto-mt-panel');if(!panel)return;
+    const g=document.getElementById('auto-gatilho')?.value;
+    const canal=document.getElementById('auto-canal')?.value;
+    const single=(g==='sem_atividade'||g==='lead_novo'||g==='parado_etapa'||g==='avisar_responsavel_etapa')&&(g==='avisar_responsavel_etapa'||canal==='whatsapp');
+    panel.style.display=single&&(autoIsMeta()||autoMetaTpl)?'':'none';
+  };
+
   function catalogoHtml(){
     const cards=TEMPLATES.map(t=>{
       if(t.locked){
@@ -22555,7 +22629,7 @@ ${gxlCloseScriptTag}`;
       </div>`;
     }).join('');
     const custom=rules().filter(r=>!r.templateKey);
-    return `<div class="auto-grid">${cards}</div>
+    return `<div class="auto-grid">${metaCardHtml()}${cards}</div>
     ${custom.length?`<div class="auto-section-title">Automações personalizadas</div>${custom.map(r=>`<div class="auto-rule-card">
       <div class="auto-rule-left">
         <div class="auto-rule-ico ${r.canal}">${r.canal==='email'?'✉️':r.canal==='sistema'?'🏷️':'💬'}</div>
@@ -22576,7 +22650,7 @@ ${gxlCloseScriptTag}`;
     const t=findTemplate(key);
     if(!t||t.locked)return;
     if(t.precisaConfigurar){
-      autoEditId='';
+      autoEditId='';autoMetaTpl=null;
       autoCadenciaSteps=t.steps?JSON.parse(JSON.stringify(t.steps)):null;
       autoView='editor';
       window.renderAutomacoes();
@@ -22607,6 +22681,9 @@ ${gxlCloseScriptTag}`;
   function editorHtml(){
     const old=autoEditId?rules().find(x=>x.id===autoEditId)||{}:{};
     const d={...defaults(),...old};
+    if(autoMetaTpl===undefined||autoMetaTpl===null||autoMetaTpl.__ruleId!==(autoEditId||'')){autoMetaTpl=old.metaTpl?{...old.metaTpl,vars:[...(old.metaTpl.vars||[])],__ruleId:autoEditId||''}:null}
+    if(autoIsMeta()||old.metaTpl||(old.steps||[]).some(s=>s&&s.metaTpl))setTimeout(async()=>{await autoLoadTpls();autoMtPaint();window.autoMtVisibility()},0);
+    else setTimeout(()=>window.autoMtVisibility(),0);
     if(autoCadenciaSteps===null||autoCadenciaSteps===undefined)autoCadenciaSteps=(old.steps&&old.steps.length?JSON.parse(JSON.stringify(old.steps)):[{dias:0,assunto:'',mensagem:''}]);
     const funnels=availFunnels(),active=typeof getActiveFunnel==='function'?getActiveFunnel():null;
     const funnel=funnels.find(f=>f.id===d.funilId)||active||funnels[0]||null,stages=funnel?.stages||[];
@@ -22669,6 +22746,10 @@ ${gxlCloseScriptTag}`;
       </div>
       <p id="auto-msg-footnote" style="font-size:9.5px;color:#94A3B8;margin-top:6px;${gAvisoResp?'':'display:none'}">Precisa que o responsável pelo lead tenha um telefone cadastrado em Perfil &gt; Dados pessoais, e que ALGUÉM da equipe esteja com o próprio WhatsApp conectado (Z-API) pra esse aviso sair sozinho — sem isso, ele fica pronto no Banco de Ações pra abrir com 1 clique.</p>
     </div>
+    <div class="gl-panel" id="auto-mt-panel" style="display:none">
+      <h3>WhatsApp Oficial: modelo de mensagem</h3><p>Pela conexão oficial da Meta, mensagens automáticas fora da janela de 24h só saem como <b>modelo aprovado</b>. Escolha o modelo e diga de onde vem cada variável.</p>
+      <div id="auto-mt-single">${mtBlockHtml('single',autoMetaTpl)}</div>
+    </div>
     <div class="gl-panel" id="auto-default-owner-panel" style="${gAvisoResp?'':'display:none'}">
       <h3>Responsável padrão</h3><p>Se o lead chegar nessa etapa SEM ninguém atribuído, o sistema já atribui automaticamente essa pessoa como responsável (ela passa a aparecer no card do Pipeline, entra na performance dela, e é pra ela que o aviso de WhatsApp vai) — em vez de precisar atribuir na mão toda vez.</p>
       <div class="gl-grid"><label class="gl-field full"><span>Atribuir automaticamente para</span><select class="gl-select" id="auto-default-owner">${(()=>{const users=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[]).filter(u=>(u.status||'Ativo')==='Ativo');return `<option value="">Não atribuir — só avisar quem já é responsável</option>`+users.map(u=>{const uid2=String((typeof isUuidLike==='function'&&isUuidLike(u.supabaseId)&&u.supabaseId)||u.id||'');return `<option value="${esc(uid2)}" data-nome="${esc(u.nome||'')}" data-email="${esc(normalizeLoginEmail(u.email||''))}" ${d.responsavelPadraoId===uid2?'selected':''}>${esc(u.nome||u.email||'Usuário')} · ${esc(resolveRole(u.permissao||u.cargo||'Colaborador'))}</option>`}).join('')})()}</select></label></div>
@@ -22701,6 +22782,7 @@ ${gxlCloseScriptTag}`;
         ${isEmail?`<label class="gl-field"><span>Assunto</span><input class="gl-input" value="${esc(s.assunto)}" oninput="autoStepChange(${i},'assunto',this.value)"></label>`:''}
       </div>
       <label class="gl-field full" style="margin-top:8px"><span>${isEmail?'Corpo do e-mail':'Mensagem do WhatsApp'}</span><textarea class="gl-textarea" style="height:70px" oninput="autoStepChange(${i},'mensagem',this.value)">${esc(s.mensagem)}</textarea></label>
+      ${!isEmail&&(autoIsMeta()||s.metaTpl)?`<div class="auto-mt-step">${mtBlockHtml(String(i),s.metaTpl||null)}</div>`:''}
     </div>`).join('');
   }
   window.autoAddStep=()=>{autoCadenciaSteps.push({dias:(autoCadenciaSteps[autoCadenciaSteps.length-1]?.dias||0)+2,assunto:'',mensagem:''});document.getElementById('auto-cadencia-steps').innerHTML=cadenciaStepsHtml()};
@@ -22709,6 +22791,7 @@ ${gxlCloseScriptTag}`;
 
   window.autoSetCanal=canal=>{
     document.getElementById('auto-canal').value=canal;
+    setTimeout(()=>window.autoMtVisibility&&window.autoMtVisibility(),0);
     document.getElementById('auto-canal-whatsapp')?.classList.toggle('active',canal==='whatsapp');
     document.getElementById('auto-canal-whatsapp')?.classList.toggle('whatsapp',canal==='whatsapp');
     document.getElementById('auto-canal-email')?.classList.toggle('active',canal==='email');
@@ -22728,6 +22811,7 @@ ${gxlCloseScriptTag}`;
   };
   window.autoRenderGatilhoFields=()=>{
     const g=document.getElementById('auto-gatilho')?.value;
+    setTimeout(()=>window.autoMtVisibility&&window.autoMtVisibility(),0);
     const gCadenciaEmail=g==='cadencia_etapa',gCadenciaWhats=g==='cadencia_whatsapp_etapa',gCadencia=gCadenciaEmail||gCadenciaWhats;
     const gAvisoResp=g==='avisar_responsavel_etapa';
     const comEtapa=g==='parado_etapa'||g==='entrou_etapa'||gAvisoResp||gCadencia;
@@ -22785,9 +22869,9 @@ ${gxlCloseScriptTag}`;
     stage.innerHTML=(fn?.stages||[]).slice().sort((a,b)=>(a.order||0)-(b.order||0)).map(s=>`<option value="${esc(s.id)}" data-name="${esc(s.name)}" ${s.id===wanted?'selected':''}>${esc(s.name)}</option>`).join('');
   };
 
-  window.autoNew=()=>{autoEditId='';autoCadenciaSteps=null;autoView='editor';window.renderAutomacoes()};
-  window.autoEdit=id=>{autoEditId=id;autoCadenciaSteps=null;autoView='editor';window.renderAutomacoes()};
-  window.autoCancel=()=>{autoView='banco';autoEditId='';window.renderAutomacoes()};
+  window.autoNew=()=>{autoEditId='';autoCadenciaSteps=null;autoMetaTpl=null;autoView='editor';window.renderAutomacoes()};
+  window.autoEdit=id=>{autoEditId=id;autoCadenciaSteps=null;autoMetaTpl=null;autoView='editor';window.renderAutomacoes()};
+  window.autoCancel=()=>{autoView='banco';autoEditId='';autoMetaTpl=null;window.renderAutomacoes()};
   window.autoToggle=id=>{const r=rules().find(x=>x.id===id);if(!r)return;DB.update('automacoes',id,{ativo:r.ativo===false});window.renderAutomacoes();toast(r.ativo===false?'Automação ativada ✓':'Automação desativada','#6B7280')};
   window.autoDelete=id=>{
     if(!rules().find(x=>x.id===id))return; // não pertence a este usuário (papel sem visão gerencial)
@@ -22839,7 +22923,7 @@ ${gxlCloseScriptTag}`;
       obj={...base,canal:'whatsapp',dias:0,mensagem,assunto:'',steps:[],responsavelPadraoId,responsavelPadraoNome,responsavelPadraoEmail};
     }else if(gatilho==='cadencia_etapa'||gatilho==='cadencia_whatsapp_etapa'){
       const canalCad=gatilho==='cadencia_whatsapp_etapa'?'whatsapp':'email';
-      const steps=(autoCadenciaSteps||[]).map(s=>({dias:Math.max(0,Number(s.dias)||0),assunto:canalCad==='email'?String(s.assunto||'').trim():'',mensagem:String(s.mensagem||'').trim()}));
+      const steps=(autoCadenciaSteps||[]).map(s=>({dias:Math.max(0,Number(s.dias)||0),assunto:canalCad==='email'?String(s.assunto||'').trim():'',mensagem:String(s.mensagem||'').trim(),metaTpl:canalCad==='whatsapp'?(s.metaTpl||null):null}));
       if(!steps.length||steps.some(s=>!s.mensagem)){toast(`Preencha o corpo de todas as mensagens da cadência`,'#EF4444');return}
       obj={...base,canal:canalCad,dias:0,mensagem:'',assunto:'',steps:steps.sort((a,b)=>a.dias-b.dias)};
     }else{
@@ -22849,9 +22933,20 @@ ${gxlCloseScriptTag}`;
       if(!mensagem){toast('Escreva a mensagem da automação','#EF4444');return}
       obj={...base,canal,dias,mensagem,assunto:document.getElementById('auto-assunto')?.value.trim()||'',steps:[]};
     }
+    // Modelo oficial (Meta): só vale para WhatsApp. Sem modelo escolhido = texto livre (como sempre).
+    const mtClean=mt=>mt&&mt.name?{name:mt.name,language:mt.language||'pt_BR',body:mt.body||'',vars:(mt.vars||[]).map(String)}:null;
+    if(obj.canal==='whatsapp'&&!(obj.steps&&obj.steps.length)){
+      const mt=mtClean(autoMetaTpl);
+      if(mt&&mt.vars.some(v=>v==='texto:')){toast('Preencha o texto fixo das variáveis do modelo','#EF4444');return}
+      obj.metaTpl=mt;
+    }else obj.metaTpl=null;
+    if(obj.steps&&obj.steps.length&&obj.canal==='whatsapp'){
+      obj.steps=obj.steps.map(st=>({...st,metaTpl:mtClean(st.metaTpl)}));
+      if(obj.steps.some(st=>st.metaTpl&&st.metaTpl.vars.some(v=>v==='texto:'))){toast('Preencha o texto fixo das variáveis dos modelos','#EF4444');return}
+    }
     if(autoEditId)DB.update('automacoes',autoEditId,obj);
     else DB.push('automacoes',{id:uid(),...obj,createdAt:new Date().toISOString(),createdBy:sessionUser?.id||''});
-    autoView='banco';autoEditId='';autoCadenciaSteps=null;window.renderAutomacoes();
+    autoView='banco';autoEditId='';autoCadenciaSteps=null;autoMetaTpl=null;window.renderAutomacoes();
     toast('Automação salva ✓','#10B981');
     if(typeof gexRunAutomationEngine==='function')Promise.resolve(gexRunAutomationEngine()).catch(e=>console.error('[GexFlow] Erro no motor de automações:',e));
   };
@@ -23204,7 +23299,7 @@ ${gxlCloseScriptTag}`;
             const stepId=rule.id+'__'+lead.id+'__step'+i;
             if(logMap[stepId])return;
             const task={
-              id:uid(),ruleId:rule.id,ruleName:`${rule.nome} (${canalCad==='whatsapp'?'WhatsApp':'e-mail'} ${i+1}/${steps.length})`,canal:canalCad,
+              id:uid(),ruleId:rule.id,ruleName:`${rule.nome} (${canalCad==='whatsapp'?'WhatsApp':'e-mail'} ${i+1}/${steps.length})`,canal:canalCad,stepIndex:i,
               leadId:lead.id,leadNome:lead.nome||'Lead',
               leadTelefone:canalCad==='whatsapp'?(lead.telefone||lead.whatsapp||''):'',
               leadEmail:canalCad==='email'?(lead.email||''):'',
@@ -27613,6 +27708,15 @@ html[data-theme="dark"] .wac-meta-window{color:#FCD34D}
     const res=await fetch(getSupabaseFunctionUrl('wa-meta-templates'),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
     return res.json().catch(()=>({}));
   }
+  // Modelos prontos (texto já no padrão que a Meta costuma aprovar). "Usar" só preenche o formulário.
+  const PRONTOS=[
+    {name:'boas_vindas_lead',category:'UTILITY',label:'Boas-vindas ao lead',body:'Olá {{1}}, tudo bem? Recebemos seu contato pelo nosso site e já vamos te atender por aqui. Se preferir, responda esta mensagem contando o que você precisa.',ex:['Maria']},
+    {name:'followup_proposta',category:'UTILITY',label:'Follow-up de proposta',body:'Olá {{1}}, conseguiu analisar a proposta que te enviamos? Fico à disposição para tirar qualquer dúvida e seguirmos com o próximo passo.',ex:['Maria']},
+    {name:'retomar_conversa',category:'UTILITY',label:'Retomar conversa',body:'Oi {{1}}, tudo bem? Estou retomando nosso atendimento sobre {{2}}. Posso te ajudar a continuar de onde paramos?',ex:['Maria','o plano anual']},
+    {name:'lembrete_reuniao',category:'UTILITY',label:'Lembrete de reunião',body:'Olá {{1}}, passando para lembrar da nossa reunião {{2}}. Se precisar remarcar, é só responder esta mensagem.',ex:['Maria','amanhã às 10h']},
+    {name:'lembrete_pagamento',category:'UTILITY',label:'Lembrete de pagamento',body:'Olá {{1}}, este é um lembrete do pagamento referente a {{2}}, com vencimento em {{3}}. Se já realizou o pagamento, desconsidere esta mensagem.',ex:['Maria','mensalidade de novembro','10/11']},
+    {name:'oferta_especial',category:'MARKETING',label:'Oferta especial',body:'Olá {{1}}! Temos uma condição especial para {{2}} válida até {{3}}. Quer que eu te envie os detalhes?',ex:['Maria','o plano anual','sexta-feira']}
+  ];
   function fill(body,params){return String(body||'').replace(/\{\{(\d+)\}\}/g,(m,n)=>params[Number(n)-1]||m)}
   // opts.phone => modo ENVIAR (só aprovados); sem phone => modo GERENCIAR (listar, criar, apagar)
   window.gxWaTemplates=async function(opts){
@@ -27630,7 +27734,8 @@ html[data-theme="dark"] .wac-meta-window{color:#FCD34D}
         ${msg?`<div class="gxwt-empty">${esc(msg)}</div>`:`<div class="gxwt-list">${items.length?items.map((t,i)=>`<div class="gxwt-item${send?' pick':''}${sel===t?' sel':''}" data-i="${list.indexOf(t)}"><div style="min-width:0"><b>${esc(t.name)}</b> <span style="font-size:11px;opacity:.7">${esc(t.category)} · ${esc(t.language)}</span><div class="gxwt-body">${esc(t.body)}</div>${t.rejected&&t.status==='REJECTED'?`<div style="font-size:11.5px;color:#DC2626;margin-top:3px">Motivo: ${esc(t.rejected)}</div>`:''}</div><span class="gxwt-st ${esc(t.status)}">${ST[t.status]||esc(t.status)}</span>${send?'':`<button class="gxwt-del" data-del="${esc(t.name)}">Apagar</button>`}</div>`).join(''):`<div class="gxwt-empty">${send?'Nenhum modelo aprovado ainda. Crie um em Integrações > WhatsApp Oficial > Modelos de mensagem.':'Nenhum modelo ainda. Crie o primeiro abaixo.'}</div>`}</div>`}
         ${send?(sel?`<div class="gxwt-form">${Array.from({length:sel.params},(_,k)=>`<label>Variável {{${k+1}}}<input data-p="${k}" placeholder="Ex.: ${k===0?esc(opts.toName||'Maria'):'valor'}" value="${k===0&&opts.toName?esc(opts.toName):''}"></label>`).join('')}<div class="gxwt-prev" id="gxwt-prev"></div></div>
           <div class="gxwt-foot"><button class="gxwt-btn" data-close>Cancelar</button><button class="gxwt-btn pri" id="gxwt-send">Enviar modelo</button></div>`:'')
-        :`<div class="gxwt-form">
+        :`<div style="margin:2px 0 12px"><div style="font-size:12px;font-weight:700;margin-bottom:7px">Modelos prontos</div><div style="display:flex;flex-wrap:wrap;gap:6px">${PRONTOS.filter(p=>!list.some(t=>t.name===p.name)).map(p=>`<button class="gxwt-btn" style="height:32px;padding:0 12px;font-size:12px" data-pronto="${p.name}">+ ${esc(p.label)}</button>`).join('')||'<span style="font-size:12px;opacity:.7">Todos os modelos prontos já foram criados.</span>'}</div></div>
+          <div class="gxwt-form">
             <label>Nome (sem espaços)<input id="gxwt-name" placeholder="ex.: retorno_atendimento"></label>
             <label>Categoria<select id="gxwt-cat"><option value="UTILITY">Utilidade (atendimento, avisos)</option><option value="MARKETING">Marketing (ofertas, novidades)</option></select></label>
             <label class="full">Texto<textarea id="gxwt-body" placeholder="Olá {{1}}, tudo bem? Vi que você falou com a gente sobre {{2}}. Posso te ajudar a continuar?"></textarea></label>
@@ -27663,6 +27768,12 @@ html[data-theme="dark"] .wac-meta-window{color:#FCD34D}
         const ta=ov.querySelector('#gxwt-body'),ex=ov.querySelector('#gxwt-ex');
         const exPaint=()=>{const n=(String(ta.value).match(/\{\{\d+\}\}/g)||[]).length;const old=[...ex.querySelectorAll('input')].map(i=>i.value);ex.innerHTML=Array.from({length:n},(_,k)=>`<label style="display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600">Exemplo de {{${k+1}}}<input data-ex="${k}" value="${esc(old[k]||'')}" placeholder="${k===0?'Maria':'exemplo'}" style="border:1px solid var(--g-line,#E5E7EB);border-radius:10px;padding:9px 11px;font-size:13px"></label>`).join('')};
         if(ta){ta.oninput=exPaint;exPaint()}
+        ov.querySelectorAll('[data-pronto]').forEach(b=>b.onclick=()=>{
+          const p=PRONTOS.find(x=>x.name===b.dataset.pronto);if(!p)return;
+          ov.querySelector('#gxwt-name').value=p.name;ov.querySelector('#gxwt-cat').value=p.category;ta.value=p.body;exPaint();
+          ov.querySelectorAll('[data-ex]').forEach((inp,k)=>{inp.value=p.ex[k]||''});
+          ta.focus();toast('Modelo preenchido. Revise o texto e clique em "Enviar para aprovação".','#3B82F6');
+        });
         const cb=ov.querySelector('#gxwt-create');
         if(cb)cb.onclick=async()=>{
           const name=ov.querySelector('#gxwt-name').value.trim(),body=ta.value.trim();
@@ -27709,5 +27820,15 @@ html[data-theme="dark"] .wac-meta-window{color:#FCD34D}
   }catch(e){}
 })();
 </script>
+<style id="gx-auto-meta-v2">
+html body .auto-mt-row{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+html body .auto-mt-vars{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+html body .auto-mt-var{display:grid;grid-template-columns:44px 1fr 1fr;gap:8px;align-items:center}
+html body .auto-mt-var>span{font-size:12px;font-weight:800;color:#128C7E;font-variant-numeric:tabular-nums}
+html body .auto-mt-note{font-size:11.5px;color:var(--g-mu,var(--muted));margin-top:8px;line-height:1.5}
+html body .auto-mt-step{margin-top:10px;padding-top:10px;border-top:1px dashed var(--g-line,var(--border))}
+html body .auto-card-meta{border-color:rgba(18,140,126,.35)!important;background:linear-gradient(180deg,rgba(18,140,126,.06),transparent 60%),var(--g-card,#fff)!important}
+@media(max-width:700px){html body .auto-mt-row{grid-template-columns:1fr}html body .auto-mt-var{grid-template-columns:40px 1fr}html body .auto-mt-var input{grid-column:2}}
+</style>
 </body>
 </html>
