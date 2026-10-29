@@ -9141,7 +9141,7 @@ function dashPopulateFunilResp(leads){
   selF.style.display='';selR.style.display='';
   try{
     const funis=getVisibleCommercialFunnels(getCommercialFunnels().filter(f=>f&&!f.isArchived));
-    selF.innerHTML='<option value="">Todos os funis</option>'+funis.map(f=>`<option value="${escAttr(f.id)}">${escHtml(f.name||'Funil sem nome')}</option>`).join('');
+    selF.innerHTML='<option value="">Todos os funis</option>'+gxFunilOptionsHtml(funis,'');
     if(dashFilter.funil&&![...selF.options].some(o=>o.value===dashFilter.funil))selF.insertAdjacentHTML('beforeend',`<option value="${escAttr(dashFilter.funil)}">Funil selecionado</option>`);
     selF.value=dashFilter.funil||'';
   }catch(e){}
@@ -16735,6 +16735,56 @@ function archiveCommercialFunnel(funnelId){
 }
 
 // ── Funnel Selector UI ────────────────────────────────────────
+// Seletor do FUNDADOR: mostra todos os funis, separados em "Em uso" e "Inativos / duplicados" (com o motivo),
+// e a quantidade de leads de cada um — assim nada some, mas os funis mortos não se misturam com os ativos.
+function gxFunilClassifica(funnels){
+  const out=new Map();
+  try{
+    const us=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[])||[];
+    const leads=DB.get('leads')||[];
+    const cnt={};leads.forEach(l=>{if(l&&l.funnelId)cnt[l.funnelId]=(cnt[l.funnelId]||0)+1});
+    const achar=f=>us.find(x=>(f.createdBy&&(String(x.id)===String(f.createdBy)||String(x.supabaseId||'')===String(f.createdBy)))||(f.createdByEmail&&normalizeLoginEmail(x.email||'')===normalizeLoginEmail(f.createdByEmail)));
+    const listaOk=us.length>=3; // lista de usuários ainda carregando => não marca ninguém como inativo
+    const ativoSel=typeof getActiveFunnelId==='function'?getActiveFunnelId():'';
+    const grupos=new Map();
+    funnels.forEach(f=>{
+      const n=cnt[f.id]||0;
+      if(f.isDefault){out.set(f.id,{ativo:true,motivo:'',n});return}
+      const u=achar(f);
+      let motivo='';
+      if(listaOk){
+        if(!f.createdBy&&!f.createdByEmail)motivo='sem dono';
+        else if(!u)motivo='dono não encontrado';
+        else if(String(u.status||'Ativo')==='Inativo')motivo='usuário inativo';
+      }
+      out.set(f.id,{ativo:!motivo,motivo,n,dono:u?(u.nome||u.name||''):''});
+      if(!motivo){
+        const k=(u?String(u.id):String(f.createdBy||f.createdByEmail||''))+'|'+normalizeSalesName(f.name||'');
+        if(!grupos.has(k))grupos.set(k,[]);grupos.get(k).push(f);
+      }
+    });
+    // Cópias com o mesmo dono e o mesmo nome: fica "em uso" a que está aberta, senão a que tem mais leads.
+    grupos.forEach(arr=>{
+      if(arr.length<2)return;
+      arr.sort((a,b)=>(b.id===ativoSel)-(a.id===ativoSel)||(cnt[b.id]||0)-(cnt[a.id]||0)||(new Date(b.updatedAt||b.createdAt||0)-new Date(a.updatedAt||a.createdAt||0)));
+      arr.slice(1).forEach(f=>{const o=out.get(f.id);o.ativo=false;o.motivo='cópia duplicada'});
+    });
+  }catch(e){}
+  return out;
+}
+function gxFunilOptionsHtml(funnels,selId){
+  const esc=x=>String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  let ehFundador=false;try{ehFundador=resolveRole(sessionUser?.permissao||sessionUser?.cargo||'')==='Fundador'}catch(e){}
+  const opt=(f,extra)=>`<option value="${esc(f.id)}" ${String(f.id)===String(selId)?'selected':''}>${esc(f.name||'Funil sem nome')}${f.isDefault?' ★':''}${extra||''}</option>`;
+  if(!ehFundador)return funnels.map(f=>opt(f,gxFunilDonoRotulo(f,funnels))).join('');
+  const cls=gxFunilClassifica(funnels);
+  const ativos=funnels.filter(f=>(cls.get(f.id)||{ativo:true}).ativo);
+  const inativos=funnels.filter(f=>!(cls.get(f.id)||{ativo:true}).ativo);
+  const qt=f=>{const c=cls.get(f.id);return c?` (${c.n} lead${c.n===1?'':'s'})`:''};
+  let h=`<optgroup label="Em uso">${ativos.map(f=>opt(f,gxFunilDonoRotulo(f,ativos)+qt(f))).join('')}</optgroup>`;
+  if(inativos.length)h+=`<optgroup label="Inativos / duplicados">${inativos.map(f=>{const c=cls.get(f.id)||{};return opt(f,(c.dono?' · '+c.dono:'')+qt(f)+' — '+(c.motivo||''))}).join('')}</optgroup>`;
+  return h;
+}
 // Rótulo " · Dono" no seletor do Fundador, só quando há dois funis com o mesmo nome (pra distinguir).
 function gxFunilDonoRotulo(f,all){
   try{
@@ -16778,7 +16828,7 @@ function renderFunnelSelector(){
 
   const selectHtml=`<div class="funnel-select-wrap">
     <select class="funnel-select" id="funnel-select-dd" onchange="onFunnelSelectChange(this.value)">
-      ${funnels.map(f=>`<option value="${f.id}" ${active&&f.id===active.id?'selected':''}>${f.name||'Funil sem nome'}${f.isDefault?' ★':''}${gxFunilDonoRotulo(f,funnels)}</option>`).join('')}
+      ${gxFunilOptionsHtml(funnels,active&&active.id)}
     </select>
     <span class="funnel-select-arrow">▼</span>
   </div>
