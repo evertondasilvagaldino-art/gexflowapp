@@ -21562,7 +21562,8 @@ window.gxiTrkFunnelChange=id=>{const f=mapFunnels().find(x=>String(x.id)===Strin
       const j=await res.json().catch(()=>({}));
       if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível importar as conversas.');
       if(j.mensagens>0)toast(`✓ ${j.conversas} conversa(s) e ${j.mensagens} mensagem(ns) importadas para o Inbox.`,'#10B981');
-      else if(!auto)toast('Nenhuma conversa nova para importar (o celular pode ainda estar enviando o histórico — tente de novo em 1 minuto).','#F59E0B');
+      else if(!auto){const d=j.diag||{};toast(`Nenhuma mensagem dos últimos 30 dias para importar (lidas: ${d.lidas||0}, antigas: ${d.antigas||0}, sem número: ${d.semNumero||0}).`,'#F59E0B')}
+      try{console.log('[gxiWaImport]',j)}catch(e){}
     }catch(e){if(!auto)toast(e.message||'Erro ao importar conversas','#EF4444')}
     finally{if(btn&&document.body.contains(btn)){btn.disabled=false;btn.textContent=label}}
   };
