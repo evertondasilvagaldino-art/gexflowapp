@@ -7305,13 +7305,15 @@ function setMetaOAuthButtonState(loading){
   const btn=document.getElementById('meta-oauth-connect-btn');
   if(btn){btn.disabled=!!loading;btn.textContent=loading?'Abrindo Facebook...':'Conectar com Facebook';}
 }
-async function connectMetaAdsOAuth(){
+async function connectMetaAdsOAuth(opts){
+  // CONEXÃO ÚNICA (29/10/2026): este mesmo login liga Anúncios e a Captação Nativa (Página).
+  const pickPage=!!(opts&&opts.pickPage);
   try{
     setMetaOAuthButtonState(true);
     const token=await getGexSupabaseToken();
     const origin=window.location.origin;
     const returnTo=window.location.href.split('#')[0];
-    const res=await fetch(getSupabaseFunctionUrl('meta-oauth-start')+`?origin=${encodeURIComponent(origin)}&return_to=${encodeURIComponent(returnTo)}`,{
+    const res=await fetch(getSupabaseFunctionUrl('meta-oauth-start')+`?origin=${encodeURIComponent(origin)}&return_to=${encodeURIComponent(returnTo)}${pickPage?'&pick_page=1':''}`,{
       method:'GET',
       headers:{'Authorization':`Bearer ${token}`}
     });
@@ -7463,6 +7465,8 @@ function setLeadgenOAuthButtonState(loading){
   if(btn){btn.disabled=!!loading;btn.textContent=loading?'Abrindo Facebook...':'Conectar com Facebook';}
 }
 async function connectLeadgenOAuth(){
+  // Agora usa a conexão única do Facebook (mesma da aba Conexões), pedindo para escolher a Página.
+  if(typeof connectMetaAdsOAuth==='function')return connectMetaAdsOAuth({pickPage:true});
   try{
     setLeadgenOAuthButtonState(true);
     const token=await getGexSupabaseToken();
@@ -21241,10 +21245,10 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
           <select class="gxi-select" id="gxi-lg-oauth-choice" style="max-width:260px">${(s.oauthChoicePending.pages||[]).map(p=>`<option value="${A(p.id)}">${E(p.name)}</option>`).join('')}</select>
           <button class="gxi-btn primary small" onclick="gxiConfirmLeadgenOAuthPage()">Confirmar Página</button>
         </div>`:`<div class="gxi-lg-conn" style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
-          <button class="meta-oauth-btn" id="leadgen-oauth-connect-btn" onclick="connectLeadgenOAuth()">${s.hasToken?'Reconectar com Facebook':'Conectar com Facebook'}</button>
+          <button class="meta-oauth-btn" id="leadgen-oauth-connect-btn" onclick="connectLeadgenOAuth()">${s.hasToken?'Trocar Página':'Conectar com Facebook'}</button>
           ${s.hasToken?`<button class="gxi-btn danger small" onclick="confirmDelete(()=>disconnectLeadgenOAuth(),{icon:'🔌',title:'Desconectar Meta Leads',message:'Os leads do Facebook/Instagram param de chegar até você reconectar.',okText:'Desconectar'})">Desconectar</button>`:''}
           ${s.hasToken?`<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:#059669;background:#D1FAE5;border-radius:20px;padding:5px 12px"><span style="width:7px;height:7px;border-radius:50%;background:#059669;display:inline-block"></span>Conectado${s.pageName?`: ${E(s.pageName)}`:''}${s.pageId?` <span style="color:#047857;font-weight:600">(ID ${E(s.pageId)})</span>`:''}</span>`:''}
-          <span style="font-size:11px;color:var(--muted)">${s.hasToken?'Pode reconectar a qualquer momento pra trocar de Página ou renovar a permissão.':'Faz login com o Facebook e já traz o Token de acesso da Página certo, sem precisar do Graph API Explorer.'}</span>
+          <span style="font-size:11px;color:var(--muted)">${s.hasToken?'Usa a mesma conexão do Facebook da aba Conexões. "Trocar Página" pede para escolher outra Página.':'É a mesma conexão do Facebook da aba Conexões: um login só liga anúncios e captação de leads.'}</span>
         </div>
         <details style="margin-bottom:14px">
           <summary style="cursor:pointer;font-size:11px;font-weight:800;color:var(--muted)">Prefiro colar o Token manualmente (avançado)</summary>
