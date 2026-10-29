@@ -16357,6 +16357,9 @@ function getVisibleCommercialFunnels(funnels){
   const list=Array.isArray(funnels)?funnels:getCommercialFunnels();
   try{
     if(typeof isSalesManagerView==='function'&&isSalesManagerView()){
+      // CORREÇÃO (29/10/2026): o FUNDADOR enxerga TODOS os funis (todos os usuários, ativos ou não, logados ou não),
+      // sem nenhum filtro de dono/duplicata. A regra restritiva abaixo continua só para Adm Gerente.
+      try{if(resolveRole(sessionUser?.permissao||sessionUser?.cargo||'')==='Fundador')return list}catch(e){}
       // Fundador/Adm Gerente vê o funil padrão da empresa (esse não tem
       // "dono" pessoal, é o modelo compartilhado) mais os funis pessoais de
       // usuários ATIVOS e que ainda têm acesso ao setor Comercial hoje. Um
@@ -16412,7 +16415,8 @@ function getVisibleCommercialFunnels(funnels){
       const _foraIds=new Set(gxFunisDonoForaDeCena().map(x=>String(x.f.id)));
       visiveis.filter(f=>!_foraIds.has(String(f.id))).forEach(f=>{
         if(f.isDefault){porDono.set('__default__'+f.id,f);return}
-        const dono=f.createdBy||f.createdByEmail?chaveIdentidade(f):'';
+        // CORREÇÃO (29/10/2026): o mesmo dono pode ter VÁRIOS funis (nomes diferentes) — todos aparecem pro gestor. Só junta cópias duplicadas (mesmo dono E mesmo nome).
+        const dono=f.createdBy||f.createdByEmail?chaveIdentidade(f)+'|'+normalizeSalesName(f.name||''):'';
         if(!dono){porDono.set('__sem_dono__'+f.id,f);return}
         const atual=porDono.get(dono);
         if(!atual){porDono.set(dono,f);return}
@@ -16731,6 +16735,18 @@ function archiveCommercialFunnel(funnelId){
 }
 
 // ── Funnel Selector UI ────────────────────────────────────────
+// Rótulo " · Dono" no seletor do Fundador, só quando há dois funis com o mesmo nome (pra distinguir).
+function gxFunilDonoRotulo(f,all){
+  try{
+    if(!f||f.isDefault)return '';
+    const n=normalizeSalesName(f.name||'');
+    if((all||[]).filter(x=>x&&normalizeSalesName(x.name||'')===n).length<2)return '';
+    const us=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios')||[])||[];
+    const u=us.find(x=>(f.createdBy&&(String(x.id)===String(f.createdBy)||String(x.supabaseId||'')===String(f.createdBy)))||(f.createdByEmail&&normalizeLoginEmail(x.email||'')===normalizeLoginEmail(f.createdByEmail)));
+    const nome=u?(u.nome||u.name):(f.createdByEmail||'sem dono');
+    return ' · '+nome+(u&&String(u.status||'Ativo')==='Inativo'?' (inativo)':'');
+  }catch(e){return ''}
+}
 function renderFunnelSelector(){
   const bar=document.getElementById('funnel-selector-bar');
   if(!bar) return;
@@ -16762,7 +16778,7 @@ function renderFunnelSelector(){
 
   const selectHtml=`<div class="funnel-select-wrap">
     <select class="funnel-select" id="funnel-select-dd" onchange="onFunnelSelectChange(this.value)">
-      ${funnels.map(f=>`<option value="${f.id}" ${active&&f.id===active.id?'selected':''}>${f.name||'Funil sem nome'}${f.isDefault?' ★':''}</option>`).join('')}
+      ${funnels.map(f=>`<option value="${f.id}" ${active&&f.id===active.id?'selected':''}>${f.name||'Funil sem nome'}${f.isDefault?' ★':''}${gxFunilDonoRotulo(f,funnels)}</option>`).join('')}
     </select>
     <span class="funnel-select-arrow">▼</span>
   </div>
