@@ -2186,61 +2186,18 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
     </div>
   </div>
   <nav>
-    <!-- Início -->
+    <div class="nav-lbl">Principal</div>
     <div class="nav-item active" data-page="inicio" onclick="navigate('inicio')">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/></svg>Início
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Início
     </div>
-
-    <!-- Clientes group -->
-    <div class="nav-grp-hdr" id="grp-hdr-clientes" onclick="toggleGrp('clientes')">
-      <div class="nav-grp-left">
-        <svg class="nav-grp-ico" viewBox="0 0 20 20" fill="currentColor"><path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/></svg>
-        Clientes
-      </div>
-      <span class="nav-chv" id="grp-chv-clientes" class="closed">▾</span>
-    </div>
-    <div class="nav-sub-wrap closed" id="grp-wrap-clientes">
-      <div class="nav-sub" data-sub="clientes" onclick="navigateSub('clientes','clientes')">
-        <span class="nav-sub-ico">·</span>Gestão de clientes
-      </div>
-      <div class="nav-sub" data-sub="churn" onclick="navigateSub('churn','clientes')">
-        <span class="nav-sub-ico">·</span>Análise de churn
-      </div>
-      <div class="nav-sub" data-sub="contratos" onclick="navigateSub('contratos','clientes')">
-        <span class="nav-sub-ico">·</span>Contratos
-      </div>
-    </div>
-
-    <!-- Projetos group -->
-    <div class="nav-grp-hdr" id="grp-hdr-projetos" onclick="toggleGrp('projetos')">
-      <div class="nav-grp-left">
-        <svg class="nav-grp-ico" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-.293.707L13 10.414V15a1 1 0 01-.553.894l-4 2A1 1 0 017 17v-6.586L3.293 6.707A1 1 0 013 6V4z" clip-rule="evenodd"/></svg>
-        Projetos
-      </div>
-      <span class="nav-chv" id="grp-chv-projetos" class="closed">▾</span>
-    </div>
-    <div class="nav-sub-wrap closed" id="grp-wrap-projetos">
-      <div class="nav-sub" data-sub="onboarding" onclick="navigateSub('onboarding','projetos')">
-        <span class="nav-sub-ico">·</span>Onboarding
-      </div>
-      <div class="nav-sub" data-sub="entregas" onclick="navigateSub('entregas','projetos')">
-        <span class="nav-sub-ico">·</span>Gestão de entregas
-      </div>
-      <div class="nav-sub" data-sub="esquemas" onclick="navigateSub('esquemas','projetos')">
-        <span class="nav-sub-ico">·</span>Esquemas
-      </div>
-    </div>
-
-    <!-- CALENDÁRIO -->
     <div class="nav-item" data-page="calendario" onclick="navigate('calendario')">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6 2a1 1 0 011 1v1h6V3a1 1 0 112 0v1h1a2 2 0 012 2v11a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2h1V3a1 1 0 011-1zm10 7H4v8h12V9z" clip-rule="evenodd"/></svg>
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       Calendário
     </div>
-
-    <!-- Comercial group (collapsed) -->
+    <div class="nav-lbl">Vendas</div>
     <div class="nav-grp-hdr" id="grp-hdr-comercial" onclick="toggleGrp('comercial')">
       <div class="nav-grp-left">
-        <svg class="nav-grp-ico" viewBox="0 0 20 20" fill="currentColor"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+        <svg class="nav-grp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
         Comercial
       </div>
       <span class="nav-chv closed" id="grp-chv-comercial">▾</span>
@@ -2262,17 +2219,13 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
         <span class="nav-sub-ico">·</span>Equipe Comercial
       </div>
     </div>
-
-    <!-- WHATSAPP (caixa de conversas) -->
     <div class="nav-item" data-page="whatsapp-chat" onclick="navigate('whatsapp-chat')">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a8 8 0 00-6.93 11.98L2 18l4.15-1.05A8 8 0 1010 2zm0 1.6a6.4 6.4 0 11-3.36 11.85l-.24-.15-2.46.63.65-2.4-.16-.25A6.4 6.4 0 0110 3.6zm-2.98 3.4c-.16 0-.42.06-.64.31-.22.25-.85.83-.85 2.03 0 1.2.87 2.36.99 2.52.12.16 1.71 2.6 4.15 3.55 2.03.8 2.45.64 2.89.6.44-.04 1.42-.58 1.62-1.14.2-.56.2-1.04.14-1.14-.06-.1-.22-.16-.46-.28-.24-.12-1.42-.7-1.64-.78-.22-.08-.38-.12-.54.12-.16.24-.62.78-.76.94-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.92-1.18-.71-.63-1.19-1.41-1.33-1.65-.14-.24-.01-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.32-.76-1.8-.2-.47-.4-.4-.54-.41-.14-.01-.3-.01-.46-.01z"/></svg>
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
       WhatsApp
     </div>
-
-    <!-- GERAR LEADS -->
     <div class="nav-grp-hdr" id="grp-hdr-gerar-leads" onclick="toggleGrp('gerar-leads')">
       <div class="nav-grp-left">
-        <svg class="nav-grp-ico" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a4 4 0 100 8 4 4 0 000-8zM3 17a7 7 0 0114 0v1H3v-1zm13-9V6h-2V4h2V2h2v2h2v2h-2v2h-2z"/></svg>
+        <svg class="nav-grp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
         Gerar Leads
       </div>
       <span class="nav-chv closed" id="grp-chv-gerar-leads">▾</span>
@@ -2283,28 +2236,55 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
       <div class="nav-sub" data-sub="gerar-leads-meta" onclick="navigateSub('gerar-leads-meta','gerar-leads')"><span class="nav-sub-ico">·</span>Campanhas da Meta</div>
       <div class="nav-sub" data-sub="gerar-leads-api" onclick="navigateSub('gerar-leads-api','gerar-leads')"><span class="nav-sub-ico">·</span>API</div>
     </div>
-
-    <!-- AUTOMAÇÕES -->
     <div class="nav-item" data-page="automacoes" onclick="navigate('automacoes')">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.983 1.907a.75.75 0 00-1.292-.657L4.522 9.315a.75.75 0 00.55 1.235h4.634l-1.7 7.543a.75.75 0 001.292.657l6.169-8.065a.75.75 0 00-.55-1.235h-4.634l1.7-7.543z" clip-rule="evenodd"/></svg>
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
       Automações
     </div>
-
-    <!-- INTEGRAÇÕES (ex.: conectar o próprio WhatsApp via Z-API) — item
-         próprio na barra lateral pra quem tem a permissão 'integracoes'
-         mas não tem acesso ao setor Configurações (ex.: Gex Parceiro).
-         Quem já chega lá por Configurações continua chegando por lá também. -->
+    <div class="nav-lbl">Operação</div>
+    <div class="nav-grp-hdr" id="grp-hdr-clientes" onclick="toggleGrp('clientes')">
+      <div class="nav-grp-left">
+        <svg class="nav-grp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Clientes
+      </div>
+      <span class="nav-chv" id="grp-chv-clientes" class="closed">▾</span>
+    </div>
+    <div class="nav-sub-wrap closed" id="grp-wrap-clientes">
+      <div class="nav-sub" data-sub="clientes" onclick="navigateSub('clientes','clientes')">
+        <span class="nav-sub-ico">·</span>Gestão de clientes
+      </div>
+      <div class="nav-sub" data-sub="churn" onclick="navigateSub('churn','clientes')">
+        <span class="nav-sub-ico">·</span>Análise de churn
+      </div>
+      <div class="nav-sub" data-sub="contratos" onclick="navigateSub('contratos','clientes')">
+        <span class="nav-sub-ico">·</span>Contratos
+      </div>
+    </div>
+    <div class="nav-grp-hdr" id="grp-hdr-projetos" onclick="toggleGrp('projetos')">
+      <div class="nav-grp-left">
+        <svg class="nav-grp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg>
+        Projetos
+      </div>
+      <span class="nav-chv" id="grp-chv-projetos" class="closed">▾</span>
+    </div>
+    <div class="nav-sub-wrap closed" id="grp-wrap-projetos">
+      <div class="nav-sub" data-sub="onboarding" onclick="navigateSub('onboarding','projetos')">
+        <span class="nav-sub-ico">·</span>Onboarding
+      </div>
+      <div class="nav-sub" data-sub="entregas" onclick="navigateSub('entregas','projetos')">
+        <span class="nav-sub-ico">·</span>Gestão de entregas
+      </div>
+      <div class="nav-sub" data-sub="esquemas" onclick="navigateSub('esquemas','projetos')">
+        <span class="nav-sub-ico">·</span>Esquemas
+      </div>
+    </div>
     <div class="nav-item" data-page="integracoes" onclick="navigate('integracoes')">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clip-rule="evenodd"/></svg>
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></svg>
       Integrações
     </div>
-
-  </nav>
-  <div class="sb-pin" id="sb-pin">
-    <!-- Finanças group (collapsed) -->
+    <div class="nav-lbl">Gestão</div>
     <div class="nav-grp-hdr" id="grp-hdr-financas" onclick="toggleGrp('financas')">
       <div class="nav-grp-left">
-        <svg class="nav-grp-ico" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z"/></svg>
+        <svg class="nav-grp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
         Finanças
       </div>
       <span class="nav-chv closed" id="grp-chv-financas">▾</span>
@@ -2317,17 +2297,13 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
         <span class="nav-sub-ico">·</span>Espelho do banco
       </div>
     </div>
-
-    <!-- RH -->
     <div class="nav-item" data-page="rh" onclick="navigate('rh')">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z"/></svg>
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
       Recursos Humanos
     </div>
-
-    <!-- CONFIGURAÇÕES -->
     <div class="nav-grp-hdr" id="grp-hdr-configuracoes" onclick="toggleGrp('configuracoes')">
       <div class="nav-grp-left">
-        <svg class="nav-grp-ico" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
+        <svg class="nav-grp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         Configurações
       </div>
       <span class="nav-chv closed" id="grp-chv-configuracoes">▾</span>
@@ -2340,11 +2316,12 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
       <div class="nav-sub" data-sub="config-seguranca" onclick="navigateSub('config-seguranca','configuracoes')"><span class="nav-sub-ico">·</span>Segurança</div>
       <div class="nav-sub" data-sub="config-preferencias" onclick="navigateSub('config-preferencias','configuracoes')"><span class="nav-sub-ico">·</span>Preferências</div>
     </div>
-
     <div class="nav-item" data-page="perfil" onclick="navigate('perfil')">
-      <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M7 20.66V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.66"/></svg>
       Meu Perfil
     </div>
+  </nav>
+  <div class="sb-pin" id="sb-pin">
   </div>
   <div class="sb-bottom">
     <button id="sb-collapse-btn" type="button" onclick="gxToggleSidebar()" title="Recolher / abrir menu"><span class="sbc-close">‹ Recolher menu</span><span class="sbc-open">›</span></button>
@@ -2363,6 +2340,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
       <div class="logo-icon"><svg width="16" height="16" viewBox="0 0 20 20" fill="white"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg></div>
       <span class="logo-txt">Gex<span>Flow</span></span>
     </div>
+    <div class="gx-crumb" id="gx-crumb" aria-label="Você está em"></div>
     <div class="search" id="globalSearchBox">
       <span class="search-ico">⌕</span>
       <input type="text" id="globalSearchInput" placeholder="Pesquisar..." autocomplete="off" aria-label="Pesquisar no sistema">
@@ -2381,6 +2359,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
         <svg class="gx-sun" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="10" cy="10" r="3.6"/><path d="M10 2.2v1.6M10 16.2v1.6M2.2 10h1.6M16.2 10h1.6M4.5 4.5l1.1 1.1M14.4 14.4l1.1 1.1M15.5 4.5l-1.1 1.1M5.6 14.4l-1.1 1.1"/></svg>
         <svg class="gx-moon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M16.5 11.6A6.8 6.8 0 018.4 3.5a6.8 6.8 0 108.1 8.1z"/></svg>
       </div>
+      <span class="tb-name" id="topbar-name"></span>
       <div class="user-av" id="topbar-av" onclick="navigate('perfil')" title="Meu perfil">EG</div>
     </div>
   </header>
@@ -26783,6 +26762,112 @@ body.gex-premium-ui .cal-cell,body.gex-premium-ui .cal-week-col{min-width:0}
         apply(false);try{localStorage.setItem(KEY,'0')}catch(e){}
       }
     },true);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
+</script>
+<style id="gx-menu-v2">
+/* ═══ MENU LATERAL v2 (29/10/2026): mais largo, ícones maiores no mesmo traço, item ativo em faixa cheia,
+   perfil no topo e blocos Principal / Vendas / Operação / Gestão. Só aparência — nenhuma regra muda. ═══ */
+html body .sidebar{width:248px;min-width:248px;background:#12112A;box-shadow:none;border-right:1px solid rgba(255,255,255,.06)}
+html body .sidebar nav{padding:6px 0 10px}
+html body .sidebar .sb-pin{display:none}
+/* perfil */
+html body .sidebar .sb-company{padding:22px 16px 18px;border-bottom:1px solid rgba(255,255,255,.07);background:none;position:relative}
+html body .sidebar .sb-co-row{flex-direction:column;align-items:center;text-align:center;gap:10px}
+html body .sidebar .sb-co-row>div:nth-child(2){width:100%}
+html body .sidebar .sb-av{width:60px;height:60px;border-radius:50%;font-size:20px;box-shadow:0 0 0 3px rgba(139,92,246,.35);overflow:hidden}
+html body .sidebar .sb-av img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+html body .sidebar .sb-co-name{font-size:14.5px;font-weight:700;color:#fff;white-space:normal;line-height:1.3;text-transform:uppercase;letter-spacing:.01em}
+html body .sidebar .sb-co-role{font-size:12px;color:rgba(255,255,255,.45);text-transform:none;letter-spacing:0;margin-top:2px}
+html body .sidebar .sb-co-row>div:nth-child(3){position:absolute;top:12px;right:14px;font-size:14px!important;padding:4px 6px;border-radius:6px}
+html body .sidebar .sb-co-row>div:nth-child(3):hover{background:rgba(255,255,255,.08);color:#fff!important}
+/* rótulos de bloco */
+html body .sidebar .nav-lbl{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.3);padding:16px 22px 6px}
+/* itens e grupos */
+html body .sidebar .nav-item,html body .sidebar .nav-grp-hdr{display:flex;align-items:center;min-height:44px;padding:0 20px;gap:13px;font-size:14px;font-weight:500;color:rgba(255,255,255,.74);border-left:0;box-shadow:none;transform:none;border-radius:0;background:transparent}
+html body .sidebar .nav-grp-hdr{justify-content:space-between}
+html body .sidebar .nav-grp-left{gap:13px;font-size:14px;font-weight:500;color:inherit}
+html body .sidebar .nav-icon,html body .sidebar .nav-grp-ico{width:20px;height:20px;opacity:.9;flex-shrink:0}
+html body .sidebar .nav-item:hover,html body .sidebar .nav-grp-hdr:hover{background:rgba(255,255,255,.05);color:#fff;transform:none}
+html body .sidebar .nav-item.active{background:#7C3AED;color:#fff;font-weight:600;box-shadow:none}
+html body .sidebar .nav-item.active .nav-icon{opacity:1}
+html body .sidebar .nav-grp-hdr.active{background:transparent;color:#fff}
+html body .sidebar .nav-grp-hdr.active .nav-grp-left{color:#fff}
+html body .sidebar .nav-chv{font-size:11px;color:rgba(255,255,255,.4)}
+html body .sidebar .nav-sub-wrap{border-left:0;max-height:520px}
+html body .sidebar .nav-sub-wrap.closed{max-height:0}
+html body .sidebar .nav-sub{min-height:38px;padding:0 20px 0 53px;font-size:13.5px;color:rgba(255,255,255,.5);border-left:0;box-shadow:none;transform:none;position:relative;gap:0}
+html body .sidebar .nav-sub .nav-sub-ico{display:none}
+html body .sidebar .nav-sub::before{content:"";position:absolute;left:29px;top:50%;width:5px;height:5px;margin-top:-2.5px;border-radius:50%;background:currentColor;opacity:.5}
+html body .sidebar .nav-sub:hover{background:rgba(255,255,255,.04);color:#fff}
+html body .sidebar .nav-sub.active{background:#7C3AED;color:#fff;font-weight:600;box-shadow:none}
+html body .sidebar .nav-sub.active::before{opacity:1;background:#fff}
+/* rodapé */
+html body .sidebar .sb-bottom{padding:12px 14px 14px;border-top:1px solid rgba(255,255,255,.07)}
+html body .sidebar #sb-collapse-btn{min-height:38px;font-size:13px;border-radius:9px}
+/* cabeçalho: caminho da tela + nome */
+.gx-crumb{display:flex;align-items:center;gap:7px;font-size:13.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;margin:0 14px 0 18px;padding-left:16px;border-left:1px solid var(--border)}
+.gx-crumb b{color:var(--txt);font-weight:600;overflow:hidden;text-overflow:ellipsis}
+.gx-crumb svg{width:14px;height:14px;flex-shrink:0;opacity:.7}
+.gx-crumb:empty{display:none}
+.tb-name{font-size:13px;font-weight:600;color:var(--txt);white-space:nowrap;margin-right:2px}
+.tb-name:empty{display:none}
+html[data-theme="dark"] .gx-crumb b,html[data-theme="dark"] .tb-name{color:var(--g-tx,#ECECF4)}
+/* recolhido (computador) */
+@media (min-width:1025px){
+  html body.sb-collapsed .sidebar{width:76px!important;min-width:76px!important}
+  html body.sb-collapsed .sidebar .nav-lbl{display:none}
+  html body.sb-collapsed .sidebar .nav-grp-hdr.active{background:#7C3AED;color:#fff}
+  html body.sb-collapsed .sidebar .sb-company{padding:16px 0 12px}
+  html body.sb-collapsed .sidebar .sb-av{width:42px;height:42px;font-size:14px}
+  html body.sb-collapsed .sidebar .nav-item,html body.sb-collapsed .sidebar .nav-grp-hdr{min-height:46px;padding:0!important}
+  html body.sb-collapsed .sidebar .nav-item svg,html body.sb-collapsed .sidebar .nav-grp-ico{width:21px!important;height:21px!important}
+}
+/* celular / tablet: menu por cima, não ocupa a tela toda */
+@media (max-width:1024px){
+  html body .sidebar{width:min(280px,84vw);min-width:min(280px,84vw)}
+  .gx-crumb,.tb-name{display:none}
+}
+@media (pointer:coarse){html body .sidebar{width:min(280px,84vw);min-width:min(280px,84vw)}}
+</style>
+<script id="gx-menu-v2-js">
+(function(){
+  // Esconde o rótulo do bloco quando o usuário não tem acesso a nenhum item dele (permissões).
+  function labels(){
+    try{document.querySelectorAll('.sidebar .nav-lbl').forEach(function(l){
+      var vis=false,el=l.nextElementSibling;
+      while(el&&!el.classList.contains('nav-lbl')){
+        if((el.classList.contains('nav-item')||el.classList.contains('nav-grp-hdr'))&&getComputedStyle(el).display!=='none'){vis=true;break}
+        el=el.nextElementSibling;
+      }
+      l.style.display=vis?'':'none';
+    });}catch(e){}
+  }
+  var SEP='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>';
+  function esc(t){return String(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+  function txt(el){return el?(el.textContent||'').replace(/[▾›·]/g,'').replace(/\s+/g,' ').trim():''}
+  function crumb(){
+    try{
+      var c=document.getElementById('gx-crumb');if(!c)return;
+      var sub=document.querySelector('.sidebar .nav-sub.active'),h='';
+      if(sub){
+        var wrap=sub.closest('.nav-sub-wrap'),g=wrap?document.getElementById(wrap.id.replace('grp-wrap-','grp-hdr-')):null;
+        h=(g?'<span>'+esc(txt(g.querySelector('.nav-grp-left')||g))+'</span>'+SEP:'')+'<b>'+esc(txt(sub))+'</b>';
+      }else{
+        var it=document.querySelector('.sidebar .nav-item.active');
+        if(it)h='<b>'+esc(txt(it))+'</b>';
+      }
+      if(c.innerHTML!==h)c.innerHTML=h;
+      var n=document.getElementById('topbar-name'),sn=document.getElementById('sb-user-nome');
+      if(n&&sn){var v=txt(sn).toLowerCase().replace(/(^|\s)\S/g,function(m){return m.toUpperCase()});if(n.textContent!==v)n.textContent=v}
+    }catch(e){}
+  }
+  var t=null;function tick(){clearTimeout(t);t=setTimeout(function(){labels();crumb()},60)}
+  function init(){
+    labels();crumb();
+    var sb=document.querySelector('.sidebar');
+    if(sb&&window.MutationObserver)new MutationObserver(tick).observe(sb,{subtree:true,attributes:true,attributeFilter:['class','style'],childList:true,characterData:true});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();
