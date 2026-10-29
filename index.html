@@ -2089,6 +2089,18 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
 
 <!-- LOGIN SCREEN -->
 <div class="login-screen" id="login-screen">
+  <aside class="login-side" aria-hidden="true">
+    <div class="ls-brand"><div class="ls-logo"><svg width="20" height="20" viewBox="0 0 20 20" fill="white"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg></div><span class="ls-name">Gex<span>Flow</span></span></div>
+    <div class="ls-main">
+      <h2>Comercial, clientes e operação da agência num só lugar.</h2>
+      <ul>
+        <li><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg><span><b>Pipeline com funil real</b>Quantos entram, quantos avançam e quanto vendeu cada vendedor.</span></li>
+        <li><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span><b>Contratos e saúde da carteira</b>MRR, vencimentos, renovações e risco de churn.</span></li>
+        <li><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg><span><b>WhatsApp, formulários e automações</b>Leads chegam sozinhos e ninguém fica sem retorno.</span></li>
+      </ul>
+    </div>
+    <div class="ls-foot">Gex Company</div>
+  </aside>
   <div class="login-box" id="login-box-form">
     <div class="login-logo-row">
       <div class="login-logo-icon">
@@ -2117,7 +2129,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
       </div>
       <div class="login-brand">Gex<span>Flow</span></div>
     </div>
-    <div class="login-greeting" id="forgot-step-title">Esqueceu sua senha? 🔑</div>
+    <div class="login-greeting" id="forgot-step-title">Esqueceu sua senha?</div>
     <div class="login-tagline" id="forgot-step-sub" style="margin-bottom:22px;text-align:left">Sem problema — digite o e-mail da sua conta e enviamos um link para você criar uma senha nova.</div>
     <div class="login-err" id="forgot-err"></div>
     <div class="login-success" id="forgot-success" style="display:none">
@@ -17174,7 +17186,7 @@ function deleteArchivedFunnel(funnelId,opts={}){
 function openFunnelModal(mode,funnelId){
   fmEditId=null;
   document.getElementById('fm-save-btn').textContent= mode==='new'?'Criar Funil':'Salvar alterações';
-  document.getElementById('fm-title').textContent= mode==='new'?'✨ Novo Funil':'✏️ Editar Funil';
+  document.getElementById('fm-title').textContent= mode==='new'?'Novo funil':'Editar funil';
 
   if(mode==='edit'&&funnelId){
     fmEditId=funnelId;
@@ -27402,6 +27414,33 @@ html body .wac-thread-empty i{color:#8B5CF6}
   html body .topbar .tb-right{margin-left:auto}
   html body .wac-thread-head-info{flex:1 1 calc(100% - 60px);min-width:0}
 }
+</style>
+<style id="gx-login-v2">
+/* ═══ LOGIN v2 (29/10/2026): tela dividida, marca à esquerda e acesso à direita. Só aparência. ═══ */
+.login-side{display:none}
+@media(min-width:960px){
+  html body .login-screen{display:grid!important;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);grid-template-rows:100vh;align-items:stretch!important;justify-items:stretch!important;background:#F7F6FB!important}
+  html body .login-screen>.login-box{grid-column:2;grid-row:1;align-self:center;justify-self:center;box-shadow:none!important;background:transparent!important;max-width:400px!important;padding:24px 8px!important}
+  html body .login-screen>.login-box .login-logo-row{justify-content:flex-start}
+  html body .login-screen>.login-box .login-logo-row{display:none}
+  html body #login-box-form::before{content:"Entrar na sua conta";display:block;font-size:28px;font-weight:800;letter-spacing:-.02em;color:#1A1A2E;margin-bottom:6px}
+  html body .login-screen>.login-box .login-tagline{text-align:left!important;font-size:14px!important;margin-bottom:28px}
+  html body .login-screen>.login-box .login-greeting{text-align:left;font-size:28px}
+  .login-side{display:flex;flex-direction:column;justify-content:space-between;grid-column:1;grid-row:1;height:100vh;padding:44px 56px;color:#fff;background:radial-gradient(circle at 18% 12%,rgba(139,92,246,.45),transparent 42%),radial-gradient(circle at 85% 90%,rgba(124,58,237,.35),transparent 45%),#12112A;position:relative;overflow:hidden}
+  .ls-brand{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:800;letter-spacing:-.02em}
+  .ls-name span{color:#C4B5FD}
+  .ls-logo{width:38px;height:38px;border-radius:11px;background:#7C3AED;display:grid;place-items:center}
+  .ls-main{max-width:500px}
+  .ls-main h2{font-size:36px;line-height:1.15;font-weight:800;letter-spacing:-.03em;text-wrap:balance;margin-bottom:30px}
+  .ls-main ul{list-style:none;display:flex;flex-direction:column;gap:18px;padding:0;margin:0}
+  .ls-main li{display:flex;gap:14px;align-items:flex-start}
+  .ls-main li svg{flex-shrink:0;width:38px;height:38px;padding:9px;border-radius:11px;background:rgba(255,255,255,.08);color:#C4B5FD}
+  .ls-main li span{font-size:14px;line-height:1.5;color:rgba(255,255,255,.7)}
+  .ls-main li b{display:block;color:#fff;font-size:15px;font-weight:700;margin-bottom:2px}
+  .ls-foot{font-size:12.5px;color:rgba(255,255,255,.45)}
+}
+html body .login-screen .form-input{height:44px;font-size:14px}
+html body .login-screen #login-btn,html body .login-screen .btn-primary{height:46px;border-radius:11px!important;font-size:14.5px!important;font-weight:700}
 </style>
 </body>
 </html>
