@@ -21123,7 +21123,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       if(detail){detail.textContent=txt;detail.classList.toggle('on',live)}
       if(actions){
         actions.innerHTML=`<button class="gxi-btn small danger" onclick="gxiDisconnectZapi()">Desconectar</button>`+(prov==='evolution'
-          ?`<button class="gxi-btn primary small" onclick="gxiWaConnect(this)">${live?'Reconectar / QR Code':'Ver QR Code'}</button>`
+          ?(live?`<button class="gxi-btn small" onclick="gxiWaImport(this)" title="Traz as conversas dos últimos 30 dias que já estavam no celular">Importar histórico</button>`:'')+`<button class="gxi-btn primary small" onclick="gxiWaConnect(this)" title="Mostra um QR Code novo">${live?'Reconectar':'Ver QR Code'}</button>`
           :`<button class="gxi-btn primary small" onclick="${live?'gxiZapiOpenForm()':'window.wacOpenQr&&window.wacOpenQr()'}">${live?'Ver conexão':'Ver QR Code'}</button>`);
       }
     }catch(e){/* mantém o texto padrão */}
@@ -21539,6 +21539,8 @@ window.gxiTrkFunnelChange=id=>{const f=mapFunnels().find(x=>String(x.id)===Strin
             const b=document.getElementById('wac-qr-body');if(b)b.innerHTML='<p style="margin-top:14px;color:#059669;font-weight:800">✓ WhatsApp conectado!</p>';
             toast('WhatsApp conectado ✓','#10B981');
             setTimeout(()=>{window.wacCloseQr&&window.wacCloseQr();render()},1400);
+            // O WhatsApp entrega o histórico alguns segundos depois de conectar: importa em seguida.
+            setTimeout(()=>window.gxiWaImport(null,true),20000);
           }
         }catch(e){/* tenta de novo */}
       },4000);
@@ -21547,6 +21549,22 @@ window.gxiTrkFunnelChange=id=>{const f=mapFunnels().find(x=>String(x.id)===Strin
     }finally{
       if(btn&&document.body.contains(btn)){btn.disabled=false;btn.textContent=label}
     }
+  };
+  // Traz as conversas que já estavam no celular (últimos 30 dias, até 50 mensagens por conversa).
+  window.gxiWaImport=async(btn,auto)=>{
+    if(btn&&btn.disabled)return;
+    const label=btn?btn.textContent:'';
+    if(btn){btn.disabled=true;btn.textContent='Importando…'}
+    if(!auto)toast('Importando conversas do celular… pode levar até 1 minuto.','#3B82F6');
+    try{
+      const token=await getGexSupabaseToken();
+      const res=await fetch(getSupabaseFunctionUrl('wa-import-history'),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:'{}'});
+      const j=await res.json().catch(()=>({}));
+      if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível importar as conversas.');
+      if(j.mensagens>0)toast(`✓ ${j.conversas} conversa(s) e ${j.mensagens} mensagem(ns) importadas para o Inbox.`,'#10B981');
+      else if(!auto)toast('Nenhuma conversa nova para importar (o celular pode ainda estar enviando o histórico — tente de novo em 1 minuto).','#F59E0B');
+    }catch(e){if(!auto)toast(e.message||'Erro ao importar conversas','#EF4444')}
+    finally{if(btn&&document.body.contains(btn)){btn.disabled=false;btn.textContent=label}}
   };
   window.gxiSaveZapiConfig=async(force)=>{
     if(force!==true&&gxiWaProv()==='evolution'){gxiConfirmSwitch('Seu número sai do WhatsApp (recomendado) e passa a usar a Z-API. Lembre de desconectar o aparelho antigo no celular. Continuar?',()=>window.gxiSaveZapiConfig(true));return}
