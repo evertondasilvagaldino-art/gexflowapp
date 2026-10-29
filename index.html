@@ -11065,6 +11065,24 @@ function getFirstAllowedCommercialTab(){
   return order.find(t=>can(COMMERCIAL_TAB_PERMISSIONS[t]||'comercial','view')) || null;
 }
 
+// Converte os emojis usados como ícone nos indicadores em ícones de traço (mesmo estilo do sistema).
+function gxEmojiIco(e){
+  const P={
+   '❌':'<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/>',
+   '🏆':'<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+   '🤝':'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/>',
+   '⏱️':'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M10 2h4"/>',
+   '📣':'<path d="M3 11l18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>',
+   '🎯':'<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+   '🚪':'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+   '📉':'<polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/>',
+   '👥':'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+   '🟢':'<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+   '💸':'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'
+  };
+  const p=P[String(e||'').trim()];
+  return p?`<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`:(e||'');
+}
 function switchComTab(tab){
   const required=COMMERCIAL_TAB_PERMISSIONS[tab]||'comercial';
   if(!can(required,'view')){
@@ -11090,6 +11108,12 @@ function switchComTab(tab){
   // Sincroniza seleção no nav lateral
   document.querySelectorAll('[data-sub="tarefas-dia"],[data-sub="comercial"],[data-sub="cadastro-leads"],[data-sub="relatorio-comercial"],[data-sub="equipe-comercial"]').forEach(el=>el.classList.remove('active'));
   const subMap={tarefas:'tarefas-dia',pipeline:'comercial',cadastro:'cadastro-leads',relatorio:'relatorio-comercial',equipe:'equipe-comercial'};
+  try{
+    const _gm=(typeof isSalesManagerView==='function')&&isSalesManagerView();
+    const _tt={tarefas:['Tarefas do Dia','Ligações, reuniões e retornos para hoje'],pipeline:['Pipeline CRM','Arraste leads entre os estágios • clique no card para detalhes'],cadastro:['Cadastro de Leads','Todos os leads cadastrados'],relatorio:['Relatório Comercial','Resultados, funil e conversão do período'],equipe:[_gm?'Equipe Comercial':'Minha Performance Comercial',_gm?'Ranking e números individuais dos vendedores':'Seus próprios números comerciais']}[tab];
+    const _ph=document.querySelector('#page-comercial>.page-header');
+    if(_tt&&_ph){const a=_ph.querySelector('.page-title'),b=_ph.querySelector('.page-sub');if(a)a.textContent=_tt[0];if(b)b.textContent=_tt[1]}
+  }catch(e){}
   document.querySelector(`[data-sub="${subMap[tab]}"]`)?.classList.add('active');
   gxSaveLastLocation({kind:'sub',sub:'comercial',grp:'comercial',comTab:tab});
   if(tab==='cadastro') renderCadastroLeads();
@@ -12089,7 +12113,7 @@ function renderRelatorioComercial(){
   if(!kpiGrid) return;
   kpiGrid.innerHTML=kpis.map((k,i)=>`
     <div class="rel-kpi" style="--kpi-accent:${k.accent};--kpi-bg:${k.bg};transition-delay:${i*80}ms">
-      <div class="rel-kpi-ico">${k.ico}</div>
+      <div class="rel-kpi-ico">${gxEmojiIco(k.ico)}</div>
       <div class="rel-kpi-lbl">${k.lbl}</div>
       <div class="rel-kpi-val" id="kpi-val-${i}">${k.fmt==='brl'?'R$ 0':k.fmt==='dias'?(k.val===null?'—':'0 dias'):'0'}</div>
       <div class="rel-kpi-sub">${k.sub}</div>
@@ -15389,7 +15413,7 @@ function churnSaidasHtml(clientes){
   const mrrNum=c=>contratoValorNum(c.mrr||'');
   const mrrSaida=saidas.reduce((a,c)=>a+mrrNum(c),0);
   const dataBR=c=>c.saidaEm?String(c.saidaEm).slice(0,10).split('-').reverse().join('/'):'sem data';
-  const card=(lbl,val,cor,sub)=>`<div class="stat-card"><div class="stat-lbl" style="color:${cor}">${lbl}</div><div class="stat-val" style="color:${cor}">${val}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${sub}</div></div>`;
+  const card=(lbl,val,cor,sub)=>{const m=/^(\S+)\s(.*)$/.exec(String(lbl));const ic=m&&!/[A-Za-zÀ-ÿ0-9]/.test(m[1])?gxEmojiIco(m[1]):'';const tx=ic?m[2]:lbl;return `<div class="gx-kpi"><div class="gx-kpi-l"><span style="color:${cor};display:inline-flex">${ic}</span>${tx}</div><div class="gx-kpi-v" style="color:${cor}">${val}</div><div class="gx-kpi-s">${sub}</div></div>`};
   let colChurn={};try{colChurn=JSON.parse(localStorage.getItem('gxChurnCol')||'{}')||{}}catch(e){}
   const tab=(titulo,arr)=>{
     const closed=!!colChurn[titulo];
@@ -18417,7 +18441,7 @@ function renderTarefasDia(){
     return `<div class="tdia-item${done?' done-row':''}" onclick="openTaskEditModal('${t.id}')">
       <div class="tdia-circle ${done?'done':type}" onclick="event.stopPropagation();${done?`reopenCommercialTask('${t.id}')`:`completeCommercialTask('${t.id}')`}">${done?'✓':''}</div>
       <div class="tdia-ibody">
-        <div class="tdia-ititle">${t.title}</div>
+        <div class="tdia-ititle">${escHtml(String(t.title||t.titulo||t.desc||'Tarefa sem título'))}</div>
         ${opp?`<div class="tdia-imeta">${ico} ${opp}</div>`:''}
       </div>
       ${dtLabel?`<span class="tdia-dt-tag ${dtCls}">${dtLabel}</span>`:''}
@@ -18470,10 +18494,11 @@ function renderTarefasDia(){
 
   el.innerHTML=`<div class="tdia-wrap">
     <div class="tdia-top">
-      <div class="tdia-heading">Tarefas</div>
-      <div class="tdia-count-row">
-        <div class="tdia-count-circle">✓</div>
-        ${total} tarefa${total!==1?'s':''}
+      <div class="tdia-heading">Minhas tarefas</div>
+      <div class="tdia-sum">
+        <span class="gx-pill" style="background:rgba(139,92,246,.14);color:#6D28D9">Hoje ${today.length}</span>
+        <span class="gx-pill ${overdue.length?'bad':''}" ${overdue.length?'':'style="background:rgba(107,107,128,.12);color:var(--g-mu,var(--muted))"'}>Atrasadas ${overdue.length}</span>
+        <span class="gx-pill" style="background:rgba(107,107,128,.12);color:var(--g-mu,var(--muted))">Próximas ${upcoming.length}</span>
       </div>
     </div>
     ${todayHtml}
@@ -27222,6 +27247,37 @@ html body input.form-input,html body select.form-input:not([multiple]){min-heigh
 html body .form-input:focus{border-color:#8B5CF6!important;box-shadow:0 0 0 3px rgba(139,92,246,.15)!important;outline:none}
 html body .modal-footer .btn{height:38px;border-radius:10px;font-weight:600}
 @media(max-width:700px){html body #page-clientes .search-inline{max-width:none}}
+</style>
+<style id="gx-com4-v2">
+/* ═══ CHURN, TAREFAS, RELATÓRIO E EQUIPE v2 (29/10/2026). Só aparência. ═══ */
+/* cabeçalho interno duplicado da Equipe (o título da tela já mostra) */
+html body #com-tab-equipe>div>.page-header,html body #com-tab-equipe .page-header{display:none}
+/* filtros */
+html body .rel-filter-lbl,html body .rel-filter-bar>span:first-child{display:none}
+html body .rel-sel{height:38px;border-radius:10px;font-size:13px;font-weight:600}
+html body .rel-filter-bar,html body .sales-filter-bar{border-radius:14px!important;padding:12px 14px!important;gap:10px!important;box-shadow:none!important}
+html body .rel-filter-bar .btn,html body .sales-filter-bar .btn{height:38px;border-radius:10px}
+/* indicadores do relatório */
+html body .rel-kpi{border-radius:14px;padding:16px 18px;box-shadow:none}
+html body .rel-kpi::before{display:none}
+html body .rel-kpi:hover{transform:none;box-shadow:none}
+html body .rel-kpi-ico{width:34px;height:34px;border-radius:10px;color:var(--kpi-accent,#7C3AED);margin-bottom:10px}
+html body .rel-kpi-lbl{font-size:13px;font-weight:600;text-transform:none;letter-spacing:0}
+html body .rel-kpi-val{font-size:27px;font-weight:800;letter-spacing:-.02em}
+/* resumo executivo / cartões do relatório */
+html body #com-tab-relatorio .card{border-radius:14px}
+/* equipe */
+html body .sales-mini-kpi{border-radius:12px}
+html body .sales-mini-lbl{font-size:12px;text-transform:none;letter-spacing:0;font-weight:600}
+/* tarefas do dia */
+html body .tdia-wrap{border-radius:14px}
+html body .tdia-heading{font-size:18px!important;font-weight:800}
+.tdia-sum{display:flex;gap:6px;flex-wrap:wrap}
+html body .tdia-item{padding-top:13px;padding-bottom:13px}
+html body .tdia-ititle{font-size:14px;font-weight:600}
+/* churn */
+html body #churn-content .gx-kpi-v{font-size:27px}
+html body #churn-content .form-input{height:38px}
 </style>
 </body>
 </html>
