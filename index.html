@@ -20872,7 +20872,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   const PROVIDERS=[
     {id:'whatsapp',name:'WhatsApp',cat:'Comunicação',badge:'Recomendado',icon:'◉',accent:'#128C7E',soft:'#E7F9EF',desc:'Conexão em um clique: é só escanear o QR Code com o celular. Mensagens, atendimento e automações caem direto no Inbox. Cada usuário conecta o próprio número.',button:'Conectar WhatsApp'},
     {id:'whatsapp_zapi',name:'WhatsApp via Z-API',cat:'Comunicação',badge:'Alternativo',icon:'◉',accent:'#0F766E',soft:'#E6F6F4',desc:'Para quem já tem conta na Z-API: conecte com Instance ID, Token e Client-Token. Mesmo Inbox e mesmas automações.',button:'Conectar Z-API'},
-    {id:'whatsapp_oficial',name:'WhatsApp Oficial (Meta)',cat:'Comunicação',icon:'✔',accent:'#25D366',soft:'#E7F9EF',desc:'Conexão via API oficial da Meta (WhatsApp Cloud API), com número verificado e templates aprovados.',button:'Em breve',comingSoon:true},
+    {id:'whatsapp_oficial',name:'WhatsApp Oficial (Meta)',cat:'Comunicação',badge:'Oficial',icon:'✔',accent:'#25D366',soft:'#E7F9EF',desc:'API oficial da Meta: sem risco de bloqueio, número verificado e modelos de mensagem aprovados. Conecte pelo Facebook em poucos passos.',button:'Conectar com Facebook'},
     {id:'meta_ads',name:'Meta Ads',cat:'Anúncios',icon:'∞',accent:'#0866FF',soft:'#EAF2FF',desc:'Campanhas, contas de anúncios, Pixels, formulários e atribuição de leads.',button:'Conectar com Facebook'},
     {id:'google_ads',name:'Google Ads',cat:'Anúncios',icon:'G',accent:'#4285F4',soft:'#FFF8E1',desc:'Campanhas, custos, cliques, conversões e envio de vendas qualificadas.',button:'Conectar com Google'}
   ];
@@ -20959,8 +20959,9 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   // Conta só entre os provedores que o papel atual PODE ver — senão um Gex
   // Parceiro via "1 conexão ativa" contando o Meta Ads da empresa, que nem
   // aparece pra ele na tela (card oculto por connectionsHtml/VISIBLE_PROVIDERS).
-  function gxiWaProv(){const z=getZapiSettings();return z.connected?(z.provider==='evolution'?'evolution':'zapi'):''}
-  function connectedCount(list){return (list||PROVIDERS).filter(p=>p.id==='whatsapp'?gxiWaProv()==='evolution':p.id==='whatsapp_zapi'?gxiWaProv()==='zapi':connection(p.id).status==='connected').length}
+  function gxiWaProv(){const z=getZapiSettings();return z.connected?(z.provider==='evolution'?'evolution':z.provider==='meta'?'meta':'zapi'):''}
+  const GXI_WA_LABEL={evolution:'WhatsApp (recomendado)',zapi:'Z-API',meta:'WhatsApp Oficial (Meta)'};
+  function connectedCount(list){return (list||PROVIDERS).filter(p=>p.id==='whatsapp'?gxiWaProv()==='evolution':p.id==='whatsapp_zapi'?gxiWaProv()==='zapi':p.id==='whatsapp_oficial'?gxiWaProv()==='meta':connection(p.id).status==='connected').length}
   function header(){
     // Colaborador é um papel enxuto pra conexão pessoal de WhatsApp — não
     // deve ver as abas de Tracking Manual/Monitoramento (config de tracking
@@ -20979,19 +20980,19 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     // Ads e WhatsApp Oficial continuam fora: nenhuma das duas tem um backend
     // funcionando hoje (não é uma questão de permissão, é que a conexão real
     // ainda não existe pra ninguém, nem pra Fundador/Adm Gerente).
-    const VISIBLE_PROVIDERS=_visRole==='Gex Parceiro'?PROVIDERS.filter(p=>p.id==='whatsapp'||p.id==='whatsapp_zapi'||p.id==='meta_ads'):_visRole==='Colaborador'?PROVIDERS.filter(p=>p.id==='whatsapp'||p.id==='whatsapp_zapi'||p.id==='whatsapp_oficial'):PROVIDERS;
+    const VISIBLE_PROVIDERS=_visRole==='Gex Parceiro'?PROVIDERS.filter(p=>p.id==='whatsapp'||p.id==='whatsapp_zapi'||p.id==='whatsapp_oficial'||p.id==='meta_ads'):_visRole==='Colaborador'?PROVIDERS.filter(p=>p.id==='whatsapp'||p.id==='whatsapp_zapi'||p.id==='whatsapp_oficial'):PROVIDERS;
     const connectable=VISIBLE_PROVIDERS.filter(p=>!p.comingSoon);
     // Colaborador não vê o resumo de tracking/eventos (isso é config
     // comercial da empresa, não faz sentido pra quem só conecta o próprio
     // WhatsApp) — só o card de conexão mesmo.
     const summaryHtml=_visRole==='Colaborador'?'':`<div class="gxi-summary"><div class="gxi-stat"><span>Conexões ativas</span><b>${connectedCount(VISIBLE_PROVIDERS)}</b><small>de ${connectable.length} disponíveis</small></div><div class="gxi-stat"><span>Regras de tracking</span><b>${rules.length}</b><small>${rules.filter(x=>x.active!==false).length} ativas</small></div><div class="gxi-stat"><span>Eventos processados</span><b>${getEvents().length}</b><small>últimos registros</small></div></div>`;
     return `${summaryHtml}<div class="gxi-grid">${VISIBLE_PROVIDERS.map(p=>{if(p.comingSoon){return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft};opacity:.85"><div class="gxi-card-top"><div class="gxi-icon">${gxiBrandIcon(p)}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill soon">Em breve</span></div><p>${p.desc}</p><div class="gxi-card-note">Fica registrado aqui como o próximo canal — ainda sem previsão fechada.</div><div class="gxi-card-actions"><button class="gxi-btn small" disabled style="opacity:.55;cursor:not-allowed">Em breve</button></div></article>`}
-    if(p.id==='whatsapp'||p.id==='whatsapp_zapi'){
-      const zs=getZapiSettings(),act=gxiWaProv(),mine=p.id==='whatsapp'?'evolution':'zapi',isMine=act===mine,other=act&&!isMine;
-      const key=p.id==='whatsapp'?'evo':'zapi';
+    if(p.id==='whatsapp'||p.id==='whatsapp_zapi'||p.id==='whatsapp_oficial'){
+      const zs=getZapiSettings(),act=gxiWaProv(),mine=p.id==='whatsapp'?'evolution':p.id==='whatsapp_oficial'?'meta':'zapi',isMine=act===mine,other=act&&!isMine;
+      const key=p.id==='whatsapp'?'evo':p.id==='whatsapp_oficial'?'meta':'zapi';
       const badge=p.badge?`<span class="gxi-wa-badge ${key}">${p.badge}</span>`:'';
-      const note=isMine?(mine==='evolution'?'Conexão direta pelo servidor GexFlow.':`Instância <b>${E(zs.instanceId||'')}</b>.`):other?`Hoje seu número está conectado pelo <b>${act==='evolution'?'WhatsApp (recomendado)':'Z-API'}</b>. Só uma conexão fica ativa por vez.`:(mine==='evolution'?'Clique em Conectar e escaneie o QR Code com o celular.':'Tenha em mãos Instance ID, Token e Client-Token da sua conta Z-API.');
-      const mainBtn=mine==='evolution'?`<button class="gxi-btn primary small" onclick="gxiWaConnect(this)">${isMine?'Reconectar / QR Code':p.button}</button>`:`<button class="gxi-btn primary small" onclick="gxiZapiOpenForm()">${isMine?'Ver conexão':p.button}</button>`;
+      const note=isMine?(mine==='evolution'?'Conexão direta pelo servidor GexFlow.':mine==='meta'?`Número <b>${E(zs.metaPhone||'')}</b>${zs.metaName?` · ${E(zs.metaName)}`:''}.`:`Instância <b>${E(zs.instanceId||'')}</b>.`):other?`Hoje seu número está conectado pelo <b>${GXI_WA_LABEL[act]||act}</b>. Só uma conexão fica ativa por vez.`:(mine==='evolution'?'Clique em Conectar e escaneie o QR Code com o celular.':mine==='meta'?'Abre a janela da Meta: escolha a empresa, cadastre o número e confirme o código por SMS.':'Tenha em mãos Instance ID, Token e Client-Token da sua conta Z-API.');
+      const mainBtn=mine==='meta'?(isMine?`<button class="gxi-btn primary small" onclick="gxWaTemplates()">Modelos de mensagem</button>`:`<button class="gxi-btn primary small" onclick="gxiMetaConnect(this)">${p.button}</button>`):mine==='evolution'?`<button class="gxi-btn primary small" onclick="gxiWaConnect(this)">${isMine?'Reconectar / QR Code':p.button}</button>`:`<button class="gxi-btn primary small" onclick="gxiZapiOpenForm()">${isMine?'Ver conexão':p.button}</button>`;
       return `<article class="gxi-card gxi-wa-card${isMine?' gxi-wa-active':''}" style="--accent:${p.accent};--soft:${p.soft}"><div class="gxi-card-top"><div class="gxi-icon">${gxiBrandIcon(p)}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}${badge}</div></div><span class="gxi-pill ${isMine?'pending':'off'}" id="gxi-wa-${key}-pill">${isMine?'Verificando…':'Não conectado'}</span></div><p>${p.desc}</p><div class="gxi-card-note">${note}</div><div class="gxi-card-actions" id="gxi-wa-${key}-actions">${isMine?`<button class="gxi-btn small danger" onclick="gxiDisconnectZapi()">Desconectar</button>`:''}${mainBtn}</div></article>`;
     }
     const c=connection(p.id),on=c.status==='connected',pending=c.status==='pending';return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft}"><div class="gxi-card-top"><div class="gxi-icon">${gxiBrandIcon(p)}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill ${on?'on':pending?'pending':'off'}">${on?'Conectado':pending?'Pendente':'Não conectado'}</span></div><p>${p.desc}</p><div class="gxi-card-note">${on?`Conta: ${E(c.assets?.name||c.assets?.account||'Conexão oficial')}`:'Autorização oficial, sem expor tokens no navegador.'}</div><div class="gxi-card-actions">${on?`<button class="gxi-btn small" onclick="gxiTestConnection('${p.id}')">Testar</button><button class="gxi-btn small danger" onclick="gxiDisconnect('${p.id}')">Desconectar</button>`:`<button class="gxi-btn primary small" onclick="gxiConnect('${p.id}')">${p.button}</button>`}</div></article>`}).join('')}${asaasTileHtml()}</div>${_visRole==='Colaborador'?zapiConfigHtml()+asaasConfigHtml():smtpConfigHtml()}`}
@@ -21107,7 +21108,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
   async function gxiLoadZapiLiveStatus(){
     const prov=gxiWaProv();
     if(!prov)return;
-    const key=prov==='evolution'?'evo':'zapi';
+    const key=prov==='evolution'?'evo':prov==='meta'?'meta':'zapi';
     const pill=document.getElementById(`gxi-wa-${key}-pill`);
     const actions=document.getElementById(`gxi-wa-${key}-actions`);
     const detail=prov==='zapi'?document.getElementById('gxi-zapi-live-status'):null;
@@ -21118,11 +21119,13 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       const j=await res.json().catch(()=>({}));
       if(j&&j.unknown)return; // servidor sem resposta agora: mantém o texto atual
       const live=!!(j&&j.ok!==false&&j.connected);
-      const txt=live?'Conectado':(prov==='evolution'?'Aguardando QR Code':'Número não conectado');
+      const txt=live?'Conectado':(prov==='evolution'?'Aguardando QR Code':prov==='meta'?'Reconecte pelo Facebook':'Número não conectado');
       if(pill){pill.textContent=txt;pill.classList.toggle('on',live);pill.classList.toggle('pending',!live)}
       if(detail){detail.textContent=txt;detail.classList.toggle('on',live)}
       if(actions){
-        actions.innerHTML=`<button class="gxi-btn small danger" onclick="gxiDisconnectZapi()">Desconectar</button>`+(prov==='evolution'
+        actions.innerHTML=`<button class="gxi-btn small danger" onclick="gxiDisconnectZapi()">Desconectar</button>`+(prov==='meta'
+          ?(live?`<button class="gxi-btn primary small" onclick="gxWaTemplates()">Modelos de mensagem</button>`:`<button class="gxi-btn primary small" onclick="gxiMetaConnect(this,true)">Conectar com Facebook</button>`)
+          :prov==='evolution'
           ?(live?`<button class="gxi-btn small" onclick="gxiWaImport(this)" title="Traz as conversas dos últimos 30 dias que já estavam no celular">Importar histórico</button>`:'')+`<button class="gxi-btn primary small" onclick="gxiWaConnect(this)" title="Mostra um QR Code novo">${live?'Reconectar':'Ver QR Code'}</button>`
           :`<button class="gxi-btn primary small" onclick="${live?'gxiZapiOpenForm()':'window.wacOpenQr&&window.wacOpenQr()'}">${live?'Ver conexão':'Ver QR Code'}</button>`);
       }
@@ -21510,7 +21513,7 @@ window.gxiTrkFunnelChange=id=>{const f=mapFunnels().find(x=>String(x.id)===Strin
   }
   window.gxiWaConnect=async(btn,force)=>{
     if(btn&&btn.disabled)return;
-    if(!force&&gxiWaProv()==='zapi'){gxiConfirmSwitch('Seu número sai da Z-API e passa a ser conectado pelo servidor GexFlow (recomendado). Você vai escanear um QR Code novo. Continuar?',()=>window.gxiWaConnect(btn,true));return}
+    if(!force&&gxiWaProv()&&gxiWaProv()!=='evolution'){gxiConfirmSwitch(`Sua conexão sai do ${GXI_WA_LABEL[gxiWaProv()]} e passa a ser pelo servidor GexFlow (recomendado). Você vai escanear um QR Code novo. Continuar?`,()=>window.gxiWaConnect(btn,true));return}
     const label=btn?btn.textContent:'';
     if(btn){btn.disabled=true;btn.textContent='Preparando…'}
     try{
@@ -21550,6 +21553,28 @@ window.gxiTrkFunnelChange=id=>{const f=mapFunnels().find(x=>String(x.id)===Strin
       if(btn&&document.body.contains(btn)){btn.disabled=false;btn.textContent=label}
     }
   };
+  // WHATSAPP OFICIAL (Meta): abre a janela da Meta (Cadastro incorporado). O retorno chega por gex_wa_meta na URL.
+  window.gxiMetaConnect=async(btn,force)=>{
+    if(btn&&btn.disabled)return;
+    if(!force&&gxiWaProv()&&gxiWaProv()!=='meta'){gxiConfirmSwitch(`Sua conexão sai do ${GXI_WA_LABEL[gxiWaProv()]} e passa para o WhatsApp Oficial (Meta). Continuar?`,()=>window.gxiMetaConnect(btn,true));return}
+    const popup=window.open('about:blank','gex_wa_meta','width=760,height=820,menubar=no,toolbar=no,location=yes,resizable=yes,scrollbars=yes');
+    const label=btn?btn.textContent:'';if(btn){btn.disabled=true;btn.textContent='Abrindo…'}
+    try{
+      const token=await getGexSupabaseToken();
+      const res=await fetch(getSupabaseFunctionUrl('wa-meta-start'),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({returnTo:window.location.origin+window.location.pathname})});
+      const j=await res.json().catch(()=>({}));
+      if(!res.ok||!j.ok||!j.url)throw new Error(j?.message||'Não foi possível abrir a conexão com a Meta.');
+      if(popup&&!popup.closed)popup.location.href=j.url;else window.location.href=j.url;
+    }catch(e){try{popup&&popup.close()}catch(_){}toast(e.message||'Erro ao conectar','#EF4444')}
+    finally{if(btn&&document.body.contains(btn)){btn.disabled=false;btn.textContent=label}}
+  };
+  window.gxiMetaApplyConnected=(phone,name)=>{
+    const next={id:getMyZapiId(),connected:true,provider:'meta',metaPhone:phone||'',metaName:name||'',instanceId:'',webhookUrl:'',updatedAt:new Date().toISOString()};
+    const others=(DB.get('zapi_settings')||[]).filter(x=>x.id!==next.id);
+    DB.set('zapi_settings',[...others,next]);
+    toast('WhatsApp Oficial conectado ✓','#10B981');
+    if(document.getElementById('page-integracoes')?.classList.contains('active'))render();
+  };
   // Traz as conversas que já estavam no celular (últimos 30 dias, até 50 mensagens por conversa).
   window.gxiWaImport=async(btn,auto)=>{
     if(btn&&btn.disabled)return;
@@ -21568,7 +21593,7 @@ window.gxiTrkFunnelChange=id=>{const f=mapFunnels().find(x=>String(x.id)===Strin
     finally{if(btn&&document.body.contains(btn)){btn.disabled=false;btn.textContent=label}}
   };
   window.gxiSaveZapiConfig=async(force)=>{
-    if(force!==true&&gxiWaProv()==='evolution'){gxiConfirmSwitch('Seu número sai do WhatsApp (recomendado) e passa a usar a Z-API. Lembre de desconectar o aparelho antigo no celular. Continuar?',()=>window.gxiSaveZapiConfig(true));return}
+    if(force!==true&&gxiWaProv()&&gxiWaProv()!=='zapi'){gxiConfirmSwitch(`Sua conexão sai do ${GXI_WA_LABEL[gxiWaProv()]} e passa a usar a Z-API. Continuar?`,()=>window.gxiSaveZapiConfig(true));return}
     const instanceId=document.getElementById('gxi-zapi-instance')?.value.trim();
     const zapiToken=document.getElementById('gxi-zapi-token')?.value||'';
     const clientToken=document.getElementById('gxi-zapi-client-token')?.value||'';
@@ -23587,14 +23612,23 @@ ${gxlCloseScriptTag}`;
     ${tagEditorHtml(chat)}
     <div class="wac-thread-msgs" id="wac-thread-msgs">${messagesHtml()}</div>
     ${wacPendingAttachment?attachPreviewHtml():''}
+    ${wacConn.provider==='meta'&&wacConn.connected&&!wacMetaWindowOpen()?`<div class="wac-meta-window"><span>Já passaram 24h desde a última mensagem desse contato. Pela conexão oficial, reabra a conversa com um <b>modelo aprovado</b>.</span><button onclick="gxWaTemplates({phone:'${A(wacSelectedPhone)}',toName:'${A(chat.name||'')}',after:()=>window.wacSelectChat('${A(wacSelectedPhone)}')})">Enviar modelo</button></div>`:''}
     <div class="wac-composer">
       <input type="file" id="wac-file-input" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none" onchange="wacPickFile(this.files[0])">
       <button class="wac-attach-btn" onclick="document.getElementById('wac-file-input').click()" ${wacConn.connected?'':'disabled'} title="Anexar arquivo"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>
+      ${wacConn.provider==='meta'&&wacConn.connected?`<button class="wac-attach-btn" onclick="gxWaTemplates({phone:'${A(wacSelectedPhone)}',toName:'${A(chat.name||'')}',after:()=>window.wacSelectChat('${A(wacSelectedPhone)}')})" title="Enviar modelo de mensagem"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></button>`:''}
       <input id="wac-input" placeholder="Escreva uma mensagem..." onkeydown="if(event.key==='Enter')wacSendMessage()">
       <button onclick="wacSendMessage()" id="wac-send-btn" ${wacConn.connected?'':'disabled'} title="Enviar"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></button>
     </div>`;
   }
 
+  // Janela de 24h da conexão oficial: aberta se o contato mandou mensagem nas últimas 24h.
+  function wacMetaWindowOpen(){
+    const last=[...wacMessages].reverse().find(m=>!m.from_me);
+    if(!last)return false;
+    const t=new Date(last.momment).getTime();
+    return !!t&&(Date.now()-t)<24*3600*1000;
+  }
   function messagesHtml(){
     if(!wacMessages.length)return `<div style="text-align:center;color:var(--muted);font-size:11px;margin:auto">Sem mensagens ainda nessa conversa.</div>`;
     return wacMessages.map(messageHtml).join('');
@@ -23638,7 +23672,7 @@ ${gxlCloseScriptTag}`;
   async function loadStatus(){
     try{
       const j=await apiGet('zapi-status');
-      if(j&&j.ok!==false&&!j.unknown)wacConn={connected:!!j.connected,configured:!!j.configured};
+      if(j&&j.ok!==false&&!j.unknown)wacConn={connected:!!j.connected,configured:!!j.configured,provider:j.provider||'zapi'};
       if(j&&j.ok!==false){wacConn.detail=j.unknown?'O servidor de WhatsApp não respondeu agora; mantendo o último status.':`Instância: ${j.connected?'conectada':'desconectada'} · Celular: ${j.smartphoneConnected?'conectado':'sem conexão'}${j.error?' · '+j.error:''}`}
     }catch(e){/* mantém último status conhecido */}
     const label=document.getElementById('wac-status-label');if(label&&wacConn.detail)label.title=wacConn.detail;
@@ -27540,5 +27574,140 @@ html[data-theme="dark"] body .gxi-wa-badge.zapi{color:#CBD5E1}
 html body .gxi-wa-card.gxi-wa-active{box-shadow:0 0 0 2px rgba(18,140,126,.35)}
 html body .gxi-wa-card[style*="#128C7E"] .gxi-btn.primary{background:#128C7E!important;border-color:#128C7E!important}
 </style>
+<style id="gx-wa-meta-v2">
+.wac-meta-window{margin:0 12px 6px;padding:10px 12px;border-radius:10px;background:rgba(245,158,11,.12);color:#92400E;font-size:12px;line-height:1.5;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.wac-meta-window button{border:0;border-radius:8px;background:#128C7E;color:#fff;font-weight:700;font-size:12px;padding:6px 12px;cursor:pointer}
+html[data-theme="dark"] .wac-meta-window{color:#FCD34D}
+.gxwt-ov{position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.gxwt{width:min(720px,100%);max-height:88vh;overflow:auto;background:var(--g-card,var(--card,#fff));color:var(--g-tx,var(--txt,#1A1A2E));border-radius:18px;box-shadow:0 24px 70px rgba(15,23,42,.35);padding:20px}
+.gxwt-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.gxwt-h h3{font-size:17px;font-weight:800;margin:0}
+.gxwt-x{border:0;background:none;font-size:20px;cursor:pointer;color:inherit;opacity:.6}
+.gxwt-sub{font-size:12.5px;color:var(--g-mu,var(--muted,#64748B));margin:-6px 0 14px;line-height:1.5}
+.gxwt-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.gxwt-item{border:1px solid var(--g-line,var(--border,#E5E7EB));border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:flex-start}
+.gxwt-item.pick{cursor:pointer}.gxwt-item.pick:hover,.gxwt-item.sel{border-color:#128C7E;box-shadow:0 0 0 2px rgba(18,140,126,.18)}
+.gxwt-item b{font-size:13px}.gxwt-body{font-size:12.5px;color:var(--g-mu,var(--muted,#64748B));white-space:pre-wrap;margin-top:3px}
+.gxwt-st{margin-left:auto;font-size:10.5px;font-weight:800;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.gxwt-st.APPROVED{background:rgba(16,185,129,.14);color:#059669}.gxwt-st.PENDING,.gxwt-st.IN_APPEAL{background:rgba(245,158,11,.16);color:#B45309}.gxwt-st.REJECTED,.gxwt-st.DISABLED,.gxwt-st.PAUSED{background:rgba(239,68,68,.12);color:#DC2626}
+.gxwt-del{border:0;background:none;color:#DC2626;cursor:pointer;font-size:12px;font-weight:700}
+.gxwt-form{border-top:1px solid var(--g-line,var(--border,#E5E7EB));padding-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.gxwt-form .full{grid-column:1/-1}
+.gxwt-form label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600;color:var(--g-mu,var(--muted,#64748B))}
+.gxwt-form input,.gxwt-form select,.gxwt-form textarea{border:1px solid var(--g-line,var(--border,#E5E7EB));border-radius:10px;padding:9px 11px;font-size:13px;background:var(--g-soft,#F8FAFC);color:inherit;font-family:inherit}
+.gxwt-form textarea{min-height:90px;resize:vertical}
+.gxwt-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.gxwt-btn{border:1px solid var(--g-line,var(--border,#E5E7EB));background:var(--g-card,#fff);color:inherit;border-radius:10px;height:38px;padding:0 16px;font-weight:700;font-size:13px;cursor:pointer}
+.gxwt-btn.pri{background:#128C7E;border-color:#128C7E;color:#fff}.gxwt-btn:disabled{opacity:.55;cursor:not-allowed}
+.gxwt-prev{grid-column:1/-1;background:rgba(18,140,126,.08);border-radius:10px;padding:10px 12px;font-size:13px;white-space:pre-wrap}
+.gxwt-empty{font-size:13px;color:var(--g-mu,var(--muted,#64748B));padding:14px;text-align:center;border:1px dashed var(--g-line,var(--border,#E5E7EB));border-radius:12px}
+@media(max-width:600px){.gxwt-form{grid-template-columns:1fr}}
+</style>
+<script id="gx-wa-meta-js">
+(function(){
+  if(window.__GX_WA_META__)return;window.__GX_WA_META__=true;
+  const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const ST={APPROVED:'Aprovado',PENDING:'Em análise',REJECTED:'Recusado',PAUSED:'Pausado',DISABLED:'Desativado',IN_APPEAL:'Em recurso'};
+  async function call(body){
+    const token=await getGexSupabaseToken();
+    const res=await fetch(getSupabaseFunctionUrl('wa-meta-templates'),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
+    return res.json().catch(()=>({}));
+  }
+  function fill(body,params){return String(body||'').replace(/\{\{(\d+)\}\}/g,(m,n)=>params[Number(n)-1]||m)}
+  // opts.phone => modo ENVIAR (só aprovados); sem phone => modo GERENCIAR (listar, criar, apagar)
+  window.gxWaTemplates=async function(opts){
+    opts=opts||{};
+    const send=!!opts.phone;
+    let list=[],sel=null;
+    const ov=document.createElement('div');ov.className='gxwt-ov';
+    ov.addEventListener('click',e=>{if(e.target===ov)ov.remove()});
+    document.body.appendChild(ov);
+    const paint=(msg)=>{
+      const items=send?list.filter(t=>t.status==='APPROVED'):list;
+      ov.innerHTML=`<div class="gxwt" role="dialog" aria-modal="true">
+        <div class="gxwt-h"><h3>${send?'Enviar modelo de mensagem':'Modelos de mensagem'}</h3><button class="gxwt-x" aria-label="Fechar">✕</button></div>
+        <p class="gxwt-sub">${send?'Modelos aprovados pela Meta. Use para reabrir conversas depois de 24h sem resposta do contato.':'Modelos são textos aprovados pela Meta. Eles são o único jeito de falar com um contato depois de 24h sem resposta. A aprovação costuma levar de minutos a algumas horas.'}</p>
+        ${msg?`<div class="gxwt-empty">${esc(msg)}</div>`:`<div class="gxwt-list">${items.length?items.map((t,i)=>`<div class="gxwt-item${send?' pick':''}${sel===t?' sel':''}" data-i="${list.indexOf(t)}"><div style="min-width:0"><b>${esc(t.name)}</b> <span style="font-size:11px;opacity:.7">${esc(t.category)} · ${esc(t.language)}</span><div class="gxwt-body">${esc(t.body)}</div>${t.rejected&&t.status==='REJECTED'?`<div style="font-size:11.5px;color:#DC2626;margin-top:3px">Motivo: ${esc(t.rejected)}</div>`:''}</div><span class="gxwt-st ${esc(t.status)}">${ST[t.status]||esc(t.status)}</span>${send?'':`<button class="gxwt-del" data-del="${esc(t.name)}">Apagar</button>`}</div>`).join(''):`<div class="gxwt-empty">${send?'Nenhum modelo aprovado ainda. Crie um em Integrações > WhatsApp Oficial > Modelos de mensagem.':'Nenhum modelo ainda. Crie o primeiro abaixo.'}</div>`}</div>`}
+        ${send?(sel?`<div class="gxwt-form">${Array.from({length:sel.params},(_,k)=>`<label>Variável {{${k+1}}}<input data-p="${k}" placeholder="Ex.: ${k===0?esc(opts.toName||'Maria'):'valor'}" value="${k===0&&opts.toName?esc(opts.toName):''}"></label>`).join('')}<div class="gxwt-prev" id="gxwt-prev"></div></div>
+          <div class="gxwt-foot"><button class="gxwt-btn" data-close>Cancelar</button><button class="gxwt-btn pri" id="gxwt-send">Enviar modelo</button></div>`:'')
+        :`<div class="gxwt-form">
+            <label>Nome (sem espaços)<input id="gxwt-name" placeholder="ex.: retorno_atendimento"></label>
+            <label>Categoria<select id="gxwt-cat"><option value="UTILITY">Utilidade (atendimento, avisos)</option><option value="MARKETING">Marketing (ofertas, novidades)</option></select></label>
+            <label class="full">Texto<textarea id="gxwt-body" placeholder="Olá {{1}}, tudo bem? Vi que você falou com a gente sobre {{2}}. Posso te ajudar a continuar?"></textarea></label>
+            <div class="full" id="gxwt-ex" style="display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+            <div class="full" style="font-size:11.5px;opacity:.75">Use {{1}}, {{2}}… onde entra o nome do cliente ou outra informação. A Meta pede um exemplo de cada variável.</div>
+          </div>
+          <div class="gxwt-foot"><button class="gxwt-btn" data-close>Fechar</button><button class="gxwt-btn pri" id="gxwt-create">Enviar para aprovação</button></div>`}
+      </div>`;
+      ov.querySelector('.gxwt-x').onclick=()=>ov.remove();
+      ov.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>ov.remove());
+      if(send){
+        ov.querySelectorAll('.gxwt-item.pick').forEach(el=>el.onclick=()=>{sel=list[Number(el.dataset.i)];paint()});
+        const prev=()=>{const p=[...ov.querySelectorAll('[data-p]')].map(i=>i.value);const el=ov.querySelector('#gxwt-prev');if(el&&sel)el.textContent=fill(sel.body,p)};
+        ov.querySelectorAll('[data-p]').forEach(i=>i.oninput=prev);prev();
+        const sb=ov.querySelector('#gxwt-send');
+        if(sb)sb.onclick=async()=>{
+          const params=[...ov.querySelectorAll('[data-p]')].map(i=>i.value.trim());
+          if(params.some(v=>!v)){toast('Preencha todas as variáveis','#EF4444');return}
+          sb.disabled=true;sb.textContent='Enviando…';
+          const j=await call({action:'send',phone:opts.phone,name:sel.name,language:sel.language,params,preview:fill(sel.body,params),toName:opts.toName||''});
+          if(j&&j.ok){toast('Modelo enviado ✓','#10B981');ov.remove();if(typeof opts.after==='function')opts.after()}
+          else{toast(j?.message||'Não foi possível enviar','#EF4444');sb.disabled=false;sb.textContent='Enviar modelo'}
+        };
+      }else{
+        ov.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
+          if(!confirm(`Apagar o modelo "${b.dataset.del}"?`))return;
+          const j=await call({action:'delete',name:b.dataset.del});
+          if(j&&j.ok){toast('Modelo apagado','#10B981');load()}else toast(j?.message||'Não foi possível apagar','#EF4444');
+        });
+        const ta=ov.querySelector('#gxwt-body'),ex=ov.querySelector('#gxwt-ex');
+        const exPaint=()=>{const n=(String(ta.value).match(/\{\{\d+\}\}/g)||[]).length;const old=[...ex.querySelectorAll('input')].map(i=>i.value);ex.innerHTML=Array.from({length:n},(_,k)=>`<label style="display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600">Exemplo de {{${k+1}}}<input data-ex="${k}" value="${esc(old[k]||'')}" placeholder="${k===0?'Maria':'exemplo'}" style="border:1px solid var(--g-line,#E5E7EB);border-radius:10px;padding:9px 11px;font-size:13px"></label>`).join('')};
+        if(ta){ta.oninput=exPaint;exPaint()}
+        const cb=ov.querySelector('#gxwt-create');
+        if(cb)cb.onclick=async()=>{
+          const name=ov.querySelector('#gxwt-name').value.trim(),body=ta.value.trim();
+          if(!name||!body){toast('Preencha o nome e o texto','#EF4444');return}
+          const examples=[...ov.querySelectorAll('[data-ex]')].map(i=>i.value.trim());
+          if(examples.some(v=>!v)){toast('Preencha um exemplo para cada variável','#EF4444');return}
+          cb.disabled=true;cb.textContent='Enviando…';
+          const j=await call({action:'create',name,category:ov.querySelector('#gxwt-cat').value,language:'pt_BR',body,examples});
+          if(j&&j.ok){toast(`Modelo "${j.name}" enviado para aprovação ✓`,'#10B981');load()}
+          else{toast(j?.message||'A Meta recusou o modelo','#EF4444');cb.disabled=false;cb.textContent='Enviar para aprovação'}
+        };
+      }
+    };
+    const load=async()=>{
+      paint('Carregando modelos…');
+      try{const j=await call({action:'list'});if(!j||!j.ok){paint(j?.message||'Não foi possível carregar os modelos.');return}list=j.templates||[];sel=null;paint()}
+      catch(e){paint('Falha de conexão ao carregar os modelos.')}
+    };
+    load();
+  };
+
+  // Retorno da janela da Meta (?gex_wa_meta=success|error)
+  window.addEventListener('message',e=>{
+    const d=e.data||{};
+    if(d.type==='gex_wa_meta_success'&&typeof window.gxiMetaApplyConnected==='function')window.gxiMetaApplyConnected(d.phone,d.name);
+    if(d.type==='gex_wa_meta_error')toast(d.error||'Erro ao conectar o WhatsApp oficial','#EF4444');
+  });
+  try{
+    const params=new URLSearchParams(window.location.search);
+    const r=params.get('gex_wa_meta');
+    if(r){
+      const phone=params.get('phone')||'',name=params.get('name')||'',error=params.get('error')||'';
+      if(window.opener){
+        try{window.opener.postMessage(r==='success'?{type:'gex_wa_meta_success',phone,name}:{type:'gex_wa_meta_error',error},'*')}catch(e){}
+        setTimeout(()=>window.close(),400);
+      }else{
+        const apply=()=>{if(r==='success'&&typeof window.gxiMetaApplyConnected==='function')window.gxiMetaApplyConnected(phone,name);else if(r!=='success')toast(error||'Erro ao conectar o WhatsApp oficial','#EF4444')};
+        setTimeout(apply,1500);
+      }
+      ['gex_wa_meta','phone','name','error'].forEach(k=>params.delete(k));
+      const qs=params.toString();
+      window.history.replaceState({},'',window.location.pathname+(qs?'?'+qs:'')+window.location.hash);
+    }
+  }catch(e){}
+})();
+</script>
 </body>
 </html>
