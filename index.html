@@ -2475,14 +2475,12 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
         <button class="btn btn-primary" onclick="openModal('contrato')">+ Novo Contrato</button>
       </div>
     </div>
-    <div style="margin-bottom:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-      <div style="position:relative;width:100%;max-width:380px">
-        <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none"><circle cx="9" cy="9" r="6"/><path d="M14 14l4 4"/></svg>
-        <input class="search-inline" id="contr-search" type="search" autocomplete="off" placeholder="Pesquisar cliente ou contrato..." oninput="renderContratos()" style="width:100%;padding-left:36px;height:38px">
-      </div>
-      <span id="contr-search-count" style="font-size:12px;color:var(--muted)"></span>
+    <div id="contr-resumo"></div>
+    <div class="gx-toolbar" id="contr-toolbar">
+      <div class="gx-tsearch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input class="search-inline" id="contr-search" type="search" autocomplete="off" placeholder="Pesquisar cliente ou contrato..." oninput="renderContratos()" style="width:100%;padding-left:36px;height:38px"></div>
+      <div id="contr-filtros" class="gx-chips"></div>
+      <span id="contr-search-count" class="gx-tcount"></span>
     </div>
-    <div id="contr-filtros" style="display:flex;gap:6px;flex-wrap:wrap;margin:-4px 0 14px"></div>
     <div id="contratos-content"></div>
   </div>
 
@@ -2910,14 +2908,14 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
 <div class="deal-ov" id="deal-ov" onclick="if(event.target===this)closeDealDetail()">
   <div class="deal-ov-box">
   <div class="deal-topbar">
-    <button class="deal-back" onclick="closeDealDetail()">← Comercial</button>
+    <button class="deal-back" onclick="closeDealDetail()"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Comercial</button>
     <div class="deal-name" id="deal-title-name">Negócio</div>
     <div class="deal-status-btns">
       <button class="dstatus-btn perdido" id="dstatus-perdido" onclick="setDealStatus('Perdido')">✕ Perdido</button>
-      <button class="dstatus-btn andamento" id="dstatus-andamento" onclick="setDealStatus('Em andamento')">⏳ Em andamento</button>
+      <button class="dstatus-btn andamento" id="dstatus-andamento" onclick="setDealStatus('Em andamento')"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Em andamento</button>
       <button class="dstatus-btn ganho" id="dstatus-ganho" onclick="setDealStatus('Ganho')">✓ Ganho</button>
     </div>
-    <button class="btn btn-ghost btn-sm" onclick="editCurrentDeal()">✏️ Editar</button>
+    <button class="btn btn-ghost btn-sm deal-edit-btn" onclick="editCurrentDeal()"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>Editar</button>
     <button class="deal-close-x" onclick="closeDealDetail()" title="Fechar">✕</button>
   </div>
   <div class="deal-breadcrumb" id="deal-breadcrumb"></div>
@@ -15511,19 +15509,17 @@ function contratosResumoMRR(){
   const semValor=vigentes.filter(ct=>!contratoValorNum(ct.valor)).length;
   return {mrr,nClientes,nContratos:vigentes.length,ticket:nClientes?mrr/nClientes:0,semValor};
 }
+function gxDataBR(v){const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(v||''));return m?`${m[3]}/${m[2]}/${m[1]}`:(v||'—')}
 function contratosResumoHtml(){
   const r=contratosResumoMRR();
-  return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:18px">
-    <div class="stat-card">
-      <div class="stat-lbl">💰 MRR Agência</div>
-      <div class="stat-val" style="color:var(--green)">${fmtBRL(r.mrr)}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">Soma dos ${r.nContratos} contrato(s) vigentes${r.semValor?` · ${r.semValor} sem valor`:''}</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-lbl">🎯 Ticket Médio</div>
-      <div class="stat-val">${fmtBRL(r.ticket)}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">MRR ÷ ${r.nClientes} cliente(s) com contrato</div>
-    </div>
+  let av=0,avV=0,ve=0,veV=0;
+  try{(DB.get('contratos')||[]).forEach(c=>{const k=contratoSituacao(c);const v=(typeof gxParseBRL==='function'?gxParseBRL(c.valor):parseFloat(c.valor))||0;if(k==='avencer'){av++;avV+=v}else if(k==='vencido'){ve++;veV+=v}})}catch(e){}
+  const ic=p=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+  return `<div class="gx-kpis">
+    <div class="gx-kpi hero"><div class="gx-kpi-l">${ic('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>')}MRR Agência</div><div class="gx-kpi-v">${fmtBRL(r.mrr)}</div><div class="gx-kpi-s">Soma dos ${r.nContratos} contrato(s) vigentes${r.semValor?` · ${r.semValor} sem valor`:''}</div></div>
+    <div class="gx-kpi"><div class="gx-kpi-l">${ic('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>')}Ticket médio</div><div class="gx-kpi-v">${fmtBRL(r.ticket)}</div><div class="gx-kpi-s">MRR ÷ ${r.nClientes} cliente(s) com contrato</div></div>
+    <div class="gx-kpi"><div class="gx-kpi-l">${ic('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>')}A vencer</div><div class="gx-kpi-v">${av}</div><div class="gx-kpi-s">${av?`<span class="gx-pill warn">${fmtBRL(avV)}</span>`:''}nos próximos ${typeof CONTRATO_JANELA_A_VENCER_DIAS!=='undefined'?CONTRATO_JANELA_A_VENCER_DIAS:30} dias</div></div>
+    <div class="gx-kpi"><div class="gx-kpi-l">${ic('<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>')}Vencidos</div><div class="gx-kpi-v"${ve?' style="color:#DC2626"':''}>${ve}</div><div class="gx-kpi-s">${ve?`<span class="gx-pill bad">${fmtBRL(veV)}</span>precisam de renovação`:'Nenhum contrato vencido'}</div></div>
   </div>`;
 }
 let _gxContrRenovadoMigrado=false;
@@ -15537,6 +15533,7 @@ function renderContratos(){
   const clientes=DB.get('clientes');
   const cont=document.getElementById('contratos-content');
   if(!cont)return;
+  try{const rs=document.getElementById('contr-resumo');if(rs)rs.innerHTML=contratosResumoHtml()}catch(e){}
   // Filtro por status (chips com contagem)
   const _fk=['todos','ativo','avencer','vencido','renovacao','pendente','encerrado'];
   const _fl={todos:'Todos',ativo:'Ativos',avencer:'A vencer',vencido:'Vencidos',renovacao:'Em renovação',pendente:'Pendentes',encerrado:'Encerrados'};
@@ -15545,7 +15542,7 @@ function renderContratos(){
   const _fb=document.getElementById('contr-filtros');
   if(_fb)_fb.innerHTML=_fk.filter(k=>k==='todos'||_cnt[k]||window._gxContrFil===k).map(k=>`<button type="button" class="btn ${window._gxContrFil===k?'btn-primary':'btn-ghost'} btn-sm" onclick="window._gxContrFil='${k}';renderContratos()">${_fl[k]} <span style="opacity:.75;font-weight:600">${_cnt[k]||0}</span></button>`).join('');
   if(!contratos.length){
-    cont.innerHTML=contratosResumoHtml()+`<div class="card"><div class="empty"><div class="empty-ico">📄</div><div class="empty-txt">Nenhum contrato cadastrado</div></div></div>`;
+    cont.innerHTML=`<div class="card"><div class="empty"><div class="empty-ico">📄</div><div class="empty-txt">Nenhum contrato cadastrado</div></div></div>`;
     return;
   }
   const nomeCliente=id=>clientes.find(c=>c.id===id)?.nome||'—';
@@ -15562,22 +15559,21 @@ function renderContratos(){
   }
   const cntEl=document.getElementById('contr-search-count');
   if(cntEl)cntEl.textContent=(q||window._gxContrFil!=='todos')?`${contratosOrd.length} de ${contratos.length} contrato(s)`:'';
-  cont.innerHTML=contratosResumoHtml()+`<div class="card"><div class="tbl-wrap"><table><thead><tr>
-    <th>Título</th><th>Cliente</th><th>Valor</th><th>Início</th><th>Vencimento</th><th>Status</th><th>Ações</th>
-  </tr></thead><tbody>${contratosOrd.length?'':`<tr><td colspan="7"><div class="empty"><div class="empty-ico">🔍</div><div class="empty-txt">Nenhum contrato encontrado para "${escHtml(qRaw)}"</div></div></td></tr>`}${contratosOrd.map(c=>{
+  cont.innerHTML=`<div class="card gx-tcard"><div class="tbl-wrap"><table><thead><tr>
+    <th>Contrato</th><th class="n">Valor</th><th>Início</th><th>Vencimento</th><th>Status</th><th class="n">Ações</th>
+  </tr></thead><tbody>${contratosOrd.length?'':`<tr><td colspan="6"><div class="empty"><div class="empty-ico">🔍</div><div class="empty-txt">Nenhum contrato encontrado para "${escHtml(qRaw)}"</div></div></td></tr>`}${contratosOrd.map(c=>{
     const hoje=new Date();const venc=new Date(c.vencimento||'');
     const diasVenc=Math.ceil((venc-hoje)/(1000*60*60*24));
     const alertVenc=diasVenc>=0&&diasVenc<=30;
     return`<tr>
-      <td><div style="font-weight:600">${c.titulo}</div>${alertVenc?`<div style="font-size:10px;color:var(--yellow)">⚠️ Vence em ${diasVenc} dias</div>`:''}</td>
-      <td>${nomeCliente(c.clienteId)}</td>
-      <td style="font-weight:600;color:var(--green)">${gexMoneyFmt(c.valor,true)||'—'}</td>
-      <td style="color:var(--muted);font-size:12px">${c.inicio||'—'}</td>
-      <td style="color:var(--muted);font-size:12px">${c.vencimento||'—'}</td>
+      <td><div class="gx-ct-t" onclick="openModal('contrato','${c.id}')">${escHtml(c.titulo||'')}</div><div class="gx-ct-s">${escHtml(nomeCliente(c.clienteId))}${alertVenc?`<span class="gx-ct-w">Vence em ${diasVenc} dia${diasVenc===1?'':'s'}</span>`:''}</div></td>
+      <td class="n gx-ct-v">${gexMoneyFmt(c.valor,true)||'—'}</td>
+      <td class="gx-ct-d">${gxDataBR(c.inicio)}</td>
+      <td class="gx-ct-d">${gxDataBR(c.vencimento)}</td>
       <td>${contratoSituacaoPill(contratoSituacao(c))}</td>
-      <td><div style="display:flex;gap:6px">
-        <button class="btn btn-ghost btn-sm" onclick="openModal('contrato','${c.id}')">✏️</button>
-        <button class="btn btn-danger btn-sm" onclick="confirmDelete(()=>{DB.remove('contratos','${c.id}');renderContratos();toast('Removido','#EF4444')})">🗑️</button>
+      <td class="n"><div class="gx-ct-a">
+        <button class="btn btn-ghost btn-sm btn-icon" title="Editar" onclick="openModal('contrato','${c.id}')">${gxIc('edit')}</button>
+        <button class="btn btn-ghost btn-sm btn-icon gx-del" title="Excluir" onclick="confirmDelete(()=>{DB.remove('contratos','${c.id}');renderContratos();toast('Removido','#EF4444')})">${gxIc('del')}</button>
       </div></td>
     </tr>`;
   }).join('')}</tbody></table></div></div>`;
@@ -17867,13 +17863,13 @@ function resetStages(){
 
 // ═══ DEAL DETAIL ═══
 const dealActionTypes=[
-  {key:'Nota',ico:'📝',color:'#EDE9FE',text:'#7C3AED'},
-  {key:'E-mail',ico:'✉️',color:'#DBEAFE',text:'#1E40AF'},
-  {key:'Ligação',ico:'📞',color:'#DCFCE7',text:'#166534'},
-  {key:'WhatsApp',ico:'💬',color:'#D1FAE5',text:'#065F46'},
-  {key:'Proposta',ico:'📋',color:'#FEF3C7',text:'#92400E'},
-  {key:'Reunião',ico:'🤝',color:'#F3E8FF',text:'#6D28D9'},
-  {key:'Visita',ico:'📍',color:'#FFE4E6',text:'#991B1B'},
+  {key:'Nota',ico:'<svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',color:'#EDE9FE',text:'#7C3AED'},
+  {key:'E-mail',ico:'<svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>',color:'#DBEAFE',text:'#1E40AF'},
+  {key:'Ligação',ico:'<svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',color:'#DCFCE7',text:'#166534'},
+  {key:'WhatsApp',ico:'<svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>',color:'#D1FAE5',text:'#065F46'},
+  {key:'Proposta',ico:'<svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15l2 2 4-4"/></svg>',color:'#FEF3C7',text:'#92400E'},
+  {key:'Reunião',ico:'<svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',color:'#F3E8FF',text:'#6D28D9'},
+  {key:'Visita',ico:'<svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',color:'#FFE4E6',text:'#991B1B'},
 ];
 
 function openDealDetail(id){
@@ -18104,9 +18100,10 @@ function renderDealBreadcrumb(){
   const stages=(funnel?.stages||[]).slice().sort((a,b)=>a.order-b.order);
   const currentStage=getLeadStageObject(l,funnel);
 
+  const _ci=stages.findIndex(x=>currentStage&&x.id===currentStage.id);
   bc.innerHTML=stages.map((s,i)=>`
-    <div class="dbc-item" onclick="moveDealStageById('${s.id}')">
-      <div class="dbc-step${currentStage?.id===s.id?' current':''}">${escHtml(s.name)}</div>
+    <div class="dbc-item" onclick="moveDealStageById('${s.id}')" title="Mover para ${escHtml(s.name)}">
+      <div class="dbc-step${currentStage?.id===s.id?' current':''}${_ci>=0&&i<_ci&&!s.isLost?' done':''}${s.isWon?' won':''}${s.isLost?' lost':''}">${escHtml(s.name)}</div>
       ${i<stages.length-1?'<div class="dbc-arrow">›</div>':''}
     </div>`).join('');
 }
@@ -18911,9 +18908,9 @@ function renderDealMain(){
       </div>
     </div>
     <div class="hist-tabs">
-      <button class="htab${currentHistTab==='hist'?' active':''}" onclick="setHistTab('hist')">📋 Histórico <span style="background:var(--p-light);color:var(--p2);padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;margin-left:4px">${ativs.length}</span></button>
-      <button class="htab${currentHistTab==='tarefas'?' active':''}" onclick="setHistTab('tarefas')">🔔 Tarefas ${pendingDealTasks.length?`<span style="background:#7C3AED20;color:#7C3AED;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;margin-left:4px">${pendingDealTasks.length}</span>`:''}</button>
-      <button class="htab${currentHistTab==='wpp'?' active':''}" onclick="setHistTab('wpp')">💬 WhatsApp</button>
+      <button class="htab${currentHistTab==='hist'?' active':''}" onclick="setHistTab('hist')"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Histórico <span style="background:var(--p-light);color:var(--p2);padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;margin-left:4px">${ativs.length}</span></button>
+      <button class="htab${currentHistTab==='tarefas'?' active':''}" onclick="setHistTab('tarefas')"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>Tarefas ${pendingDealTasks.length?`<span style="background:#7C3AED20;color:#7C3AED;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;margin-left:4px">${pendingDealTasks.length}</span>`:''}</button>
+      <button class="htab${currentHistTab==='wpp'?' active':''}" onclick="setHistTab('wpp')"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>WhatsApp</button>
     </div>
     ${currentHistTab==='hist'?histHtml:currentHistTab==='tarefas'?dealTasksHtml:`<div id="deal-wpp-mirror" style="padding:4px 2px"><div class="empty"><div class="empty-ico">💬</div><div class="empty-txt">Carregando conversa do WhatsApp...</div></div></div>`}`;
 
@@ -18999,7 +18996,7 @@ function renderDealSidebar(){
   document.getElementById('deal-sidebar').innerHTML=`
     <div class="lem-panel" style="margin-bottom:16px">
       <div class="lem-panel-hdr">
-        <div class="lem-panel-title">🔔 Lembretes${overdueCnt?` <span class="lem-badge">${overdueCnt}</span>`:''}</div>
+        <div class="lem-panel-title"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>Lembretes${overdueCnt?` <span class="lem-badge">${overdueCnt}</span>`:''}</div>
         <div style="display:flex;gap:6px;align-items:center">
           ${todayCnt?`<span class="lem-badge today">${todayCnt} hoje</span>`:''}
           <button class="btn btn-ghost" style="padding:2px 9px;font-size:11px" onclick="openQuickTaskModal(currentDealId)">+ Nova</button>
@@ -19014,11 +19011,11 @@ function renderDealSidebar(){
       <div id="lem-panel-content" style="max-height:260px;overflow-y:auto"></div>
     </div>
     <div class="sb-section">
-      <div class="sb-sec-title">💰 Valor do negócio</div>
+      <div class="sb-sec-title"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Valor do negócio</div>
       <div class="deal-val-big">${fmtBRL(l.valor||0)}</div>
     </div>
     <div class="sb-section">
-      <div class="sb-sec-title">📋 Dados do negócio</div>
+      <div class="sb-sec-title"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Dados do negócio</div>
       <div class="sb-field"><span class="sb-field-lbl">Estágio</span><span class="sb-field-val">${badge(l.estagio)}</span></div>
       <div class="sb-field"><span class="sb-field-lbl">Status</span><span class="sb-field-val">${badge(l.dealStatus||'Em andamento')}</span></div>
       ${l.produto?`<div class="sb-field"><span class="sb-field-lbl">Produto / Serviço</span><span class="sb-field-val" style="color:var(--p1);font-weight:600">📦 ${l.produto}</span></div>`:''}
@@ -19030,7 +19027,7 @@ function renderDealSidebar(){
       ${l.desc?`<div class="sb-field" style="flex-direction:column;align-items:flex-start;gap:4px"><span class="sb-field-lbl">Descrição</span><span style="font-size:12px;color:var(--muted);line-height:1.5;white-space:pre-wrap">${escHtml(humanizeLegacyLeadDesc(l.desc,l.origem||''))}</span></div>`:''}
     </div>
     <div class="sb-section">
-      <div class="sb-sec-title">👤 Dados do contato</div>
+      <div class="sb-sec-title"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Dados do contato</div>
       <div class="sb-field"><span class="sb-field-lbl">Nome</span><span class="sb-field-val">${l.nome}</span></div>
       <div class="sb-field"><span class="sb-field-lbl">Empresa</span><span class="sb-field-val">${l.empresa||gxLeadFormCompany(l)||'—'}</span></div>
       <div class="sb-field"><span class="sb-field-lbl">Email</span><span class="sb-field-val">${l.email||'—'}</span></div>
@@ -19070,7 +19067,7 @@ function gxLeadFormExtrasHtml(l){
       return `<div class="sb-field"><span class="sb-field-lbl">${escHtml(lbl)}</span><span class="sb-field-val">${escHtml(String(d[k]))}</span></div>`;
     });
     if(!rows.length)return '';
-    return `<div class="sb-section"><div class="sb-sec-title">📝 Respostas do formulário</div>${rows.join('')}</div>`;
+    return `<div class="sb-section"><div class="sb-sec-title"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Respostas do formulário</div>${rows.join('')}</div>`;
   }catch(e){return ''}
 }
 
@@ -27046,6 +27043,118 @@ html body #com-tab-pipeline .pcard-actions .pc-ic{width:15px;height:15px}
   html body #com-tab-pipeline #com-stats .stat-val{font-size:18px!important}
   html body #com-tab-pipeline #com-stats .stat-card{padding:10px 12px!important}
   html body #com-tab-pipeline .funnel-select,html body #com-tab-pipeline #pipe-responsavel-filter{max-width:100%}
+}
+</style>
+<style id="gx-padrao-v2">
+/* ═══ PADRÃO DE TELAS v2 (29/10/2026): indicadores, barra de ferramentas e tabelas reutilizáveis. Só aparência. ═══ */
+html body .page .page-header{align-items:flex-end;flex-wrap:wrap}
+html body .page .page-title{font-size:26px;font-weight:800;letter-spacing:-.02em}
+html body .page .page-sub{font-size:14px}
+html body .page .page-header .btn{height:38px;border-radius:10px;font-size:13px;font-weight:600}
+.gx-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:16px}
+.gx-kpi{background:var(--g-card,var(--card));border:1px solid var(--g-line,var(--border));border-radius:14px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;min-height:124px;min-width:0}
+.gx-kpi-l{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--g-mu,var(--muted))}
+.gx-kpi-l svg{width:17px;height:17px;flex-shrink:0}
+.gx-kpi-v{font-size:27px;font-weight:800;letter-spacing:-.02em;line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--g-tx,var(--txt))}
+.gx-kpi-s{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:auto;font-size:12.5px;color:var(--g-mu,var(--muted))}
+.gx-kpi.hero{background:linear-gradient(150deg,#6D28D9,#4C1D95);border-color:transparent}
+.gx-kpi.hero .gx-kpi-l,.gx-kpi.hero .gx-kpi-s{color:rgba(255,255,255,.78)}.gx-kpi.hero .gx-kpi-v{color:#fff}
+.gx-pill{font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.gx-pill.ok{background:rgba(16,185,129,.14);color:#059669}.gx-pill.warn{background:rgba(245,158,11,.16);color:#B45309}.gx-pill.bad{background:rgba(239,68,68,.12);color:#DC2626}
+.gx-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--g-card,var(--card));border:1px solid var(--g-line,var(--border));border-radius:14px;padding:12px 14px;margin-bottom:14px}
+.gx-tsearch{display:flex;align-items:center;gap:8px;height:38px;flex:1 1 240px;max-width:380px;border:1px solid var(--g-line,var(--border));border-radius:10px;padding:0 12px;color:var(--g-mu,var(--muted));background:var(--g-card,var(--card))}
+.gx-tsearch:focus-within{border-color:#8B5CF6;box-shadow:0 0 0 3px rgba(139,92,246,.15)}
+.gx-tsearch svg{width:15px;height:15px;flex-shrink:0}
+.gx-tsearch input{border:0!important;outline:0!important;background:transparent!important;box-shadow:none!important;height:100%!important;padding:0!important;width:100%;font-size:13px;color:var(--g-tx,var(--txt))}
+.gx-chips{display:inline-flex!important;flex-wrap:wrap;gap:2px!important;margin:0!important;padding:3px;border-radius:10px;border:1px solid var(--g-line,var(--border));background:var(--g-soft,#F7F6FB)}
+.gx-chips .btn{height:30px!important;border:0!important;border-radius:7px!important;background:none!important;color:var(--g-mu,var(--muted))!important;font-size:13px!important;font-weight:600!important;padding:0 11px!important;box-shadow:none!important}
+.gx-chips .btn span{opacity:.7}
+.gx-chips .btn.btn-primary{background:var(--g-card,#fff)!important;color:#6D28D9!important;box-shadow:0 1px 3px rgba(26,26,46,.14)!important}
+html[data-theme="dark"] .gx-chips .btn.btn-primary{color:#C4B5FD!important}
+.gx-tcount{margin-left:auto;font-size:12.5px;color:var(--g-mu,var(--muted))}
+.gx-tcount:empty{display:none}
+.gx-tcard{border-radius:14px!important;padding:6px 8px!important}
+.gx-tcard table{font-size:13.5px}
+.gx-tcard th{font-size:11.5px!important;letter-spacing:.06em;text-transform:uppercase;color:var(--g-mu,var(--muted));white-space:nowrap}
+.gx-tcard td{vertical-align:middle}
+.gx-tcard th.n,.gx-tcard td.n{text-align:right}
+.gx-ct-t{font-weight:700;cursor:pointer;color:var(--g-tx,var(--txt))}
+.gx-ct-t:hover{color:#6D28D9}
+.gx-ct-s{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--g-mu,var(--muted));margin-top:2px}
+.gx-ct-w{font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:999px;background:rgba(245,158,11,.16);color:#B45309}
+.gx-ct-v{font-weight:700;color:#059669;white-space:nowrap;font-variant-numeric:tabular-nums}
+.gx-ct-d{white-space:nowrap;font-size:13px;color:var(--g-mu,var(--muted));font-variant-numeric:tabular-nums}
+.gx-ct-a{display:inline-flex;gap:4px}
+.gx-ct-a .btn-icon{width:32px;height:32px;padding:0;display:inline-grid;place-items:center;border-radius:8px;color:var(--g-mu,var(--muted))}
+.gx-ct-a .btn-icon svg{width:16px;height:16px}
+.gx-ct-a .btn-icon:hover{color:#6D28D9;background:rgba(139,92,246,.1)}
+.gx-ct-a .gx-del:hover{color:#DC2626;background:rgba(239,68,68,.1)}
+@media(max-width:700px){
+  html body .page .page-title{font-size:22px}
+  .gx-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .gx-kpi-v{font-size:20px}
+  .gx-tsearch{max-width:none;flex-basis:100%}
+  .gx-tcount{margin-left:0}
+}
+</style>
+<style id="gx-deal-v2">
+/* ═══ JANELA DO LEAD v2 (29/10/2026): mesmo padrão visual. Só aparência. ═══ */
+.dl-ic{width:16px;height:16px;flex-shrink:0;vertical-align:-3px}
+html body .deal-ov-box{border-radius:18px}
+html body .deal-topbar{padding:14px 22px;gap:12px}
+html body .deal-back{height:36px;border-radius:10px;font-weight:600;gap:4px;padding:0 12px}
+html body .deal-name{font-size:20px;font-weight:800;letter-spacing:-.01em}
+html body .deal-status-btns{display:flex;gap:8px}
+html body .dstatus-btn{height:36px;display:inline-flex;align-items:center;gap:6px;padding:0 14px;border-width:1.5px;font-size:13px}
+html body .dstatus-btn .dl-ic{width:15px;height:15px}
+html body .deal-edit-btn{height:36px!important;border-radius:10px!important;display:inline-flex;align-items:center;gap:6px;font-size:13px!important;font-weight:600}
+html body .deal-close-x{width:36px;height:36px}
+/* etapas em formato de trilha */
+html body .deal-breadcrumb{padding:12px 22px!important;gap:6px;overflow-x:auto;border-bottom:1px solid var(--g-line,var(--border))}
+html body .dbc-item{gap:0}
+html body .dbc-arrow{display:none}
+html body .dbc-step{height:34px;display:inline-flex;align-items:center;padding:0 16px 0 22px;font-size:12.5px;font-weight:600;border-radius:0!important;background:var(--g-soft,#F4F3F9);color:var(--g-mu,var(--muted));clip-path:polygon(0 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,0 100%,10px 50%);margin-right:-4px}
+html body .dbc-item:first-child .dbc-step{clip-path:polygon(0 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,0 100%);padding-left:16px;border-radius:8px 0 0 8px!important}
+html body .dbc-step.done{background:rgba(139,92,246,.18);color:#6D28D9}
+html body .dbc-step.current{background:#7C3AED;color:#fff}
+html body .dbc-step.won.current{background:#059669}
+html body .dbc-step.lost.current{background:#DC2626}
+html body .dbc-step:hover:not(.current){background:rgba(139,92,246,.26);color:#5B21B6}
+html[data-theme="dark"] body .dbc-step.done{color:#C4B5FD}
+/* área principal */
+html body .deal-main{padding:22px 24px}
+html body .atab{height:36px;display:inline-flex;align-items:center;gap:6px;padding:0 13px;border-width:1px;border-radius:10px;font-size:13px}
+html body .atab .dl-ic{width:15px;height:15px}
+html body .atab.active{border-color:#7C3AED;background:rgba(139,92,246,.12);color:#6D28D9}
+html body .act-area{border:1px solid var(--g-line,var(--border));border-radius:14px}
+html body .act-area textarea{font-size:14px}
+html body .hist-tabs{gap:6px;margin-bottom:16px}
+html body .htab{display:inline-flex;align-items:center;gap:6px;padding:9px 14px;font-size:13px;font-weight:600}
+html body .htab .dl-ic{width:15px;height:15px}
+/* lateral */
+html body .deal-sidebar{width:320px;min-width:320px;padding:18px}
+html body .sb-sec-title{display:flex;align-items:center;gap:7px;font-size:11.5px}
+html body .sb-sec-title .dl-ic{width:15px;height:15px;color:#7C3AED}
+html body .lem-panel-title{font-size:14px}
+html body .lem-panel-title .dl-ic{color:#7C3AED}
+html body .deal-val-big{font-size:28px;letter-spacing:-.02em}
+/* celular: tela cheia, conteúdo em coluna */
+@media(max-width:860px){
+  html body .deal-ov{padding:0!important}
+  html body .deal-ov-box{height:100vh!important;max-height:none;border-radius:0!important}
+  html body .deal-topbar{flex-wrap:wrap;padding:12px 14px;border-radius:0!important}
+  html body .deal-name{order:-1;flex:1 1 0;min-width:0;font-size:18px}
+  html body .deal-back{padding:0 10px!important}
+  html body .deal-back{order:-2}
+  html body .deal-close-x{order:-1}
+  html body .deal-status-btns{width:100%;overflow-x:auto}
+  html body .dstatus-btn{flex:1;justify-content:center;padding:0 8px;white-space:nowrap}
+  html body .deal-edit-btn{display:none!important}
+  html body .deal-breadcrumb{padding:10px 14px!important}
+  html body .deal-body{flex-direction:column;overflow-y:auto!important}
+  html body .deal-main{flex:none;overflow:visible!important;padding:16px 14px}
+  html body .deal-sidebar{width:auto!important;min-width:0!important;border-left:0!important;border-top:1px solid var(--g-line,var(--border));overflow:visible!important;padding:16px 14px}
+  html body .act-tabs,html body .deal-main>div:first-child{flex-wrap:wrap}
 }
 </style>
 </body>
