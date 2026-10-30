@@ -2363,8 +2363,12 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
         <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clip-rule="evenodd"/></svg>
         <div class="wh-dot" id="wh-indicator"></div>
       </div>
+      <div class="ico-btn gxn-bell" id="gxn-bell" role="button" tabindex="0" title="Notificações" onclick="gxNotifToggle(event)" onkeydown="if(event.key==='Enter'){gxNotifToggle(event)}" style="position:relative">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        <span class="gxn-badge" id="gxn-badge" style="display:none">0</span>
+      </div>
       <div class="ico-btn" title="Sons de notificação (lead novo, negócio ganho, tarefa concluída)" onclick="toggleSoundPref()" style="position:relative">
-        <svg width="15" height="15" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>
         <div class="wh-dot" id="sound-indicator"></div>
       </div>
       <div class="ico-btn" id="gx-theme-btn" role="button" tabindex="0" title="Mudar para tema escuro" onclick="gxToggleTheme()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();gxToggleTheme()}">
@@ -4281,7 +4285,7 @@ const GEX_DB_COLLECTIONS = [
   'tracking_links','integration_events','integration_connections','manual_trackings','tracking_events',
   'conversion_settings','conversion_events','lead_forms','lead_form_submissions','leadgen_settings',
   'whatsapp_widgets','automacoes','automacao_tasks','automacao_log','email_smtp_settings','zapi_settings',
-  'op_listas','op_tarefas','op_acessos'
+  'op_listas','op_tarefas','op_acessos','notificacoes','op_automacoes'
 ];
 const GEX_KV_EXCLUDED = new Set([
   // gx2_usuarios: mesmo "usuarios" já sendo excluído da sincronização por
@@ -10073,6 +10077,54 @@ function getLeadOwnerEmail(lead){
 // Leads antigos criados à mão só têm a data (dataInicio) — mostra só a data.
 // Formatadores criados uma vez só (criar um por lead deixava o Pipeline lento). Mesma saída de toLocaleDateString/TimeString.
 let _gxFmtData=null,_gxFmtHora=null;
+// ── TEMPO NA ETAPA (29/10/2026) ──
+// Desde quando o lead está na etapa atual. Usa stageChangedAt (gravado a cada mudança de etapa); se não tiver,
+// o último registro do histórico da etapa atual; se nem isso, a data de criação (marcado como aproximado).
+function _gxTs(v){if(!v)return 0;try{const d=typeof _pipeParseDate==='function'?_pipeParseDate(v):new Date(v);const t=d instanceof Date?d.getTime():new Date(v).getTime();return isNaN(t)?0:t}catch(e){return 0}}
+function gxStageSince(l){
+  if(!l)return null;
+  const sc=_gxTs(l.stageChangedAt);if(sc)return{t:sc,approx:false};
+  const h=Array.isArray(l.stageHistory)?l.stageHistory:[];
+  for(let i=h.length-1;i>=0;i--){const e=h[i]||{};if((e.s&&String(e.s)===String(l.stageId||''))||(!e.s&&e.n&&e.n===l.estagio)){const t=_gxTs(e.at);if(t)return{t,approx:!!e.seed};break}}
+  const c=_gxTs(l.createdAt||l.created_at||l.dataInicio);return c?{t:c,approx:true}:null;
+}
+function gxDurLabel(ms){
+  if(!(ms>=0))return '';
+  const h=ms/3600000;
+  if(h<1)return '<1h';
+  if(h<24)return Math.floor(h)+'h';
+  const d=Math.floor(h/24);
+  return d>=60?Math.floor(d/30)+' meses':d+'d';
+}
+function gxStageAgeClass(ms){const d=ms/86400000;return d<=2?'ok':d<=7?'warn':'bad'}
+function gxStageAgeBadge(l,stage){
+  if(stage&&(stage.isWon||stage.isLost))return '';
+  const s=gxStageSince(l);if(!s)return '';
+  const ms=Date.now()-s.t;
+  return `<span class="gx-age ${gxStageAgeClass(ms)}" title="${s.approx?'Tempo aproximado (lead anterior ao registro de mudanças de etapa)':'Tempo desde que entrou nesta etapa'}"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${s.approx?'~':''}${gxDurLabel(ms)} na etapa</span>`;
+}
+function gxStageAvgLabel(items,stage){
+  if(!items.length||(stage&&(stage.isWon||stage.isLost)))return '';
+  const arr=items.map(gxStageSince).filter(Boolean).map(s=>Date.now()-s.t);
+  if(!arr.length)return '';
+  const avg=arr.reduce((a,b)=>a+b,0)/arr.length;
+  return `<span class="gx-age-avg ${gxStageAgeClass(avg)}" title="Tempo médio dos leads nesta etapa">méd. ${gxDurLabel(avg)}</span>`;
+}
+// Linha do tempo: quanto tempo o lead ficou em cada etapa (do histórico de etapas).
+function gxStageTimelineHtml(l){
+  const h=(Array.isArray(l?.stageHistory)?l.stageHistory:[]).filter(e=>e&&(e.n||e.s));
+  if(!h.length)return '';
+  const rows=[];
+  for(let i=0;i<h.length;i++){
+    const e=h[i],ini=_gxTs(e.at)||_gxTs(l.createdAt||l.created_at);
+    const fim=i<h.length-1?_gxTs(h[i+1].at):Date.now();
+    const nome=e.n||'Etapa';
+    if(rows.length&&rows[rows.length-1].nome===nome){rows[rows.length-1].ms+=Math.max(0,fim-ini);continue}
+    rows.push({nome,ms:ini&&fim?Math.max(0,fim-ini):NaN,approx:!!e.seed||!_gxTs(e.at),atual:i===h.length-1});
+  }
+  const closed=typeof isWonOpportunity==='function'&&(isWonOpportunity(l)||isLostOpportunity(l));
+  return `<div class="gx-tl">${rows.map(r=>`<div class="gx-tl-row${r.atual?' cur':''}"><span class="gx-tl-dot"></span><span class="gx-tl-name">${escHtml(r.nome)}</span><span class="gx-tl-dur ${r.atual&&!closed&&r.ms>=0?gxStageAgeClass(r.ms):''}">${r.ms>=0?(r.approx?'~':'')+gxDurLabel(r.ms):'—'}${r.atual&&!closed?' (atual)':''}</span></div>`).join('')}</div>`;
+}
 function leadEntradaLabel(l){
   try{
     const raw=l&&(l.createdAt||l.created_at);
@@ -11477,7 +11529,7 @@ function renderComercial(){
         <span style="width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
         <div style="flex:1">
           <div class="pipe-title">${stage.name} ${wonBadge}${lostBadge}</div>
-          <div class="pipe-total">${fmtBRL(sub)}</div>
+          <div class="pipe-total">${fmtBRL(sub)}${gxStageAvgLabel(items,stage)}</div>
         </div>
         <span class="kol-count">${items.length}</span>
       </div>
@@ -11497,6 +11549,7 @@ function renderComercial(){
         ${l.email?`<div class="pcard-co gx-c-mail">${gxIc('mail')}<span>${escHtml(String(l.email))}</span></div>`:''}
         ${l.origem?`<div class="pcard-co gx-c-orig">${gxIc('orig')}<span>${escHtml(String(l.origem))}</span></div>`:''}
         ${l.dataFechamento?`<div class="pcard-co gx-c-prev">${gxIc('prev')}<span>${escHtml(String(l.dataFechamento))}</span></div>`:''}
+        ${gxStageAgeBadge(l,stage)}
         <div class="pcard-footer gx-c-foot">
           <span class="pcard-val gx-c-val">${fmtBRL(l.valor||0)}</span>
           <div class="pcard-actions gx-c-acoes">
@@ -19082,6 +19135,8 @@ function renderDealSidebar(){
     <div class="sb-section">
       <div class="sb-sec-title"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Dados do negócio</div>
       <div class="sb-field"><span class="sb-field-lbl">Estágio</span><span class="sb-field-val">${badge(l.estagio)}</span></div>
+      ${(()=>{const st=getLeadStageObject(l);const b=gxStageAgeBadge(l,st);return b?`<div class="sb-field"><span class="sb-field-lbl">Na etapa há</span><span class="sb-field-val">${b}</span></div>`:''})()}
+      ${(()=>{const tl=gxStageTimelineHtml(l);return tl?`<div class="sb-field" style="flex-direction:column;align-items:stretch;gap:6px"><span class="sb-field-lbl">Tempo em cada etapa</span>${tl}</div>`:''})()}
       <div class="sb-field"><span class="sb-field-lbl">Status</span><span class="sb-field-val">${badge(l.dealStatus||'Em andamento')}</span></div>
       ${l.produto?`<div class="sb-field"><span class="sb-field-lbl">Produto / Serviço</span><span class="sb-field-val" style="color:var(--p1);font-weight:600">${l.produto}</span></div>`:''}
       <div class="sb-field"><span class="sb-field-lbl">Responsável</span><span class="sb-field-val">Everton Galdino</span></div>
@@ -22529,6 +22584,72 @@ ${gxlCloseScriptTag}`;
   };
   window.autoSwitch=v=>{autoView=v;window.renderAutomacoes()};
 
+  // ═══ AUTOMAÇÕES OPERACIONAIS (Projetos > Gestão de entregas) — 30/10/2026 ═══
+  // Ficam em op_automacoes (id = chave). Rodam dentro do GexFlow: na hora do evento (atribuir, mudar status)
+  // ou na checagem de vencimentos que cada responsável faz no próprio navegador (1x por hora).
+  const OP_AUTO=[
+    {key:'notif_email',def:true,ico:'<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/>',nome:'Enviar avisos também por e-mail',desc:'Quem vira responsável, recebe um lead, é mencionado ou tem tarefa vencendo recebe também um e-mail (pela caixa central do GexFlow), além do aviso no sino.'},
+    {key:'op_atribuir',def:true,ico:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/>',nome:'Avisar ao atribuir responsável',desc:'Quando alguém é colocado como responsável de uma tarefa, recebe uma notificação na hora e a tarefa entra em "Minhas tarefas" dele.'},
+    {key:'op_vence_amanha',def:false,ico:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',nome:'Lembrar vencimento',desc:'Avisa o responsável um dia antes e no dia do vencimento da tarefa.'},
+    {key:'op_atrasada',def:false,ico:'<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',nome:'Avisar tarefa atrasada',desc:'Quando a tarefa passa do vencimento sem ser concluída, avisa o responsável e quem criou a tarefa.'},
+    {key:'op_concluida_criador',def:false,ico:'<path d="M20 6 9 17l-5-5"/>',nome:'Avisar quem criou ao concluir',desc:'Quando a tarefa vai para um status final (concluído), quem criou recebe uma notificação.'},
+    {key:'op_status_atribui',def:false,regras:true,ico:'<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',nome:'Atribuir ao entrar num status',desc:'Ex.: quando a tarefa entrar em "Aprovação", coloca a pessoa escolhida como responsável e avisa ela. Configure uma regra por lista.'}
+  ];
+  const opAutoRec=key=>(DB.get('op_automacoes')||[]).find(x=>x.id===key);
+  const opAutoOn=a=>{const r=opAutoRec(a.key);if(a.regras)return !!(r&&r.ativo!==false&&(r.regras||[]).some(x=>x.ativo!==false));return r?r.ativo!==false:a.def};
+  function opAutoSectionHtml(){
+    const can=automacoesManagerView();
+    return `<div class="auto-section-title" style="margin-top:6px">Operacional (Projetos)</div>
+    <p style="font-size:12px;color:var(--muted);margin:-6px 0 12px;max-width:680px">Automações das tarefas de Gestão de entregas. Os avisos chegam no sino de notificações de cada pessoa.</p>
+    <div class="auto-grid">${OP_AUTO.map(a=>{const on=opAutoOn(a);const r=opAutoRec(a.key);const n=(r?.regras||[]).length;return `<div class="auto-card">
+      <div class="auto-card-ico sistema" style="background:rgba(124,58,237,.1);color:#6D28D9"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${a.ico}</svg></div>
+      <div class="auto-card-name">${esc(a.nome)}</div>
+      <div class="auto-card-desc">${esc(a.desc)}${a.regras&&n?` <b>${n} regra${n>1?'s':''} configurada${n>1?'s':''}.</b>`:''}</div>
+      <div class="auto-card-foot"><span class="auto-pill ${on?'on':''}">${on?'Ativa':'Desativada'}</span>${can?(a.regras?`<button class="gl-btn sm ${on?'':'primary'}" onclick="autoOpRegras()">${n?'Configurar':'Configurar e ativar'}</button>`:`<button class="gl-btn sm ${on?'':'primary'}" onclick="autoOpToggle('${a.key}')">${on?'Desativar':'Ativar'}</button>`):''}</div>
+    </div>`}).join('')}</div>`;
+  }
+  window.autoOpToggle=key=>{
+    const a=OP_AUTO.find(x=>x.key===key);if(!a)return;
+    const on=opAutoOn(a),r=opAutoRec(key);
+    if(r)DB.update('op_automacoes',key,{ativo:!on,updatedAt:new Date().toISOString()});
+    else DB.push('op_automacoes',{id:key,ativo:!on,createdAt:new Date().toISOString(),createdBy:sessionUser?.id||''});
+    toast(on?'Automação desativada':'Automação ativada ✓',on?'#6B7280':'#10B981');
+    window.renderAutomacoes();
+  };
+  window.autoOpRegras=function(){
+    const key='op_status_atribui';
+    let regras=JSON.parse(JSON.stringify(opAutoRec(key)?.regras||[]));
+    const listas=(DB.get('op_listas')||[]).filter(l=>!l.arquivada);
+    const squads=DB.get('squads')||[];
+    const pessoas=(typeof getProjectPeople==='function'?getProjectPeople():[]);
+    const sqNome=l=>(squads.find(q=>q.id===l.squadId)||{}).nome||'';
+    const ov=document.createElement('div');ov.className='gxwt-ov';ov.addEventListener('click',e=>{if(e.target===ov)ov.remove()});document.body.appendChild(ov);
+    const paint=()=>{
+      ov.innerHTML=`<div class="gxwt" role="dialog" aria-modal="true"><div class="gxwt-h"><h3>Atribuir ao entrar num status</h3><button class="gxwt-x" aria-label="Fechar">✕</button></div>
+        <p class="gxwt-sub">Quando uma tarefa da lista entrar no status escolhido, a pessoa vira responsável e recebe a notificação.</p>
+        <div class="gxwt-list">${regras.length?regras.map((r,i)=>{const l=listas.find(x=>x.id===r.listaId);return `<div class="gxwt-item" style="flex-wrap:wrap;gap:8px">
+          <select data-i="${i}" data-f="listaId" style="flex:1 1 180px;border:1px solid var(--g-line,#E5E7EB);border-radius:10px;padding:8px">${listas.map(x=>`<option value="${esc(x.id)}" ${x.id===r.listaId?'selected':''}>${esc(sqNome(x)?sqNome(x)+' / ':'')}${esc(x.nome)}</option>`).join('')}</select>
+          <select data-i="${i}" data-f="statusId" style="flex:1 1 140px;border:1px solid var(--g-line,#E5E7EB);border-radius:10px;padding:8px">${(l?.statuses||[]).map(st=>`<option value="${esc(st.id)}" ${st.id===r.statusId?'selected':''}>${esc(st.nome)}</option>`).join('')}</select>
+          <select data-i="${i}" data-f="pessoaId" style="flex:1 1 160px;border:1px solid var(--g-line,#E5E7EB);border-radius:10px;padding:8px"><option value="">Escolha a pessoa…</option>${pessoas.map(pp=>`<option value="${esc(pp.id)}" ${String(pp.id)===String(r.pessoaId)?'selected':''}>${esc(pp.nome)}</option>`).join('')}</select>
+          <button class="gxwt-del" data-del="${i}">Remover</button></div>`}).join(''):'<div class="gxwt-empty">Nenhuma regra ainda.</div>'}</div>
+        <button class="gxwt-btn" id="opr-add" ${listas.length?'':'disabled'}>+ Nova regra</button>
+        <div class="gxwt-foot"><button class="gxwt-btn" data-close>Cancelar</button><button class="gxwt-btn pri" id="opr-save">Salvar</button></div></div>`;
+      ov.querySelector('.gxwt-x').onclick=()=>ov.remove();
+      ov.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>ov.remove());
+      ov.querySelectorAll('select[data-i]').forEach(sel=>sel.onchange=()=>{const i=Number(sel.dataset.i),f=sel.dataset.f;regras[i][f]=sel.value;if(f==='listaId'){const l=listas.find(x=>x.id===sel.value);regras[i].statusId=(l?.statuses||[])[0]?.id||''}paint()});
+      ov.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{regras.splice(Number(b.dataset.del),1);paint()});
+      ov.querySelector('#opr-add').onclick=()=>{const l=listas[0];regras.push({id:uid(),listaId:l?.id||'',statusId:(l?.statuses||[])[0]?.id||'',pessoaId:'',ativo:true});paint()};
+      ov.querySelector('#opr-save').onclick=()=>{
+        if(regras.some(r=>!r.listaId||!r.statusId||!r.pessoaId)){toast('Escolha a lista, o status e a pessoa em todas as regras','#EF4444');return}
+        const rec=opAutoRec(key);
+        if(rec)DB.update('op_automacoes',key,{regras,ativo:true,updatedAt:new Date().toISOString()});
+        else DB.push('op_automacoes',{id:key,regras,ativo:true,createdAt:new Date().toISOString(),createdBy:sessionUser?.id||''});
+        ov.remove();toast('Regras salvas ✓','#10B981');window.renderAutomacoes();
+      };
+    };
+    paint();
+  };
+
   // ═══ MODELOS OFICIAIS (Meta) ═══
   function autoIsMeta(){try{const id=`zapi_main__${(typeof sessionUser!=='undefined'&&sessionUser?.id)||''}`;const z=(DB.get('zapi_settings')||[]).find(x=>x.id===id);return !!(z&&z.connected&&z.provider==='meta')}catch(e){return false}}
   function metaCardHtml(){
@@ -22630,6 +22751,7 @@ ${gxlCloseScriptTag}`;
     }).join('');
     const custom=rules().filter(r=>!r.templateKey);
     return `<div class="auto-grid">${metaCardHtml()}${cards}</div>
+    ${opAutoSectionHtml()}
     ${custom.length?`<div class="auto-section-title">Automações personalizadas</div>${custom.map(r=>`<div class="auto-rule-card">
       <div class="auto-rule-left">
         <div class="auto-rule-ico ${r.canal}">${r.canal==='email'?'✉️':r.canal==='sistema'?'🏷️':'💬'}</div>
@@ -24963,8 +25085,11 @@ function nivelLista(l){
     if(g.listaId&&g.listaId!==l.id)return;
     if(g.nivel==='editar')n='editar';else if(!n)n='ver';
   });
+  // Responsável pela tarefa aberta edita ESSA tarefa mesmo sem acesso à lista (30/10/2026)
+  if(n!=='editar'&&S.taskId){const t=col('op_tarefas').find(x=>x.id===S.taskId);if(t&&t.listaId===l.id&&souResp(t))return 'editar'}
   return n;
 }
+function souResp(t){return (t?.resp||[]).some(id=>{const p=personById(id);return p&&personIsMe(p)})}
 function podeEditar(l){return nivelLista(l)==='editar'}
 function guardEdit(l){if(podeEditar(l))return true;toast('Você tem acesso somente para visualizar.','#F59E0B');return false}
 let RC=null; // cache válido só enquanto uma tela está sendo desenhada
@@ -25097,7 +25222,8 @@ function sidebarHtml(){
       ${open&&manage?`<div class="op-add" onclick="opNewLista('${sq.id}')">+ Nova lista</div>`:''}
     </div>`;
   }).join('');
-  return `<div class="op-side"><h4>Operacional</h4>${body||'<div style="font-size:12px;color:var(--light);padding:8px">Nenhum squad disponível para você ainda.</div>'}
+  const nMinhas=minhasTarefas().filter(x=>!x.done).length;
+  return `<div class="op-side"><h4>Operacional</h4><div class="op-li op-my-li ${S.minhas?'on':''}" onclick="opMinhas()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Minhas tarefas</span><span class="cnt">${nMinhas}</span></div>${body||'<div style="font-size:12px;color:var(--light);padding:8px">Nenhum squad disponível para você ainda.</div>'}
     ${manage?`<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px"><div class="op-add" style="padding-left:8px" onclick="openSquadMgr()">Gerenciar squads</div></div>`:''}</div>`;
 }
 
@@ -25116,7 +25242,8 @@ function renderOpInner(){
   const l=lista(S.listaId);
   const sq=squad(S.squadId);
   let main='';
-  if(!l){
+  if(S.minhas){main=minhasHtml()}
+  else if(!l){
     main=`<div class="card" style="padding:40px;text-align:center;color:var(--muted)">${sq?(canManage()?'Este squad ainda não tem lista. Use "+ Nova lista" na lateral.':'Este squad ainda não tem listas. Peça a um gerente para criar.'):'Você ainda não está em nenhum squad. Peça a um gerente para te incluir.'}</div>`;
   }else{
     main=topHtml(l,sq)+filtersHtml(l)+bodyHtml(l);
@@ -25232,6 +25359,7 @@ function kanbanHtml(l,ts){
 
 /* ═══ AÇÕES DE NAVEGAÇÃO ═══ */
 window.opSelSquad=function(id){
+  S.minhas=false;
   S.openSquads[id]=!S.openSquads[id];
   S.squadId=id;
   const sq=squad(id);ensureDefaultList(sq);
@@ -25239,7 +25367,50 @@ window.opSelSquad=function(id){
   if(!ls.find(l=>l.id===S.listaId))S.listaId=ls[0]?.id||null;
   renderOp();
 };
-window.opSelLista=function(sid,lid){S.squadId=sid;S.listaId=lid;S.busca='';S.resp='';S.prio='';renderOp()};
+window.opSelLista=function(sid,lid){S.minhas=false;S.squadId=sid;S.listaId=lid;S.busca='';S.resp='';S.prio='';renderOp()};
+/* ═══ MINHAS TAREFAS (30/10/2026): tudo em que eu sou responsável, de todos os squads/listas ═══ */
+function minhasTarefas(){
+  return col('op_tarefas').filter(t=>!t.arquivada&&(t.resp||[]).some(id=>{const p=personById(id);return p&&personIsMe(p)})).map(t=>{
+    const l=lista(t.listaId);const st=l?statusOf(l,t):null;
+    return {t,l,st,done:!!st?.concluido,acesso:!!(l&&nivelLista(l))};
+  }).filter(x=>x.l&&!x.l.arquivada);
+}
+window.opMinhas=function(){S.minhas=true;renderOp()};
+window.opMinhasDone=function(v){S.minhasDone=!!v;renderOp()};
+window.opMinhasOpen=function(id){
+  const t=tarefa(id);const l=lista(t?.listaId);
+  if(!l)return;
+  if(!nivelLista(l)){opOpenTask(id);return} // só a tarefa, sem abrir a lista inteira
+  S.squadId=l.squadId;S.listaId=l.id;S.openSquads[l.squadId]=true;
+  opOpenTask(id);
+};
+function minhasHtml(){
+  const hojeD=new Date();const hoje=new Date(hojeD.getTime()-hojeD.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const em7=(()=>{const d=new Date(hoje+'T12:00:00');d.setDate(d.getDate()+7);return d.toISOString().slice(0,10)})();
+  const all=minhasTarefas();
+  const abertas=all.filter(x=>!x.done),feitas=all.filter(x=>x.done);
+  const grupos=[
+    ['Atrasadas','bad',abertas.filter(x=>x.t.venc&&x.t.venc<hoje)],
+    ['Hoje','warn',abertas.filter(x=>x.t.venc===hoje)],
+    ['Próximos 7 dias','',abertas.filter(x=>x.t.venc&&x.t.venc>hoje&&x.t.venc<=em7)],
+    ['Mais pra frente','',abertas.filter(x=>x.t.venc&&x.t.venc>em7)],
+    ['Sem vencimento','',abertas.filter(x=>!x.t.venc)]
+  ];
+  if(S.minhasDone)grupos.push(['Concluídas','ok',feitas]);
+  const row=x=>`<div class="op-my-row" onclick="opMinhasOpen('${x.t.id}')">
+      <span class="op-my-st" style="background:${ea(x.st?.cor||'#9CA3AF')}" title="${ea(x.st?.nome||'')}"></span>
+      <div style="min-width:0"><div class="op-my-tt">${esc(x.t.titulo)}</div><div class="op-my-sub">${esc(squad(x.l.squadId)?.nome||'')} / ${esc(x.l.nome)} · ${esc(x.st?.nome||'')}</div></div>
+      ${x.t.prioridade?`<span class="op-my-pr" style="color:${ea(PRIORIDADES[x.t.prioridade]||'#9CA3AF')}">${esc(x.t.prioridade)}</span>`:'<span></span>'}
+      <span class="op-my-dt">${x.t.venc?esc(fmtData(x.t.venc)):'—'}</span>
+    </div>`;
+  const body=grupos.filter(g=>g[2].length).map(([nome,cls,arr])=>`<div class="op-my-g"><div class="op-my-gh ${cls}">${nome} <span>${arr.length}</span></div>${arr.sort((a,b)=>String(a.t.venc||'9999').localeCompare(String(b.t.venc||'9999'))).map(row).join('')}</div>`).join('');
+  return `<div class="card" style="padding:18px 20px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px"><h2 style="margin:0;font-size:18px;font-weight:800">Minhas tarefas</h2><span style="font-size:12px;color:var(--muted)">${abertas.length} em aberto · ${feitas.length} concluída${feitas.length===1?'':'s'}</span>
+      <label style="margin-left:auto;font-size:12.5px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${S.minhasDone?'checked':''} onchange="opMinhasDone(this.checked)"> Mostrar concluídas</label></div>
+    <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px">Todas as tarefas em que você é responsável, de todos os squads. Quando alguém te coloca como responsável, a tarefa aparece aqui na hora e você recebe uma notificação.</p>
+    ${body||'<div style="padding:30px;text-align:center;color:var(--muted);font-size:13px">Nenhuma tarefa com você como responsável.</div>'}
+  </div>`;
+}
 window.opView=function(v){S.view=v;renderOp()};
 window.opToggle=function(k){S.collapsed[k]=!S.collapsed[k];renderOp()};
 window.opF=function(k,v){S[k]=v;renderOp()};
@@ -25264,6 +25435,7 @@ function opMoveTo(id,statusId){
   const old=statusOf(l,t),nw=(l.statuses||[]).find(s=>s.id===statusId);
   if(!nw||old?.id===nw.id)return;
   upd(id,{statusId,ordem:Date.now()},`mudou o status de "${old?.nome||'—'}" para "${nw.nome}"`);
+  if(typeof window.gxOpOnStatus==='function')window.gxOpOnStatus(tarefa(id),l,old,nw);
   renderOp();
 }
 
@@ -25282,7 +25454,7 @@ window.opNewTask=async function(statusId){
 
 /* ═══ PAINEL DA TAREFA ═══ */
 window.opOpenTask=function(id){
-  if(!nivelLista(lista(tarefa(id)?.listaId)))return;
+  if(!nivelLista(lista(tarefa(id)?.listaId))&&!souResp(tarefa(id)))return;
   S.taskId=id;
   markMentionsRead(id);
   renderTask();
@@ -25395,6 +25567,7 @@ window.opToggleResp=function(id,pid){
   const next=has?cur.filter(x=>x!==String(pid)):[...cur,String(pid)];
   const nome=personById(pid)?.nome||'';
   upd(id,{resp:next},has?`removeu ${nome} dos responsáveis`:`adicionou ${nome} como responsável`);
+  if(!has&&typeof window.gxOpOnAssign==='function')window.gxOpOnAssign(tarefa(id),pid);
   renderTask();renderOpBg();
 };
 window.opSetCampo=function(id,cid,v){
@@ -25548,6 +25721,7 @@ window.opAddComment=function(){
   const men=mentionsIn(txt);
   const e={...logEntry(txt,'comentario'),mencoes:men,lidoPor:[me().id]};
   DB.update('op_tarefas',t.id,{atividade:capAtiv([...(t.atividade||[]),e])});
+  if(typeof window.gxOpOnComment==='function')window.gxOpOnComment(t,txt,men);
   if(men.length)toast(`Marcou ${men.map(id=>personById(id)?.nome).filter(Boolean).join(', ')} ✓`,'#10B981');
   renderTask(false);
   renderOpBg();
@@ -25562,7 +25736,9 @@ window.opMentions=function(){
    ${out.length?out.slice(0,60).map(({t,a})=>`<div class="op-cm" style="cursor:pointer" onclick="opCloseModal();opGoTask('${t.id}')"><b>${esc(a.autor)}</b> em <b>${esc(t.titulo)}</b><span class="d">${esc(new Date(a.data).toLocaleString('pt-BR'))}</span>${(a.lidoPor||[]).includes(me().id)?'':' <span style="color:#EF4444;font-weight:800;font-size:11px">● nova</span>'}<div style="margin-top:4px">${mentionHtml(a.texto)}</div></div>`).join(''):'<div style="color:var(--light);padding:16px;text-align:center">Ninguém marcou você ainda.</div>'}`);
 };
 window.opGoTask=function(id){
-  const t=tarefa(id);const l=lista(t?.listaId);if(!l||!nivelLista(l)){toast('Você não tem acesso a esta lista.','#EF4444');return}
+  const t=tarefa(id);const l=lista(t?.listaId);
+  if(l&&!nivelLista(l)&&souResp(t)){S.minhas=true;renderOp();opOpenTask(id);return}
+  if(!l||!nivelLista(l)){toast('Você não tem acesso a esta lista.','#EF4444');return}
   S.squadId=l.squadId;S.listaId=l.id;S.openSquads[l.squadId]=true;renderOp();opOpenTask(id);
 };
 
@@ -27829,6 +28005,279 @@ html body .auto-mt-note{font-size:11.5px;color:var(--g-mu,var(--muted));margin-t
 html body .auto-mt-step{margin-top:10px;padding-top:10px;border-top:1px dashed var(--g-line,var(--border))}
 html body .auto-card-meta{border-color:rgba(18,140,126,.35)!important;background:linear-gradient(180deg,rgba(18,140,126,.06),transparent 60%),var(--g-card,#fff)!important}
 @media(max-width:700px){html body .auto-mt-row{grid-template-columns:1fr}html body .auto-mt-var{grid-template-columns:40px 1fr}html body .auto-mt-var input{grid-column:2}}
+</style>
+<style id="gx-tempo-etapa-v2">
+/* Tempo na etapa (29/10/2026) */
+.gx-age{display:inline-flex;align-items:center;gap:4px;align-self:flex-start;margin-top:6px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.gx-age svg{flex:none}
+.gx-age.ok{background:rgba(16,185,129,.13);color:#047857}
+.gx-age.warn{background:rgba(245,158,11,.16);color:#B45309}
+.gx-age.bad{background:rgba(239,68,68,.12);color:#DC2626}
+html[data-theme="dark"] .gx-age.ok{color:#6EE7B7}html[data-theme="dark"] .gx-age.warn{color:#FCD34D}html[data-theme="dark"] .gx-age.bad{color:#FCA5A5}
+.gx-age-avg{display:inline-block;margin-left:7px;font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:6px;font-variant-numeric:tabular-nums;vertical-align:1px}
+.gx-age-avg.ok{background:rgba(16,185,129,.12);color:#047857}.gx-age-avg.warn{background:rgba(245,158,11,.15);color:#B45309}.gx-age-avg.bad{background:rgba(239,68,68,.11);color:#DC2626}
+html[data-theme="dark"] .gx-age-avg.ok{color:#6EE7B7}html[data-theme="dark"] .gx-age-avg.warn{color:#FCD34D}html[data-theme="dark"] .gx-age-avg.bad{color:#FCA5A5}
+.gx-tl{display:flex;flex-direction:column;gap:2px;width:100%}
+.gx-tl-row{display:grid;grid-template-columns:10px 1fr auto;gap:8px;align-items:center;font-size:12px;padding:3px 0;position:relative}
+.gx-tl-dot{width:8px;height:8px;border-radius:50%;background:var(--g-line,#CBD5E1)}
+.gx-tl-row.cur .gx-tl-dot{background:#7C3AED;box-shadow:0 0 0 3px rgba(124,58,237,.18)}
+.gx-tl-name{color:var(--g-tx,var(--txt));overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gx-tl-row.cur .gx-tl-name{font-weight:700}
+.gx-tl-dur{font-weight:700;font-variant-numeric:tabular-nums;color:var(--g-mu,var(--muted));white-space:nowrap}
+.gx-tl-dur.ok{color:#047857}.gx-tl-dur.warn{color:#B45309}.gx-tl-dur.bad{color:#DC2626}
+</style>
+<style id="gx-notif-v2">
+.gxn-badge{position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:#EF4444;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;border:2px solid var(--g-card,#fff)}
+.gxn-panel{position:fixed;z-index:99990;width:min(400px,calc(100vw - 24px));max-height:min(560px,calc(100vh - 90px));display:flex;flex-direction:column;background:var(--g-card,var(--card,#fff));color:var(--g-tx,var(--txt,#1A1A2E));border:1px solid var(--g-line,var(--border,#E5E7EB));border-radius:16px;box-shadow:0 20px 60px rgba(15,23,42,.22);overflow:hidden}
+.gxn-head{display:flex;align-items:center;gap:8px;padding:14px 16px 10px;border-bottom:1px solid var(--g-line,var(--border,#E5E7EB))}
+.gxn-head h3{margin:0;font-size:15px;font-weight:800}
+.gxn-head .sp{flex:1}
+.gxn-lnk{border:0;background:none;color:#7C3AED;font-size:12px;font-weight:700;cursor:pointer;padding:4px 6px;border-radius:6px}
+.gxn-lnk:hover{background:rgba(124,58,237,.08)}
+.gxn-tabs{display:flex;gap:4px;padding:8px 12px 0}
+.gxn-tab{border:0;background:none;font-size:12.5px;font-weight:700;color:var(--g-mu,var(--muted,#64748B));padding:6px 10px;border-radius:8px;cursor:pointer}
+.gxn-tab.on{background:rgba(124,58,237,.1);color:#6D28D9}
+.gxn-list{overflow:auto;padding:6px 6px 10px}
+.gxn-it{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:flex-start;padding:10px;border-radius:12px;cursor:pointer}
+.gxn-it:hover{background:var(--g-soft,#F7F6FB)}
+.gxn-ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:rgba(124,58,237,.1);color:#6D28D9}
+.gxn-ic.lead{background:rgba(59,130,246,.12);color:#2563EB}.gxn-ic.alerta{background:rgba(239,68,68,.1);color:#DC2626}.gxn-ic.ok{background:rgba(16,185,129,.12);color:#059669}.gxn-ic.chat{background:rgba(245,158,11,.14);color:#B45309}
+.gxn-t{font-size:13px;line-height:1.35}.gxn-t b{font-weight:700}
+.gxn-x{font-size:12px;color:var(--g-mu,var(--muted,#64748B));margin-top:2px;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.gxn-d{font-size:11px;color:var(--g-mu,var(--muted,#94A3B8));margin-top:3px}
+.gxn-dot{width:9px;height:9px;border-radius:50%;background:#7C3AED;margin-top:6px}
+.gxn-it.read .gxn-dot{visibility:hidden}.gxn-it.read .gxn-t{color:var(--g-mu,var(--muted))}
+.gxn-empty{padding:36px 16px;text-align:center;font-size:13px;color:var(--g-mu,var(--muted,#64748B))}
+</style>
+<script id="gx-notif-js">
+/* ═══ CENTRAL DE NOTIFICAÇÕES (30/10/2026) ═══
+   Coleção "notificacoes" (sincronizada por empresa como as demais). Cada item tem um destinatário
+   (id/e-mail/nome) e aparece só para essa pessoa. Gera avisos de: responsável atribuído (Operacional,
+   Pipeline e Tarefas do Dia), @menção, comentário e mudança de status em tarefa sua, vencimentos. */
+(function(){
+  if(window.__GX_NOTIF__)return;window.__GX_NOTIF__=true;
+  const esc=v=>typeof escHtml==='function'?escHtml(v):String(v??'');
+  const norm=v=>typeof _normTaskIdentity==='function'?_normTaskIdentity(v):String(v||'').trim().toLowerCase();
+  const myKeys=()=>{try{return currentProjectUserKeys()}catch(e){return []}};
+  const meNome=()=>sessionUser?.nome||sessionUser?.name||'Alguém';
+  const isMe=p=>{if(!p)return false;const ks=myKeys();return [p.id,p.email,p.nome].map(norm).filter(Boolean).some(k=>ks.includes(k))};
+  const all=()=>{try{return DB.get('notificacoes')||[]}catch(e){return []}};
+  const forMe=n=>isMe({id:n.paraId,email:n.paraEmail,nome:n.paraNome});
+  const mine=()=>all().filter(forMe).sort((a,b)=>String(b.criadoEm).localeCompare(String(a.criadoEm)));
+  const personOf=x=>{
+    if(!x)return null;
+    if(typeof x==='object')return x;
+    try{return (getProjectPeople()||[]).find(p=>String(p.id)===String(x)||norm(p.email)===norm(x)||norm(p.nome)===norm(x))||{id:String(x)}}catch(e){return {id:String(x)}}
+  };
+  // Cria a notificação (não notifica a própria pessoa que fez a ação; "chave" evita duplicar)
+  window.gxNotify=function(o){
+    try{
+      const p=personOf(o.para);if(!p)return;
+      if(!o.self&&isMe(p))return;
+      if(o.chave&&all().some(n=>n.chave===o.chave&&[n.paraId,n.paraEmail,n.paraNome].map(norm).some(k=>k&&[p.id,p.email,p.nome].map(norm).includes(k))))return;
+      DB.push('notificacoes',{id:uid(),paraId:String(p.id||''),paraEmail:String(p.email||''),paraNome:String(p.nome||''),
+        tipo:o.tipo||'info',titulo:String(o.titulo||'').slice(0,160),texto:String(o.texto||'').slice(0,300),
+        link:o.link||null,chave:o.chave||'',autor:o.self?'':meNome(),criadoEm:new Date().toISOString(),lida:false});
+      // E-mail para o responsável (atribuições, leads, menções e vencimentos), pela caixa central do GexFlow
+      if(EMAIL_TIPOS.includes(o.tipo)&&opAuto('notif_email',true))mandarEmail(p,o);
+    }catch(e){console.warn('[GexFlow] Notificação não criada:',e)}
+  };
+
+  const EMAIL_TIPOS=['tarefa','lead','mencao','alerta'];
+  function mandarEmail(p,o){
+    try{
+      let email=String(p.email||'').trim();
+      if(!email){try{const pp=(getProjectPeople()||[]).find(x=>(p.id&&String(x.id)===String(p.id))||(p.nome&&norm(x.nome)===norm(p.nome)));email=String(pp?.email||'').trim()}catch(e){}}
+      if(!email||!/@/.test(email))return;
+      Promise.resolve(getGexSupabaseToken()).then(token=>fetch(getSupabaseFunctionUrl('notify-email'),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+        body:JSON.stringify({to:email,titulo:o.titulo||'',texto:o.texto||'',autor:o.self?'':meNome()})})).then(r=>r&&r.json?r.json():null)
+        .then(j=>{if(j&&j.ok===false&&!j.skipped)console.warn('[GexFlow] E-mail de notificação não enviado:',j.message)}).catch(()=>{});
+    }catch(e){}
+  }
+  // ── Operacional ──
+  const opAuto=(key,def)=>{try{const r=(DB.get('op_automacoes')||[]).find(x=>x.id===key);return r?r.ativo!==false:def}catch(e){return def}};
+  window.gxOpAuto=opAuto;
+  const opPeople=ids=>(ids||[]).map(id=>personOf(id)).filter(Boolean);
+  const opLink=t=>({kind:'op_tarefa',id:t.id});
+  const opWhere=t=>{try{const l=(DB.get('op_listas')||[]).find(x=>x.id===t.listaId);return l?l.nome:''}catch(e){return ''}};
+  const creatorOf=t=>{const n=String(t?.criadoPor||'').trim();if(!n)return null;try{return (getProjectPeople()||[]).find(p=>norm(p.nome)===norm(n))||null}catch(e){return null}};
+  window.gxOpOnAssign=function(t,pid){
+    if(!t||!opAuto('op_atribuir',true))return;
+    gxNotify({para:pid,tipo:'tarefa',titulo:`${meNome()} te colocou como responsável`,texto:`${t.titulo}${opWhere(t)?' · '+opWhere(t):''}`,link:opLink(t)});
+  };
+  window.gxOpOnComment=function(t,txt,men){
+    if(!t)return;
+    const ja=new Set((men||[]).map(String));
+    (men||[]).forEach(pid=>gxNotify({para:pid,tipo:'mencao',titulo:`${meNome()} mencionou você`,texto:`${t.titulo}: ${txt}`,link:opLink(t)}));
+    (t.resp||[]).filter(pid=>!ja.has(String(pid))).forEach(pid=>gxNotify({para:pid,tipo:'comentario',titulo:`${meNome()} comentou numa tarefa sua`,texto:`${t.titulo}: ${txt}`,link:opLink(t)}));
+  };
+  window.gxOpOnStatus=function(t,l,old,nw){
+    if(!t||!nw)return;
+    // Regras "entrou no status X → atribui Y"
+    try{
+      (((DB.get('op_automacoes')||[]).find(x=>x.id==='op_status_atribui')||{}).regras||[]).filter(r=>r&&r.ativo!==false&&r.listaId===l.id&&r.statusId===nw.id&&r.pessoaId).forEach(r=>{
+        const cur=(t.resp||[]).map(String);
+        if(!cur.includes(String(r.pessoaId))){
+          const nome=personOf(r.pessoaId)?.nome||'';
+          DB.update('op_tarefas',t.id,{resp:[...cur,String(r.pessoaId)],atividade:[...(t.atividade||[]),{id:uid(),tipo:'log',texto:`(automação) adicionou ${nome} como responsável ao entrar em "${nw.nome}"`,autor:'Automação',data:new Date().toISOString()}]});
+          gxNotify({para:r.pessoaId,tipo:'tarefa',titulo:`Tarefa chegou em "${nw.nome}" e foi atribuída a você`,texto:`${t.titulo}${opWhere(t)?' · '+opWhere(t):''}`,link:opLink(t)});
+          t=(DB.get('op_tarefas')||[]).find(x=>x.id===t.id)||t;
+        }
+      });
+    }catch(e){}
+    (t.resp||[]).forEach(pid=>gxNotify({para:pid,tipo:'status',titulo:`${meNome()} mudou o status de uma tarefa sua`,texto:`${t.titulo}: ${old?.nome||'—'} → ${nw.nome}`,link:opLink(t)}));
+    if(nw.concluido&&opAuto('op_concluida_criador',false)){const c=creatorOf(t);if(c)gxNotify({para:c,tipo:'ok',titulo:'Tarefa que você criou foi concluída',texto:`${t.titulo}${opWhere(t)?' · '+opWhere(t):''}`,link:opLink(t)})}
+  };
+
+  // ── Pipeline (responsável do lead) e Tarefas do Dia (responsável do lembrete) ──
+  const leadOwner=l=>l?{id:l.responsavelId||l.ownerId||'',email:l.responsavelEmail||l.ownerEmail||'',nome:l.responsavel||l.responsavelNome||''}:null;
+  const taskOwner=t=>t?{id:t.assignedToId||'',email:t.assignedToEmail||'',nome:t.assignedTo||''}:null;
+  const sameP=(a,b)=>{const ka=[a?.id,a?.email,a?.nome].map(norm).filter(Boolean),kb=[b?.id,b?.email,b?.nome].map(norm).filter(Boolean);return ka.some(k=>kb.includes(k))};
+  const hasP=p=>!!(p&&(p.id||p.email||p.nome));
+  function hookDB(){
+    if(typeof DB==='undefined'||DB.__gxNotifHooked)return;
+    DB.__gxNotifHooked=true;
+    const origUpd=DB.update.bind(DB),origPush=DB.push.bind(DB);
+    DB.update=function(k,id,data){
+      let before=null;
+      if((k==='leads'||k==='com_tasks')&&!(typeof gexApplyingCloudPayload!=='undefined'&&gexApplyingCloudPayload)){try{before=(DB.get(k)||[]).find(x=>String(x.id)===String(id))||null}catch(e){}}
+      const r=origUpd(k,id,data);
+      try{
+        if(before){
+          const after=(DB.get(k)||[]).find(x=>String(x.id)===String(id));
+          if(k==='leads'){const a=leadOwner(before),b=leadOwner(after);if(hasP(b)&&!sameP(a,b))gxNotify({para:b,tipo:'lead',titulo:`${meNome()} passou um lead para você`,texto:`${after.nome||'Lead'}${after.estagio?' · '+after.estagio:''}`,link:{kind:'lead',id:after.id}})}
+          if(k==='com_tasks'){const a=taskOwner(before),b=taskOwner(after);if(hasP(b)&&!sameP(a,b))gxNotify({para:b,tipo:'tarefa',titulo:`${meNome()} te atribuiu uma tarefa`,texto:after.title||after.titulo||'Tarefa',link:{kind:'com_task',id:after.id}})}
+        }
+      }catch(e){}
+      return r;
+    };
+    // Importação em massa (muitos leads/tarefas de uma vez) não vira chuva de notificações.
+    let burst=[];
+    const emMassa=()=>{const t=Date.now();burst=burst.filter(x=>t-x<3000);burst.push(t);return burst.length>5};
+    DB.push=function(k,item){
+      const r=origPush(k,item);
+      try{
+        if((k==='leads'||k==='com_tasks')&&emMassa())return r;
+        if(!(typeof gexApplyingCloudPayload!=='undefined'&&gexApplyingCloudPayload)&&item){
+          if(k==='leads'){const b=leadOwner(item);if(hasP(b))gxNotify({para:b,tipo:'lead',titulo:`${meNome()} criou um lead para você`,texto:`${item.nome||'Lead'}${item.estagio?' · '+item.estagio:''}`,link:{kind:'lead',id:item.id}})}
+          if(k==='com_tasks'){const b=taskOwner(item);if(hasP(b))gxNotify({para:b,tipo:'tarefa',titulo:`${meNome()} te atribuiu uma tarefa`,texto:item.title||item.titulo||'Tarefa',link:{kind:'com_task',id:item.id}})}
+        }
+      }catch(e){}
+      return r;
+    };
+  }
+
+  // ── Vencimentos (verificados no navegador de cada responsável, 1x por hora) ──
+  const hojeISO=()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10)};
+  const addDias=(iso,n)=>{const d=new Date(iso+'T12:00:00');d.setDate(d.getDate()+n);return d.toISOString().slice(0,10)};
+  function dailyCheck(){
+    try{
+      if(!sessionUser)return;
+      const hoje=hojeISO(),amanha=addDias(hoje,1);
+      const listas=DB.get('op_listas')||[];
+      const done=t=>{const l=listas.find(x=>x.id===t.listaId);const st=(l?.statuses||[]).find(s=>s.id===t.statusId);return !!st?.concluido};
+      (DB.get('op_tarefas')||[]).filter(t=>!t.arquivada&&t.venc&&!done(t)).forEach(t=>{
+        const meResp=opPeople(t.resp).some(isMe);
+        if(!meResp)return;
+        if(t.venc===amanha&&opAuto('op_vence_amanha',false))gxNotify({self:true,para:{id:sessionUser.id,email:sessionUser.email,nome:meNome()},tipo:'alerta',titulo:'Tarefa vence amanhã',texto:`${t.titulo}${opWhere(t)?' · '+opWhere(t):''}`,link:opLink(t),chave:`venc1_${t.id}_${t.venc}`});
+        if(t.venc===hoje&&opAuto('op_vence_amanha',false))gxNotify({self:true,para:{id:sessionUser.id,email:sessionUser.email,nome:meNome()},tipo:'alerta',titulo:'Tarefa vence hoje',texto:`${t.titulo}${opWhere(t)?' · '+opWhere(t):''}`,link:opLink(t),chave:`venc0_${t.id}_${t.venc}`});
+        if(t.venc<hoje&&opAuto('op_atrasada',false)){
+          gxNotify({self:true,para:{id:sessionUser.id,email:sessionUser.email,nome:meNome()},tipo:'alerta',titulo:'Tarefa atrasada',texto:`${t.titulo} · venceu em ${t.venc.split('-').reverse().join('/')}`,link:opLink(t),chave:`atraso_${t.id}_${t.venc}`});
+          const c=creatorOf(t);if(c&&!isMe(c))gxNotify({self:true,para:c,tipo:'alerta',titulo:'Tarefa que você criou está atrasada',texto:`${t.titulo} · responsável: ${opPeople(t.resp).map(p=>p.nome).filter(Boolean).join(', ')||'—'}`,link:opLink(t),chave:`atrasoC_${t.id}_${t.venc}`});
+        }
+      });
+      // Faxina: notificações com mais de 30 dias saem (até 60 por vez)
+      const lim=new Date(Date.now()-30*864e5).toISOString();
+      all().filter(n=>String(n.criadoEm)<lim).slice(0,60).forEach(n=>{try{DB.remove('notificacoes',n.id)}catch(e){}});
+    }catch(e){console.warn('[GexFlow] Verificação de vencimentos falhou:',e)}
+  }
+
+  // ── Painel ──
+  let tab='todas',seen=null;
+  const ICO={tarefa:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',mencao:'<circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/>',comentario:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',status:'<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',lead:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>',alerta:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',ok:'<path d="M20 6 9 17l-5-5"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/>'};
+  const CLS={lead:'lead',alerta:'alerta',ok:'ok',comentario:'chat',mencao:'chat'};
+  const ago=iso=>{const s=(Date.now()-new Date(iso).getTime())/1000;if(s<60)return 'agora';if(s<3600)return Math.floor(s/60)+' min';if(s<86400)return Math.floor(s/3600)+' h';const d=Math.floor(s/86400);return d===1?'ontem':d+' dias'};
+  function paintBadge(){
+    const n=mine().filter(x=>!x.lida).length;
+    const b=document.getElementById('gxn-badge');if(b){b.textContent=n>99?'99+':String(n);b.style.display=n?'flex':'none'}
+    const bell=document.getElementById('gxn-bell');if(bell)bell.title=n?`Notificações (${n} não lida${n>1?'s':''})`:'Notificações';
+    return n;
+  }
+  function panelHtml(){
+    const list=mine().filter(n=>tab==='todas'||!n.lida).slice(0,80);
+    const un=mine().filter(n=>!n.lida).length;
+    return `<div class="gxn-head"><h3>Notificações</h3><span class="sp"></span>${un?`<button class="gxn-lnk" onclick="gxNotifReadAll()">Marcar todas como lidas</button>`:''}</div>
+      <div class="gxn-tabs"><button class="gxn-tab ${tab==='todas'?'on':''}" onclick="gxNotifTab('todas')">Todas</button><button class="gxn-tab ${tab==='nao'?'on':''}" onclick="gxNotifTab('nao')">Não lidas${un?` (${un})`:''}</button></div>
+      <div class="gxn-list">${list.length?list.map(n=>`<div class="gxn-it ${n.lida?'read':''}" onclick="gxNotifOpen('${n.id}')"><span class="gxn-ic ${CLS[n.tipo]||''}"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICO[n.tipo]||ICO.info}</svg></span><div style="min-width:0"><div class="gxn-t"><b>${esc(n.titulo)}</b></div>${n.texto?`<div class="gxn-x">${esc(n.texto)}</div>`:''}<div class="gxn-d">${ago(n.criadoEm)}</div></div><span class="gxn-dot"></span></div>`).join(''):`<div class="gxn-empty">${tab==='nao'?'Tudo lido por aqui.':'Nenhuma notificação ainda. Quando alguém te atribuir uma tarefa, te mencionar ou passar um lead para você, aparece aqui.'}</div>`}</div>`;
+  }
+  function placePanel(el){
+    const bell=document.getElementById('gxn-bell');if(!bell||!el)return;
+    const r=bell.getBoundingClientRect();
+    el.style.top=(r.bottom+8)+'px';
+    el.style.right=Math.max(12,window.innerWidth-r.right-8)+'px';
+  }
+  window.gxNotifToggle=function(e){
+    if(e)e.stopPropagation();
+    let el=document.getElementById('gxn-panel');
+    if(el){el.remove();return}
+    el=document.createElement('div');el.className='gxn-panel';el.id='gxn-panel';el.setAttribute('role','dialog');
+    el.addEventListener('click',ev=>ev.stopPropagation());
+    el.innerHTML=panelHtml();document.body.appendChild(el);placePanel(el);
+    try{if('Notification' in window&&Notification.permission==='default')Notification.requestPermission()}catch(e){}
+  };
+  const repaint=()=>{const el=document.getElementById('gxn-panel');if(el){el.innerHTML=panelHtml();placePanel(el)}paintBadge()};
+  window.gxNotifTab=t=>{tab=t;repaint()};
+  window.gxNotifReadAll=()=>{mine().filter(n=>!n.lida).forEach(n=>DB.update('notificacoes',n.id,{lida:true}));repaint()};
+  window.gxNotifOpen=function(id){
+    const n=all().find(x=>x.id===id);if(!n)return;
+    if(!n.lida)DB.update('notificacoes',id,{lida:true});
+    document.getElementById('gxn-panel')?.remove();paintBadge();
+    const L=n.link||{};
+    try{
+      if(L.kind==='op_tarefa'){navigateSub('entregas','projetos');setTimeout(()=>window.opGoTask&&window.opGoTask(L.id),450)}
+      else if(L.kind==='lead'){navigateSub('comercial','comercial');switchComTab('pipeline');setTimeout(()=>typeof openDealDetail==='function'&&openDealDetail(L.id),400)}
+      else if(L.kind==='com_task'){navigateSub('comercial','comercial');switchComTab('tarefas')}
+    }catch(e){}
+  };
+  document.addEventListener('click',()=>document.getElementById('gxn-panel')?.remove());
+  window.addEventListener('resize',()=>placePanel(document.getElementById('gxn-panel')));
+
+  // Chegou notificação nova para mim: som, aviso do navegador e toast
+  function tick(){
+    if(!sessionUser)return;
+    hookDB();
+    const list=mine(),ids=new Set(list.map(n=>n.id));
+    if(seen===null){seen=ids;paintBadge();return}
+    const novas=list.filter(n=>!seen.has(n.id)&&!n.lida);
+    seen=ids;
+    if(novas.length){
+      const n=novas[0];
+      try{if(typeof playChime==='function')playChime('task')}catch(e){}
+      if(typeof toast==='function')toast(`🔔 ${n.titulo}`,'#7C3AED');
+      try{if(document.hidden&&'Notification' in window&&Notification.permission==='granted'){const bn=new Notification('GexFlow · '+n.titulo,{body:n.texto||'',tag:n.id});bn.onclick=()=>{window.focus();gxNotifOpen(n.id)}}}catch(e){}
+    }
+    repaint();
+  }
+  setInterval(tick,5000);
+  setTimeout(()=>{hookDB();tick()},1500);
+  setTimeout(dailyCheck,12000);setInterval(dailyCheck,3600000);
+})();
+</script>
+<style id="gx-op-minhas-v2">
+.op-my-li{padding-left:8px!important;margin-bottom:8px;font-weight:700;color:var(--txt)!important}
+.op-my-li .cnt{margin-left:auto}
+.op-my-g{margin-top:12px}
+.op-my-gh{font-size:11.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px;display:flex;gap:6px;align-items:center}
+.op-my-gh span{font-variant-numeric:tabular-nums;background:var(--bg);border-radius:999px;padding:1px 7px}
+.op-my-gh.bad{color:#DC2626}.op-my-gh.warn{color:#B45309}.op-my-gh.ok{color:#059669}
+.op-my-row{display:grid;grid-template-columns:10px 1fr auto 70px;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;cursor:pointer;background:var(--card)}
+.op-my-row:hover{border-color:#8B5CF6;box-shadow:0 0 0 3px rgba(139,92,246,.1)}
+.op-my-st{width:10px;height:10px;border-radius:50%}
+.op-my-tt{font-size:13.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.op-my-sub{font-size:11.5px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.op-my-pr{font-size:11.5px;font-weight:800}
+.op-my-dt{font-size:12px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+@media(max-width:700px){.op-my-row{grid-template-columns:10px 1fr 60px}.op-my-pr{display:none}}
 </style>
 </body>
 </html>
