@@ -22694,6 +22694,12 @@ ${gxlCloseScriptTag}`;
   const opAutoRec=key=>(DB.get('op_automacoes')||[]).find(x=>x.id===key);
   const opAutoOn=a=>{const r=opAutoRec(a.key);if(a.regras)return !!(r&&r.ativo!==false&&(r.regras||[]).some(x=>x.ativo!==false));return r?r.ativo!==false:a.def};
   function opAutoSectionHtml(){
+    // Gex Parceiro (e Operador de Funil) não têm o setor Projetos: essas automações não aparecem para eles.
+    // Empresas clientes (sistema completo) continuam vendo normalmente.
+    try{
+      const r=resolveRole(sessionUser?.permissao||sessionUser?.cargo||'');
+      if((r==='Gex Parceiro'||r==='Operador de Funil')&&!(typeof gxIsOtherWorkspace==='function'&&gxIsOtherWorkspace()))return '';
+    }catch(e){}
     const can=automacoesManagerView();
     return `<div class="auto-section-title" style="margin-top:6px">Operacional (Projetos)</div>
     <p style="font-size:12px;color:var(--muted);margin:-6px 0 12px;max-width:680px">Automações das tarefas de Gestão de entregas. Os avisos chegam no sino de notificações de cada pessoa.</p>
