@@ -2201,12 +2201,6 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
       <span class="gxn-lbl">Notificações</span>
       <span class="gxn-badge" style="display:none">0</span>
     </button>
-    <button type="button" class="gxn-bell-side gxc-btn" id="gxc-btn" title="Chat da equipe" onclick="gxChatToggle(event)" style="display:none">
-      <svg class="gxn-ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-      <span class="gxn-lbl">Chat da equipe</span>
-      <span class="gxc-on" id="gxc-on" title="Online agora"></span>
-      <span class="gxn-badge gxc-badge" style="display:none">0</span>
-    </button>
   </div>
   <nav>
     <div class="nav-lbl">Principal</div>
@@ -24409,8 +24403,8 @@ ${gxlCloseScriptTag}`;
       if(typeof sessionUser==='undefined' || !sessionUser || !sessionUser.id) return false;
       // Empresa cliente (fora da Gex Company): todos os usuários têm o botão de suporte do sistema.
       if(typeof gxIsOtherWorkspace === 'function' && gxIsOtherWorkspace()) return true;
-      if(typeof isSalesManagerView === 'function') return !isSalesManagerView();
-      return false;
+      // Gex Company: só o Gex Parceiro (colaboradores internos, Fundador e Adm Gerente não têm o botão).
+      return typeof gxIsPartnerRole === 'function' && gxIsPartnerRole();
     }catch(e){ return false; }
   }
 
@@ -28484,6 +28478,19 @@ img.gx-avimg{width:100%;height:100%;object-fit:cover;border-radius:50%;display:b
 <style id="gx-chat-v2">
 /* Chat da equipe (30/10/2026) */
 html body .sidebar .gxc-btn{margin-top:8px}
+.gxc-fab{position:fixed;right:22px;bottom:22px;z-index:99970;height:56px;min-width:56px;padding:0 18px 0 16px;border-radius:999px;border:0;background:#7C3AED;color:#fff;display:none;align-items:center;gap:9px;cursor:pointer;font:700 13.5px/1 inherit;font-family:inherit;box-shadow:0 10px 28px rgba(124,58,237,.38),0 2px 6px rgba(15,23,42,.18);transition:transform .15s,box-shadow .15s}
+.gxc-fab.show{display:flex}
+.gxc-fab:hover{transform:translateY(-2px);box-shadow:0 14px 32px rgba(124,58,237,.45),0 2px 6px rgba(15,23,42,.2)}
+.gxc-fab:focus-visible{outline:3px solid #C4B5FD;outline-offset:3px}
+.gxc-fab .gxc-on{font-size:11.5px;font-weight:800;color:#BBF7D0;font-variant-numeric:tabular-nums}
+.gxc-fab .gxc-on:empty{display:none}
+.gxc-fab .gxc-badge{position:absolute;top:-5px;right:-3px;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:#EF4444;color:#fff;font-size:11.5px;font-weight:800;display:none;align-items:center;justify-content:center;border:2px solid #fff;font-variant-numeric:tabular-nums}
+.gxc-fab.has{animation:gxcFabBlink 1s steps(1,end) infinite}
+@keyframes gxcFabBlink{0%{background:#FACC15;color:#1A1A2E}50%{background:#7C3AED;color:#fff}}
+.gxc-fab.up{bottom:92px}
+body.gxc-open .gxc-fab,body.gxc-open .gxw-fab,body.gxc-open .gxw-popup{display:none!important}
+@media (max-width:700px){.gxc-fab{right:14px;bottom:14px;padding:0;width:54px;height:54px;justify-content:center}.gxc-fab .gxc-lbl,.gxc-fab .gxc-on{display:none}.gxc-fab.up{bottom:84px}}
+@media (prefers-reduced-motion:reduce){.gxc-fab{transition:none}}
 html body .sidebar .gxc-btn .gxc-on{font-size:11px;font-weight:700;color:#4ADE80;font-variant-numeric:tabular-nums}
 html body .sidebar .gxc-btn .gxc-on:empty{display:none}
 html body .sidebar .gxc-btn.has{animation:gxnBlinkBox 1s steps(1,end) infinite}
@@ -28538,7 +28545,7 @@ html body.sb-collapsed .sidebar .gxc-btn .gxc-on{display:none}
 (function(){
   if(window.__GX_CHAT__)return;window.__GX_CHAT__=true;
   const esc=v=>typeof escHtml==='function'?escHtml(v):String(v??'');
-  const C={uid:'',ws:'',ready:false,view:'list',channel:'',msgs:{},reads:{},unread:{},last:{},online:new Set(),seen:{},typing:{},rt:null,pres:null,typTimer:null,lastTyp:0};
+  const C={uid:'',ws:'',ready:false,view:'list',channel:'',msgs:{},reads:{},unread:{},last:{},online:new Set(),onlineEmails:new Set(),seen:{},typing:{},rt:null,pres:null,typTimer:null,lastTyp:0};
   const interno=u=>{try{const r=resolveRole(u?.permissao||u?.cargo||'');return r!=='Gex Parceiro'&&r!=='Operador de Funil'}catch(e){return true}};
   const ativo=u=>String(u?.status||'Ativo').toLowerCase()!=='inativo';
   const uidOf=u=>String(u?.supabaseId||u?.id||'');
@@ -28571,10 +28578,11 @@ html body.sb-collapsed .sidebar .gxc-btn .gxc-on{display:none}
       if(t.error){console.warn('[GexFlow] Chat da equipe indisponível (rode o SQL chat-equipe-setup):',t.error.message);C.starting=false;return}
       (t.data||[]).forEach(r=>{if(r.user_id===C.uid)C.reads[r.channel]=r.last_read_at;if(r.channel==='__visto')C.seen[r.user_id]=r.last_read_at});
       C.ready=true;
-      document.getElementById('gxc-btn').style.display='';
+      fabMount();
       await loadUnread();
       subscribe();
-      markSeen();setInterval(markSeen,120000);
+      markSeen();setInterval(()=>{markSeen()},60000);setInterval(refreshSeen,60000);
+      document.addEventListener('visibilitychange',()=>{if(!document.hidden){markSeen();trackMe();refreshSeen()}});
       paintBtn();
     }catch(e){console.warn('[GexFlow] Chat não iniciou:',e)}
     C.starting=false;
@@ -28594,9 +28602,28 @@ html body.sb-collapsed .sidebar .gxc-btn .gxc-on{display:none}
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'gex_chat_messages',filter:`workspace_id=eq.${C.ws}`},p=>onMsg(p.new))
       .subscribe();
     C.pres=supabaseClient.channel('gexchat-pres-'+C.ws,{config:{presence:{key:C.uid}}});
-    C.pres.on('presence',{event:'sync'},()=>{C.online=new Set(Object.keys(C.pres.presenceState()));paint();paintBtn()})
+    C.pres.on('presence',{event:'sync'},()=>{
+        const st=C.pres.presenceState(),ids=new Set(),em=new Set();
+        Object.entries(st).forEach(([k,arr])=>{ids.add(k);(arr||[]).forEach(x=>{if(x?.uid)ids.add(String(x.uid));if(x?.email)em.add(String(x.email).toLowerCase())})});
+        C.online=ids;C.onlineEmails=em;paint();paintBtn();
+      })
       .on('broadcast',{event:'typing'},({payload})=>{if(!payload||payload.uid===C.uid)return;C.typing[payload.ch]={nome:payload.nome,at:Date.now()};paintTyping();setTimeout(paintTyping,3500)})
-      .subscribe(st=>{if(st==='SUBSCRIBED')C.pres.track({nome:sessionUser?.nome||'',at:new Date().toISOString()})});
+      .subscribe(st=>{if(st==='SUBSCRIBED')trackMe();else if(st==='CHANNEL_ERROR'||st==='TIMED_OUT')console.warn('[GexFlow] Chat: presença online falhou ('+st+'). Usando o "visto por último".')});
+  }
+  function trackMe(){try{C.pres&&C.pres.track({uid:C.uid,email:String(sessionUser?.email||'').toLowerCase(),nome:sessionUser?.nome||'',at:new Date().toISOString()})}catch(e){}}
+  // Online = está no canal de presença OU deu sinal de vida (__visto) nos últimos 3 min.
+  function isOn(id){
+    if(!id||id===C.uid)return false;
+    if(C.online.has(id))return true;
+    const u=person(id),em=String(u?.email||'').toLowerCase();
+    if(em&&C.onlineEmails&&C.onlineEmails.has(em))return true;
+    const t=C.seen[id];return !!t&&(Date.now()-new Date(t).getTime())<180000;
+  }
+  const onCount=()=>team().filter(u=>isOn(uidOf(u))).length;
+  async function refreshSeen(){
+    if(!C.ready)return;
+    const {data}=await supabaseClient.from('gex_chat_reads').select('user_id,last_read_at').eq('workspace_id',C.ws).eq('channel','__visto');
+    (data||[]).forEach(r=>{C.seen[r.user_id]=r.last_read_at});paint();paintBtn();
   }
   function markSeen(){if(!C.ready)return;supabaseClient.from('gex_chat_reads').upsert({user_id:C.uid,workspace_id:C.ws,channel:'__visto',last_read_at:new Date().toISOString()}).then(()=>{})}
   function markRead(ch){
@@ -28633,21 +28660,29 @@ html body.sb-collapsed .sidebar .gxc-btn .gxc-on{display:none}
     if(!el){el=document.createElement('div');el.id='gxc-panel';el.className='gxc-panel';el.setAttribute('role','dialog');el.setAttribute('aria-label','Chat da equipe');el.addEventListener('click',e=>e.stopPropagation());document.body.appendChild(el)}
     return el;
   }
+  function fabMount(){
+    let b=document.getElementById('gxc-btn');
+    if(!b){b=document.createElement('button');b.type='button';b.id='gxc-btn';b.className='gxc-fab';b.setAttribute('aria-label','Chat da equipe');
+      b.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="gxc-lbl">Chat</span><span class="gxc-on" id="gxc-on"></span><span class="gxc-badge">0</span>';
+      b.addEventListener('click',e=>gxChatToggle(e));document.body.appendChild(b)}
+    b.classList.add('show');
+  }
   function paintBtn(){
     const n=Object.values(C.unread).reduce((a,b)=>a+(b||0),0);
     const btn=document.getElementById('gxc-btn');if(!btn)return;
     const b=btn.querySelector('.gxc-badge');if(b){b.textContent=n>99?'99+':String(n);b.style.display=n?'flex':'none'}
     btn.classList.toggle('has',n>0);
-    const on=[...C.online].filter(id=>id!==C.uid&&person(id)).length;
+    const on=onCount();
     const o=document.getElementById('gxc-on');if(o)o.textContent=on?`● ${on}`:'';
+    btn.classList.toggle('up',!!document.querySelector('.gxw-fab'));
     btn.title=n?`Chat da equipe (${n} não lida${n>1?'s':''})`:'Chat da equipe';
   }
   function listHtml(){
-    const ppl=team().filter(u=>uidOf(u)!==C.uid).map(u=>{const id=uidOf(u),ch=dmCh(id);return {u,id,ch,on:C.online.has(id),last:C.last[ch]}})
+    const ppl=team().filter(u=>uidOf(u)!==C.uid).map(u=>{const id=uidOf(u),ch=dmCh(id);return {u,id,ch,on:isOn(id),last:C.last[ch]}})
       .sort((a,b)=>(b.on-a.on)||String(b.last?.created_at||'').localeCompare(String(a.last?.created_at||''))||String(a.u.nome).localeCompare(String(b.u.nome)));
     const it=(ch,avHtml,nome,sub)=>{const n=C.unread[ch]||0;return `<div class="gxc-it" onclick="gxChatOpenCh('${ch}')">${avHtml}<div style="min-width:0"><div class="gxc-nm">${esc(nome)}</div><div class="gxc-sub">${esc(sub)}</div></div>${n?`<span class="gxc-un">${n}</span>`:'<span></span>'}</div>`};
     const le=C.last.equipe;
-    return `<div class="gxc-h"><h3>Chat da equipe<small>${[...C.online].filter(id=>id!==C.uid&&person(id)).length} online agora</small></h3><button class="gxc-ib" onclick="gxChatClose()" aria-label="Fechar">✕</button></div>
+    return `<div class="gxc-h"><h3>Chat da equipe<small>${onCount()} online agora</small></h3><button class="gxc-ib" onclick="gxChatClose()" aria-label="Fechar">✕</button></div>
       <div class="gxc-list">
         <div class="gxc-grp">Canal</div>
         ${it('equipe','<div class="gxc-av ch">#</div>','#equipe',le?`${le.sender_id===C.uid?'Você':(le.sender_nome||'')}: ${le.body}`:'Canal de toda a equipe')}
@@ -28670,8 +28705,8 @@ html body.sb-collapsed .sidebar .gxc-btn .gxc-on{display:none}
       out+=`<div class="gxc-m ${me?'me':''} ${cont?'cont':''}">${me?'':`<div class="gxc-av">${av(m.sender_id,m.sender_nome)}</div>`}<div class="gxc-b">${!me&&!cont&&ch==='equipe'?`<span class="who">${esc(m.sender_nome)}</span>`:''}${bodyHtml(m.body)}<span class="t">${hora(m.created_at)}</span></div></div>`;
       prev=m;return out;
     }).join('');
-    const sub=ch==='equipe'?`${team().length} pessoas · ${[...C.online].filter(id=>person(id)).length} online`:(C.online.has(oid)?'online agora':visto(oid));
-    return `<div class="gxc-h"><button class="gxc-ib" onclick="gxChatBack()" aria-label="Voltar">‹</button>${ch==='equipe'?'<div class="gxc-av ch" style="width:34px;height:34px;font-size:15px">#</div>':`<div class="gxc-av" style="width:34px;height:34px">${av(oid,p?.nome||'')}<span class="gxc-dot ${C.online.has(oid)?'on':''}"></span></div>`}<h3>${esc(chName(ch))}<small>${esc(sub)}</small></h3><button class="gxc-ib" onclick="gxChatClose()" aria-label="Fechar">✕</button></div>
+    const sub=ch==='equipe'?`${team().length} pessoas · ${onCount()+1} online`:(isOn(oid)?'online agora':visto(oid));
+    return `<div class="gxc-h"><button class="gxc-ib" onclick="gxChatBack()" aria-label="Voltar">‹</button>${ch==='equipe'?'<div class="gxc-av ch" style="width:34px;height:34px;font-size:15px">#</div>':`<div class="gxc-av" style="width:34px;height:34px">${av(oid,p?.nome||'')}<span class="gxc-dot ${isOn(oid)?'on':''}"></span></div>`}<h3>${esc(chName(ch))}<small>${esc(sub)}</small></h3><button class="gxc-ib" onclick="gxChatClose()" aria-label="Fechar">✕</button></div>
       <div class="gxc-msgs" id="gxc-msgs">${rows||`<div class="gxc-empty">${ch==='equipe'?'Comece a conversa com a equipe. Use @ para marcar alguém.':'Diga um oi! 👋'}</div>`}</div>
       <div class="gxc-typing" id="gxc-typing"></div>
       <div class="gxc-comp"><div class="gxc-mn" id="gxc-mn"></div><textarea id="gxc-in" rows="1" maxlength="4000" placeholder="${ch==='equipe'?'Mensagem para #equipe… use @ para marcar':'Escreva uma mensagem…'}" oninput="gxChatInput(this)" onkeydown="gxChatKey(event)"></textarea><button class="gxc-send" id="gxc-send" onclick="gxChatSend()" aria-label="Enviar"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></button></div>`;
@@ -28699,14 +28734,14 @@ html body.sb-collapsed .sidebar .gxc-btn .gxc-on{display:none}
     const el=panel();
     if(el.classList.contains('open')){gxChatClose();return}
     document.getElementById('gxn-panel')?.remove();
-    C.view='list';el.classList.add('open');paint();
+    C.view='list';el.classList.add('open');document.body.classList.add('gxc-open');paint();
     try{if('Notification' in window&&Notification.permission==='default')Notification.requestPermission()}catch(e){}
   };
-  window.gxChatClose=function(){document.getElementById('gxc-panel')?.classList.remove('open')};
+  window.gxChatClose=function(){document.getElementById('gxc-panel')?.classList.remove('open');document.body.classList.remove('gxc-open')};
   window.gxChatBack=function(){C.view='list';C.channel='';paint()};
   window.gxChatOpenCh=async function(ch){
     if(!C.ready)return;
-    const el=panel();el.classList.add('open');
+    const el=panel();el.classList.add('open');document.body.classList.add('gxc-open');
     C.view='conv';C.channel=ch;
     if(!C.msgs[ch]){el.innerHTML=`<div class="gxc-h"><button class="gxc-ib" onclick="gxChatBack()">‹</button><h3>${esc(chName(ch))}</h3></div><div class="gxc-empty">Carregando…</div>`;await loadMsgs(ch)}
     markRead(ch);paint();
@@ -28754,8 +28789,37 @@ html body.sb-collapsed .sidebar .gxc-btn .gxc-on{display:none}
     try{const n=(DB.get('notificacoes')||[]).find(x=>x.id===id);if(n&&n.link&&n.link.kind==='chat'){if(!n.lida)DB.update('notificacoes',id,{lida:true});document.getElementById('gxn-panel')?.remove();gxChatOpenCh(n.link.id||'equipe');return}}catch(e){}
     return prevOpen(id);
   };
-  setInterval(()=>{if(!C.ready)init();else paintBtn()},4000);
+  window.gxChatDiag=()=>({eu:C.uid,ws:C.ws,presenca:[...C.online],emailsOnline:[...(C.onlineEmails||[])],vistos:C.seen,equipe:team().map(u=>({nome:u.nome,id:uidOf(u),email:u.email,online:isOn(uidOf(u))}))});
+  setInterval(()=>{if(!C.ready)init();else{const b=document.getElementById('gxc-btn');if(b)b.classList.toggle('show',!!(typeof sessionUser!=='undefined'&&sessionUser));paintBtn()}},4000);
   setTimeout(init,2500);
+})();
+</script>
+<script id="gx-nova-versao-js">
+/* Aviso de NOVA VERSÃO (30/10/2026): quem está com o sistema aberto desde antes de uma atualização
+   recebe um aviso para recarregar (sem recarregar sozinho, para não perder nada que esteja digitando). */
+(function(){
+  if(window.__GX_NOVA_VERSAO__||!/^https?:$/.test(location.protocol))return;window.__GX_NOVA_VERSAO__=true;
+  let base=null,avisado=false;
+  async function hash(){
+    const r=await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'});if(!r.ok)return null;
+    const t=await r.text();const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));
+    return Array.from(new Uint8Array(d)).slice(0,8).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+  async function check(){
+    if(avisado||document.hidden)return;
+    try{const h=await hash();if(!h)return;if(!base){base=h;return}if(h!==base)aviso()}catch(e){}
+  }
+  function aviso(){
+    avisado=true;
+    const el=document.createElement('div');
+    el.setAttribute('role','status');
+    el.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:1000000;background:#1A1A2E;color:#fff;border-radius:12px;padding:10px 12px 10px 16px;display:flex;gap:12px;align-items:center;font:600 13px/1.3 inherit;font-family:inherit;box-shadow:0 12px 30px rgba(15,23,42,.35);max-width:calc(100vw - 24px)';
+    el.innerHTML='<span>✨ Saiu uma nova versão do GexFlow.</span><button type="button" style="border:0;border-radius:9px;background:#7C3AED;color:#fff;font:700 12.5px inherit;font-family:inherit;padding:8px 12px;cursor:pointer">Atualizar agora</button><button type="button" aria-label="Depois" style="border:0;background:none;color:#CBD5E1;cursor:pointer;font-size:16px">✕</button>';
+    const [b1,b2]=el.querySelectorAll('button');b1.onclick=()=>location.reload();b2.onclick=()=>el.remove();
+    document.body.appendChild(el);
+  }
+  setTimeout(check,8000);setInterval(check,180000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)check()});
 })();
 </script>
 </body>
