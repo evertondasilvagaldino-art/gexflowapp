@@ -2201,6 +2201,12 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
       <span class="gxn-lbl">Notificações</span>
       <span class="gxn-badge" style="display:none">0</span>
     </button>
+    <button type="button" class="gxn-bell-side gxc-btn" id="gxc-btn" title="Chat da equipe" onclick="gxChatToggle(event)" style="display:none">
+      <svg class="gxn-ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span class="gxn-lbl">Chat da equipe</span>
+      <span class="gxc-on" id="gxc-on" title="Online agora"></span>
+      <span class="gxn-badge gxc-badge" style="display:none">0</span>
+    </button>
   </div>
   <nav>
     <div class="nav-lbl">Principal</div>
@@ -28475,5 +28481,282 @@ img.gx-avimg{width:100%;height:100%;object-fit:cover;border-radius:50%;display:b
 .gx-resp-av{width:20px;height:20px;border-radius:50%;flex:none;display:inline-grid;place-items:center;overflow:hidden;background:rgba(139,92,246,.15);color:#6D28D9;font-size:9px;font-weight:800;line-height:1}
 .gx-resp-av+span{min-width:0}
 </style>
+<style id="gx-chat-v2">
+/* Chat da equipe (30/10/2026) */
+html body .sidebar .gxc-btn{margin-top:8px}
+html body .sidebar .gxc-btn .gxc-on{font-size:11px;font-weight:700;color:#4ADE80;font-variant-numeric:tabular-nums}
+html body .sidebar .gxc-btn .gxc-on:empty{display:none}
+html body .sidebar .gxc-btn.has{animation:gxnBlinkBox 1s steps(1,end) infinite}
+html body.sb-collapsed .sidebar .gxc-btn .gxc-on{display:none}
+.gxc-panel{position:fixed;top:0;right:0;bottom:0;width:min(400px,100vw);z-index:99980;background:var(--g-card,var(--card,#fff));color:var(--g-tx,var(--txt,#1A1A2E));border-left:1px solid var(--g-line,var(--border,#E5E7EB));box-shadow:-18px 0 50px rgba(15,23,42,.18);display:flex;flex-direction:column;transform:translateX(102%);transition:transform .22s ease}
+.gxc-panel.open{transform:none}
+@media (prefers-reduced-motion:reduce){.gxc-panel{transition:none}}
+.gxc-h{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--g-line,var(--border,#E5E7EB))}
+.gxc-h h3{margin:0;font-size:15px;font-weight:800;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gxc-h small{display:block;font-size:11.5px;font-weight:500;color:var(--g-mu,var(--muted,#64748B))}
+.gxc-ib{width:32px;height:32px;border-radius:9px;border:1px solid var(--g-line,var(--border,#E5E7EB));background:none;color:inherit;cursor:pointer;display:grid;place-items:center;flex:none}
+.gxc-ib:hover{border-color:#C4B5FD;color:#6D28D9}
+.gxc-list{flex:1;overflow:auto;padding:8px}
+.gxc-grp{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--g-mu,var(--muted,#64748B));padding:10px 8px 6px}
+.gxc-it{display:grid;grid-template-columns:38px 1fr auto;gap:10px;align-items:center;padding:8px;border-radius:12px;cursor:pointer}
+.gxc-it:hover{background:var(--g-soft,#F7F6FB)}
+.gxc-av{position:relative;width:38px;height:38px;border-radius:50%;background:rgba(139,92,246,.15);color:#6D28D9;font-size:13px;font-weight:800;display:grid;place-items:center}
+.gxc-av>span.in{width:100%;height:100%;border-radius:50%;overflow:hidden;display:grid;place-items:center}
+.gxc-av.ch{border-radius:12px;background:#7C3AED;color:#fff;font-size:18px}
+.gxc-dot{position:absolute;right:-1px;bottom:-1px;width:12px;height:12px;border-radius:50%;background:#94A3B8;border:2px solid var(--g-card,#fff)}
+.gxc-dot.on{background:#22C55E}
+.gxc-nm{font-size:13.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gxc-sub{font-size:12px;color:var(--g-mu,var(--muted,#64748B));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:1px}
+.gxc-un{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#EF4444;color:#fff;font-size:11px;font-weight:800;display:grid;place-items:center;font-variant-numeric:tabular-nums}
+.gxc-msgs{flex:1;overflow:auto;padding:14px 14px 6px;background:var(--g-soft,#F7F6FB)}
+.gxc-day{text-align:center;margin:10px 0;font-size:11px;font-weight:700;color:var(--g-mu,var(--muted,#64748B))}
+.gxc-day span{background:var(--g-card,#fff);border:1px solid var(--g-line,var(--border,#E5E7EB));border-radius:999px;padding:3px 10px}
+.gxc-m{display:flex;gap:8px;margin:3px 0;align-items:flex-end}
+.gxc-m.me{flex-direction:row-reverse}
+.gxc-m .gxc-av{width:28px;height:28px;font-size:10.5px;flex:none}
+.gxc-m.cont .gxc-av{visibility:hidden}
+.gxc-b{max-width:76%;background:var(--g-card,#fff);border:1px solid var(--g-line,var(--border,#E5E7EB));border-radius:14px 14px 14px 4px;padding:7px 11px;font-size:13.5px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+.gxc-m.me .gxc-b{background:#7C3AED;border-color:#7C3AED;color:#fff;border-radius:14px 14px 4px 14px}
+.gxc-b .who{display:block;font-size:11.5px;font-weight:800;color:#6D28D9;margin-bottom:2px}
+.gxc-b .t{display:block;text-align:right;font-size:10.5px;opacity:.65;margin-top:2px;font-variant-numeric:tabular-nums}
+.gxc-b .mt{background:rgba(250,204,21,.35);border-radius:4px;padding:0 3px;font-weight:700}
+.gxc-m.me .gxc-b .mt{background:rgba(255,255,255,.25)}
+.gxc-typing{font-size:12px;color:var(--g-mu,var(--muted,#64748B));padding:2px 16px 6px;min-height:20px;background:var(--g-soft,#F7F6FB)}
+.gxc-comp{border-top:1px solid var(--g-line,var(--border,#E5E7EB));padding:10px 12px;display:flex;gap:8px;align-items:flex-end;position:relative}
+.gxc-comp textarea{flex:1;resize:none;max-height:140px;min-height:42px;border:1px solid var(--g-line,var(--border,#E5E7EB));border-radius:12px;padding:10px 12px;font-size:13.5px;font-family:inherit;background:var(--g-card,#fff);color:inherit;outline:none}
+.gxc-comp textarea:focus{border-color:#8B5CF6;box-shadow:0 0 0 3px rgba(139,92,246,.15)}
+.gxc-send{width:42px;height:42px;border-radius:12px;border:0;background:#7C3AED;color:#fff;cursor:pointer;display:grid;place-items:center;flex:none}
+.gxc-send:disabled{opacity:.5;cursor:not-allowed}
+.gxc-mn{position:absolute;left:12px;right:62px;bottom:100%;background:var(--g-card,#fff);border:1px solid var(--g-line,var(--border,#E5E7EB));border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.16);display:none;max-height:180px;overflow:auto}
+.gxc-mn div{padding:8px 12px;font-size:13px;cursor:pointer}.gxc-mn div:hover{background:var(--g-soft,#F7F6FB)}
+.gxc-empty{padding:40px 20px;text-align:center;font-size:13px;color:var(--g-mu,var(--muted,#64748B));line-height:1.55}
+</style>
+<script id="gx-chat-js">
+/* ═══ CHAT DA EQUIPE (30/10/2026) ═══
+   Tabelas próprias no Supabase (gex_chat_messages / gex_chat_reads, com RLS: conversa 1 a 1 só para as
+   duas pessoas). Presença online pelo Realtime Presence. Só equipe interna (sem Parceiros/Operadores). */
+(function(){
+  if(window.__GX_CHAT__)return;window.__GX_CHAT__=true;
+  const esc=v=>typeof escHtml==='function'?escHtml(v):String(v??'');
+  const C={uid:'',ws:'',ready:false,view:'list',channel:'',msgs:{},reads:{},unread:{},last:{},online:new Set(),seen:{},typing:{},rt:null,pres:null,typTimer:null,lastTyp:0};
+  const interno=u=>{try{const r=resolveRole(u?.permissao||u?.cargo||'');return r!=='Gex Parceiro'&&r!=='Operador de Funil'}catch(e){return true}};
+  const ativo=u=>String(u?.status||'Ativo').toLowerCase()!=='inativo';
+  const uidOf=u=>String(u?.supabaseId||u?.id||'');
+  function team(){
+    let us=[];try{us=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios'))||[]}catch(e){}
+    const seen=new Set();
+    return us.filter(u=>ativo(u)&&interno(u)&&uidOf(u)&&/^[0-9a-f-]{36}$/i.test(uidOf(u))).filter(u=>{const k=uidOf(u);if(seen.has(k))return false;seen.add(k);return true});
+  }
+  const person=id=>team().find(u=>uidOf(u)===String(id));
+  const dmCh=other=>{const a=[C.uid,String(other)].sort();return `dm:${a[0]}:${a[1]}`};
+  const otherOf=ch=>ch.startsWith('dm:')?ch.slice(3).split(':').find(x=>x!==C.uid):'';
+  const chName=ch=>ch==='equipe'?'#equipe':(person(otherOf(ch))?.nome||'Conversa');
+  const av=(id,nome)=>`<span class="in">${typeof gxAvInner==='function'?gxAvInner({id,nome},nome):esc((nome||'?').slice(0,1))}</span>`;
+  const hora=iso=>new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const dia=iso=>{const d=new Date(iso),h=new Date();const y=new Date();y.setDate(h.getDate()-1);if(d.toDateString()===h.toDateString())return 'Hoje';if(d.toDateString()===y.toDateString())return 'Ontem';return d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})};
+  const visto=id=>{const t=C.seen[id];if(!t)return 'offline';const m=(Date.now()-new Date(t).getTime())/60000;if(m<2)return 'online agora';if(m<60)return `visto há ${Math.floor(m)} min`;if(m<1440)return `visto há ${Math.floor(m/60)} h`;return `visto em ${new Date(t).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}`};
+
+  async function init(){
+    if(C.ready||C.starting)return;
+    if(typeof supabaseClient==='undefined'||!supabaseClient||!sessionUser)return;
+    if(!interno(sessionUser))return;
+    C.starting=true;
+    try{
+      const {data}=await supabaseClient.auth.getUser();
+      C.uid=data?.user?.id||'';
+      C.ws=(typeof GEX_WORKSPACE_ID!=='undefined'&&GEX_WORKSPACE_ID)||'gex_company';
+      if(!C.uid){C.starting=false;return}
+      // tabela existe? (se o SQL ainda não foi rodado, o chat fica escondido)
+      const t=await supabaseClient.from('gex_chat_reads').select('channel,last_read_at,user_id').eq('workspace_id',C.ws);
+      if(t.error){console.warn('[GexFlow] Chat da equipe indisponível (rode o SQL chat-equipe-setup):',t.error.message);C.starting=false;return}
+      (t.data||[]).forEach(r=>{if(r.user_id===C.uid)C.reads[r.channel]=r.last_read_at;if(r.channel==='__visto')C.seen[r.user_id]=r.last_read_at});
+      C.ready=true;
+      document.getElementById('gxc-btn').style.display='';
+      await loadUnread();
+      subscribe();
+      markSeen();setInterval(markSeen,120000);
+      paintBtn();
+    }catch(e){console.warn('[GexFlow] Chat não iniciou:',e)}
+    C.starting=false;
+  }
+  async function loadUnread(){
+    const desde=new Date(Date.now()-30*864e5).toISOString();
+    const {data,error}=await supabaseClient.from('gex_chat_messages').select('channel,sender_id,created_at,body,sender_nome').eq('workspace_id',C.ws).gte('created_at',desde).order('created_at',{ascending:false}).limit(1000);
+    if(error)return;
+    C.unread={};C.last={};
+    (data||[]).forEach(m=>{
+      if(!C.last[m.channel])C.last[m.channel]=m;
+      if(m.sender_id!==C.uid&&(!C.reads[m.channel]||m.created_at>C.reads[m.channel]))C.unread[m.channel]=(C.unread[m.channel]||0)+1;
+    });
+  }
+  function subscribe(){
+    C.rt=supabaseClient.channel('gexchat-msgs-'+C.ws)
+      .on('postgres_changes',{event:'INSERT',schema:'public',table:'gex_chat_messages',filter:`workspace_id=eq.${C.ws}`},p=>onMsg(p.new))
+      .subscribe();
+    C.pres=supabaseClient.channel('gexchat-pres-'+C.ws,{config:{presence:{key:C.uid}}});
+    C.pres.on('presence',{event:'sync'},()=>{C.online=new Set(Object.keys(C.pres.presenceState()));paint();paintBtn()})
+      .on('broadcast',{event:'typing'},({payload})=>{if(!payload||payload.uid===C.uid)return;C.typing[payload.ch]={nome:payload.nome,at:Date.now()};paintTyping();setTimeout(paintTyping,3500)})
+      .subscribe(st=>{if(st==='SUBSCRIBED')C.pres.track({nome:sessionUser?.nome||'',at:new Date().toISOString()})});
+  }
+  function markSeen(){if(!C.ready)return;supabaseClient.from('gex_chat_reads').upsert({user_id:C.uid,workspace_id:C.ws,channel:'__visto',last_read_at:new Date().toISOString()}).then(()=>{})}
+  function markRead(ch){
+    if(!ch)return;const now=new Date().toISOString();C.reads[ch]=now;C.unread[ch]=0;paintBtn();
+    supabaseClient.from('gex_chat_reads').upsert({user_id:C.uid,workspace_id:C.ws,channel:ch,last_read_at:now}).then(()=>{});
+  }
+  function onMsg(m){
+    if(!m||!(m.channel==='equipe'||(m.channel.startsWith('dm:')&&m.channel.includes(C.uid))))return;
+    C.last[m.channel]=m;
+    if(C.msgs[m.channel]&&!C.msgs[m.channel].some(x=>x.id===m.id))C.msgs[m.channel].push(m);
+    delete C.typing[m.channel];
+    const aberto=isOpen()&&C.view==='conv'&&C.channel===m.channel&&!document.hidden;
+    if(m.sender_id!==C.uid){
+      if(aberto)markRead(m.channel);
+      else{
+        C.unread[m.channel]=(C.unread[m.channel]||0)+1;
+        try{if(typeof playChime==='function')playChime('task')}catch(e){}
+        if(typeof toast==='function')toast(`💬 ${m.sender_nome||'Equipe'}${m.channel==='equipe'?' em #equipe':''}: ${String(m.body).slice(0,80)}`,'#7C3AED');
+        try{if(document.hidden&&'Notification' in window&&Notification.permission==='granted'){const n=new Notification(`GexFlow · ${m.sender_nome||'Chat'}`,{body:String(m.body).slice(0,140),tag:'chat'+m.channel});n.onclick=()=>{window.focus();gxChatOpenCh(m.channel)}}}catch(e){}
+      }
+    }
+    paint();paintBtn();
+  }
+  async function loadMsgs(ch){
+    const {data,error}=await supabaseClient.from('gex_chat_messages').select('*').eq('workspace_id',C.ws).eq('channel',ch).order('created_at',{ascending:false}).limit(150);
+    if(error){toast('Não foi possível carregar a conversa','#EF4444');return}
+    C.msgs[ch]=(data||[]).reverse();
+  }
+
+  // ── UI ──
+  const isOpen=()=>document.getElementById('gxc-panel')?.classList.contains('open');
+  function panel(){
+    let el=document.getElementById('gxc-panel');
+    if(!el){el=document.createElement('div');el.id='gxc-panel';el.className='gxc-panel';el.setAttribute('role','dialog');el.setAttribute('aria-label','Chat da equipe');el.addEventListener('click',e=>e.stopPropagation());document.body.appendChild(el)}
+    return el;
+  }
+  function paintBtn(){
+    const n=Object.values(C.unread).reduce((a,b)=>a+(b||0),0);
+    const btn=document.getElementById('gxc-btn');if(!btn)return;
+    const b=btn.querySelector('.gxc-badge');if(b){b.textContent=n>99?'99+':String(n);b.style.display=n?'flex':'none'}
+    btn.classList.toggle('has',n>0);
+    const on=[...C.online].filter(id=>id!==C.uid&&person(id)).length;
+    const o=document.getElementById('gxc-on');if(o)o.textContent=on?`● ${on}`:'';
+    btn.title=n?`Chat da equipe (${n} não lida${n>1?'s':''})`:'Chat da equipe';
+  }
+  function listHtml(){
+    const ppl=team().filter(u=>uidOf(u)!==C.uid).map(u=>{const id=uidOf(u),ch=dmCh(id);return {u,id,ch,on:C.online.has(id),last:C.last[ch]}})
+      .sort((a,b)=>(b.on-a.on)||String(b.last?.created_at||'').localeCompare(String(a.last?.created_at||''))||String(a.u.nome).localeCompare(String(b.u.nome)));
+    const it=(ch,avHtml,nome,sub)=>{const n=C.unread[ch]||0;return `<div class="gxc-it" onclick="gxChatOpenCh('${ch}')">${avHtml}<div style="min-width:0"><div class="gxc-nm">${esc(nome)}</div><div class="gxc-sub">${esc(sub)}</div></div>${n?`<span class="gxc-un">${n}</span>`:'<span></span>'}</div>`};
+    const le=C.last.equipe;
+    return `<div class="gxc-h"><h3>Chat da equipe<small>${[...C.online].filter(id=>id!==C.uid&&person(id)).length} online agora</small></h3><button class="gxc-ib" onclick="gxChatClose()" aria-label="Fechar">✕</button></div>
+      <div class="gxc-list">
+        <div class="gxc-grp">Canal</div>
+        ${it('equipe','<div class="gxc-av ch">#</div>','#equipe',le?`${le.sender_id===C.uid?'Você':(le.sender_nome||'')}: ${le.body}`:'Canal de toda a equipe')}
+        <div class="gxc-grp">Pessoas</div>
+        ${ppl.length?ppl.map(x=>it(x.ch,`<div class="gxc-av">${av(x.id,x.u.nome)}<span class="gxc-dot ${x.on?'on':''}"></span></div>`,x.u.nome,x.last?`${x.last.sender_id===C.uid?'Você: ':''}${x.last.body}`:(x.on?'online agora':visto(x.id)))).join(''):'<div class="gxc-empty">Ninguém da equipe interna ainda. Quando os colegas tiverem acesso, aparecem aqui.</div>'}
+      </div>`;
+  }
+  function bodyHtml(txt){
+    let h=esc(txt);
+    team().forEach(u=>{const n=esc(u.nome);if(n&&h.includes('@'+n))h=h.split('@'+n).join(`<span class="mt">@${n}</span>`)});
+    return h;
+  }
+  function convHtml(){
+    const ch=C.channel,ms=C.msgs[ch]||[],oid=otherOf(ch),p=oid?person(oid):null;
+    let lastDay='',prev=null;
+    const rows=ms.map(m=>{
+      const d=dia(m.created_at);let out='';
+      if(d!==lastDay){out+=`<div class="gxc-day"><span>${d}</span></div>`;lastDay=d;prev=null}
+      const me=m.sender_id===C.uid,cont=prev&&prev.sender_id===m.sender_id&&(new Date(m.created_at)-new Date(prev.created_at))<300000;
+      out+=`<div class="gxc-m ${me?'me':''} ${cont?'cont':''}">${me?'':`<div class="gxc-av">${av(m.sender_id,m.sender_nome)}</div>`}<div class="gxc-b">${!me&&!cont&&ch==='equipe'?`<span class="who">${esc(m.sender_nome)}</span>`:''}${bodyHtml(m.body)}<span class="t">${hora(m.created_at)}</span></div></div>`;
+      prev=m;return out;
+    }).join('');
+    const sub=ch==='equipe'?`${team().length} pessoas · ${[...C.online].filter(id=>person(id)).length} online`:(C.online.has(oid)?'online agora':visto(oid));
+    return `<div class="gxc-h"><button class="gxc-ib" onclick="gxChatBack()" aria-label="Voltar">‹</button>${ch==='equipe'?'<div class="gxc-av ch" style="width:34px;height:34px;font-size:15px">#</div>':`<div class="gxc-av" style="width:34px;height:34px">${av(oid,p?.nome||'')}<span class="gxc-dot ${C.online.has(oid)?'on':''}"></span></div>`}<h3>${esc(chName(ch))}<small>${esc(sub)}</small></h3><button class="gxc-ib" onclick="gxChatClose()" aria-label="Fechar">✕</button></div>
+      <div class="gxc-msgs" id="gxc-msgs">${rows||`<div class="gxc-empty">${ch==='equipe'?'Comece a conversa com a equipe. Use @ para marcar alguém.':'Diga um oi! 👋'}</div>`}</div>
+      <div class="gxc-typing" id="gxc-typing"></div>
+      <div class="gxc-comp"><div class="gxc-mn" id="gxc-mn"></div><textarea id="gxc-in" rows="1" maxlength="4000" placeholder="${ch==='equipe'?'Mensagem para #equipe… use @ para marcar':'Escreva uma mensagem…'}" oninput="gxChatInput(this)" onkeydown="gxChatKey(event)"></textarea><button class="gxc-send" id="gxc-send" onclick="gxChatSend()" aria-label="Enviar"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></button></div>`;
+  }
+  function paint(){
+    if(!isOpen())return;
+    const el=panel();
+    if(C.view==='list'){el.innerHTML=listHtml();return}
+    const box=document.getElementById('gxc-msgs'),inp=document.getElementById('gxc-in');
+    const draft=inp?inp.value:'';const atBottom=!box||box.scrollHeight-box.scrollTop-box.clientHeight<80;
+    el.innerHTML=convHtml();
+    const ni=document.getElementById('gxc-in');if(ni){ni.value=draft;autoGrow(ni)}
+    const nb=document.getElementById('gxc-msgs');if(nb&&atBottom)nb.scrollTop=nb.scrollHeight;
+    paintTyping();
+  }
+  function paintTyping(){
+    const el=document.getElementById('gxc-typing');if(!el)return;
+    const t=C.typing[C.channel];el.textContent=t&&Date.now()-t.at<3500?`${t.nome} está digitando…`:'';
+  }
+  const autoGrow=el=>{el.style.height='auto';el.style.height=Math.min(140,el.scrollHeight)+'px'};
+
+  window.gxChatToggle=function(e){
+    if(e)e.stopPropagation();
+    if(!C.ready){toast('O chat da equipe ainda não está ativo. Rode o SQL "chat-equipe-setup" no Supabase.','#F59E0B');return}
+    const el=panel();
+    if(el.classList.contains('open')){gxChatClose();return}
+    document.getElementById('gxn-panel')?.remove();
+    C.view='list';el.classList.add('open');paint();
+    try{if('Notification' in window&&Notification.permission==='default')Notification.requestPermission()}catch(e){}
+  };
+  window.gxChatClose=function(){document.getElementById('gxc-panel')?.classList.remove('open')};
+  window.gxChatBack=function(){C.view='list';C.channel='';paint()};
+  window.gxChatOpenCh=async function(ch){
+    if(!C.ready)return;
+    const el=panel();el.classList.add('open');
+    C.view='conv';C.channel=ch;
+    if(!C.msgs[ch]){el.innerHTML=`<div class="gxc-h"><button class="gxc-ib" onclick="gxChatBack()">‹</button><h3>${esc(chName(ch))}</h3></div><div class="gxc-empty">Carregando…</div>`;await loadMsgs(ch)}
+    markRead(ch);paint();
+    setTimeout(()=>{const b=document.getElementById('gxc-msgs');if(b)b.scrollTop=b.scrollHeight;document.getElementById('gxc-in')?.focus()},30);
+  };
+  window.gxChatKey=function(e){
+    const mn=document.getElementById('gxc-mn');
+    if(e.key==='Enter'&&!e.shiftKey){
+      if(mn&&mn.style.display==='block'){const f=mn.querySelector('div');if(f){e.preventDefault();f.dispatchEvent(new MouseEvent('mousedown'));return}}
+      e.preventDefault();gxChatSend();
+    }
+    if(e.key==='Escape'&&mn)mn.style.display='none';
+  };
+  window.gxChatInput=function(el){
+    autoGrow(el);
+    // digitando… (no máximo 1 aviso a cada 2,5 s)
+    if(Date.now()-C.lastTyp>2500&&C.pres){C.lastTyp=Date.now();C.pres.send({type:'broadcast',event:'typing',payload:{uid:C.uid,nome:sessionUser?.nome||'',ch:C.channel}})}
+    // @menção (só no #equipe)
+    const mn=document.getElementById('gxc-mn');if(!mn)return;
+    const m=C.channel==='equipe'?el.value.slice(0,el.selectionStart).match(/@([^\s@]*)$/):null;
+    if(!m){mn.style.display='none';return}
+    const q=m[1].toLowerCase(),list=team().filter(u=>uidOf(u)!==C.uid&&String(u.nome).toLowerCase().includes(q)).slice(0,6);
+    if(!list.length){mn.style.display='none';return}
+    mn.innerHTML=list.map(u=>`<div data-n="${esc(u.nome)}">${esc(u.nome)}</div>`).join('');
+    mn.querySelectorAll('div').forEach(d=>d.addEventListener('mousedown',ev=>{ev.preventDefault();const pos=el.selectionStart;const before=el.value.slice(0,pos).replace(/@([^\s@]*)$/,'@'+d.dataset.n+' ');el.value=before+el.value.slice(pos);el.focus();el.selectionStart=el.selectionEnd=before.length;mn.style.display='none'}));
+    mn.style.display='block';
+  };
+  window.gxChatSend=async function(){
+    const el=document.getElementById('gxc-in');const txt=String(el?.value||'').trim();if(!txt||!C.channel)return;
+    const btn=document.getElementById('gxc-send');if(btn)btn.disabled=true;
+    const mentions=C.channel==='equipe'?team().filter(u=>uidOf(u)!==C.uid&&txt.includes('@'+u.nome)).map(uidOf):[];
+    const {data,error}=await supabaseClient.from('gex_chat_messages').insert({workspace_id:C.ws,channel:C.channel,sender_id:C.uid,sender_nome:sessionUser?.nome||'',body:txt.slice(0,4000),mentions}).select().single();
+    if(btn)btn.disabled=false;
+    if(error){toast('Mensagem não enviada: '+(error.message||'tente de novo'),'#EF4444');return}
+    el.value='';autoGrow(el);
+    onMsg(data);markRead(C.channel);
+    // @menção no #equipe também avisa no sino (só no sistema)
+    mentions.forEach(id=>{const u=person(id);if(u&&typeof gxNotify==='function')gxNotify({para:{id:u.id,email:u.email,nome:u.nome},tipo:'mencao',titulo:`${sessionUser?.nome||'Alguém'} mencionou você no #equipe`,texto:txt,link:{kind:'chat',id:'equipe'}})});
+  };
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&isOpen()&&C.view==='conv')markRead(C.channel)});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&isOpen()&&!document.querySelector('.gxwt-ov,.gxn-panel'))gxChatClose()});
+  // abre o chat a partir de uma notificação de menção
+  const prevOpen=window.gxNotifOpen;
+  if(typeof prevOpen==='function')window.gxNotifOpen=function(id){
+    try{const n=(DB.get('notificacoes')||[]).find(x=>x.id===id);if(n&&n.link&&n.link.kind==='chat'){if(!n.lida)DB.update('notificacoes',id,{lida:true});document.getElementById('gxn-panel')?.remove();gxChatOpenCh(n.link.id||'equipe');return}}catch(e){}
+    return prevOpen(id);
+  };
+  setInterval(()=>{if(!C.ready)init();else paintBtn()},4000);
+  setTimeout(init,2500);
+})();
+</script>
 </body>
 </html>
