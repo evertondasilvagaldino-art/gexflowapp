@@ -10072,6 +10072,19 @@ function getLeadOwnerId(lead){
   return String(lead.responsavelId||lead.ownerId||lead.vendedorId||lead.assignedToId||lead.createdById||lead.userId||'');
 }
 
+// ── Trava contra lead duplicado (30/10/2026): mesmo telefone (DDD + 8 últimos dígitos, ignora +55 e
+// formatação) ou mesmo e-mail de um lead criado nas últimas 24h.
+function gxPhoneKey(v){let d=String(v??'').replace(/\D/g,'');if(d.length>=12&&d.startsWith('55'))d=d.slice(2);if(d.length<10)return '';return d.slice(0,2)+'|'+d.slice(-8)}
+function gxFindRecentDuplicateLead(email,telefone,horas){
+  const em=String(email||'').trim().toLowerCase(),ph=gxPhoneKey(telefone);
+  if(!em&&!ph)return null;
+  const lim=Date.now()-(horas||24)*3600000;
+  return (DB.get('leads')||[]).find(l=>{
+    if(!l||l.deleted_at)return false;
+    const t=new Date(l.createdAt||l.created_at||0).getTime();if(!t||t<lim)return false;
+    return (em&&String(l.email||'').trim().toLowerCase()===em)||(ph&&gxPhoneKey(l.telefone||l.whatsapp)===ph);
+  })||null;
+}
 function getLeadOwnerEmail(lead){
   if(!lead)return '';
   return normalizeLoginEmail(lead.responsavelEmail||lead.ownerEmail||lead.vendedorEmail||lead.assignedToEmail||lead.createdByEmail||lead.userEmail||'');
@@ -10094,7 +10107,8 @@ function gxStageSince(l){
   const c=_gxTs(l.createdAt||l.created_at||l.dataInicio);return c?{t:c,approx:true}:null;
 }
 function gxDurLabel(ms){
-  if(!(ms>=0))return '';
+  if(isNaN(ms))return '';
+  if(ms<0)ms=0; // data de criação salva sem fuso pode ficar alguns minutos "no futuro"
   const h=ms/3600000;
   if(h<1)return '<1h';
   if(h<24)return Math.floor(h)+'h';
@@ -11548,7 +11562,7 @@ function renderComercial(){
           <div class="pcard-name">${l.nome||'Lead sem nome'}</div>
         </div>
         ${l.empresa?`<div class="pcard-co gx-c-emp">${gxIc('emp')}<span>${escHtml(String(l.empresa))}</span></div>`:''}
-        <div class="pcard-co gx-c-resp">${gxIc('resp')}<span>${getLeadOwnerName(l)||'Sem responsável'}</span></div>
+        <div class="pcard-co gx-c-resp">${(()=>{const on=getLeadOwnerName(l);return on?`<span class="gx-resp-av">${gxAvInner({id:getLeadOwnerId(l),email:getLeadOwnerEmail(l),nome:on},on)}</span>`:gxIc('resp')})()}<span>${getLeadOwnerName(l)||'Sem responsável'}</span></div>
         ${(()=>{const t=leadEntradaLabel(l);return t?`<div class="pcard-co gx-c-ent" title="Data e hora em que o lead entrou">${gxIc('ent')}<span>${t}</span></div>`:''})()}
         ${l.telefone?`<div class="pcard-co gx-c-tel">${gxIc('tel')}<span>${escHtml(String(l.telefone))}</span></div>`:''}
         ${l.email?`<div class="pcard-co gx-c-mail">${gxIc('mail')}<span>${escHtml(String(l.email))}</span></div>`:''}
@@ -12535,7 +12549,7 @@ function renderRH(){
   g.innerHTML=filtered.length?filtered.map(m=>{
     const sqCor=sqMap[m.squad]||'var(--muted)';
     return `<div class="member-card">
-      <div class="member-av">${initials(m.nome)}</div>
+      <div class="member-av" style="overflow:hidden">${gxAvInner(m)}</div>
       <div class="member-name">${m.nome}</div>
       <div class="member-role">${m.cargo}</div>
       <div style="margin-bottom:8px">${badge(m.status)}</div>
@@ -13018,6 +13032,36 @@ function getUserInitials(name){
 function getAvatarInner(user){
   const avatar=getUserAvatar(user);
   return avatar?`<img src="${escAttr(avatar)}" alt="Foto de ${escAttr(user?.nome||'usuário')}">`:getUserInitials(user?.nome);
+}
+// ── FOTO DE PERFIL DE QUALQUER PESSOA (30/10/2026) ──
+// Recebe {id,email,nome}, um id, um e-mail ou um nome e devolve a foto do perfil dela (Meu Perfil),
+// ou "" se ela não tiver foto. Usado em todos os lugares que mostram responsáveis.
+function gxFindUserForAvatar(p){
+  if(!p)return null;
+  const q=typeof p==='object'?p:{id:p,email:p,nome:p};
+  const n=v=>String(v||'').trim().toLowerCase();
+  const ks=[q.id,q.supabaseId,q.email,q.nome].map(n).filter(Boolean);
+  if(!ks.length)return null;
+  let users=[];
+  try{users=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios'))||[]}catch(e){users=[]}
+  if(typeof sessionUser!=='undefined'&&sessionUser)users=[sessionUser,...users];
+  const hit=u=>[u.id,u.supabaseId,u.email].map(n).some(k=>k&&ks.includes(k));
+  return users.find(hit)||users.find(u=>n(u.nome)&&ks.includes(n(u.nome)))||null;
+}
+function gxAvatarUrlFor(p){
+  try{
+    const u=gxFindUserForAvatar(p);
+    if(!u)return '';
+    if(typeof sessionUser!=='undefined'&&sessionUser&&(String(u.id)===String(sessionUser.id)||(u.email&&u.email===sessionUser.email)))return getUserAvatar(getCurrentUser()||sessionUser)||'';
+    return getUserAvatar(u)||'';
+  }catch(e){return ''}
+}
+// Conteúdo de um círculo de avatar: <img> com a foto, ou as iniciais se não houver foto.
+function gxAvInner(p,nomeFallback){
+  const nome=(typeof p==='object'&&p?p.nome:'')||nomeFallback||(typeof p==='string'?p:'')||'';
+  const url=gxAvatarUrlFor(p);
+  const ini=getUserInitials(nome||'?');
+  return url?`<img class="gx-avimg" src="${escAttr(url)}" alt="" title="${escAttr(nome)}" onerror="this.replaceWith(document.createTextNode('${escAttr(ini)}'))">`:escHtml(ini);
 }
 function renderAvatarElement(el,user){
   if(!el||!user)return;
@@ -13893,7 +13937,7 @@ function buildContaStatusGroupsHtml(clientes){
     const rows=items.map(c=>{
       const nComentarios=(c.comentarios||[]).length;
       const resp=(c.contaResponsaveis||[]).map(mid=>membros.find(m=>m.id===mid)).filter(Boolean);
-      const avatares=resp.length?resp.map((m,i)=>`<div style="width:24px;height:24px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card);margin-left:${i?'-8px':'0'}" title="${m.nome}">${initials(m.nome)}</div>`).join(''):'<span style="color:var(--light);font-size:16px">👤</span>';
+      const avatares=resp.length?resp.map((m,i)=>`<div style="width:24px;height:24px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card);margin-left:${i?'-8px':'0'};overflow:hidden" title="${m.nome}">${gxAvInner(m)}</div>`).join(''):'<span style="color:var(--light);font-size:16px">👤</span>';
       const resCor=CONTA_RESULTADO_COR[c.contaResultado]||'#9CA3AF';
       const relCor=CONTA_RELACIONAMENTO_COR[c.contaRelacionamento]||'#9CA3AF';
       return `<tr style="cursor:pointer" onclick="openModal('cliente','${c.id}','carteira')">
@@ -14084,7 +14128,7 @@ function buildEntregasKanbanHtml(pros,clienteNome){
         const nComentarios=(p.comentarios||[]).length;
         return `<div class="kcard" draggable="true" ondragstart="dragStart(event,'${p.id}','projeto')" ondragend="dragEnd(event)" onclick="openModal('projeto','${p.id}')">
         <div class="kcard-title">${p.nome}</div>
-        <div class="kcard-sub">${p.responsavelNome?`👤 ${p.responsavelNome}`:'Sem responsável'}</div>
+        <div class="kcard-sub" style="display:flex;align-items:center;gap:6px">${p.responsavelNome?`<span class="gx-resp-av">${gxAvInner({id:p.responsavelId,nome:p.responsavelNome},p.responsavelNome)}</span>${p.responsavelNome}`:'Sem responsável'}</div>
         <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">
           ${p.formato?`<span class="badge badge-blue">${p.formato}</span>`:''}
           <span class="badge" style="background:${PRIORIDADE_COR[p.prioridade||'Normal']}22;color:${PRIORIDADE_COR[p.prioridade||'Normal']}">${p.prioridade||'Normal'}</span>
@@ -14113,7 +14157,7 @@ function buildEntregasStatusGroupsHtml(pros,clienteNome){
       const objCor=OBJETIVO_COR[p.objetivoPost]||'#9CA3AF';
       return `<tr style="cursor:pointer" onclick="openModal('projeto','${p.id}')">
         <td style="font-weight:600;font-size:13px">${p.nome}</td>
-        <td onclick="event.stopPropagation()">${p.responsavelNome?`<div style="display:flex;align-items:center;gap:6px"><div style="width:26px;height:26px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials(p.responsavelNome)}</div><span style="font-size:12px">${p.responsavelNome}</span></div>`:'<span style="color:var(--light);font-size:16px">👤</span>'}</td>
+        <td onclick="event.stopPropagation()">${p.responsavelNome?`<div style="display:flex;align-items:center;gap:6px"><div style="width:26px;height:26px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">${gxAvInner({id:p.responsavelId,nome:p.responsavelNome},p.responsavelNome)}</div><span style="font-size:12px">${p.responsavelNome}</span></div>`:'<span style="color:var(--light);font-size:16px">👤</span>'}</td>
         <td>${p.formato?`<span class="badge badge-blue">${p.formato}</span>`:'<span style="color:var(--light)">—</span>'}</td>
         <td>${p.objetivoPost?`<span class="badge" style="background:${objCor}22;color:${objCor}">${p.objetivoPost}</span>`:'<span style="color:var(--light)">—</span>'}</td>
         <td onclick="event.stopPropagation()">
@@ -19144,7 +19188,7 @@ function renderDealSidebar(){
       ${(()=>{const tl=gxStageTimelineHtml(l);return tl?`<div class="sb-field" style="flex-direction:column;align-items:stretch;gap:6px"><span class="sb-field-lbl">Tempo em cada etapa</span>${tl}</div>`:''})()}
       <div class="sb-field"><span class="sb-field-lbl">Status</span><span class="sb-field-val">${badge(l.dealStatus||'Em andamento')}</span></div>
       ${l.produto?`<div class="sb-field"><span class="sb-field-lbl">Produto / Serviço</span><span class="sb-field-val" style="color:var(--p1);font-weight:600">${l.produto}</span></div>`:''}
-      <div class="sb-field"><span class="sb-field-lbl">Responsável</span><span class="sb-field-val">Everton Galdino</span></div>
+      <div class="sb-field"><span class="sb-field-lbl">Responsável</span><span class="sb-field-val" style="display:inline-flex;align-items:center;gap:7px">${(()=>{const on=getLeadOwnerName(l);return on?`<span class="gx-resp-av">${gxAvInner({id:getLeadOwnerId(l),email:getLeadOwnerEmail(l),nome:on},on)}</span>${escHtml(on)}`:'Sem responsável'})()}</span></div>
       <div class="sb-field"><span class="sb-field-lbl">Data início</span><span class="sb-field-val">${l.dataInicio?new Date(l.dataInicio+'T00:00:00').toLocaleDateString('pt-BR'):(l.createdAt?new Date(l.createdAt).toLocaleDateString('pt-BR'):'—')}</span></div>
       ${(()=>{const t=leadEntradaLabel(l);const hm=t&&t.includes(' ')?t.split(' ')[1]:'';return hm?`<div class="sb-field"><span class="sb-field-lbl">Hora de entrada</span><span class="sb-field-val">${hm}</span></div>`:''})()}
       <div class="sb-field"><span class="sb-field-lbl">Previsão fecha.</span><span class="sb-field-val">${l.dataFechamento||'—'}</span></div>
@@ -22122,7 +22166,17 @@ ${gxlCloseScriptTag}`;
     const dist=(!preview&&f.distribute)?(typeof pickNextDistributedFunnel==='function'?pickNextDistributedFunnel(f):null):null;
     const destino=dist?{funnelId:dist.funnelId,funnelName:dist.funnelName,stageId:dist.stageId,stageName:dist.stageName}:{funnelId:f.funnelId||'',funnelName:f.funnelName||'',stageId:f.stageId||'',stageName:f.stageName||''};
     const ownerFields=dist?{responsavelId:dist.ownerId,responsavelNome:dist.ownerNome,responsavelEmail:dist.ownerEmail,ownerId:dist.ownerId,ownerName:dist.ownerNome,ownerEmail:dist.ownerEmail,vendedorId:dist.ownerId,vendedorNome:dist.ownerNome,vendedorEmail:dist.ownerEmail,assignedToId:dist.ownerId,assignedTo:dist.ownerNome,assignedToEmail:dist.ownerEmail}:{};
-    const lead={id:uid(),nome:data.nome||data.nome_completo||data.name||'Lead de formulário',email:data.email||'',telefone:data.telefone||data.whatsapp||data.phone||'',origem:`Formulário: ${f.name}`,desc:descValue,estagio:destino.stageName||'Novo Lead',stageId:destino.stageId||'',funnelId:destino.funnelId||'',data:new Date().toLocaleDateString('pt-BR'),dataInicio:new Date().toISOString().slice(0,10),createdAt:new Date().toISOString(),utm_source:data.utm_source||'',utm_medium:data.utm_medium||'',utm_campaign:data.utm_campaign||'',utm_content:data.utm_content||'',formData:data,...ownerFields};DB.push('leads',lead);DB.push('lead_form_submissions',{id:uid(),formId:f.id,formName:f.name,leadId:lead.id,data,createdAt:new Date().toISOString()});root.querySelector('.gl-public-card').innerHTML=`<div class="gl-success"><i>✓</i><h2>Formulário enviado!</h2><p>${esc(f.successMessage||'Recebemos seus dados. Em breve entraremos em contato!')}</p></div>`;try{fireWebhook('lead.criado',{...lead,formId:f.id})}catch(err){}if(!preview&&f.metaPixelId){try{window.fbq&&window.fbq('track','Lead')}catch(err){}}}
+    const lead={id:uid(),nome:data.nome||data.nome_completo||data.name||'Lead de formulário',email:data.email||'',telefone:data.telefone||data.whatsapp||data.phone||'',origem:`Formulário: ${f.name}`,desc:descValue,estagio:destino.stageName||'Novo Lead',stageId:destino.stageId||'',funnelId:destino.funnelId||'',data:new Date().toLocaleDateString('pt-BR'),dataInicio:new Date().toISOString().slice(0,10),createdAt:new Date().toISOString(),utm_source:data.utm_source||'',utm_medium:data.utm_medium||'',utm_campaign:data.utm_campaign||'',utm_content:data.utm_content||'',formData:data,...ownerFields};const _dup=(typeof gxFindRecentDuplicateLead==='function')?gxFindRecentDuplicateLead(lead.email,lead.telefone):null;
+    if(_dup){
+      // Trava contra duplicado: mesma pessoa há menos de 24h → anota no lead que já existe (não cria card novo)
+      const _q=new Date().toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      const _res=Object.entries(data||{}).filter(([k,v])=>String(v||'').trim()&&!/^utm_/.test(k)).map(([k,v])=>`• ${k}: ${String(v).slice(0,300)}`).join('\n');
+      DB.update('leads',_dup.id,{email:_dup.email||lead.email,telefone:_dup.telefone||lead.telefone,desc:(_dup.desc?_dup.desc+'\n\n':'')+`📝 ${_q} — Também preencheu o formulário "${f.name}".`+(_res?'\n'+_res:''),formulariosExtras:[...(_dup.formulariosExtras||[]),{formId:f.id,formName:f.name,em:new Date().toISOString()}].slice(-20)});
+      DB.push('atividades',{id:uid(),leadId:_dup.id,tipo:'Nota',ico:'📝',texto:`Também preencheu o formulário "${f.name}" (lead duplicado juntado automaticamente).`,data:_q,usuario:'Formulário'});
+      DB.push('lead_form_submissions',{id:uid(),formId:f.id,formName:f.name,leadId:_dup.id,duplicado:true,data,createdAt:new Date().toISOString()});
+    }else{
+    DB.push('leads',lead);DB.push('lead_form_submissions',{id:uid(),formId:f.id,formName:f.name,leadId:lead.id,data,createdAt:new Date().toISOString()});
+    }root.querySelector('.gl-public-card').innerHTML=`<div class="gl-success"><i>✓</i><h2>Formulário enviado!</h2><p>${esc(f.successMessage||'Recebemos seus dados. Em breve entraremos em contato!')}</p></div>`;try{fireWebhook('lead.criado',{...lead,formId:f.id})}catch(err){}if(!preview&&f.metaPixelId){try{window.fbq&&window.fbq('track','Lead')}catch(err){}}}
   }
   window.gxlOpen=id=>{const f=forms().find(x=>x.id===id);if(!f)return;gxlCloseMenu();showPublicForm(f,true)};
   function openPublicForm(){const q=new URLSearchParams(location.search),slug=q.get('gex_form');if(!slug)return;const f=forms().find(x=>x.slug===slug&&(x.active||q.get('gex_preview')==='1'));if(f)showPublicForm(f,false)}
@@ -25176,7 +25230,7 @@ function ini(n){return String(n||'?').trim().split(/\s+/).map(x=>x[0]).slice(0,2
 function avs(ids){
   const ps=(ids||[]).map(personById).filter(Boolean);
   if(!ps.length)return '<span style="color:var(--light)">—</span>';
-  return ps.map(p=>`<span class="op-av" title="${ea(p.nome)}">${esc(ini(p.nome))}</span>`).join('');
+  return ps.map(p=>`<span class="op-av" title="${ea(p.nome)}">${gxAvInner(p)}</span>`).join('');
 }
 function hostOf(u){try{return new URL(/^https?:\/\//i.test(u)?u:'https://'+u).hostname.replace(/^www\./,'')}catch(e){return String(u).slice(0,22)}}
 function safeUrl(u){u=String(u||'').trim();return /^https?:\/\//i.test(u)?u:'https://'+u}
@@ -25503,14 +25557,14 @@ function renderTaskInner(keepScroll){
   const ico=k=>`<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[k]}</svg>`;
   const hojeISO=(()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10)})();
   const prazo=(()=>{if(!t.venc||st?.concluido)return '';const dd=Math.round((new Date(t.venc+'T12:00:00')-new Date(hojeISO+'T12:00:00'))/864e5);if(dd<0)return `<span class="opd-due bad">atrasada ${-dd}d</span>`;if(dd===0)return '<span class="opd-due warn">vence hoje</span>';if(dd===1)return '<span class="opd-due warn">vence amanhã</span>';return `<span class="opd-due">em ${dd} dias</span>`})();
-  const respSel=(t.resp||[]).map(id=>{const p=personById(id);return p?`<span class="opd-person"><span class="opd-av">${esc(ini(p.nome))}</span>${esc(p.nome)}<button type="button" title="Remover" onclick="opToggleResp('${t.id}',${jsq(p.id)})">✕</button></span>`:''}).join('');
+  const respSel=(t.resp||[]).map(id=>{const p=personById(id);return p?`<span class="opd-person"><span class="opd-av">${gxAvInner(p)}</span>${esc(p.nome)}<button type="button" title="Remover" onclick="opToggleResp('${t.id}',${jsq(p.id)})">✕</button></span>`:''}).join('');
   const campos=(l.campos||[]).map(c=>`<div class="opd-row"><span class="opd-lbl">${esc(c.nome)}</span><div class="opd-val">${campoInput(t,c)}</div></div>`).join('');
   const ckHtml=(t.checklists||[]).map(c=>{
     const tot=(c.itens||[]).length,dn=(c.itens||[]).filter(i=>i.feito).length;
     return `<div class="op-ck">
       <div style="display:flex;align-items:center;gap:8px"><input class="form-input" style="flex:1;font-weight:700;padding:4px 8px;font-size:13px" value="${ea(c.nome)}" onchange="opCkRename('${c.id}',this.value)"><span style="font-size:11px;color:var(--muted)">${dn}/${tot}</span><button class="op-x" title="Remover checklist" onclick="opCkDel('${c.id}')"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div>
       <div class="op-bar"><i style="width:${tot?Math.round(dn/tot*100):0}%"></i></div>
-      ${(c.itens||[]).map(i=>`<div class="op-ck-it ${i.feito?'done':''}" style="cursor:pointer" onclick="opCkToggle('${c.id}','${i.id}')"><span class="op-ckc ${i.feito?'on':''}">${i.feito?'✓':''}</span><span class="tx" style="flex:1">${esc(i.texto)}</span>${i.resp?`<span class="op-av" style="margin:0" title="${ea(personById(i.resp)?.nome||'')}">${esc(ini(personById(i.resp)?.nome))}</span>`:''}<button class="op-x" onclick="event.stopPropagation();opCkItemDel('${c.id}','${i.id}')">✕</button></div>`).join('')}
+      ${(c.itens||[]).map(i=>`<div class="op-ck-it ${i.feito?'done':''}" style="cursor:pointer" onclick="opCkToggle('${c.id}','${i.id}')"><span class="op-ckc ${i.feito?'on':''}">${i.feito?'✓':''}</span><span class="tx" style="flex:1">${esc(i.texto)}</span>${i.resp?`<span class="op-av" style="margin:0" title="${ea(personById(i.resp)?.nome||'')}">${gxAvInner(personById(i.resp)||i.resp)}</span>`:''}<button class="op-x" onclick="event.stopPropagation();opCkItemDel('${c.id}','${i.id}')">✕</button></div>`).join('')}
       <div style="display:flex;gap:6px;margin-top:6px"><input class="form-input" id="op-ckin-${c.id}" placeholder="Novo item… (Enter para adicionar)" style="padding:4px 8px;font-size:12.5px" onkeydown="if(event.key==='Enter')opCkAdd('${c.id}')"><button class="op-ghost" onclick="opCkAdd('${c.id}')">Adicionar</button></div>
     </div>`;}).join('');
   const anexos=(t.anexos||[]).map(a=>`<div class="op-att"><span>📎</span><a href="#" class="op-link" style="flex:1;overflow:hidden;text-overflow:ellipsis" onclick="opOpenAnexo('${a.id}');return false">${esc(a.nome)}</a><span style="font-size:11px;color:var(--light)">${esc(fmtSize(a.tamanho))}</span><button class="op-x" onclick="opDelAnexo('${a.id}')">✕</button></div>`).join('');
@@ -25520,7 +25574,7 @@ function renderTaskInner(keepScroll){
   const logs=[];(t.atividade||[]).filter(a=>a.tipo!=='comentario').forEach(a=>{const pv=logs[logs.length-1];if(pv&&pv.autor===a.autor&&logKey(pv.texto)===logKey(a.texto)&&Math.abs(new Date(a.data)-new Date(pv.data))<600000)logs[logs.length-1]=a;else logs.push(a)});
   const tab=S.actTab||(coments.length?'com':'hist');
   const atv=tab==='com'
-    ?(coments.length?coments.map(a=>`<div class="opd-cm"><span class="opd-av">${esc(ini(a.autor))}</span><div class="opd-cm-b"><div class="opd-cm-h"><b>${esc(a.autor)}</b><span>${quando(a.data)}</span></div><div class="opd-cm-t">${mentionHtml(a.texto)}</div></div></div>`).join(''):'<div class="opd-empty">Nenhum comentário ainda. Escreva abaixo e use @ para marcar alguém.</div>')
+    ?(coments.length?coments.map(a=>`<div class="opd-cm"><span class="opd-av">${gxAvInner(a.autorId?{id:a.autorId,nome:a.autor}:a.autor,a.autor)}</span><div class="opd-cm-b"><div class="opd-cm-h"><b>${esc(a.autor)}</b><span>${quando(a.data)}</span></div><div class="opd-cm-t">${mentionHtml(a.texto)}</div></div></div>`).join(''):'<div class="opd-empty">Nenhum comentário ainda. Escreva abaixo e use @ para marcar alguém.</div>')
     :logs.slice().reverse().map(a=>`<div class="opd-log"><span class="opd-log-dot"></span><div><b>${esc(a.autor)}</b> ${esc(a.texto)}<div class="opd-log-d">${quando(a.data)}</div></div></div>`).join('');
   ov.innerHTML=`<div class="op-drawer opd">
     <div class="op-main">
@@ -28328,14 +28382,18 @@ html body .sidebar .gxn-bell-side{display:flex;align-items:center;gap:10px;width
 html body .sidebar .gxn-bell-side:hover{background:rgba(255,255,255,.1);color:#fff}
 html body .sidebar .gxn-bell-side .gxn-lbl{flex:1}
 html body .sidebar .gxn-bell-side .gxn-badge{position:static;border:0;min-width:20px;height:20px;font-size:11px}
-html body .sidebar .gxn-bell-side.has{border-color:rgba(239,68,68,.55);background:rgba(239,68,68,.12);color:#fff}
-.gxn-bell.has .gxn-ico{transform-origin:50% 2px;animation:gxnRing 1.6s ease-in-out infinite}
-.gxn-bell.has .gxn-badge{animation:gxnPulse 1.6s ease-in-out infinite}
-html body .sidebar .gxn-bell-side.has{animation:gxnGlow 1.6s ease-in-out infinite}
+html body .sidebar .gxn-bell-side.has{border-color:rgba(250,204,21,.5);background:rgba(250,204,21,.1);color:#fff}
+/* pisca (acende/apaga) até a pessoa ler — sem balançar o sino */
+.gxn-bell.has .gxn-badge{animation:gxnBlink 1s steps(1,end) infinite}
+html body .sidebar .gxn-bell-side.has{animation:gxnBlinkBox 1s steps(1,end) infinite}
+.gxn-bell-top.has{animation:gxnBlinkTop 1s steps(1,end) infinite}
+@keyframes gxnBlink{0%{opacity:1}50%{opacity:.25}}
+@keyframes gxnBlinkBox{0%{background:#FACC15;border-color:#FACC15;color:#1A1A2E}50%{background:rgba(250,204,21,.08);border-color:rgba(250,204,21,.4);color:#fff}}
+@keyframes gxnBlinkTop{0%{background:#FACC15;color:#1A1A2E}50%{background:transparent}}
 @keyframes gxnRing{0%,60%,100%{transform:rotate(0)}10%{transform:rotate(16deg)}20%{transform:rotate(-14deg)}30%{transform:rotate(10deg)}40%{transform:rotate(-6deg)}50%{transform:rotate(3deg)}}
 @keyframes gxnPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.6)}50%{box-shadow:0 0 0 6px rgba(239,68,68,0)}}
 @keyframes gxnGlow{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.35)}50%{box-shadow:0 0 0 4px rgba(239,68,68,0)}}
-@media (prefers-reduced-motion:reduce){.gxn-bell.has .gxn-ico,.gxn-bell.has .gxn-badge,html body .sidebar .gxn-bell-side.has{animation:none}}
+@media (prefers-reduced-motion:reduce){.gxn-bell.has .gxn-badge,html body .sidebar .gxn-bell-side.has,.gxn-bell-top.has{animation-duration:2s}}
 /* menu recolhido: só o ícone */
 html body.sb-collapsed .sidebar .gxn-bell-side{justify-content:center;padding:9px 0;width:40px;margin:12px auto 0}
 html body.sb-collapsed .sidebar .gxn-bell-side .gxn-lbl{display:none}
@@ -28408,6 +28466,14 @@ html body .opd-empty{font-size:12.5px;color:var(--muted);text-align:center;paddi
 html body .opd .op-cmbox{padding:12px 14px 14px}
 html body .opd .op-cmbox textarea{width:100%;font-size:13px;border-radius:12px;padding:10px 12px;min-height:64px;resize:vertical}
 @media(max-width:900px){html body .opd{display:block!important;overflow:auto}html body .opd .op-main{overflow:visible}html body .opd .op-act-list{max-height:none}html body .opd .op-act{border-left:0;border-top:1px solid var(--border);min-height:420px}html body .opd-row{grid-template-columns:1fr;gap:6px}html body .opd-ib span{display:none}html body .opd-ib{width:32px;justify-content:center;padding:0}}
+</style>
+<style id="gx-fotos-v2">
+/* Foto de perfil nos responsáveis (30/10/2026) */
+img.gx-avimg{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block}
+.op-av,.opd-av{overflow:hidden}
+.op-av img.gx-avimg,.opd-av img.gx-avimg{width:100%;height:100%}
+.gx-resp-av{width:20px;height:20px;border-radius:50%;flex:none;display:inline-grid;place-items:center;overflow:hidden;background:rgba(139,92,246,.15);color:#6D28D9;font-size:9px;font-weight:800;line-height:1}
+.gx-resp-av+span{min-width:0}
 </style>
 </body>
 </html>
