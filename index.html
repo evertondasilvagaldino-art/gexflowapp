@@ -5290,9 +5290,14 @@ function userCanAccess(user,module,action){
 // Comercial, Integrações, Gerar Leads e Meu Perfil ficam liberados nos
 // dois planos — só isso aqui é exclusivo do Pro.
 const GX_PRO_ONLY_MODULES = ['automacoes', 'whatsapp-chat'];
+function gxTemCortesiaPro(user){
+  try{return _permOverridesForUser(user)?.plano_pro?.view===true}catch(e){return false}
+}
 function gxPlanBlocksModule(module){
   if(!gxIsPartnerRole())return false;
   if(!GX_PRO_ONLY_MODULES.includes(module))return false;
+  // Liberação manual (cortesia) feita pelo Fundador/Adm na edição do usuário: vale mesmo sem plano Pro.
+  if(gxTemCortesiaPro(sessionUser))return false;
   return gxMyPlanTier!=='pro';
 }
 // Central permission gate
@@ -8685,6 +8690,13 @@ function initUserAccessEditor(user={}){
   userPermTargetId=user?.id||'';
   const role=resolveRole(document.getElementById('f-permissao')?.value||user?.permissao||'Colaborador');
   userPermDraft=clonePermStateForRole(role,user?.permOverrides||{});
+  userPermDraft.__planoPro=gxTemCortesiaPro(user);
+  renderUserAccessEditor();
+}
+function onUserPlanoProToggle(el){
+  if(!userPermDraft)userPermDraft={};
+  userPermDraft.__planoPro=!!el.checked;
+  if(el.checked){['whatsapp-chat','automacoes'].forEach(m=>{userPermDraft[m]=userPermDraft[m]||{};userPermDraft[m].view=true})}
   renderUserAccessEditor();
 }
 
@@ -8760,6 +8772,7 @@ function renderUserAccessEditor(){
 
   const role=resolveRole(document.getElementById('f-permissao')?.value||'Colaborador');
   const isFundadorRole=role==='Fundador';
+  const isParceiroRole=role==='Gex Parceiro';
   const canManage=can('usuarios','manage')||resolveRole(sessionUser?.permissao)==='Fundador';
 
   if(!userPermDraft)userPermDraft=clonePermStateForRole(role,{});
@@ -8790,8 +8803,8 @@ function renderUserAccessEditor(){
         <label class="perm-v4-row-main">
           <input type="checkbox" data-mod="${tab.id}" data-act="view" ${view?'checked':''} ${disabledAll?'disabled':''} onchange="onUserPermInputChange(this)">
           <span>
-            <strong>${tab.label}</strong>
-            <small>${view?'Aba visível no menu do usuário':'Aba oculta para o usuário'}</small>
+            <strong>${tab.label}${isParceiroRole&&GX_PRO_ONLY_MODULES.includes(tab.id)?` <em class="perm-pro-tag" title="Exclusivo do plano Pro do Gex Parceiro">PRO</em>`:''}</strong>
+            <small>${isParceiroRole&&GX_PRO_ONLY_MODULES.includes(tab.id)&&view&&!userPermDraft.__planoPro?'Só aparece se o parceiro tiver plano Pro ativo (ou cortesia abaixo)':(view?'Aba visível no menu do usuário':'Aba oculta para o usuário')}</small>
           </span>
         </label>
         <div class="perm-v4-row-actions">${actHtml}</div>
@@ -8829,6 +8842,11 @@ function renderUserAccessEditor(){
           <button type="button" onclick="selectAllUserAccess(false)">Bloquear tudo</button>`:''}
         </div>
       </div>
+      ${isParceiroRole?`<label class="perm-pro-card ${userPermDraft.__planoPro?'on':''}">
+        <input type="checkbox" ${userPermDraft.__planoPro?'checked':''} ${disabledAll?'disabled':''} onchange="onUserPlanoProToggle(this)">
+        <span><b>Liberar WhatsApp e Automações sem plano Pro (cortesia)</b>
+        <small>Essas duas abas são do plano Pro. Sem o Pro, ficam escondidas mesmo marcadas. Marque aqui para liberar este parceiro manualmente.</small></span>
+      </label>`:''}
       <div class="perm-v4-scroll">${sectionHtml}</div>
       <div class="perm-v4-summary">
         <b>${activeTabs}</b> de <b>${totalTabs}</b> abas liberadas. O usuário verá somente o que estiver marcado.
@@ -8843,6 +8861,7 @@ function collectUserPermOverrides(){
   if(role==='Fundador')return {};
   if(!userPermDraft)userPermDraft=clonePermStateForRole(role,{});
   const overrides={};
+  if(role==='Gex Parceiro'&&userPermDraft.__planoPro)overrides.plano_pro={view:true};
   getPermEditorModules().forEach(mod=>{
     ACTIONS.forEach(act=>{
       const val=!!(userPermDraft[mod]&&userPermDraft[mod][act]);
@@ -12864,44 +12883,62 @@ const MOD_LABELS={
 };
 const ACT_LABELS={view:'Ver',create:'Criar',edit:'Editar',delete:'Excluir',approve:'Aprovar',export:'Exportar',manage:'Gerenciar'};
 
+// Matriz de permissões v2 (30/10/2026): visão geral de TODOS os setores por usuário, calculada com a
+// mesma regra que monta o menu (userCanAccess + trava do plano Pro). Para alterar, clique no usuário.
+let _pmFiltro={q:'',papel:''};
+function _pmNivel(u,sec){
+  const role=resolveRole(u.permissao||u.cargo||'Colaborador');
+  const tabs=(sec.tabs||[]).filter(t=>!(t.id==='config_pagamentos'&&role!=='Fundador'));
+  const all=sec.tabs||[];
+  if(role==='Fundador')return {k:'total',vis:all.map(t=>t.label),total:all.length};
+  const vis=tabs.filter(t=>userCanAccess(u,t.id,'view'));
+  if(!vis.length)return {k:'nao',vis:[],total:all.length};
+  const edita=vis.filter(t=>userCanAccess(u,t.id,'edit')||userCanAccess(u,t.id,'create'));
+  const k=vis.length===all.length&&edita.length===vis.length?'total':(!edita.length?'ver':'parcial');
+  return {k,vis:vis.map(t=>t.label),total:all.length};
+}
+function pmFiltrar(campo,val){_pmFiltro[campo]=val;renderPermMatrix();if(campo==='q'){const el=document.getElementById('pm-q');if(el){el.focus();el.setSelectionRange(val.length,val.length)}}}
 function renderPermMatrix(){
-  const users=getUsuariosForDisplay();
-  const currentRole=resolveRole(sessionUser?.permissao||'Colaborador');
-  const canManage=can('usuarios','manage');
-  const mainMods=['clientes','comercial','financas','projetos','configuracoes','rh','usuarios'];
-  const mainActs=['view','create','edit','delete','manage'];
-  let html=`<div class="perm-matrix"><div class="perm-matrix-scroll"><table class="perm-table">
-    <thead><tr><th>Usuário / Papel</th>${mainMods.map(m=>`<th colspan="${mainActs.length}" style="text-align:center;border-left:1px solid var(--border)">${MOD_LABELS[m]}</th>`).join('')}</tr>
-    <tr><th></th>${mainMods.map(()=>mainActs.map(a=>`<th style="text-align:center">${ACT_LABELS[a]}</th>`).join('')).join('')}</tr></thead>
-    <tbody>`;
-  users.forEach(u=>{
-    const role=resolveRole(u.permissao||'Colaborador');
-    const overrides=u.permOverrides||{};
-    const isFundador=role==='Fundador';
-    html+=`<tr><td><div style="font-weight:600;font-size:12px">${u.nome}</div><div style="font-size:10px;color:var(--muted)">${role}</div></td>`;
-    mainMods.forEach(mod=>{
-      html+=`<td style="border-left:1px solid var(--border)"></td>`;
-      mainActs.slice(1).forEach(act=>{
-        const perms=ROLE_PERMS[role]||{};
-        const hasPerm=overrides[mod]&&overrides[mod][act]!==undefined?overrides[mod][act]:!!(perms[mod]&&perms[mod][act]);
-        if(isFundador||!canManage||!gxCanManageTargetUser(u)){
-          html+=`<td><div class="perm-check-wrap"><div class="perm-check ${hasPerm?'on':''}" title="${hasPerm?'Permitido':'Negado'}">
-            ${hasPerm?`<svg width="9" height="9" viewBox="0 0 12 12" fill="white"><path d="M2 6l3 3 5-5"/></svg>`:''}
-          </div></div></td>`;
-        } else {
-          html+=`<td><div class="perm-check-wrap"><div class="perm-check ${hasPerm?'on':''}" onclick="togglePerm('${u.id}','${mod}','${act}',${!hasPerm})" title="Clique para ${hasPerm?'revogar':'conceder'}">
-            ${hasPerm?`<svg width="9" height="9" viewBox="0 0 12 12" fill="white"><path fill="none" stroke="white" stroke-width="2" d="M2 6l3 3 5-5"/></svg>`:''}
-          </div></div></td>`;
-        }
-      });
-    });
-    html+=`</tr>`;
-  });
-  html+=`</tbody></table></div></div>
-  <div style="margin-top:12px;font-size:11px;color:var(--muted)">
-    Clique nos quadrados para conceder/revogar permissões individuais. Permissões do Fundador são fixas e não editáveis.
-  </div>`;
-  document.getElementById('perm-matrix-wrap').innerHTML=html;
+  const wrap=document.getElementById('perm-matrix-wrap');if(!wrap)return;
+  const E=escHtml;
+  const canManage=can('usuarios','manage')||can('usuarios','edit');
+  const secs=PERMISSION_SECTIONS.filter(s=>s.id!=='integracoes');
+  let users=getUsuariosForDisplay().filter(u=>String(u.status||'Ativo').toLowerCase()!=='inativo');
+  const papeis=[...new Set(users.map(u=>resolveRole(u.permissao||u.cargo||'Colaborador')))];
+  const q=_pmFiltro.q.trim().toLowerCase();
+  users=users.filter(u=>(!q||String(u.nome||'').toLowerCase().includes(q)||String(u.email||'').toLowerCase().includes(q))&&(!_pmFiltro.papel||resolveRole(u.permissao||u.cargo||'Colaborador')===_pmFiltro.papel));
+  const ordem={'Fundador':0,'Adm Gerente':1,'Colaborador':2,'Gex Parceiro':3,'Operador de Funil':4};
+  users.sort((a,b)=>(ordem[resolveRole(a.permissao||'')]??9)-(ordem[resolveRole(b.permissao||'')]??9)||String(a.nome).localeCompare(String(b.nome)));
+  const LBL={total:'Total',parcial:'Parcial',ver:'Só ver',nao:'—'};
+  const rows=users.map(u=>{
+    const role=resolveRole(u.permissao||u.cargo||'Colaborador');
+    const parc=role==='Gex Parceiro',cort=parc&&gxTemCortesiaPro(u);
+    const editavel=canManage&&role!=='Fundador'&&gxCanManageTargetUser(u);
+    const av=typeof gxAvInner==='function'?gxAvInner(u,u.nome):E(String(u.nome||'?').slice(0,1));
+    const cells=secs.map(sec=>{
+      const n=_pmNivel(u,sec);
+      const pro=parc&&GX_PRO_ONLY_MODULES.includes(sec.id)&&n.k!=='nao';
+      const tip=n.k==='nao'?`${sec.label}: sem acesso`:`${sec.label}: ${n.vis.length}/${n.total} abas — ${n.vis.join(', ')}${pro?(cort?' · Cortesia Pro liberada':' · Só aparece com plano Pro ativo'):''}`;
+      return `<td><span class="pm-lv pm-${n.k}" title="${E(tip)}">${LBL[n.k]}${pro?`<em class="pm-pro ${cort?'ok':''}">${cort?'PRO ✓':'PRO'}</em>`:''}</span></td>`;
+    }).join('');
+    return `<tr class="${editavel?'pm-click':''}" ${editavel?`onclick='openModal("usuario","${E(u.id)}");setTimeout(()=>{try{document.getElementById("user-access-editor").scrollIntoView({block:"start",behavior:"smooth"})}catch(e){}},250)' title="Clique para editar os acessos de ${E(u.nome)}"`:''}>
+      <th scope="row"><div class="pm-user"><span class="pm-av">${av}</span><span><b>${E(u.nome||'')}</b><small><span class="pm-role">${E(role)}</span>${cort?' <span class="pm-cort">Cortesia Pro</span>':''}</small></span>${editavel?'<span class="pm-edit" aria-hidden="true">✎</span>':''}</div></th>${cells}</tr>`;
+  }).join('');
+  wrap.innerHTML=`
+    <div class="pm-bar">
+      <input id="pm-q" class="pm-in" type="search" placeholder="Buscar usuário…" value="${E(_pmFiltro.q)}" oninput="pmFiltrar('q',this.value)">
+      <select class="pm-in" onchange="pmFiltrar('papel',this.value)"><option value="">Todos os papéis</option>${papeis.map(p=>`<option ${_pmFiltro.papel===p?'selected':''}>${E(p)}</option>`).join('')}</select>
+      <div class="pm-leg"><span class="pm-lv pm-total">Total</span><span class="pm-lv pm-parcial">Parcial</span><span class="pm-lv pm-ver">Só ver</span><span class="pm-lv pm-nao">—</span><span class="pm-lv pm-ver" style="padding:3px 6px">sem acesso = —</span></div>
+    </div>
+    <div class="pm-wrap"><table class="pm-table">
+      <thead><tr><th scope="col">Usuário</th>${secs.map(s=>`<th scope="col"><span class="pm-dot" style="background:${s.color}"></span>${E(s.label)}</th>`).join('')}</tr></thead>
+      <tbody>${rows||`<tr><td colspan="${secs.length+1}" style="padding:28px;text-align:center;color:var(--muted)">Nenhum usuário encontrado.</td></tr>`}</tbody>
+    </table></div>
+    <div class="pm-note">
+      <b>Total</b> = vê todas as abas do setor e pode criar/editar · <b>Parcial</b> = algumas abas ou ações · <b>Só ver</b> = só visualiza.
+      Passe o mouse num quadro para ver as abas liberadas. ${canManage?'Clique no usuário para alterar os acessos.':''}
+      <br><b>PRO</b>: WhatsApp e Automações do Gex Parceiro só aparecem com plano Pro ativo, ou com a <b>cortesia</b> marcada na edição do usuário.
+    </div>`;
 }
 
 async function togglePerm(userId,module,action,value){
@@ -28942,5 +28979,45 @@ body.gxc-shake{animation:gxcShake .8s cubic-bezier(.36,.07,.19,.97)}
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)check()});
 })();
 </script>
+<style id="gx-perm-matriz-v2">
+.pm-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px}
+.pm-in{height:36px;border:1px solid var(--border);border-radius:9px;padding:0 12px;font:inherit;font-size:13px;background:var(--card,#fff);color:var(--txt,inherit)}
+.pm-in[type=search]{width:min(260px,100%)}
+.pm-leg{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.pm-leg .pm-lv:last-child{display:none}
+.pm-wrap{border:1px solid var(--border);border-radius:12px;overflow:auto;max-height:70vh;background:var(--card,#fff)}
+.pm-table{border-collapse:separate;border-spacing:0;width:100%;min-width:1100px}
+.pm-table thead th{position:sticky;top:0;z-index:2;background:var(--card,#fff);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:11px 8px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:center}
+.pm-table thead th:first-child{left:0;z-index:3;text-align:left;padding-left:14px}
+.pm-table tbody th{position:sticky;left:0;z-index:1;background:var(--card,#fff);text-align:left;padding:9px 10px 9px 14px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);min-width:230px;font-weight:400}
+.pm-table td{text-align:center;padding:8px 6px;border-bottom:1px solid var(--border)}
+.pm-table tbody tr:last-child>*{border-bottom:0}
+.pm-click{cursor:pointer}
+.pm-click:hover>*{background:rgba(124,58,237,.05)!important}
+.pm-dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:1px}
+.pm-user{display:flex;align-items:center;gap:10px}
+.pm-av{width:30px;height:30px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:rgba(139,92,246,.15);color:#6D28D9;font-size:11px;font-weight:800;flex:none}
+.pm-av img{width:100%;height:100%;object-fit:cover}
+.pm-user b{display:block;font-size:13px}
+.pm-user small{display:flex;gap:5px;align-items:center;margin-top:2px}
+.pm-role{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.pm-cort{font-size:10px;font-weight:800;color:#047857;background:rgba(16,185,129,.12);border-radius:999px;padding:1px 7px}
+.pm-edit{margin-left:auto;color:var(--muted);opacity:0;font-size:13px}
+.pm-click:hover .pm-edit{opacity:1;color:#7C3AED}
+.pm-lv{display:inline-flex;align-items:center;gap:4px;min-width:62px;justify-content:center;font-size:11px;font-weight:800;border-radius:999px;padding:4px 9px;white-space:nowrap}
+.pm-total{background:rgba(16,185,129,.14);color:#047857}
+.pm-parcial{background:rgba(245,158,11,.16);color:#B45309}
+.pm-ver{background:rgba(59,130,246,.13);color:#1D4ED8}
+.pm-nao{background:transparent;color:#94A3B8;font-weight:600}
+.pm-pro{font-style:normal;font-size:9px;font-weight:900;background:#1A1A2E;color:#FACC15;border-radius:4px;padding:1px 4px}
+.pm-pro.ok{background:#047857;color:#fff}
+.pm-note{margin-top:12px;font-size:12px;line-height:1.6;color:var(--muted)}
+.perm-pro-tag{font-style:normal;font-size:9.5px;font-weight:900;background:#1A1A2E;color:#FACC15;border-radius:4px;padding:1px 5px;margin-left:4px;vertical-align:1px}
+.perm-pro-card{display:flex;gap:10px;align-items:flex-start;margin:0 0 12px;padding:12px 14px;border:1px dashed #FACC15;border-radius:12px;background:rgba(250,204,21,.08);cursor:pointer}
+.perm-pro-card.on{border-style:solid;border-color:#10B981;background:rgba(16,185,129,.08)}
+.perm-pro-card input{margin-top:3px;accent-color:#10B981}
+.perm-pro-card b{display:block;font-size:13px}
+.perm-pro-card small{display:block;font-size:12px;color:var(--muted);margin-top:2px;line-height:1.45}
+</style>
 </body>
 </html>
