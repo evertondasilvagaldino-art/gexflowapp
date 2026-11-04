@@ -219,6 +219,9 @@ body.tv-on{overflow:hidden}
 .tv-ano-g span{font-size:clamp(9px,.75vw,12px);color:rgba(255,255,255,.5);font-weight:700}
 .tv-ano-g .cur span{color:#FACC15}
 .tv-ano-g .fut{opacity:.4}
+.tv-ano-m{margin-top:10px}
+.tv-ano-bar{height:8px;border-radius:999px;background:rgba(255,255,255,.1);margin-top:6px;overflow:hidden}
+.tv-ano-bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#F59E0B,#FDE68A)}
 .tv-foot{padding:0 clamp(16px,3vw,44px) clamp(12px,1.6vw,22px);font-size:12px;color:rgba(255,255,255,.4);display:flex;gap:12px;flex-wrap:wrap}
 .tv-msg{padding:80px 20px;text-align:center;color:rgba(255,255,255,.7)}
 /* comemoração */
@@ -644,7 +647,7 @@ function tvRender(){
     '</div>'+
     '<div class="tv-side">'+anoCard(d.ano,d.mes)+
       '<div class="tv-card"><h3>Ranking do mês</h3>'+(d.ranking.length?d.ranking.slice(0,5).map((x,i)=>'<div class="tv-rk"><span class="p '+(i<3?'g'+(i+1):'')+'">'+(i+1)+'º</span><span class="n">'+esc(x.nome)+'</span><span class="v">'+brlShort(x.valor)+'</span><i style="width:'+Math.max(3,x.valor/maxR*100)+'%"></i></div>').join(''):'<div style="color:rgba(255,255,255,.6)">Primeira venda do mês ainda não saiu.</div>')+'</div>'+
-      '<div class="tv-card"><h3>Últimas vendas</h3>'+(d.ultimas.length?d.ultimas.slice(0,3).map(u=>'<div class="tv-ul"><span>'+esc(u.vendedor)+'<br><small>'+new Date(u.em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</small></span><b>'+brl(u.valor)+'</b></div>').join(''):'<div style="color:rgba(255,255,255,.6)">—</div>')+'</div>'+
+      '<div class="tv-card"><h3>Últimas vendas</h3>'+(d.ultimas.length?d.ultimas.slice(0,3).map(u=>'<div class="tv-ul"><span>'+esc(u.vendedor)+'<br><small>'+(u.em?new Date(u.em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):(u.dia?u.dia.slice(8,10)+'/'+u.dia.slice(5,7)+'/'+u.dia.slice(0,4):''))+'</small></span><b>'+brl(u.valor)+'</b></div>').join(''):'<div style="color:rgba(255,255,255,.6)">—</div>')+'</div>'+
     '</div>'+
   '</div>';
   // número subindo e barra andando
@@ -672,7 +675,7 @@ function anoCard(a,mesAtual){
       return '<div class="c'+(cur?' cur':'')+(fut?' fut':'')+'" title="'+esc(m.mes)+': '+brl(m.valor)+(m.meta?' · meta '+brl(m.meta):'')+'">'+
         '<div class="t">'+(hm?'<i class="mm" style="bottom:'+hm+'%"></i>':'')+'<i class="bb'+(m.meta&&m.valor>=m.meta?' ok':'')+'" style="height:'+h+'%"></i></div><span>'+L[i]+'</span></div>';
     }).join('')+'</div>'+
-    (a.meta>0?'<div class="tv-ano-s" style="margin-top:8px">Meta do ano (meses já definidos): <b>'+brl(a.meta)+'</b></div>':'')+
+    (a.metaAnual>0?'<div class="tv-ano-m"><div class="tv-ano-s">Meta do ano <b>'+brl(a.metaAnual)+'</b> · <b>'+(a.faturamento/a.metaAnual*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%</b> · faltam <b>'+brl(Math.max(0,a.metaAnual-a.faturamento))+'</b></div><div class="tv-ano-bar"><i style="width:'+Math.min(100,a.faturamento/a.metaAnual*100)+'%"></i></div></div>':'<div class="tv-ano-s" style="margin-top:8px;opacity:.7">Meta anual ainda não definida (GexFlow › Metas › Meta anual)</div>')+
   '</div>';
 }
 function tvClock(){const c=$('tv-clock');if(c)c.textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
