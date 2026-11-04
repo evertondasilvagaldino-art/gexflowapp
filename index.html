@@ -29997,10 +29997,23 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
   const role=u=>{try{return resolveRole(u?.permissao||u?.cargo||'Colaborador')}catch(e){return 'Colaborador'}};
   const gestor=()=>{const r=role(sessionUser);return r==='Fundador'||r==='Adm Gerente'};
   const uidOf=u=>String(u?.supabaseId||u?.id||'');
-  const cfgGet=()=>(DB.get('roleta_leads')||[]).find(x=>x.id==='config')||null;
+  // Empresa (Fundador/Adm Gerente) usa a roleta "config"; cada Gex Parceiro tem a dele ("parceiro_<id>"),
+  // que divide só os leads dos funis dele entre a equipe dele (Operadores de Funil).
+  const parceiro=()=>role(sessionUser)==='Gex Parceiro';
+  const meuId=()=>String(sessionUser?.id||sessionUser?.supabaseId||'');
+  const cfgId=()=>parceiro()?'parceiro_'+meuId():'config';
+  const podeUsar=()=>gestor()||parceiro();
+  const cfgGet=()=>(DB.get('roleta_leads')||[]).find(x=>x.id===cfgId())||null;
   let RS=null; // rascunho da configuração aberta
 
   function vendedores(){
+    if(parceiro()){
+      let us=[];try{us=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios'))||[]}catch(e){}
+      const me=meuId(),vistos=new Set();
+      return us.filter(u=>String(u.status||'Ativo').toLowerCase()!=='inativo'&&(uidOf(u)===me||String(u.id)===me||String(u.parentPartnerId||u.parent_partner_id||'')===me))
+        .filter(u=>{const k=uidOf(u);if(!k||vistos.has(k))return false;vistos.add(k);return true})
+        .sort((a,b)=>(role(a)==='Gex Parceiro'?-1:0)-(role(b)==='Gex Parceiro'?-1:0)||String(a.nome).localeCompare(String(b.nome)));
+    }
     let us=[];try{us=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios'))||[]}catch(e){}
     const vistos=new Set();
     return us.filter(u=>String(u.status||'Ativo').toLowerCase()!=='inativo'&&!['Gex Parceiro','Operador de Funil'].includes(role(u)))
@@ -30008,9 +30021,18 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
       .filter(u=>{const k=uidOf(u);if(!k||vistos.has(k))return false;vistos.add(k);return true})
       .sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));
   }
-  function funis(){let fs=[];try{fs=(typeof getCommercialFunnels==='function'?getCommercialFunnels():DB.get('commercial_funnels'))||[]}catch(e){}return fs.filter(f=>f&&!f.isArchived)}
+  function funis(){let fs=[];try{fs=(typeof getCommercialFunnels==='function'?getCommercialFunnels():DB.get('commercial_funnels'))||[]}catch(e){}fs=fs.filter(f=>f&&!f.isArchived);
+    if(parceiro()){const me=meuId();fs=fs.filter(f=>String(f.createdBy||'')===me)}
+    else{ // roleta da empresa: sem funis de parceiros
+      let us=[];try{us=DB.get('usuarios')||[]}catch(e){}
+      const parc=new Set(us.filter(u=>['Gex Parceiro','Operador de Funil'].includes(role(u))).flatMap(u=>[String(u.id),String(u.supabaseId||'')]).filter(Boolean));
+      fs=fs.filter(f=>!parc.has(String(f.createdBy||'')));
+    }
+    return fs}
   function funisDe(u){
     const ks=[u.id,u.supabaseId,u.email].map(norm).filter(Boolean);
+    const af=String(u.assignedFunnelId||u.assigned_funnel_id||'');
+    if(af){const f=funis().find(x=>String(x.id)===af);if(f)return [f]} // Operador de Funil: o funil dele
     return funis().filter(f=>[f.createdBy,f.createdByEmail,f.ownerId,f.ownerEmail].map(norm).some(k=>k&&ks.includes(k)));
   }
   function etapas(fid){const f=funis().find(x=>String(x.id)===String(fid));return (f?.stages||[]).filter(s=>s&&!s.isWon&&!s.isLost)}
@@ -30022,12 +30044,12 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
   // ── card em Automações ──
   window.gxRoletaCardHtml=function(){
     try{
-      if(!gestor())return '';
+      if(!podeUsar())return '';
       const c=cfgGet(),on=!!c?.ativo&&ativosDe(c).length>0,a=ativosDe(c),v=daVez(c);
       return `<div class="auto-card" style="${on?'border-color:rgba(16,185,129,.45)':''}">
         <div class="auto-card-ico" style="background:rgba(124,58,237,.1);color:#6D28D9"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v9l6.4 6.4"/><path d="M12 12 5.6 18.4"/><path d="M12 12H3"/></svg></div>
         <div class="auto-card-name">Roleta de leads</div>
-        <div class="auto-card-desc">Todo lead novo que chega sem dono (formulário, Meta Ads, WhatsApp, API) vai para o próximo vendedor da vez, já no funil dele.${on?` <b>${a.length} na roleta · próximo: ${E(String(v?.nome||'').split(' ')[0])} · ${+c.distribuidos||0} distribuído${(+c.distribuidos||0)!==1?'s':''}.</b>`:''}</div>
+        <div class="auto-card-desc">${parceiro()?'Todo lead novo sem dono que chega nos seus funis vai para o próximo da sua equipe, já no funil dele.':'Todo lead novo que chega sem dono (formulário, Meta Ads, WhatsApp, API) vai para o próximo vendedor da vez, já no funil dele.'}${on?` <b>${a.length} na roleta · próximo: ${E(String(v?.nome||'').split(' ')[0])} · ${+c.distribuidos||0} distribuído${(+c.distribuidos||0)!==1?'s':''}.</b>`:''}</div>
         <div class="auto-card-foot"><span class="auto-pill ${on?'on':''}">${on?'Ativa':c?'Desativada':'Nativa do sistema'}</span>
           <div style="display:flex;gap:6px"><button class="gl-btn sm ${c?'':'primary'}" onclick="gxRoletaAbrir()">${c?'Configurar':'Configurar e ativar'}</button>${c&&ativosDe(c).length?`<button class="gl-btn sm" onclick="gxRoletaLiga(${!c.ativo})">${c.ativo?'Desativar':'Ativar'}</button>`:''}</div></div>
       </div>`;
@@ -30035,7 +30057,7 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
   };
   window.gxRoletaLiga=function(on){
     const c=cfgGet();if(!c)return;
-    DB.update('roleta_leads','config',{ativo:!!on,atualizadoPor:sessionUser?.nome||'',atualizadoEm:new Date().toISOString()});
+    DB.update('roleta_leads',cfgId(),{ativo:!!on,atualizadoPor:sessionUser?.nome||'',atualizadoEm:new Date().toISOString()});
     toast(on?'Roleta de leads ativada ✓':'Roleta de leads desativada',on?'#10B981':'#6B7280');
     try{window.renderAutomacoes()}catch(e){}
   };
@@ -30048,9 +30070,9 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
     return {ov,md};
   }
   window.gxRoletaAbrir=function(){
-    if(!gestor())return;
+    if(!podeUsar())return;
     const c=cfgGet();
-    RS=JSON.parse(JSON.stringify(c||{id:'config',ativo:true,ponteiro:0,distribuidos:0,participantes:[]}));
+    RS=JSON.parse(JSON.stringify(c||{id:cfgId(),dono:parceiro()?{userId:meuId(),nome:sessionUser?.nome||''}:null,ativo:true,ponteiro:0,distribuidos:0,participantes:[]}));
     RS.__novo=!c;
     if(RS.__novo&&!RS.participantes.length){
       // sugestão inicial: vendedores com funil próprio
@@ -30090,7 +30112,7 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
       </div>`;
     }).join('');
     md.innerHTML=`
-      <div class="rl-h"><div><h2>Roleta de leads</h2><p>Cada lead novo que chega <b>sem dono</b> vai para o próximo vendedor da lista, já como responsável e no funil dele. Lead cadastrado à mão por um vendedor não entra.</p></div><button class="rl-x" onclick="gxRoletaFechar()" aria-label="Fechar">✕</button></div>
+      <div class="rl-h"><div><h2>Roleta de leads${parceiro()?' da sua equipe':''}</h2><p>${parceiro()?'Cada lead novo que chega <b>sem dono</b> nos seus funis vai para o próximo da sua equipe, já como responsável e no funil dele. Você continua vendo todos os leads dos seus funis.':'Cada lead novo que chega <b>sem dono</b> vai para o próximo vendedor da lista, já como responsável e no funil dele. Lead cadastrado à mão por um vendedor não entra. Leads dos funis de parceiros ficam com a roleta de cada parceiro.'}</p></div><button class="rl-x" onclick="gxRoletaFechar()" aria-label="Fechar">✕</button></div>
       <div class="rl-b">
         <div class="rl-sw"><div><b>Roleta ${RS.ativo?'ligada':'desligada'}</b><small>${RS.ativo?'Os próximos leads sem dono já entram no rodízio.':'Leads sem dono seguem para o funil de origem, como hoje.'}</small></div><label class="rl-tg"><input type="checkbox" ${RS.ativo?'checked':''} onchange="gxRlAtivo(this.checked)" aria-label="Ligar roleta"><span></span></label></div>
         <div class="rl-stats">
@@ -30098,11 +30120,11 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
           <div><span>Distribuídos</span><b>${+RS.distribuidos||0}</b><small>desde que a roleta foi criada</small></div>
           <div><span>Último lead</span><b>${salvo?.ultimo?E(salvo.ultimo.lead||'Lead'):'—'}</b><small>${salvo?.ultimo?`→ ${E(String(salvo.ultimo.para||'').split(' ')[0])} · ${quandoBR(salvo.ultimo.em)}`:'ainda nenhum'}</small></div>
         </div>
-        <div class="rl-lbl">Vendedores na roleta (rodízio na ordem da lista)</div>
+        <div class="rl-lbl">${parceiro()?'Sua equipe na roleta':'Vendedores na roleta'} (rodízio na ordem da lista)</div>
         ${linhas||'<div class="rl-note">Ninguém na roleta ainda. Adicione os vendedores abaixo.</div>'}
         ${RS.participantes.some(p=>!p.funnelId)?'<div class="rl-note rl-warn">Quem está sem funil escolhido fica fora do rodízio até você escolher.</div>':''}
-        <div class="rl-add"><select class="rl-in" id="rl-add-sel" style="flex:1"><option value="">Adicionar vendedor…</option>${fora.map(u=>`<option value="${E(uidOf(u))}">${E(u.nome)}${funisDe(u).length?'':' (sem funil próprio)'}</option>`).join('')}</select><button class="rl-btn sm" onclick="gxRlAdd()">Adicionar</button></div>
-        <div class="rl-note">A roleta roda no banco de dados, na hora em que o lead chega, mesmo com o GexFlow fechado, e nunca entrega o mesmo lead para duas pessoas. Quem recebe é avisado no sino e por e-mail. <b>Primeira vez:</b> rode o SQL <code>roleta-leads.sql</code> no Supabase. Sem ele, a configuração fica salva mas os leads não são distribuídos.</div>
+        <div class="rl-add"><select class="rl-in" id="rl-add-sel" style="flex:1"><option value="">${parceiro()?'Adicionar pessoa da sua equipe…':'Adicionar vendedor…'}</option>${fora.map(u=>`<option value="${E(uidOf(u))}">${E(u.nome)}${funisDe(u).length?'':' (sem funil próprio)'}</option>`).join('')}</select><button class="rl-btn sm" onclick="gxRlAdd()">Adicionar</button></div>
+        <div class="rl-note">A roleta roda no banco de dados, na hora em que o lead chega, mesmo com o GexFlow fechado, e nunca entrega o mesmo lead para duas pessoas. Quem recebe é avisado no sino e por e-mail. ${gestor()?'<b>Primeira vez:</b> rode o SQL <code>roleta-leads.sql</code> no Supabase. Sem ele, a configuração fica salva mas os leads não são distribuídos.':''}</div>
       </div>
       <div class="rl-f">${RS.__sujo?'<span class="rl-warn" style="margin-right:auto;font-size:12.5px">● Alterações não salvas</span>':''}<button class="rl-btn" onclick="gxRoletaFechar()">Cancelar</button><button class="rl-btn pri" onclick="gxRlSalvar()" ${RS.__sujo||RS.__novo?'':'disabled'}>Salvar roleta</button></div>`;
   }
@@ -30128,7 +30150,7 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
     // a "vez" e os contadores são do banco (a roleta anda sozinha): não volta o ponteiro para trás
     if(atual){dados.ponteiro=+atual.ponteiro||0;dados.distribuidos=+atual.distribuidos||0;dados.ultimo=atual.ultimo||null}
     dados.atualizadoPor=sessionUser?.nome||'';dados.atualizadoEm=new Date().toISOString();
-    if(atual)DB.update('roleta_leads','config',dados);else DB.push('roleta_leads',{...dados,id:'config'});
+    if(atual)DB.update('roleta_leads',cfgId(),dados);else DB.push('roleta_leads',{...dados,id:cfgId()});
     const n=ativosDe(dados).length;
     gxRoletaFechar(true);
     toast(dados.ativo&&n?`Roleta salva ✓ ${n} vendedor${n!==1?'es':''} no rodízio`:'Roleta salva (desligada)',dados.ativo&&n?'#10B981':'#6B7280');
@@ -30144,7 +30166,8 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
         if(!l||!l.roleta||l.roletaAvisado||!l.roletaEm||new Date(l.roletaEm).getTime()<lim)return;
         const dono=[l.responsavelId,l.responsavelEmail].map(norm);
         const souDono=dono.some(k=>k&&meus.includes(k));
-        if(!souDono&&!g)return;
+        const souParceiroDoLead=!!l.roletaDe&&String(l.roletaDe)===meuId();
+        if(!souDono&&!(g&&!l.roletaDe)&&!souParceiroDoLead)return;
         gxNotify({para:{id:l.responsavelId,email:l.responsavelEmail,nome:l.responsavelNome},tipo:'lead',titulo:'🎯 Lead novo da roleta para você',
           texto:`${l.nome||'Lead'}${l.origem?' · '+l.origem:''}${l.telefone?' · '+l.telefone:''}`,link:{kind:'lead',id:l.id},chave:'roleta_'+l.id,self:true});
         try{DB.update('leads',l.id,{roletaAvisado:true})}catch(e){}
