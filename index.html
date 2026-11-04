@@ -29348,17 +29348,55 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const alvo=+m.alvo||0;
     const pct=alvo>0?(realizado/alvo)*100:0;
     const regra=regraDe(m);
-    const com=comissao(regra,realizado,pct,INDICADORES[m.indicador]?.un);
+    const com=comissao(regra,realizado,pct,INDICADORES[m.indicador]?.un,m);
     const eficiencia=Math.round(Math.min(100,pct));
-    return {realizado,alvo,pct,comissao:com.valor,comissaoTxt:com.txt,regraId:regra?.id||'',eficiencia,auto,fechado:false};
+    return {realizado,alvo,pct,comissao:com.valor,comissaoTxt:com.txt,regraId:regra?.id||'',eficiencia,auto,fechado:false,carteiraBase:com.base,carteiraN:com.nCli,regraTipo:regra?.tipo||''};
   }
   function regraDe(m){
     const rs=regras().filter(r=>r.ativo!==false);
     return rs.find(r=>r.area===m.area&&r.userId&&String(r.userId)===String(m.userId))||rs.find(r=>r.area===m.area&&!r.userId)||null;
   }
+  // ── Carteira de clientes (base da comissão do Operacional) ──
+  // Valor mensal de cada cliente = MRR (LTV ÷ período do contrato); sem período, usa o LTV como valor do mês.
+  // Entra quem estava na carteira no FIM do período: ativo agora, ou que saiu depois do fim (data de saída).
+  // Cliente saiu → sai da base na hora e a comissão recalcula.
+  function valorMensal(c){
+    let v=null;
+    try{if(c.periodoMeses&&typeof clienteMrrCalc==='function')v=clienteMrrCalc(c.ltv,c.periodoMeses)}catch(e){}
+    if(v==null&&c.mrr){try{v=typeof gxParseBRL==='function'?gxParseBRL(c.mrr):null}catch(e){}}
+    if(v==null){try{v=typeof contratoValorNum==='function'?contratoValorNum(c.ltv):(typeof gxParseBRL==='function'?gxParseBRL(c.ltv):0)}catch(e){v=0}}
+    return +v||0;
+  }
+  function squadsDoCliente(c){try{return typeof clienteSquads==='function'?clienteSquads(c):[c.squad].filter(Boolean)}catch(e){return [c.squad].filter(Boolean)}}
+  function carteira(squads,m){
+    const fim=m?periodo(m).fim:fimMes(mesAtual());
+    const key='cart_'+(squads||[]).slice().sort().join('|')+'_'+fim;
+    return memo(key,()=>{
+      const filtro=(squads||[]).map(norm).filter(Boolean);
+      const lista=(DB.get('clientes')||[]).filter(c=>{
+        if(!c)return false;
+        const st=String(c.status||'');
+        let naCarteira=false;
+        if(st==='Ativo')naCarteira=true;
+        else if((st==='Inativo'||st==='Pediu para sair')&&/^\d{4}-\d{2}-\d{2}/.test(String(c.saidaEm||'')))naCarteira=String(c.saidaEm).slice(0,10)>fim;
+        else if(st==='Pediu para sair')naCarteira=true; // ainda pagando, sem data de saída
+        if(!naCarteira)return false;
+        if(!filtro.length)return true;
+        return squadsDoCliente(c).map(norm).some(x=>filtro.includes(x));
+      }).map(c=>({id:c.id,nome:c.nome||'Cliente',valor:valorMensal(c),squads:squadsDoCliente(c),saindo:c.status==='Pediu para sair'}));
+      return {total:lista.reduce((a,c)=>a+c.valor,0),clientes:lista.sort((a,b)=>b.valor-a.valor)};
+    });
+  }
   // Comissão conforme o tipo de regra
-  function comissao(r,realizado,pct,un){
+  function comissao(r,realizado,pct,un,m){
     if(!r)return {valor:0,txt:'Sem regra de comissão'};
+    if(r.tipo==='carteira'){
+      const cart=carteira(r.squads,m);
+      const fs=(r.cfaixas||[]).filter(f=>+f.min>0).slice().sort((a,b)=>b.min-a.min);
+      const f=fs.find(f=>pct>=+f.min);
+      if(!f){const prox=fs[fs.length-1];return {valor:0,txt:prox?`Ganha ${NUM(prox.pct)}% da carteira (${BRL(cart.total)}) ao bater ${prox.min}%`:'Sem faixas',base:cart.total,nCli:cart.clientes.length}}
+      return {valor:cart.total*(+f.pct||0)/100,txt:`${NUM(f.pct)}% da carteira de ${BRL(cart.total)} (${cart.clientes.length} cliente${cart.clientes.length!==1?'s':''})`,base:cart.total,nCli:cart.clientes.length};
+    }
     if(r.tipo==='faixas'){
       const fs=(r.faixas||[]).filter(f=>+f.min>0).slice().sort((a,b)=>b.min-a.min);
       const f=fs.find(f=>pct>=+f.min);
@@ -29433,6 +29471,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   // ═══ TELA ═══
   window.renderMetas=comCache(function(){
     const pg=document.getElementById('page-metas');if(!pg)return;
+    try{metas().forEach(m=>{if(m.inicio&&/^\d{4}-\d{2}/.test(m.inicio)&&m.inicio.slice(0,7)!==m.mes&&!m.fechamento)DB.update('metas',m.id,{mes:m.inicio.slice(0,7)})})}catch(e){}
     if(!gestor()){const ma=minhasAreas();if(S.area&&!ma.includes(S.area))S.area='';}
     avisarBatidas();
     const g=gestor();
@@ -29564,11 +29603,21 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
           ${pode?`<div class="mt-add"><input class="mt-in" id="mt-it-txt" style="flex:1" placeholder="${ind.un==='R$'?'Ex.: Renovação cliente X':'Ex.: Social media 01 EFA'}" onkeydown="if(event.key==='Enter')mtItemAdd('${m.id}')">${ind.un==='R$'?`<input class="mt-in" id="mt-it-q" type="text" inputmode="decimal" data-moeda="1" oninput="mtMoeda(this)" style="width:140px" placeholder="R$ 0,00" onkeydown="if(event.key==='Enter')mtItemAdd('${m.id}')">`:`<input class="mt-in" id="mt-it-q" type="number" min="1" step="1" style="width:74px" value="1" title="Quantidade">`}<button class="mt-btn sm pri" onclick="mtItemAdd('${m.id}')">Adicionar</button></div>`:''}
           ${!(m.itens||[]).length&&!pode?`<div class="mt-it"><span class="t" style="color:var(--mt-mu)">Nenhum item lançado.</span></div>`:''}
         </div></div>
+        ${c.regraTipo==='carteira'&&(g||souEu(m))?carteiraDetalhe(m,c):''}
         ${m.fechamento?`<div class="mt-note">Mês fechado em ${dataBR(m.fechamento.em)} por ${E(m.fechamento.por||'')}. Os valores acima ficaram congelados.</div>`:''}
       </div>
       ${g?`<div class="mt-dr-f">${m.fechamento?`<button class="mt-btn" onclick="mtReabrir('${m.id}')">Reabrir meta</button>`:`<button class="mt-btn dng" onclick="mtExcluir('${m.id}')">Excluir</button><button class="mt-btn" onclick="mtEditar('${m.id}')">Editar meta</button>`}</div>`:''}`);
     dr.querySelector('.mt-dr-b').scrollTop=0;
   });
+  function carteiraDetalhe(m,c){
+    const r=regras().find(x=>x.id===c.regraId);
+    const cart=c.fechado?null:carteira(r?.squads,m);
+    const lista=cart?cart.clientes:[];
+    return `<div class="mt-sec"><h4>Carteira — base da comissão</h4><div class="mt-chk">
+      <div class="mt-chk-h"><span>${BRL(c.carteiraBase||0)}/mês · ${c.carteiraN||0} cliente${(c.carteiraN||0)!==1?'s':''}${r?.squads?.length?` · ${E(r.squads.join(', '))}`:' · todas as squads'}</span><span style="font-weight:600;color:var(--mt-mu)">${c.fechado?'congelado no fechamento':'atualiza quando entra/sai cliente'}</span></div>
+      ${lista.slice(0,300).map((cl,ix)=>(ix===8?`<details class="mt-more"><summary>Ver todos os ${lista.length}</summary>`:'')+`<div class="mt-it"><span class="t">${E(cl.nome)}${cl.saindo?' <span class="by" style="color:#B45309">· pediu para sair</span>':''}${cl.squads.length?` <span class="by">· ${E(cl.squads.join(', '))}</span>`:''}</span><span class="q">${BRL(cl.valor)}</span></div>`).join('')+(lista.length>8?'</details>':'')}
+    </div></div>`;
+  }
   window.mtItemAdd=function(id){
     const m=meta(id);if(!m||!podeLancar(m))return;
     const t=document.getElementById('mt-it-txt'),q=document.getElementById('mt-it-q');
@@ -29672,20 +29721,23 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const mesNome=mesLabel(S.mes).replace(/^./,c=>c.toUpperCase());
     if(id){
       const m=meta(id);
-      DB.update('metas',id,{alvo,inicio,prazo,contarAuto,titulo:titulo||m.titulo});
-      toast('Meta atualizada','#10B981');S.drId=id;desenharDetalhe();renderMetas();return;
+      const novoMes=inicio.slice(0,7);
+      DB.update('metas',id,{alvo,inicio,prazo,contarAuto,titulo:titulo||m.titulo,mes:novoMes});
+      if(novoMes!==S.mes){S.mes=novoMes;toast(`Meta atualizada e movida para ${mesLabel(novoMes)}`,'#10B981')}else toast('Meta atualizada','#10B981');
+      S.drId=id;desenharDetalhe();renderMetas();return;
     }
     if(!S.form.sel.size){toast('Escolha pelo menos uma pessoa','#F59E0B');return}
     if(!titulo)titulo=`Indicador: ${ind.nome} - ${mesNome}`;
     let n=0;
     S.form.sel.forEach(uid=>{
       const u=pessoa(uid);if(!u)return;
-      const m={id:uidm(),mes:S.mes,area:S.form.area,indicador:S.form.indicador,titulo,alvo,inicio,prazo,contarAuto,itens:[],
+      const m={id:uidm(),mes:inicio.slice(0,7),area:S.form.area,indicador:S.form.indicador,titulo,alvo,inicio,prazo,contarAuto,itens:[],
         userId:userId(u),userNome:u.nome||'',userEmail:u.email||'',criadoPor:sessionUser?.nome||'',criadoEm:new Date().toISOString(),fechamento:null};
       DB.push('metas',m);n++;
       if(S.mes>=mesAtual()&&typeof gxNotify==='function')gxNotify({para:u,tipo:'tarefa',titulo:'Nova meta do mês',texto:`${titulo} · alvo ${ind.un==='R$'?BRL(alvo):NUM(alvo)}`,link:{kind:'metas'}});
     });
-    mtFechar();renderMetas();toast(`${n} meta${n!==1?'s':''} criada${n!==1?'s':''} ✓`,'#10B981');
+    const mesCriado=inicio.slice(0,7);if(mesCriado!==S.mes)S.mes=mesCriado;
+    mtFechar();renderMetas();toast(`${n} meta${n!==1?'s':''} criada${n!==1?'s':''} em ${mesLabel(mesCriado)} ✓`,'#10B981');
   };
   window.mtCopiar=function(dir){
     const de=mesShift(S.mes,dir||-1);
@@ -29698,7 +29750,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const abertas=metas().filter(m=>m.mes===S.mes&&!m.fechamento);if(!abertas.length)return;
     const go=()=>{
       const em=new Date().toISOString(),por=sessionUser?.nome||'';
-      abertas.forEach(m=>{const c=calc(m);DB.update('metas',m.id,{fechamento:{realizado:c.realizado,alvo:c.alvo,pct:c.pct,comissao:c.comissao,comissaoTxt:c.comissaoTxt,eficiencia:c.eficiencia,regraId:c.regraId,em,por}})});
+      abertas.forEach(m=>{const c=calc(m);DB.update('metas',m.id,{fechamento:{realizado:c.realizado,alvo:c.alvo,pct:c.pct,comissao:c.comissao,comissaoTxt:c.comissaoTxt,eficiencia:c.eficiencia,regraId:c.regraId,carteiraBase:c.carteiraBase??null,carteiraN:c.carteiraN??null,regraTipo:c.regraTipo||'',em,por}})});
       renderMetas();toast(`Mês fechado: ${abertas.length} metas congeladas`,'#10B981');
     };
     if(typeof confirmDelete==='function')confirmDelete(go,{icon:'🔒',title:`Fechar ${mesLabel(S.mes)}?`,message:'Os valores de progresso e comissão ficam congelados como estão agora. Dá para reabrir uma meta depois, se precisar.',okText:'Fechar mês'});else if(confirm('Fechar o mês?'))go();
@@ -29708,7 +29760,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   S.rd={}; // rascunhos das regras (só gravam ao clicar em Salvar)
   const rgVer=id=>S.rd[id]||regras().find(x=>x.id===id);
   window.mtRegras=function(area){if(!gestor())return;if(area)S.regraArea=area;desenharRegras()};
-  function regraVazia(area,userId){return {id:uidm(),area,userId:userId||'',tipo:area==='comercial'?'faixas':'unidade',faixas:[{min:100,valor:500,modo:'fixo'},{min:120,valor:800,modo:'fixo'}],pct:3,pctAcima:5,valorUnidade:10,bonusMeta:200,minPct:0,ativo:true}}
+  function regraVazia(area,userId){return {id:uidm(),area,userId:userId||'',tipo:area==='comercial'?'faixas':area==='operacional'?'carteira':'unidade',squads:[],cfaixas:[{min:80,pct:1},{min:100,pct:2}],faixas:[{min:100,valor:500,modo:'fixo'},{min:120,valor:800,modo:'fixo'}],pct:3,pctAcima:5,valorUnidade:10,bonusMeta:200,minPct:0,ativo:true}}
   function desenharRegras(){
     const area=S.regraArea,rs=regras().filter(r=>r.area===area).map(r=>S.rd[r.id]||r);
     const geral=rs.find(r=>!r.userId),esp=rs.filter(r=>r.userId);
@@ -29724,9 +29776,19 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   }
   function regraHtml(r,titulo){
     const un=r.area==='comercial'||r.area==='trafego'?'R$':'un';
-    const tipos=[['faixas','Por faixa de meta'],['percentual','% sobre o valor'],['unidade','Valor por unidade']];
+    const tipos=[...(r.area!=='comercial'?[['carteira','% da carteira (MRR)']]:[]),['faixas','Por faixa de meta'],['percentual','% sobre o valor'],['unidade','Valor por unidade']];
     let corpo='';
-    if(r.tipo==='faixas'){
+    if(r.tipo==='carteira'){
+      const todas=(DB.get('squads')||[]).map(q=>q.nome).filter(Boolean);
+      const sel=r.squads||[];
+      const cart=carteira(sel,null);
+      corpo=`<div class="mt-fld"><span>Carteira considerada</span>
+          <div class="mt-people">${[`<label class="${!sel.length?'on':''}"><input type="checkbox" ${!sel.length?'checked':''} onchange="mtRg('${r.id}','squadsTodas')">Todas as squads</label>`].concat(todas.map((q,qi)=>`<label class="${sel.includes(q)?'on':''}"><input type="checkbox" ${sel.includes(q)?'checked':''} onchange="mtRg('${r.id}','squad',${qi})">${E(q)}</label>`)).join('')}</div>
+          <small>Hoje: <b style="color:#047857">${BRL(cart.total)}/mês</b> em ${cart.clientes.length} cliente${cart.clientes.length!==1?'s':''} ativo${cart.clientes.length!==1?'s':''}. Valor mensal = LTV ÷ período do contrato (MRR). Cliente que sai deixa de contar na hora.</small></div>
+        <div class="mt-tiers">${(r.cfaixas||[]).map((f,i)=>`<div class="mt-tier" style="grid-template-columns:auto 84px auto 90px auto 30px"><span>Bateu</span><input class="mt-in" type="number" min="0" step="1" value="${E(f.min)}" oninput="mtRgIn('${r.id}','cfaixa',${i},'min',this.value)" aria-label="% da meta"><span>% da meta → ganha</span><input class="mt-in" type="number" min="0" step="0.01" value="${E(f.pct)}" oninput="mtRgIn('${r.id}','cfaixa',${i},'pct',this.value)" aria-label="% da carteira"><span>% da carteira</span><button style="border:0;background:none;cursor:pointer;color:var(--mt-mu)" onclick="mtRg('${r.id}','cfaixaDel',${i})" aria-label="Remover faixa">✕</button></div>`).join('')}
+        <button class="mt-btn sm" style="align-self:flex-start" onclick="mtRg('${r.id}','cfaixaAdd')">+ Faixa</button></div>
+        <small style="font-size:11.5px;color:var(--mt-mu)">Vale a maior faixa atingida no indicador da pessoa. Ex.: bateu 80% ganha 1% da carteira; bateu 100% ganha 2%.</small>`;
+    }else if(r.tipo==='faixas'){
       corpo=`<div class="mt-tiers">${(r.faixas||[]).map((f,i)=>`<div class="mt-tier"><span>Bateu</span><input class="mt-in" type="number" min="0" step="1" value="${E(f.min)}" oninput="mtRgIn('${r.id}','faixa',${i},'min',this.value)" aria-label="% da meta"><span>% → ganha</span><input class="mt-in" type="number" min="0" step="0.01" value="${E(f.valor)}" oninput="mtRgIn('${r.id}','faixa',${i},'valor',this.value)" aria-label="Valor"><select class="mt-in x2" onchange="mtRgIn('${r.id}','faixa',${i},'modo',this.value)"><option value="fixo" ${f.modo!=='pct'?'selected':''}>R$ fixo</option><option value="pct" ${f.modo==='pct'?'selected':''}>% do realizado</option></select><button class="mt-it del" style="border:0;background:none;cursor:pointer;color:var(--mt-mu)" onclick="mtRg('${r.id}','faixaDel',${i})" aria-label="Remover faixa">✕</button></div>`).join('')}
         <button class="mt-btn sm" style="align-self:flex-start" onclick="mtRg('${r.id}','faixaAdd')">+ Faixa</button></div>
         <small style="font-size:11.5px;color:var(--mt-mu)">Vale a maior faixa atingida. Ex.: bateu 100% ganha R$ 500; bateu 120% ganha R$ 800.</small>`;
@@ -29743,7 +29805,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
       <div class="mt-rule-h"><b>${titulo}</b><span class="who">${r.atualizadoPor?`alterada por ${E(r.atualizadoPor)} em ${dataBR(r.atualizadoEm)}`:''}</span><button class="mt-btn sm dng" style="margin-left:auto" onclick="mtRg('${r.id}','del')">Remover</button></div>
       <div class="mt-seg">${tipos.map(([k,n])=>`<button class="${r.tipo===k?'on':''}" onclick="mtRg('${r.id}','tipo',0,0,'${k}')">${n}</button>`).join('')}</div>
       ${corpo}
-      <div class="mt-sim">Simular: se bater <input class="mt-in" type="number" min="0" value="100" id="mt-sim-in-${r.id}" oninput="mtSim('${r.id}')"> % de uma meta de <b style="color:inherit">${un==='R$'?'R$ 10.000':'100 un'}</b> → <b id="mt-sim-out-${r.id}">${BRL(comissao(r,un==='R$'?10000:100,100,un).valor)}</b></div>
+      <div class="mt-sim">Simular: se bater <input class="mt-in" type="number" min="0" value="100" id="mt-sim-in-${r.id}" oninput="mtSim('${r.id}')"> % ${r.tipo==='carteira'?'da meta, com a carteira de hoje':`de uma meta de <b style="color:inherit">${un==='R$'?'R$ 10.000':'100 un'}</b>`} → <b id="mt-sim-out-${r.id}">${BRL(comissao(r,un==='R$'?10000:100,100,un).valor)}</b></div>
       <div class="mt-rule-f"><span class="mt-dirty" id="mt-dirty-${r.id}" ${S.rd[r.id]?'':'hidden'}>● Alterações não salvas</span><button class="mt-btn sm" id="mt-desc-${r.id}" onclick="mtRgDescartar('${r.id}')" ${S.rd[r.id]?'':'disabled'}>Descartar</button><button class="mt-btn sm pri" id="mt-save-${r.id}" onclick="mtRgSalvar('${r.id}')" ${S.rd[r.id]?'':'disabled'}>Salvar comissão</button></div>
     </div>`;
   }
@@ -29762,6 +29824,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const r=rgRascunho(id);if(!r)return;
     const n=v=>Math.max(0,+String(v).replace(',','.')||0);
     if(campo==='faixa'){r.faixas=(r.faixas||[]).map(f=>({...f}));r.faixas[i][sub]=sub==='modo'?val:n(val)}
+    else if(campo==='cfaixa'){r.cfaixas=(r.cfaixas||[]).map(f=>({...f}));r.cfaixas[i][sub]=n(val)}
     else r[campo]=n(val);
     rgSujo(id,true);mtSim(id);
   };
@@ -29769,6 +29832,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const r=S.rd[id];if(!r)return;
     const {id:_i,...dados}=r;
     if(r.tipo==='faixas')dados.faixas=(r.faixas||[]).filter(f=>+f.min>0).sort((a,b)=>a.min-b.min);
+    if(r.tipo==='carteira')dados.cfaixas=(r.cfaixas||[]).filter(f=>+f.min>0).sort((a,b)=>a.min-b.min);
     DB.update('metas_regras',id,{...dados,atualizadoPor:sessionUser?.nome||'',atualizadoEm:new Date().toISOString()});
     delete S.rd[id];
     desenharRegras();
@@ -29789,7 +29853,11 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     if(campo==='del'){const go=()=>{delete S.rd[id];DB.remove('metas_regras',id);desenharRegras();renderMetas()};if(typeof confirmDelete==='function')confirmDelete(go,{title:'Remover regra',message:'As metas abertas passam a usar a regra da área (ou ficam sem comissão).',okText:'Remover'});else go();return}
     // mudanças de estrutura (tipo, + faixa, remover faixa): mexem no rascunho e redesenham só a janela
     const r=rgRascunho(id);if(!r)return;
-    if(campo==='tipo')r.tipo=val;
+    if(campo==='tipo'){r.tipo=val;if(val==='carteira'&&!(r.cfaixas||[]).length)r.cfaixas=[{min:80,pct:1},{min:100,pct:2}]}
+    else if(campo==='squadsTodas'){r.squads=[]}
+    else if(campo==='squad'){const q=((DB.get('squads')||[]).map(x=>x.nome).filter(Boolean))[i];if(!q){desenharRegras();return}const sq=new Set(r.squads||[]);sq.has(q)?sq.delete(q):sq.add(q);r.squads=[...sq]}
+    else if(campo==='cfaixaAdd'){const fs=(r.cfaixas||[]).slice();const max=fs.reduce((a,f)=>Math.max(a,+f.min||0),0);fs.push({min:max?max+20:100,pct:0});r.cfaixas=fs}
+    else if(campo==='cfaixaDel'){r.cfaixas=(r.cfaixas||[]).filter((_,k)=>k!==i)}
     else if(campo==='faixaAdd'){const fs=(r.faixas||[]).slice();const max=fs.reduce((a,f)=>Math.max(a,+f.min||0),0);fs.push({min:max?max+20:100,valor:0,modo:'fixo'});r.faixas=fs}
     else if(campo==='faixaDel'){r.faixas=(r.faixas||[]).filter((_,k)=>k!==i)}
     desenharRegras();
