@@ -29408,8 +29408,8 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   }
   function areasVisiveis(){return gestor()?Object.keys(AREAS):minhasAreas()}
   function ranking(){
-    const av_=areasVisiveis();
-    const ms=metas().filter(m=>m.mes===S.mes&&av_.includes(m.area)&&(!S.area||m.area===S.area));
+    // Ranking é aberto para toda a equipe (só posição, % e faixa — nunca valores/comissão dos outros)
+    const ms=metas().filter(m=>m.mes===S.mes&&(!S.area||m.area===S.area));
     const by={};
     ms.forEach(m=>{const k=String(m.userId||m.userNome);const c=calc(m);(by[k]=by[k]||{userId:m.userId,nome:m.userNome,ps:[],ef:[],com:0,meta:m}).ps.push(Math.min(c.pct,150));by[k].ef.push(c.eficiencia);by[k].com+=c.comissao});
     return Object.values(by).map(x=>({...x,pct:x.ps.reduce((a,b)=>a+b,0)/x.ps.length,ef:Math.round(x.ef.reduce((a,b)=>a+b,0)/x.ef.length)}))
@@ -29433,7 +29433,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   // ═══ TELA ═══
   window.renderMetas=comCache(function(){
     const pg=document.getElementById('page-metas');if(!pg)return;
-    if(!gestor()){const ma=minhasAreas();if(S.area&&!ma.includes(S.area))S.area='';if(!S.area&&ma.length===1)S.area=ma[0];}
+    if(!gestor()){const ma=minhasAreas();if(S.area&&!ma.includes(S.area))S.area='';}
     avisarBatidas();
     const g=gestor();
     const vs=visiveis(),cs=vs.map(m=>({m,c:calc(m)}));
@@ -29451,7 +29451,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
       </div>
       <div class="mt-bar">
         <div class="mt-seg" role="tablist">
-          ${areasVisiveis().length>1?`<button class="${!S.area?'on':''}" onclick="mtArea('')">${g?'Todas':'Meus setores'}</button>`:''}
+          <button class="${!S.area?'on':''}" onclick="mtArea('')">${g?'Todas':'Ranking geral'}</button>
           ${Object.entries(AREAS).filter(([k])=>areasVisiveis().includes(k)).map(([k,a])=>`<button class="${S.area===k?'on':''}" onclick="mtArea('${k}')"><span class="dot" style="background:${a.cor}"></span>${a.nome}</button>`).join('')}
         </div>
         ${g&&!metas().some(m=>m.mes===S.mes)?`<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">${metas().some(m=>m.mes===mesShift(S.mes,-1))?`<button class="mt-btn sm" onclick="mtCopiar(-1)">Copiar metas de ${E(mesLabel(mesShift(S.mes,-1)).split(' ')[0])}</button>`:''}${metas().some(m=>m.mes===mesShift(S.mes,1))?`<button class="mt-btn sm" onclick="mtCopiar(1)">Copiar metas de ${E(mesLabel(mesShift(S.mes,1)).split(' ')[0])}</button>`:''}</span>`:''}
@@ -29513,7 +29513,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const alt=[64,88,50];
     const pod=top.length?`<div class="mt-pod">${ord.map((r,i)=>{if(!r)return '<div></div>';const pos=i===1?1:i===0?2:3;const u=pessoa(r.userId);return `<div class="p p${pos}" style="--c:${cores[pos-1]}">${av(u,r.nome)}<b>${E(String(r.nome).split(' ')[0])}</b><span>${Math.round(r.pct)}%</span><div class="blk" style="height:${alt[i]}px">${pos}</div></div>`}).join('')}</div>`:'';
     return `<div class="mt-card">
-      <div class="mt-card-h"><h3>Ranking de ${E(mesLabel(S.mes).split(' ')[0])}</h3><small>${S.area?AREAS[S.area].nome:(gestor()?'Todas as áreas':(minhasAreas().map(k=>AREAS[k]?.nome).join(' · ')||'Seu setor'))}</small></div>
+      <div class="mt-card-h"><h3>Ranking de ${E(mesLabel(S.mes).split(' ')[0])}</h3><small>${S.area?AREAS[S.area].nome:'Toda a equipe'}</small></div>
       ${rk.length?pod+`<ol class="mt-rk">${rk.map((r,i)=>{const u=pessoa(r.userId),sl=selo(r.ef),eu=souEu({userId:r.userId,userNome:r.nome});return `<li class="${eu?'me':''}"><span class="pos">${i+1}º</span>${av(u,r.nome)}<div class="nm"><b>${E(r.nome)}${eu?' <small style="color:var(--mt-ac2)">(você)</small>':''}</b><div class="mt-track"><div class="mt-fill ${barCls(r.pct)}" style="width:${Math.min(100,r.pct)}%"></div></div></div><span class="v">${Math.round(r.pct)}%<br><span class="mt-selo ${sl.k}" style="padding:1px 6px;font-size:10px">${sl.i} ${sl.n}</span></span></li>`}).join('')}</ol>`:`<div class="mt-empty" style="padding:30px 16px">O ranking aparece quando houver metas no mês.</div>`}
     </div>`;
   }
