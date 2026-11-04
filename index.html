@@ -29107,7 +29107,10 @@ body:has(#page-whatsapp-chat.active) .gxc-fab.up{bottom:166px}
 .mt-com.zero{color:var(--mt-mu);font-weight:600}
 .mt-com small{display:block;font-size:11px;font-weight:600;color:var(--mt-mu)}
 .mt-selo{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:800;border-radius:999px;padding:3px 9px;white-space:nowrap}
-.mt-selo.bronze{background:#FDF0E6;color:#9A4B13}.mt-selo.prata{background:#EEF2F6;color:#475569}.mt-selo.ouro{background:#FEF6D8;color:#946200}.mt-selo.diamante{background:#E0F2FE;color:#0369A1}
+.mt-selo.laranja{background:#FFEDD5;color:#C2410C}.mt-selo.vermelha{background:#FEE2E2;color:#B91C1C}.mt-selo.preta{background:#18181B;color:#fff}
+.mt-fx{display:inline-block;width:14px;height:5px;border-radius:2px;background:currentColor;position:relative;flex:none}
+.mt-selo.laranja .mt-fx{background:#F97316}.mt-selo.vermelha .mt-fx{background:#DC2626}.mt-selo.preta .mt-fx{background:#000;box-shadow:0 0 0 1px rgba(255,255,255,.55)}
+.mt-fx::after{content:"";position:absolute;right:3px;top:-1px;width:2px;height:7px;background:rgba(255,255,255,.75);border-radius:1px}
 .mt-st{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
 .mt-st.ok{background:rgba(16,185,129,.14);color:#047857}.mt-st.ritmo{background:rgba(59,130,246,.12);color:#1D4ED8}.mt-st.atencao{background:rgba(245,158,11,.16);color:#B45309}.mt-st.fechada{background:#1A1A2E;color:#fff}
 .mt-area{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-radius:5px;padding:1px 6px}
@@ -29376,10 +29379,11 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     return {valor:0,txt:'—'};
   }
   function selo(e){
-    if(e>=100)return {k:'diamante',n:'Diamante',i:'◆'};
-    if(e>=80)return {k:'ouro',n:'Ouro',i:'★'};
-    if(e>=50)return {k:'prata',n:'Prata',i:'●'};
-    return {k:'bronze',n:'Bronze',i:'●'};
+    // Faixas (04/11/2026): Laranja → Vermelha → Preta (meta batida)
+    const fx='<i class="mt-fx" aria-hidden="true"></i>';
+    if(e>=100)return {k:'preta',n:'Faixa preta',i:fx};
+    if(e>=60)return {k:'vermelha',n:'Faixa vermelha',i:fx};
+    return {k:'laranja',n:'Faixa laranja',i:fx};
   }
   function status(m,c){
     if(c.fechado)return {k:'fechada',n:'Mês fechado'};
