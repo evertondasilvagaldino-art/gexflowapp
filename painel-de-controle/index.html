@@ -121,7 +121,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
   .custom.on{width:100%;flex-wrap:wrap}
   .custom input[type=date]{flex:1;min-width:130px}
   #funil{flex:1 1 100%}
-  #links,#refresh{flex:1 1 calc(50% - 4px);padding:10px 12px}
+  #links,#refresh,#tvbtn{flex:1 1 calc(50% - 4px);padding:10px 12px}
   select,input[type=date]{font-size:16px;padding:10px 12px}
   .grid-kpi{gap:8px;margin-bottom:8px}
   .grid2{gap:8px;margin-bottom:8px}
@@ -158,6 +158,65 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
   .lk .ac .btn{flex:1;padding:10px}
 }
 @media(max-width:380px){.kpi .val{font-size:19px}.kpi.hero .val{font-size:27px}}
+
+/* ═══ MODO TV (04/11/2026): tela de telão com o faturamento do mês, meta e comemoração de venda ═══ */
+#tv{position:fixed;inset:0;z-index:60;display:none;color:#fff;overflow:auto;
+  background:radial-gradient(1200px 700px at 15% 10%,rgba(124,58,237,.45),transparent 60%),radial-gradient(900px 600px at 90% 90%,rgba(245,158,11,.18),transparent 60%),linear-gradient(160deg,#120a2a 0%,#0b0718 55%,#07050f 100%);
+  font:16px/1.4 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#tv.on{display:flex;flex-direction:column}
+body.tv-on{overflow:hidden}
+.tv-top{display:flex;align-items:center;gap:14px;padding:clamp(14px,2.2vw,28px) clamp(16px,3vw,44px) 0}
+.tv-top .brand-txt{color:#fff}
+.tv-ttl{font-weight:800;font-size:clamp(15px,1.5vw,22px);letter-spacing:-.01em}
+.tv-ttl small{display:block;font-weight:600;font-size:clamp(11px,.95vw,14px);color:rgba(255,255,255,.6);letter-spacing:.06em;text-transform:uppercase;margin-top:2px}
+.tv-clock{margin-left:auto;font-variant-numeric:tabular-nums;font-weight:700;font-size:clamp(16px,1.8vw,26px);color:rgba(255,255,255,.85)}
+.tv-btn{border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.06);color:#fff;border-radius:10px;padding:8px 12px;font:600 13px inherit;font-family:inherit;cursor:pointer}
+.tv-btn:hover{background:rgba(255,255,255,.14)}
+.tv-btn:focus-visible{outline:2px solid #F59E0B;outline-offset:2px}
+.tv-main{flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,30%);gap:clamp(16px,2.5vw,40px);padding:clamp(16px,3vw,44px);align-items:center}
+@media(max-width:1000px){.tv-main{grid-template-columns:1fr}}
+.tv-lbl{font-size:clamp(12px,1.1vw,17px);font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.62)}
+.tv-big{font-size:clamp(56px,10.5vw,190px);font-weight:900;letter-spacing:-.045em;line-height:.95;margin:.12em 0 .14em;font-variant-numeric:tabular-nums;
+  background:linear-gradient(180deg,#fff 30%,#d9ccff 100%);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 60px rgba(167,139,250,.25)}
+.tv-meta{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:baseline;font-size:clamp(14px,1.45vw,22px);color:rgba(255,255,255,.75);margin-bottom:clamp(26px,2.4vw,36px)}
+.tv-meta b{color:#fff;font-variant-numeric:tabular-nums}
+.tv-bar{position:relative;height:clamp(16px,1.8vw,28px);border-radius:999px;background:rgba(255,255,255,.1);overflow:visible}
+.tv-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,#7C3AED,#A855F7 45%,#F59E0B);box-shadow:0 0 28px rgba(168,85,247,.55);transition:width 1.2s cubic-bezier(.2,.8,.2,1);min-width:2%}
+.tv-fill.ok{background:linear-gradient(90deg,#10B981,#34D399 50%,#FACC15);box-shadow:0 0 30px rgba(16,185,129,.6)}
+.tv-pace{position:absolute;top:-8px;bottom:-8px;width:3px;border-radius:2px;background:rgba(255,255,255,.8)}
+.tv-pace span{position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);white-space:nowrap;font-size:clamp(10px,.85vw,13px);color:rgba(255,255,255,.6);font-weight:700}
+.tv-pct{display:flex;justify-content:space-between;margin-top:clamp(22px,2vw,30px);font-size:clamp(13px,1.2vw,18px);color:rgba(255,255,255,.7);font-variant-numeric:tabular-nums}
+.tv-pct b{color:#fff;font-size:1.25em}
+.tv-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(8px,1.2vw,16px);margin-top:clamp(18px,2.6vw,40px)}
+@media(max-width:700px){.tv-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tv-tile{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:clamp(12px,1.3vw,20px)}
+.tv-tile span{display:block;font-size:clamp(11px,.9vw,14px);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.55)}
+.tv-tile b{display:block;font-size:clamp(20px,2.4vw,40px);font-weight:850;letter-spacing:-.02em;margin-top:4px;font-variant-numeric:tabular-nums}
+.tv-tile small{display:block;font-size:clamp(11px,.95vw,14px);color:rgba(255,255,255,.6);margin-top:2px}
+.tv-side{display:flex;flex-direction:column;gap:clamp(12px,1.6vw,22px);min-width:0}
+.tv-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:clamp(14px,1.4vw,22px)}
+.tv-card h3{margin:0 0 10px;font-size:clamp(12px,1vw,15px);font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.6)}
+.tv-rk{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:4px 10px;align-items:center;margin:9px 0}
+.tv-rk .p{font-weight:900;font-size:clamp(14px,1.2vw,18px);color:rgba(255,255,255,.5);text-align:center}
+.tv-rk .p.g1{color:#FACC15}.tv-rk .p.g2{color:#CBD5E1}.tv-rk .p.g3{color:#F59E0B}
+.tv-rk .n{font-weight:700;font-size:clamp(13px,1.15vw,18px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tv-rk .v{font-weight:800;font-size:clamp(13px,1.15vw,18px);font-variant-numeric:tabular-nums}
+.tv-rk i{grid-column:2/4;display:block;height:5px;border-radius:999px;background:linear-gradient(90deg,#7C3AED,#A855F7)}
+.tv-ul{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid rgba(255,255,255,.08);font-size:clamp(13px,1.05vw,16px)}
+.tv-ul:first-of-type{border-top:0}
+.tv-ul b{font-variant-numeric:tabular-nums;color:#34D399}
+.tv-ul small{color:rgba(255,255,255,.55)}
+.tv-foot{padding:0 clamp(16px,3vw,44px) clamp(12px,1.6vw,22px);font-size:12px;color:rgba(255,255,255,.4);display:flex;gap:12px;flex-wrap:wrap}
+.tv-msg{padding:80px 20px;text-align:center;color:rgba(255,255,255,.7)}
+/* comemoração */
+#tv-cel{position:fixed;inset:0;z-index:70;display:none;align-items:center;justify-content:center;flex-direction:column;text-align:center;background:radial-gradient(circle at center,rgba(124,58,237,.55),rgba(7,5,15,.85) 70%);color:#fff;padding:20px}
+#tv-cel.on{display:flex;animation:tvIn .35s ease}
+#tv-cel .t1{font-size:clamp(22px,3vw,48px);font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:#FACC15}
+#tv-cel .t2{font-size:clamp(56px,10vw,170px);font-weight:900;letter-spacing:-.04em;font-variant-numeric:tabular-nums;line-height:1}
+#tv-cel .t3{font-size:clamp(18px,2.2vw,34px);font-weight:700;color:rgba(255,255,255,.85);margin-top:8px}
+#tv-conf{position:fixed;inset:0;z-index:71;pointer-events:none;display:none}
+@keyframes tvIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.tv-fill{transition:none}#tv-cel.on{animation:none}}
 </style>
 </head>
 <body>
@@ -182,6 +241,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
       <select id="funil" aria-label="Funil"><option value="">Todos os funis</option></select>
       <button class="btn" id="links" style="display:none" title="Gerar link só de um funil, para o vendedor acompanhar">🔗 Links por funil</button>
       <button class="btn" id="refresh" title="Atualizar agora">↻ Atualizar</button>
+      <button class="btn" id="tvbtn" title="Tela para telão: faturamento do mês, meta e comemoração de venda" style="background:#7C3AED;border-color:#7C3AED;color:#fff">📺 Modo TV</button>
     </div>
   </header>
   <main id="app"><div class="state"><div class="skel" style="width:40%;margin:0 auto 10px"></div><div class="skel" style="width:60%;margin:0 auto"></div></div></main>
@@ -190,6 +250,21 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
   <div style="display:flex;align-items:flex-start;gap:10px"><div><h2 id="mdl-t" style="margin:0;font-size:16px">Links por funil</h2><div class="hint" style="font-size:12px;color:var(--muted);margin:2px 0 10px">Cada link mostra <b>só os números daquele funil</b>. Mande para o vendedor responsável. "Gerar novo" invalida o link anterior daquele funil.</div></div><button class="btn" id="mdl-x" style="margin-left:auto">Fechar</button></div>
   <div id="mdl-b"><div class="skel" style="width:60%"></div></div>
 </div></div>
+
+<div id="tv" role="region" aria-label="Modo TV de vendas">
+  <div class="tv-top">
+    <div class="brand-ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 18 18" fill="none"><path d="M9 2L13 6H11V10H13L9 15L5 10H7V6H5L9 2Z" fill="#F59E0B"/></svg></div>
+    <div class="tv-ttl" id="tv-ttl">Vendas do mês<small>GexFlow</small></div>
+    <div class="tv-clock" id="tv-clock">--:--</div>
+    <button class="tv-btn" id="tv-som" title="Som da comemoração">🔔 Som</button>
+    <button class="tv-btn" id="tv-full">⛶ Tela cheia</button>
+    <button class="tv-btn" id="tv-sair">Sair do Modo TV</button>
+  </div>
+  <div id="tv-body"><div class="tv-msg">Carregando…</div></div>
+  <div class="tv-foot"><span id="tv-upd"></span><span>Atualiza sozinho a cada 30 segundos · só números consolidados</span></div>
+</div>
+<div id="tv-cel" aria-live="assertive"><div class="t1" id="tv-cel1">Nova venda!</div><div class="t2 num" id="tv-cel2"></div><div class="t3" id="tv-cel3"></div></div>
+<canvas id="tv-conf"></canvas>
 
 <script>
 (function(){
@@ -485,6 +560,116 @@ $('links').addEventListener('click',abrirLinks);
 $('mdl-x').addEventListener('click',()=>$('mdl').classList.remove('on'));
 $('mdl').addEventListener('click',e=>{if(e.target.id==='mdl')$('mdl').classList.remove('on')});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')$('mdl').classList.remove('on')});
+
+/* ═══ MODO TV (04/11/2026) ═══ */
+const TV={on:false,data:null,prev:null,timer:null,clock:null,som:true,ac:null,shown:0,metaLocal:0};
+try{TV.som=localStorage.getItem('gxbi_tv_som')!=='0';TV.metaLocal=+localStorage.getItem('gxbi_tv_meta')||0}catch(e){}
+const tvQS=new URLSearchParams(location.search);
+if(+tvQS.get('meta')>0)TV.metaLocal=+tvQS.get('meta');
+function tvAudio(){try{if(!TV.ac)TV.ac=new (window.AudioContext||window.webkitAudioContext)();if(TV.ac.state==='suspended')TV.ac.resume()}catch(e){}}
+function tvSom(grande){
+  if(!TV.som||!TV.ac)return;
+  try{
+    const ac=TV.ac,t0=ac.currentTime,g=ac.createGain();g.connect(ac.destination);g.gain.value=.0001;
+    const notas=grande?[523,659,784,1047,784,1047,1319]:[659,784,1047];
+    notas.forEach((f,i)=>{const o=ac.createOscillator();o.type='triangle';o.frequency.value=f;o.connect(g);const a=t0+i*.13;o.start(a);o.stop(a+.22);g.gain.setValueAtTime(.22,a);g.gain.exponentialRampToValueAtTime(.0001,a+.21)});
+  }catch(e){}
+}
+function tvConfete(ms){
+  const cv=$('tv-conf');if(!cv||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  cv.style.display='block';const W=cv.width=innerWidth,H=cv.height=innerHeight,cx=cv.getContext('2d');
+  const cores=['#7C3AED','#A855F7','#F59E0B','#FACC15','#34D399','#fff'];
+  const ps=Array.from({length:220},()=>({x:Math.random()*W,y:-20-Math.random()*H*.6,vx:(Math.random()-.5)*3,vy:2+Math.random()*4,r:Math.random()*6+3,c:cores[Math.random()*cores.length|0],a:Math.random()*6,va:(Math.random()-.5)*.3}));
+  const fim=performance.now()+ms;
+  (function f(t){cx.clearRect(0,0,W,H);ps.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.03;p.a+=p.va;cx.save();cx.translate(p.x,p.y);cx.rotate(p.a);cx.fillStyle=p.c;cx.fillRect(-p.r/2,-p.r/4,p.r,p.r/2);cx.restore()});
+    if(t<fim)requestAnimationFrame(f);else{cx.clearRect(0,0,W,H);cv.style.display='none'}})(performance.now());
+}
+function tvComemora(t1,valor,t3,grande){
+  $('tv-cel1').textContent=t1;$('tv-cel2').textContent=valor;$('tv-cel3').textContent=t3||'';
+  $('tv-cel').classList.add('on');tvSom(grande);tvConfete(grande?7000:4500);
+  clearTimeout(TV.celT);TV.celT=setTimeout(()=>$('tv-cel').classList.remove('on'),grande?8000:5500);
+}
+function tvContar(el,de,ate){
+  if(!el)return;
+  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches||de===ate){el.textContent=brl(ate);return}
+  const t0=performance.now(),dur=1600;
+  (function f(t){const k=Math.min(1,(t-t0)/dur),e=1-Math.pow(1-k,3);el.textContent=brl(de+(ate-de)*e);if(k<1)requestAnimationFrame(f)})(t0);
+}
+async function tvLoad(){
+  if(!TOKEN&&!LINK)return;
+  const u=API+'?'+(TOKEN?'t='+encodeURIComponent(TOKEN):'l='+encodeURIComponent(LINK))+'&modo=tv'+(S.funil&&TOKEN?'&funil='+encodeURIComponent(S.funil):'');
+  try{
+    const r=await fetch(u,{cache:'no-store'});
+    if(!r.ok)throw new Error('http '+r.status);
+    const j=await r.json();
+    if(!j.tv){$('tv-body').innerHTML='<div class="tv-msg">Publique a versão nova da função <b>gex-bi-vendas</b> no Supabase para usar o Modo TV.</div>';return}
+    TV.prev=TV.data;TV.data=j;tvRender();
+  }catch(e){$('tv-upd').textContent='Sem conexão agora — tentando de novo…'}
+}
+function tvRender(){
+  const j=TV.data,d=j.tv,p=TV.prev?.tv;
+  const meta=d.meta>0?d.meta:TV.metaLocal;
+  const pct=meta>0?d.faturamento/meta*100:0;
+  const ritmo=d.diasMes?d.diaHoje/d.diasMes*100:0;
+  const mesNome=new Date(d.mes+'-15').toLocaleDateString('pt-BR',{month:'long'});
+  $('tv-ttl').innerHTML='Vendas de '+esc(mesNome)+(j.escopo?' · '+esc(j.escopo.nome):j.funilNome?' · '+esc(j.funilNome):'')+'<small>Vendas ganhas · atualiza sozinho</small>';
+  const maxR=Math.max(1,...d.ranking.map(x=>x.valor));
+  const falta=Math.max(0,meta-d.faturamento);
+  $('tv-body').innerHTML='<div class="tv-main">'+
+    '<div>'+
+      '<div class="tv-lbl">Faturamento do mês</div>'+
+      '<div class="tv-big" id="tv-num">'+brl(p?p.faturamento:d.faturamento)+'</div>'+
+      '<div class="tv-meta">'+(meta>0?'<span>Meta <b>'+brl(meta)+'</b></span>'+(d.meta>0?'':'<span style="font-size:.8em">(meta definida no link)</span>'):'<span>Meta do mês ainda não definida — crie em GexFlow › Metas › Comercial</span>')+'<span>Dia <b>'+d.diaHoje+'</b> de '+d.diasMes+'</span></div>'+
+      (meta>0?'<div class="tv-bar" role="progressbar" aria-valuenow="'+Math.round(pct)+'" aria-valuemin="0" aria-valuemax="100"><div class="tv-fill'+(pct>=100?' ok':'')+'" id="tv-fill" style="width:'+Math.min(100,p&&meta?p.faturamento/meta*100:pct)+'%"></div>'+(pct<100?'<div class="tv-pace" style="left:'+ritmo+'%"><span>ritmo esperado</span></div>':'')+'</div>'+
+        '<div class="tv-pct"><span><b>'+pct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%</b> da meta</span><span>'+(pct>=100?'🏆 Meta batida'+(pct>100.5?' · +'+brl(d.faturamento-meta):''):'Faltam <b>'+brl(falta)+'</b>')+'</span></div>':'')+
+      '<div class="tv-tiles">'+
+        '<div class="tv-tile"><span>Hoje</span><b>'+brl(d.hojeValor)+'</b><small>'+int(d.hojeVendas)+' venda'+(d.hojeVendas!==1?'s':'')+'</small></div>'+
+        '<div class="tv-tile"><span>Vendas no mês</span><b>'+int(d.vendas)+'</b><small>negócios ganhos</small></div>'+
+        '<div class="tv-tile"><span>Ticket médio</span><b>'+brl(d.ticket)+'</b><small>por venda</small></div>'+
+        '<div class="tv-tile"><span>'+(meta>0&&pct<100?'Por dia até a meta':'Média por dia')+'</span><b>'+brl(meta>0&&pct<100?falta/Math.max(1,d.diasMes-d.diaHoje+1):d.faturamento/Math.max(1,d.diaHoje))+'</b><small>'+(meta>0&&pct<100?(d.diasMes-d.diaHoje+1)+' dias restantes':'no mês')+'</small></div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="tv-side">'+
+      '<div class="tv-card"><h3>Ranking do mês</h3>'+(d.ranking.length?d.ranking.slice(0,6).map((x,i)=>'<div class="tv-rk"><span class="p '+(i<3?'g'+(i+1):'')+'">'+(i+1)+'º</span><span class="n">'+esc(x.nome)+'</span><span class="v">'+brlShort(x.valor)+'</span><i style="width:'+Math.max(3,x.valor/maxR*100)+'%"></i></div>').join(''):'<div style="color:rgba(255,255,255,.6)">Primeira venda do mês ainda não saiu.</div>')+'</div>'+
+      '<div class="tv-card"><h3>Últimas vendas</h3>'+(d.ultimas.length?d.ultimas.map(u=>'<div class="tv-ul"><span>'+esc(u.vendedor)+'<br><small>'+new Date(u.em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</small></span><b>'+brl(u.valor)+'</b></div>').join(''):'<div style="color:rgba(255,255,255,.6)">—</div>')+'</div>'+
+    '</div>'+
+  '</div>';
+  // número subindo e barra andando
+  if(p&&p.faturamento!==d.faturamento)tvContar($('tv-num'),p.faturamento,d.faturamento);
+  if(p&&meta>0)requestAnimationFrame(()=>{const f=$('tv-fill');if(f)f.style.width=Math.min(100,pct)+'%'});
+  $('tv-upd').textContent='Atualizado às '+new Date(j.geradoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  // comemoração: venda nova (e meta batida)
+  if(p&&d.mes===p.mes&&d.faturamento>p.faturamento+0.5){
+    const ganho=d.faturamento-p.faturamento;
+    const quem=d.ultimas[0]?.vendedor||'';
+    const bateuAgora=meta>0&&p.faturamento<meta&&d.faturamento>=meta;
+    setTimeout(()=>bateuAgora?tvComemora('🏆 Meta batida!',brl(d.faturamento),'Parabéns, time!',true):tvComemora('🎉 Nova venda!','+ '+brl(ganho),quem?quem+' · '+(pct>0?pct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'% da meta':''):'',false),900);
+  }
+}
+function tvClock(){const c=$('tv-clock');if(c)c.textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
+function tvAbrir(){
+  tvAudio();TV.on=true;$('tv').classList.add('on');document.body.classList.add('tv-on');
+  $('tv-som').textContent=TV.som?'🔔 Som':'🔕 Sem som';
+  tvClock();clearInterval(TV.clock);TV.clock=setInterval(tvClock,10000);
+  TV.data=null;TV.prev=null;$('tv-body').innerHTML='<div class="tv-msg">Carregando…</div>';tvLoad();
+  clearInterval(TV.timer);TV.timer=setInterval(()=>{if(!document.hidden)tvLoad()},30000);
+  try{const q=new URLSearchParams(location.search);q.set('tv','1');history.replaceState(null,'','?'+q.toString())}catch(e){}
+}
+function tvFechar(){
+  TV.on=false;$('tv').classList.remove('on');document.body.classList.remove('tv-on');clearInterval(TV.timer);clearInterval(TV.clock);
+  try{if(document.fullscreenElement)document.exitFullscreen()}catch(e){}
+  try{const q=new URLSearchParams(location.search);q.delete('tv');history.replaceState(null,'',location.pathname+(q.toString()?'?'+q.toString():''))}catch(e){}
+}
+$('tvbtn').addEventListener('click',tvAbrir);
+$('tv-sair').addEventListener('click',tvFechar);
+$('tv-full').addEventListener('click',()=>{try{document.fullscreenElement?document.exitFullscreen():$('tv').requestFullscreen()}catch(e){}});
+$('tv-som').addEventListener('click',()=>{TV.som=!TV.som;tvAudio();try{localStorage.setItem('gxbi_tv_som',TV.som?'1':'0')}catch(e){}$('tv-som').textContent=TV.som?'🔔 Som':'🔕 Sem som';if(TV.som)tvSom(false)});
+$('tv-cel').addEventListener('click',()=>$('tv-cel').classList.remove('on'));
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&TV.on&&!document.fullscreenElement&&!$('tv-cel').classList.contains('on'))tvFechar()});
+// abre direto no telão com ?tv=1 (o som só liga depois do 1º clique na tela — regra do navegador)
+if(tvQS.get('tv')==='1'&&(TOKEN||LINK))setTimeout(tvAbrir,50);
+document.addEventListener('pointerdown',()=>{if(TV.on)tvAudio()},{once:false});
+
 const hoje=new Date();$('de').value=ymd(addDays(hoje,-29));$('ate').value=ymd(hoje);
 load();
 S.timer=setInterval(()=>{if(!document.hidden)load()},5*60*1000);
