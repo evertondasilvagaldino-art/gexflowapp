@@ -29235,6 +29235,29 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   function mesShift(m,n){const [y,mm]=m.split('-').map(Number);const d=new Date(y,mm-1+n,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}
   function fimMes(m){const [y,mm]=m.split('-').map(Number);const d=new Date(y,mm,0);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
   function noMes(iso,m){if(!iso)return false;const d=new Date(iso);if(isNaN(d))return false;return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`===m}
+  // Campo em R$: digita só números e o valor já aparece formatado (110000 → R$ 1.100,00 vai montando pelos centavos)
+  function moedaFmt(v){return (+v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}
+  function lerValor(str){const t=String(str||'').trim();if(!t)return 0;if(/R\$/.test(t)||/,/.test(t))return (+t.replace(/[^\d,]/g,'').replace(',','.'))||0;return +t.replace(/[^\d.]/g,'')||0}
+  window.mtMoeda=function(el){
+    if(el.dataset.moeda!=='1')return;
+    // reais inteiros com ponto de milhar; centavos só se a pessoa digitar a vírgula (110000 → R$ 110.000)
+    let t=String(el.value||'').replace(/^R\$\s?/,'').replace(/\./g,'').replace(/[^\d,]/g,'');
+    const i=t.indexOf(',');let int=i>=0?t.slice(0,i):t,dec=i>=0?t.slice(i+1).replace(/,/g,'').slice(0,2):null;
+    int=int.replace(/^0+(?=\d)/,'');
+    el.value=(int||dec!==null)?'R$ '+(int?(+int).toLocaleString('pt-BR'):'0')+(dec!==null?','+dec:''):'';
+    try{el.setSelectionRange(el.value.length,el.value.length)}catch(e){}
+  };
+  function iniMes(m){return m+'-01'}
+  function periodo(m){const ini=m.inicio||iniMes(m.mes),fim=m.prazo||fimMes(m.mes);return {ini,fim}}
+  function noPeriodo(iso,m){
+    if(!iso)return false;const d=new Date(String(iso).length===10?iso+'T12:00:00':iso);if(isNaN(d))return false;
+    const {ini,fim}=periodo(m);return d>=new Date(ini+'T00:00:00')&&d<=new Date(fim+'T23:59:59');
+  }
+  // % do período da meta já percorrido (para saber se está "no ritmo")
+  function ritmoMeta(m){
+    const {ini,fim}=periodo(m);const a=new Date(ini+'T00:00:00').getTime(),b=new Date(fim+'T23:59:59').getTime(),n=Date.now();
+    if(!(b>a))return ritmoEsperado(m.mes);if(n<=a)return 0;if(n>=b)return 100;return ((n-a)/(b-a))*100;
+  }
   function dataBR(s){if(!s)return '—';const d=new Date(String(s).length===10?s+'T12:00:00':s);return isNaN(d)?'—':d.toLocaleDateString('pt-BR')}
   // % do mês já percorrido (para saber se está "no ritmo")
   function ritmoEsperado(m){
@@ -29289,14 +29312,14 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     if(m.indicador==='producao'){
       const listas=DB.get('op_listas')||[];
       return (DB.get('op_tarefas')||[]).map(t=>{const l=listas.find(x=>x.id===t.listaId);const em=concluidaEm(t,l);return {t,l,em}})
-        .filter(x=>x.em&&noMes(x.em,m.mes)&&respBate(x.t,keys))
+        .filter(x=>x.em&&noPeriodo(x.em,m)&&respBate(x.t,keys))
         .map(x=>({id:'a_'+x.t.id,texto:x.t.titulo||'Tarefa',qtd:1,em:x.em,onde:x.l?.nome||''}));
     }
     if(m.indicador==='vendas'){
       return (DB.get('leads')||[]).filter(l=>{
         let won=false;try{won=isWonOpportunity(l)}catch(e){won=/ganh/i.test(l.dealStatus||'')}
         if(!won)return false;
-        const dt=l.dataFechamento||l.wonAt||l.closedAt;if(!noMes(dt&&String(dt).length===10?dt+'T12:00:00':dt,m.mes))return false;
+        const dt=l.dataFechamento||l.wonAt||l.closedAt;if(!noPeriodo(dt,m))return false;
         let ok=[];try{ok=[getLeadOwnerId(l),getLeadOwnerEmail(l),getLeadOwnerName(l)]}catch(e){ok=[l.ownerId,l.ownerEmail,l.ownerName,l.responsavel]}
         return ok.map(norm).some(k=>k&&keys.includes(k));
       }).map(l=>{let v=0;try{v=getOpportunityValue(l)}catch(e){v=+l.valor||0}return {id:'a_'+l.id,texto:l.empresa||l.nome||'Negócio',qtd:v,em:l.dataFechamento||l.wonAt||'',onde:'Pipeline'}});
@@ -29350,7 +29373,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   function status(m,c){
     if(c.fechado)return {k:'fechada',n:'Mês fechado'};
     if(c.pct>=100)return {k:'ok',n:'Meta batida'};
-    return c.pct>=ritmoEsperado(m.mes)-5?{k:'ritmo',n:'No ritmo'}:{k:'atencao',n:'Abaixo do ritmo'};
+    return c.pct>=ritmoMeta(m)-5?{k:'ritmo',n:'No ritmo'}:{k:'atencao',n:'Abaixo do ritmo'};
   }
   const barCls=p=>p>=110?'over':p>=100?'ok':'';
 
@@ -29403,7 +29426,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
           <button class="${!S.area?'on':''}" onclick="mtArea('')">Todas</button>
           ${Object.entries(AREAS).map(([k,a])=>`<button class="${S.area===k?'on':''}" onclick="mtArea('${k}')"><span class="dot" style="background:${a.cor}"></span>${a.nome}</button>`).join('')}
         </div>
-        ${g&&!metas().some(m=>m.mes===S.mes)&&metas().some(m=>m.mes===mesShift(S.mes,-1))?`<button class="mt-btn sm" style="margin-left:auto" onclick="mtCopiar()">Copiar metas do mês anterior</button>`:''}
+        ${g&&!metas().some(m=>m.mes===S.mes)?`<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">${metas().some(m=>m.mes===mesShift(S.mes,-1))?`<button class="mt-btn sm" onclick="mtCopiar(-1)">Copiar metas de ${E(mesLabel(mesShift(S.mes,-1)).split(' ')[0])}</button>`:''}${metas().some(m=>m.mes===mesShift(S.mes,1))?`<button class="mt-btn sm" onclick="mtCopiar(1)">Copiar metas de ${E(mesLabel(mesShift(S.mes,1)).split(' ')[0])}</button>`:''}</span>`:''}
       </div>
       ${kpis(cs,rk,g)}
       <div class="mt-grid">
@@ -29452,7 +29475,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
       <td><div class="mt-prog"><div class="mt-track" role="progressbar" aria-valuenow="${Math.round(c.pct)}" aria-valuemin="0" aria-valuemax="100"><div class="mt-fill ${barCls(c.pct)}" style="width:${Math.min(100,c.pct)}%"></div></div><span class="mt-pct">${Math.round(c.pct)}%</span></div><div class="mt-qty">${fmt(c.realizado)} de ${fmt(c.alvo)}</div></td>
       <td class="num"><span class="mt-com ${c.comissao?'':'zero'}" title="${E(c.comissaoTxt||'')}">${BRL(c.comissao)}<small>${E(c.comissaoTxt||'')}</small></span></td>
       <td><span class="mt-selo ${sl.k}">${sl.i} ${sl.n} · ${c.eficiencia}</span></td>
-      <td><span class="mt-st ${st.k}">${st.n}</span><div class="mt-qty" style="margin-top:4px">até ${dataBR(m.prazo)}</div></td>
+      <td><span class="mt-st ${st.k}">${st.n}</span><div class="mt-qty" style="margin-top:4px">${dataBR(periodo(m).ini).slice(0,5)} → ${dataBR(periodo(m).fim)}</div></td>
     </tr>`;
   }
   function rankHtml(rk){
@@ -29492,14 +29515,14 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const falta=Math.max(0,c.alvo-c.realizado);
     const dr=gaveta(`
       <div class="mt-dr-h"><span class="mt-dr-ic" style="background:${a.fundo};color:${a.cor}">${ico(a.ic)}</span>
-        <div style="min-width:0"><h2>${E(m.titulo)}</h2><small>${av(u,m.userNome)} ${E(m.userNome)} · <span class="mt-area" style="background:${a.fundo};color:${a.cor}">${a.nome}</span> · prazo ${dataBR(m.prazo)}</small></div>
+        <div style="min-width:0"><h2>${E(m.titulo)}</h2><small>${av(u,m.userNome)} ${E(m.userNome)} · <span class="mt-area" style="background:${a.fundo};color:${a.cor}">${a.nome}</span> · ${dataBR(periodo(m).ini)} a ${dataBR(periodo(m).fim)}</small></div>
         <button class="mt-x" onclick="mtFechar()" aria-label="Fechar">✕</button></div>
       <div class="mt-dr-b">
         <div class="mt-big"><div class="pct">${Math.round(c.pct)}%</div><div class="qty"><b>${fmt(c.realizado)}</b> de ${fmt(c.alvo)}<br>${c.pct>=100?'Meta batida 🎉':`faltam ${fmt(falta)}`}</div><div class="mt-track"><div class="mt-fill ${barCls(c.pct)}" style="width:${Math.min(100,c.pct)}%"></div></div></div>
         <div class="mt-kv">
           <div><span>Comissão ${c.fechado?'fechada':'até agora'}</span><b style="color:#047857">${verCom?BRL(c.comissao):'—'}</b><small>${verCom?E(c.comissaoTxt||''):'Visível só para a pessoa e o gestor'}</small></div>
           <div><span>Eficiência</span><b>${c.eficiencia}</b><small><span class="mt-selo ${sl.k}">${sl.i} ${sl.n}</span> · quantidade entregue em relação à meta</small></div>
-          <div><span>Status</span><b style="font-size:14px;margin-top:6px"><span class="mt-st ${st.k}">${st.n}</span></b><small>Esperado até hoje: ${Math.round(ritmoEsperado(m.mes))}%</small></div>
+          <div><span>Status</span><b style="font-size:14px;margin-top:6px"><span class="mt-st ${st.k}">${st.n}</span></b><small>Esperado até hoje: ${Math.round(ritmoMeta(m))}% do período</small></div>
           <div><span>Como é contado</span><b style="font-size:13.5px">${ind.auto&&m.contarAuto!==false?'Automático + itens':'Itens lançados'}</b><small>${ind.auto&&m.contarAuto!==false?E(ind.autoTxt):'Marque cada entrega na lista abaixo'}</small></div>
         </div>
         ${c.auto.length||(ind.auto&&m.contarAuto!==false)?`<div class="mt-sec"><h4>Contado automaticamente (${c.auto.length})</h4><div class="mt-chk">
@@ -29508,7 +29531,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
         <div class="mt-sec"><h4>Itens lançados (checklist)</h4><div class="mt-chk">
           <div class="mt-chk-h"><span>Total concluído: ${(m.itens||[]).filter(i=>i.feito).length}/${(m.itens||[]).length}</span>${ind.un==='R$'?'<span style="font-weight:600;color:var(--mt-mu)">valor por item</span>':''}</div>
           ${(m.itens||[]).map(i=>`<div class="mt-it ${i.feito?'done':''}"><input type="checkbox" ${i.feito?'checked':''} ${pode?'':'disabled'} onchange="mtItem('${m.id}','${i.id}',this.checked)" aria-label="Concluído"><span class="t">${E(i.texto)}</span>${ind.un==='R$'||(+i.qtd||1)!==1?`<span class="q">${ind.un==='R$'?BRL(i.qtd):'× '+NUM(i.qtd)}</span>`:''}<span class="by" title="${E(i.por||'')}">${E(String(i.por||'').split(' ')[0])}</span>${pode?`<button class="del" onclick="mtItemDel('${m.id}','${i.id}')" aria-label="Remover item">✕</button>`:''}</div>`).join('')}
-          ${pode?`<div class="mt-add"><input class="mt-in" id="mt-it-txt" style="flex:1" placeholder="${ind.un==='R$'?'Ex.: Renovação cliente X':'Ex.: Social media 01 EFA'}" onkeydown="if(event.key==='Enter')mtItemAdd('${m.id}')">${ind.un==='R$'?`<input class="mt-in" id="mt-it-q" type="number" min="0" step="0.01" style="width:120px" placeholder="Valor R$">`:`<input class="mt-in" id="mt-it-q" type="number" min="1" step="1" style="width:74px" value="1" title="Quantidade">`}<button class="mt-btn sm pri" onclick="mtItemAdd('${m.id}')">Adicionar</button></div>`:''}
+          ${pode?`<div class="mt-add"><input class="mt-in" id="mt-it-txt" style="flex:1" placeholder="${ind.un==='R$'?'Ex.: Renovação cliente X':'Ex.: Social media 01 EFA'}" onkeydown="if(event.key==='Enter')mtItemAdd('${m.id}')">${ind.un==='R$'?`<input class="mt-in" id="mt-it-q" type="text" inputmode="decimal" data-moeda="1" oninput="mtMoeda(this)" style="width:140px" placeholder="R$ 0,00" onkeydown="if(event.key==='Enter')mtItemAdd('${m.id}')">`:`<input class="mt-in" id="mt-it-q" type="number" min="1" step="1" style="width:74px" value="1" title="Quantidade">`}<button class="mt-btn sm pri" onclick="mtItemAdd('${m.id}')">Adicionar</button></div>`:''}
           ${!(m.itens||[]).length&&!pode?`<div class="mt-it"><span class="t" style="color:var(--mt-mu)">Nenhum item lançado.</span></div>`:''}
         </div></div>
         ${m.fechamento?`<div class="mt-note">Mês fechado em ${dataBR(m.fechamento.em)} por ${E(m.fechamento.por||'')}. Os valores acima ficaram congelados.</div>`:''}
@@ -29520,7 +29543,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const m=meta(id);if(!m||!podeLancar(m))return;
     const t=document.getElementById('mt-it-txt'),q=document.getElementById('mt-it-q');
     const txt=String(t?.value||'').trim();if(!txt){t?.focus();return}
-    const qtd=Math.max(0,+String(q?.value||'1').replace(',','.')||(INDICADORES[m.indicador]?.un==='R$'?0:1));
+    const qtd=q?.dataset.moeda==='1'?lerValor(q.value):Math.max(0,+String(q?.value||'1').replace(',','.')||1);
     const it={id:uidm(),texto:txt.slice(0,160),qtd,feito:true,por:sessionUser?.nome||'',em:new Date().toISOString()};
     DB.update('metas',id,{itens:[...(m.itens||[]),it]});
     desenharDetalhe();renderMetas();
@@ -29556,12 +29579,15 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
         <label class="mt-fld"><span>Área</span><select class="mt-in" id="mtf-area" onchange="mtfArea(this.value)" ${ed?'disabled':''}>${Object.entries(AREAS).map(([k,a])=>`<option value="${k}" ${k===area?'selected':''}>${a.nome}</option>`).join('')}</select></label>
         <label class="mt-fld"><span>Indicador</span><select class="mt-in" id="mtf-ind" onchange="mtfInd()" ${ed?'disabled':''}></select></label>
         <label class="mt-fld full"><span>Nome da meta</span><input class="mt-in" id="mtf-tit" value="${E(m?.titulo||'')}" placeholder="Gerado sozinho se ficar em branco"></label>
-        <label class="mt-fld"><span id="mtf-alvo-l">Meta (alvo)</span><input class="mt-in" id="mtf-alvo" type="number" min="1" step="any" value="${E(m?.alvo||'')}" placeholder="Ex.: 88"></label>
-        <label class="mt-fld"><span>Prazo</span><input class="mt-in" id="mtf-prazo" type="date" value="${E(m?.prazo||fimMes(S.mes))}"></label>
-        <label class="mt-fld full" id="mtf-auto-w"><span><input type="checkbox" id="mtf-auto" ${m?.contarAuto===false?'':'checked'} style="accent-color:#10B981;vertical-align:-2px"> Contar automaticamente</span><small id="mtf-auto-s"></small></label>
+        <label class="mt-fld full"><span id="mtf-alvo-l">Meta (alvo)</span><input class="mt-in" id="mtf-alvo" type="text" inputmode="decimal" autocomplete="off" data-alvo="${E(m?.alvo||'')}" oninput="mtMoeda(this)" placeholder="Ex.: 88"></label>
+        <label class="mt-fld"><span>Início</span> <input class="mt-in" id="mtf-ini" type="date" onchange="mtfPrevia()" value="${E(m?.inicio||iniMes(m?.mes||S.mes))}"></label>
+        <label class="mt-fld"><span>Prazo (fim)</span><input class="mt-in" id="mtf-prazo" type="date" onchange="mtfPrevia()" value="${E(m?.prazo||fimMes(m?.mes||S.mes))}"></label>
+        <small class="full" style="font-size:11.5px;color:var(--mt-mu);margin-top:-6px">Só conta o que foi entregue/ganho entre o início e o prazo.</small>
+        <label class="mt-fld full" id="mtf-auto-w"><span><input type="checkbox" id="mtf-auto" onchange="mtfPrevia()" ${m?.contarAuto===false?'':'checked'} style="accent-color:#10B981;vertical-align:-2px"> Contar automaticamente</span><small id="mtf-auto-s"></small></label>
         <div class="mt-fld full"><span>${ed?'Responsável':'Para quem (pode marcar várias pessoas)'}</span>
           <div class="mt-people" id="mtf-people">${pessoas.map(u=>{const id=userId(u),on=S.form.sel.has(id);return `<label class="${on?'on':''}"><input type="checkbox" value="${E(id)}" ${on?'checked':''} ${ed?'disabled':''} onchange="mtfPessoa(this)">${av(u)}${E(u.nome)}</label>`}).join('')||'<span style="color:var(--mt-mu);font-size:12.5px">Nenhum colaborador ativo.</span>'}</div></div>
       </div>
+      <div class="mt-note" id="mtf-prev" style="display:none"></div>
       <div class="mt-note">A comissão vem da regra da área (botão <b>Comissões</b>). Se a pessoa tiver uma regra só dela, vale a dela.</div></div>
       <div class="mt-dr-f"><button class="mt-btn" onclick="mtFechar()">Cancelar</button><button class="mt-btn pri" onclick="mtSalvar('${m?.id||''}')">${ed?'Salvar':'Criar meta'}</button></div>`);
     mtfArea(area,m?.indicador);
@@ -29577,21 +29603,46 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const k=document.getElementById('mtf-ind')?.value,ind=INDICADORES[k]||{};
     S.form.indicador=k;
     const w=document.getElementById('mtf-auto-w');if(w)w.style.display=ind.auto?'':'none';
-    const s=document.getElementById('mtf-auto-s');if(s)s.textContent=ind.auto?`Soma ${ind.autoTxt} no mês, além dos itens lançados à mão.`:'';
+    const s=document.getElementById('mtf-auto-s');if(s)s.textContent=ind.auto?`Soma ${ind.autoTxt} entre o início e o prazo, além dos itens lançados à mão.`:'';
     const l=document.getElementById('mtf-alvo-l');if(l)l.textContent=ind.un==='R$'?'Meta em R$':'Meta (quantidade)';
+    setTimeout(()=>window.mtfPrevia&&mtfPrevia(),0);
+    const inp=document.getElementById('mtf-alvo');
+    if(inp){
+      const atual=inp.dataset.alvo!==undefined&&inp.dataset.alvo!==''?+inp.dataset.alvo:lerValor(inp.value);
+      inp.dataset.alvo='';
+      inp.dataset.moeda=ind.un==='R$'?'1':'0';
+      inp.placeholder=ind.un==='R$'?'R$ 0,00':'Ex.: 88';
+      inp.value=atual?(ind.un==='R$'?moedaFmt(atual):String(atual)):'';
+    }
   };
-  window.mtfPessoa=function(el){if(el.checked)S.form.sel.add(el.value);else S.form.sel.delete(el.value);el.closest('label').classList.toggle('on',el.checked)};
+  window.mtfPessoa=function(el){if(el.checked)S.form.sel.add(el.value);else S.form.sel.delete(el.value);el.closest('label').classList.toggle('on',el.checked);mtfPrevia()};
+  // Mostra o que o sistema já encontrou no período para cada pessoa marcada (ex.: vendas de meses passados)
+  window.mtfPrevia=function(){
+    const box=document.getElementById('mtf-prev');if(!box)return;
+    const ind=INDICADORES[S.form.indicador]||{};
+    const auto=document.getElementById('mtf-auto');
+    if(!ind.auto||(auto&&!auto.checked)||!S.form.sel.size){box.style.display='none';return}
+    const inicio=document.getElementById('mtf-ini')?.value||iniMes(S.mes),prazo=document.getElementById('mtf-prazo')?.value||fimMes(S.mes);
+    const linhas=[...S.form.sel].map(uid=>{const u=pessoa(uid);if(!u)return '';
+      const its=autoItens({indicador:S.form.indicador,mes:S.mes,inicio,prazo,userId:userId(u),userNome:u.nome,userEmail:u.email,contarAuto:true});
+      const tot=its.reduce((a,i)=>a+(+i.qtd||0),0);
+      return `<b>${E(u.nome)}</b>: ${ind.un==='R$'?BRL(tot):NUM(tot)} <span style="opacity:.75">(${its.length} ${S.form.indicador==='vendas'?'venda'+(its.length!==1?'s':''):'entrega'+(its.length!==1?'s':'')})</span>`}).filter(Boolean);
+    box.innerHTML=`Já encontrado de ${dataBR(inicio)} a ${dataBR(prazo)}:<br>${linhas.join('<br>')}`;box.style.display='';
+  };
   window.mtSalvar=function(id){
-    const alvo=+String(document.getElementById('mtf-alvo')?.value||'').replace(',','.');
+    const _a=document.getElementById('mtf-alvo');
+    const alvo=_a?.dataset.moeda==='1'?lerValor(_a.value):+String(_a?.value||'').replace(',','.');
     if(!(alvo>0)){toast('Informe a meta (alvo)','#F59E0B');document.getElementById('mtf-alvo')?.focus();return}
     const prazo=document.getElementById('mtf-prazo')?.value||fimMes(S.mes);
+    const inicio=document.getElementById('mtf-ini')?.value||iniMes(S.mes);
+    if(prazo<inicio){toast('O prazo precisa ser depois do início','#F59E0B');document.getElementById('mtf-prazo')?.focus();return}
     const contarAuto=!!document.getElementById('mtf-auto')?.checked;
     const ind=INDICADORES[S.form.indicador];
     let titulo=String(document.getElementById('mtf-tit')?.value||'').trim();
     const mesNome=mesLabel(S.mes).replace(/^./,c=>c.toUpperCase());
     if(id){
       const m=meta(id);
-      DB.update('metas',id,{alvo,prazo,contarAuto,titulo:titulo||m.titulo});
+      DB.update('metas',id,{alvo,inicio,prazo,contarAuto,titulo:titulo||m.titulo});
       toast('Meta atualizada','#10B981');S.drId=id;desenharDetalhe();renderMetas();return;
     }
     if(!S.form.sel.size){toast('Escolha pelo menos uma pessoa','#F59E0B');return}
@@ -29599,18 +29650,19 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     let n=0;
     S.form.sel.forEach(uid=>{
       const u=pessoa(uid);if(!u)return;
-      const m={id:uidm(),mes:S.mes,area:S.form.area,indicador:S.form.indicador,titulo,alvo,prazo,contarAuto,itens:[],
+      const m={id:uidm(),mes:S.mes,area:S.form.area,indicador:S.form.indicador,titulo,alvo,inicio,prazo,contarAuto,itens:[],
         userId:userId(u),userNome:u.nome||'',userEmail:u.email||'',criadoPor:sessionUser?.nome||'',criadoEm:new Date().toISOString(),fechamento:null};
       DB.push('metas',m);n++;
-      if(typeof gxNotify==='function')gxNotify({para:u,tipo:'tarefa',titulo:'Nova meta do mês',texto:`${titulo} · alvo ${ind.un==='R$'?BRL(alvo):NUM(alvo)}`,link:{kind:'metas'}});
+      if(S.mes>=mesAtual()&&typeof gxNotify==='function')gxNotify({para:u,tipo:'tarefa',titulo:'Nova meta do mês',texto:`${titulo} · alvo ${ind.un==='R$'?BRL(alvo):NUM(alvo)}`,link:{kind:'metas'}});
     });
     mtFechar();renderMetas();toast(`${n} meta${n!==1?'s':''} criada${n!==1?'s':''} ✓`,'#10B981');
   };
-  window.mtCopiar=function(){
-    const ant=metas().filter(m=>m.mes===mesShift(S.mes,-1));if(!ant.length)return;
-    const nomeMes=mesLabel(S.mes).replace(/^./,c=>c.toUpperCase()),nomeAnt=mesLabel(mesShift(S.mes,-1)).replace(/^./,c=>c.toUpperCase());
-    ant.forEach(m=>DB.push('metas',{...m,id:uidm(),mes:S.mes,prazo:fimMes(S.mes),itens:[],fechamento:null,avisoBatida:null,titulo:String(m.titulo).replace(nomeAnt,nomeMes),criadoPor:sessionUser?.nome||'',criadoEm:new Date().toISOString()}));
-    renderMetas();toast(`${ant.length} metas copiadas (itens zerados)`,'#10B981');
+  window.mtCopiar=function(dir){
+    const de=mesShift(S.mes,dir||-1);
+    const ant=metas().filter(m=>m.mes===de);if(!ant.length)return;
+    const nomeMes=mesLabel(S.mes),nomeAnt=mesLabel(de);
+    ant.forEach(m=>DB.push('metas',{...m,id:uidm(),mes:S.mes,inicio:iniMes(S.mes),prazo:fimMes(S.mes),itens:[],fechamento:null,avisoBatida:null,titulo:String(m.titulo).replace(nomeAnt,nomeMes),criadoPor:sessionUser?.nome||'',criadoEm:new Date().toISOString()}));
+    renderMetas();toast(`${ant.length} metas copiadas (itens zerados). O que é automático já foi puxado do período.`,'#10B981');
   };
   window.mtFecharMes=function(){
     const abertas=metas().filter(m=>m.mes===S.mes&&!m.fechamento);if(!abertas.length)return;
