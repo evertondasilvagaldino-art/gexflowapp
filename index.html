@@ -22862,7 +22862,7 @@ ${gxlCloseScriptTag}`;
       </div>`;
     }).join('');
     const custom=rules().filter(r=>!r.templateKey);
-    return `<div class="auto-grid">${metaCardHtml()}${typeof window.gxRoletaCardHtml==='function'?window.gxRoletaCardHtml():''}${cards}</div>
+    return `<div class="auto-grid">${metaCardHtml()}${typeof window.gxRoletaCardHtml==='function'?window.gxRoletaCardHtml():''}${typeof window.gxGruposCardHtml==='function'?window.gxGruposCardHtml():''}${cards}</div>
     ${opAutoSectionHtml()}
     ${custom.length?`<div class="auto-section-title">Automações personalizadas</div>${custom.map(r=>`<div class="auto-rule-card">
       <div class="auto-rule-left">
@@ -30175,6 +30175,314 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
     }catch(e){}
   }
   setInterval(avisar,15000);setTimeout(avisar,6000);
+})();
+</script>
+
+<style id="gx-wagrupos-v1">
+/* ═══ DISPARO EM GRUPOS DO WHATSAPP (04/11/2026) ═══ */
+.wg-ov{position:fixed;inset:0;background:rgba(15,23,42,.42);z-index:99989;display:none}.wg-ov.open{display:block}
+.wg-md{--wg-line:var(--g-line,var(--border,#E5E7EB));--wg-card:var(--g-card,var(--card,#fff));--wg-mu:var(--g-mu,var(--muted,#64748B));--wg-tx:var(--g-tx,var(--txt,#1A1A2E));--wg-soft:var(--g-soft,#F7F6FB);
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(920px,calc(100vw - 32px));height:min(90vh,920px);background:var(--wg-card);color:var(--wg-tx);border-radius:18px;box-shadow:0 30px 80px rgba(15,23,42,.35);z-index:99990;display:none;flex-direction:column;overflow:hidden}
+.wg-md.open{display:flex}
+body:has(.wg-md.open) .gxc-fab,body:has(.wg-md.open) .gxw-fab{display:none!important}
+.wg-h{display:flex;align-items:flex-start;gap:12px;padding:18px 20px;border-bottom:1px solid var(--wg-line)}
+.wg-h h2{margin:0;font-size:18px;font-weight:800}.wg-h p{margin:4px 0 0;font-size:12.5px;color:var(--wg-mu);line-height:1.5}
+.wg-x{margin-left:auto;width:34px;height:34px;border-radius:9px;border:1px solid var(--wg-line);background:none;color:inherit;cursor:pointer;flex:none}
+.wg-back{width:34px;height:34px;border-radius:9px;border:1px solid var(--wg-line);background:none;color:inherit;cursor:pointer;flex:none;font-size:16px}
+.wg-b{flex:1;overflow:auto;padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.wg-f{display:flex;gap:8px;justify-content:flex-end;align-items:center;padding:14px 20px;border-top:1px solid var(--wg-line);flex-wrap:wrap}
+.wg-btn{height:38px;border-radius:10px;border:1px solid var(--wg-line);background:var(--wg-card);color:var(--wg-tx);font:600 13px inherit;font-family:inherit;padding:0 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.wg-btn:hover{border-color:#C4B5FD}.wg-btn.pri{background:#7C3AED;border-color:#7C3AED;color:#fff}.wg-btn.ok{background:#10B981;border-color:#10B981;color:#fff}
+.wg-btn.sm{height:32px;padding:0 11px;font-size:12.5px}.wg-btn.dng{color:#DC2626}.wg-btn:disabled{opacity:.5;cursor:not-allowed}
+.wg-in{height:38px;border:1px solid var(--wg-line);border-radius:10px;padding:0 12px;font:inherit;font-size:13.5px;background:var(--wg-card);color:var(--wg-tx);min-width:0;box-sizing:border-box;width:100%}
+textarea.wg-in{height:auto;min-height:92px;padding:10px 12px;resize:vertical;line-height:1.45}
+.wg-in:focus{outline:none;border-color:#8B5CF6;box-shadow:0 0 0 3px rgba(139,92,246,.15)}
+.wg-fld{display:flex;flex-direction:column;gap:6px}.wg-fld>span{font-size:12.5px;font-weight:700}.wg-fld small{font-size:11.5px;color:var(--wg-mu);line-height:1.4}
+.wg-row{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:12px}
+.wg-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.wg-stats>div{background:var(--wg-soft);border-radius:12px;padding:11px 13px;min-width:0}
+.wg-stats span{display:block;font-size:11.5px;font-weight:600;color:var(--wg-mu)}.wg-stats b{display:block;font-size:16px;font-weight:800;margin-top:3px;font-variant-numeric:tabular-nums}
+.wg-stats small{display:block;font-size:11.5px;color:var(--wg-mu)}
+.wg-camp{display:grid;grid-template-columns:minmax(0,1fr) 220px auto;gap:14px;align-items:center;border:1px solid var(--wg-line);border-radius:14px;padding:13px 15px}
+.wg-camp b{font-size:14px}.wg-camp small{display:block;font-size:12px;color:var(--wg-mu);margin-top:3px}
+.wg-bar{height:7px;border-radius:999px;background:var(--wg-soft);overflow:hidden}.wg-bar i{display:block;height:100%;background:#10B981;border-radius:999px}
+.wg-pill{font-size:11px;font-weight:800;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.wg-pill.on{background:rgba(16,185,129,.14);color:#047857}.wg-pill.off{background:var(--wg-soft);color:var(--wg-mu)}.wg-pill.bad{background:rgba(239,68,68,.12);color:#DC2626}
+.wg-acts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.wg-sec{border:1px solid var(--wg-line);border-radius:14px;overflow:hidden}
+.wg-sec-h{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--wg-soft);font-size:13px;font-weight:700;flex-wrap:wrap}
+.wg-sec-h small{font-weight:600;color:var(--wg-mu)}
+.wg-gl{max-height:260px;overflow:auto}
+.wg-g{display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid var(--wg-line);font-size:13px;cursor:pointer}
+.wg-g:hover{background:var(--wg-soft)}.wg-g input{width:16px;height:16px;accent-color:#7C3AED}
+.wg-g .n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wg-g small{color:var(--wg-mu);font-size:11.5px}
+.wg-step{border:1px solid var(--wg-line);border-radius:14px;padding:13px 14px;display:flex;flex-direction:column;gap:10px}
+.wg-step-h{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;font-weight:700}
+.wg-step-h .wg-in{width:auto;height:34px}
+.wg-num{width:26px;height:26px;border-radius:8px;background:#7C3AED;color:#fff;display:grid;place-items:center;font-size:12px;font-weight:800;flex:none}
+.wg-media{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.wg-prev{width:84px;height:84px;border-radius:10px;overflow:hidden;background:var(--wg-soft);display:grid;place-items:center;border:1px solid var(--wg-line)}
+.wg-prev img,.wg-prev video{width:100%;height:100%;object-fit:cover}
+.wg-note{font-size:12px;color:var(--wg-mu);line-height:1.55;background:var(--wg-soft);border-radius:10px;padding:10px 12px}
+.wg-warn{font-size:12.5px;color:#B45309;background:rgba(245,158,11,.1);border-radius:10px;padding:10px 12px;line-height:1.5}
+.wg-empty{padding:34px 16px;text-align:center;color:var(--wg-mu);font-size:13.5px;line-height:1.6}.wg-empty b{display:block;color:var(--wg-tx);font-size:15px;margin-bottom:4px}
+.wg-tbl{width:100%;border-collapse:collapse;font-size:12.5px}.wg-tbl th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--wg-mu);padding:8px 10px;border-bottom:1px solid var(--wg-line)}
+.wg-tbl td{padding:8px 10px;border-bottom:1px solid var(--wg-line)}
+.wg-load{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:wgspin .7s linear infinite}
+@keyframes wgspin{to{transform:rotate(360deg)}}
+@media (max-width:700px){.wg-row,.wg-camp{grid-template-columns:1fr}.wg-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.wg-md{height:94vh}}
+@media (prefers-reduced-motion:reduce){.wg-load{animation:none}}
+</style>
+<script id="gx-wagrupos-js">
+/* ═══ DISPARO EM GRUPOS DO WHATSAPP (04/11/2026) ═══
+   Tela da automação. Os dados ficam nas tabelas gex_wa_group_* e são lidos/gravados só pela função wa-groups.
+   Quem dispara é a wa-groups-cron (fila por número: 1 grupo por vez, 90–240 s, 8h–20h, limite diário próprio). */
+(function(){
+  if(window.__GX_WAGRUPOS__)return;window.__GX_WAGRUPOS__=true;
+  const E=v=>typeof escHtml==='function'?escHtml(v):String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const role=u=>{try{return resolveRole(u?.permissao||u?.cargo||'Colaborador')}catch(e){return 'Colaborador'}};
+  const pode=()=>{const r=role(sessionUser);return r==='Fundador'||r==='Adm Gerente'||r==='Gex Parceiro'};
+  const W={view:'lista',status:null,camps:null,grupos:null,ed:null,det:null,carregando:false,busca:''};
+  const uidp=()=>'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const hojeSP=()=>new Date(Date.now()-3*3600000).toISOString().slice(0,10);
+  const dataHora=iso=>{const d=new Date(iso);return isNaN(d)?'—':d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})};
+  const dataBR=s=>{const d=new Date(String(s).length===10?s+'T12:00:00':s);return isNaN(d)?'—':d.toLocaleDateString('pt-BR')};
+
+  async function api(action,extra){
+    const token=await getGexSupabaseToken();
+    const r=await fetch(getSupabaseFunctionUrl('wa-groups'),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({action,...(extra||{})})});
+    const j=await r.json().catch(()=>({ok:false,message:`Erro ${r.status}`}));
+    if(r.status===404)return {ok:false,message:'A função wa-groups ainda não foi publicada no Supabase.'};
+    return j;
+  }
+
+  // ── card em Automações ──
+  window.gxGruposCardHtml=function(){
+    if(!pode())return '';
+    return `<div class="auto-card">
+      <div class="auto-card-ico whatsapp" style="background:rgba(37,211,102,.12);color:#128C7E"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+      <div class="auto-card-name">Disparo em grupos do WhatsApp</div>
+      <div class="auto-card-desc">Monte uma sequência de mensagens por dias (com imagem ou vídeo) e escolha os grupos do seu número. O sistema dispara um grupo por vez, no horário e no limite seguros do número.</div>
+      <div class="auto-card-foot"><span class="auto-pill">Nativa do sistema</span><button class="gl-btn sm primary" onclick="gxGruposAbrir()">Abrir</button></div>
+    </div>`;
+  };
+
+  // ── janela ──
+  function modal(){
+    let ov=document.getElementById('wg-ov'),md=document.getElementById('wg-md');
+    if(!ov){ov=document.createElement('div');ov.id='wg-ov';ov.className='wg-ov';ov.onclick=()=>gxGruposFechar();document.body.appendChild(ov)}
+    if(!md){md=document.createElement('div');md.id='wg-md';md.className='wg-md';md.setAttribute('role','dialog');md.setAttribute('aria-label','Disparo em grupos do WhatsApp');document.body.appendChild(md)}
+    return {ov,md};
+  }
+  window.gxGruposAbrir=async function(){
+    if(!pode())return;
+    const {ov,md}=modal();ov.classList.add('open');md.classList.add('open');
+    W.view='lista';W.camps=null;desenhar();
+    const [st,ls]=await Promise.all([api('status'),api('list')]);
+    W.status=st;W.camps=ls.ok?ls.campanhas:[];W.erroLista=ls.ok?'':ls.message;desenhar();
+  };
+  window.gxGruposFechar=function(force){
+    if(!force&&W.view==='editar'&&W.ed?.__sujo&&!confirm('Há alterações não salvas. Sair sem salvar?'))return;
+    document.getElementById('wg-ov')?.classList.remove('open');document.getElementById('wg-md')?.classList.remove('open');W.view='lista';
+  };
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('wg-md')?.classList.contains('open'))gxGruposFechar()});
+  function desenhar(){
+    const {md}=modal();
+    if(W.view==='editar')md.innerHTML=editorHtml();
+    else if(W.view==='detalhe')md.innerHTML=detalheHtml();
+    else md.innerHTML=listaHtml();
+  }
+
+  // ── lista de campanhas ──
+  function listaHtml(){
+    const st=W.status||{};
+    const prov={evolution:'Evolution',zapi:'Z-API',meta:'API Oficial (Meta)'}[st.provider]||'—';
+    const camps=W.camps;
+    return `<div class="wg-h"><div><h2>Disparo em grupos do WhatsApp</h2><p>Sequências de mensagens para os grupos do seu número. Um grupo por vez, com pausa de 90 a 240 s entre envios, das 8h às 20h, respeitando o limite diário do número.</p></div><button class="wg-x" onclick="gxGruposFechar()" aria-label="Fechar">✕</button></div>
+    <div class="wg-b">
+      ${W.status?(!st.ok?`<div class="wg-warn">${E(st.message||'Não foi possível ler a sua conexão.')}</div>`:!st.suportaGrupos?`<div class="wg-warn">${st.provider==='meta'?'Sua conexão é a API Oficial da Meta, que não envia para grupos. Conecte pela Evolution (recomendado) ou Z-API em Integrações.':'Seu WhatsApp não está conectado. Conecte em Integrações para disparar em grupos.'}</div>`:''):''}
+      <div class="wg-stats">
+        <div><span>Conexão</span><b>${E(prov)}</b><small>${st.suportaGrupos?'pronta para grupos':'sem envio para grupos'}</small></div>
+        <div><span>Enviados hoje</span><b>${st.enviadosHoje??'—'} / ${st.limiteDia??40}</b><small>grupos neste número</small></div>
+        <div><span>Limite por dia</span><b style="display:flex;gap:6px;align-items:center"><input class="wg-in" style="height:30px;width:74px" type="number" min="1" max="200" value="${E(st.limiteDia??40)}" id="wg-lim" aria-label="Limite de grupos por dia"><button class="wg-btn sm" onclick="gxGruposLimite()">Salvar</button></b><small>separado dos follow-ups</small></div>
+        <div><span>Próximo envio liberado</span><b>${st.proximoEnvio&&new Date(st.proximoEnvio)>new Date()?dataHora(st.proximoEnvio):'agora'}</b><small>pausa entre envios</small></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px"><b style="font-size:14px">Campanhas</b><button class="wg-btn pri sm" style="margin-left:auto" onclick="gxGruposNova()" ${st.suportaGrupos?'':'disabled'}>+ Nova campanha</button></div>
+      ${camps===null?`<div class="wg-empty"><span class="wg-load"></span></div>`:W.erroLista?`<div class="wg-warn">${E(W.erroLista)}</div>`:camps.length?camps.map(campHtml).join(''):`<div class="wg-empty"><b>Nenhuma campanha ainda</b>Crie a primeira: escolha os grupos e monte a sequência de mensagens.</div>`}
+      <div class="wg-note">Dicas para não ter o número restrito: evite mandar a mesma mensagem idêntica para dezenas de grupos no mesmo dia, prefira grupos em que você é administrador e mantenha o limite diário baixo nos primeiros dias de um número novo.</div>
+    </div>`;
+  }
+  function campHtml(c){
+    const r=c.resumo||{},pct=r.total?Math.round((r.enviado||0)/r.total*100):0;
+    return `<div class="wg-camp">
+      <div><b>${E(c.nome)}</b> <span class="wg-pill ${c.ativo?'on':'off'}">${c.ativo?'Ativa':'Pausada'}</span>${r.falhou?` <span class="wg-pill bad">${r.falhou} falha${r.falhou>1?'s':''}</span>`:''}
+        <small>${(c.grupos||[]).length} grupo${(c.grupos||[]).length!==1?'s':''} · ${(c.passos||[]).length} mensage${(c.passos||[]).length!==1?'ns':'m'} · início ${dataBR(c.inicio)}${W.status?.gestor&&c.created_by_nome?` · por ${E(c.created_by_nome)}`:''}</small></div>
+      <div><div class="wg-bar"><i style="width:${pct}%"></i></div><small style="margin-top:5px">${r.enviado||0} de ${r.total||0} enviados${r.proximo&&c.ativo?` · próximo ${dataHora(r.proximo)}`:''}</small></div>
+      <div class="wg-acts"><button class="wg-btn sm" onclick="gxGruposDetalhe('${c.id}')">Andamento</button><button class="wg-btn sm" onclick="gxGruposEditar('${c.id}')">Editar</button><button class="wg-btn sm ${c.ativo?'':'ok'}" onclick="gxGruposLiga('${c.id}',${!c.ativo})">${c.ativo?'Pausar':'Ativar'}</button></div>
+    </div>`;
+  }
+  window.gxGruposLimite=async function(){
+    const v=+document.getElementById('wg-lim')?.value||40;
+    const r=await api('limite',{limiteDia:v});
+    if(r.ok){W.status.limiteDia=r.limiteDia;toast(`Limite: ${r.limiteDia} grupos por dia neste número`,'#10B981');desenhar()}else toast(r.message||'Erro','#EF4444');
+  };
+  window.gxGruposLiga=async function(id,on){
+    const r=await api('toggle',{id,ativo:on});
+    if(!r.ok){toast(r.message||'Erro','#EF4444');return}
+    const c=(W.camps||[]).find(x=>x.id===id);if(c)c.ativo=on;
+    toast(on?'Campanha ativada ✓ entra na fila do número':'Campanha pausada',on?'#10B981':'#6B7280');desenhar();
+  };
+
+  // ── editor ──
+  window.gxGruposNova=function(){
+    W.ed={nome:'',inicio:hojeSP(),grupos:[],passos:[{id:uidp(),dia:0,hora:'09:00',texto:'',media_url:'',media_type:'',media_nome:''}],ativo:true,__sujo:true};
+    W.view='editar';W.busca='';desenhar();carregarGrupos();
+  };
+  window.gxGruposEditar=function(id){
+    const c=(W.camps||[]).find(x=>x.id===id);if(!c)return;
+    W.ed=JSON.parse(JSON.stringify({id:c.id,nome:c.nome,inicio:c.inicio,grupos:c.grupos||[],passos:c.passos||[],ativo:c.ativo}));
+    W.view='editar';W.busca='';desenhar();carregarGrupos();
+  };
+  async function carregarGrupos(force){
+    if(W.grupos&&!force)return;
+    W.carregando=true;desenhar();
+    const r=await api('groups');
+    W.carregando=false;W.grupos=r.ok?r.grupos.sort((a,b)=>String(a.nome).localeCompare(String(b.nome))):[];W.erroGrupos=r.ok?'':r.message;
+    if(W.view==='editar')desenhar();
+  }
+  window.gxGruposRecarregar=()=>carregarGrupos(true);
+  function editorHtml(){
+    const ed=W.ed;const sel=new Set((ed.grupos||[]).map(g=>g.id));
+    const todos=(W.grupos||[]).concat((ed.grupos||[]).filter(g=>!(W.grupos||[]).some(x=>x.id===g.id)));
+    const q=W.busca.trim().toLowerCase();
+    const vis=todos.filter(g=>!q||String(g.nome).toLowerCase().includes(q));
+    const totalEnvios=(ed.grupos||[]).length*(ed.passos||[]).length;
+    const lim=+(W.status?.limiteDia||40);
+    return `<div class="wg-h"><button class="wg-back" onclick="gxGruposVoltar()" aria-label="Voltar">‹</button><div><h2>${ed.id?'Editar campanha':'Nova campanha'}</h2><p>Escolha os grupos e monte a sequência. Cada mensagem sai no Dia N (contando a partir do início) no horário escolhido.</p></div><button class="wg-x" onclick="gxGruposFechar()" aria-label="Fechar">✕</button></div>
+    <div class="wg-b">
+      <div class="wg-row"><label class="wg-fld"><span>Nome da campanha</span><input class="wg-in" value="${E(ed.nome)}" placeholder="Ex.: Lançamento novembro" oninput="gxWgSet('nome',this.value)"></label>
+        <label class="wg-fld"><span>Início (Dia 0)</span><input class="wg-in" type="date" value="${E(ed.inicio)}" onchange="gxWgSet('inicio',this.value)"></label></div>
+      <div class="wg-sec">
+        <div class="wg-sec-h">Grupos <small>${sel.size} selecionado${sel.size!==1?'s':''}${W.grupos?` de ${W.grupos.length}`:''}</small>
+          <input class="wg-in" style="height:32px;max-width:240px;margin-left:auto" placeholder="Buscar grupo…" value="${E(W.busca)}" oninput="gxWgBusca(this.value)" id="wg-busca">
+          <button class="wg-btn sm" onclick="gxWgTodos(true)">Marcar visíveis</button><button class="wg-btn sm" onclick="gxWgTodos(false)">Limpar</button><button class="wg-btn sm" onclick="gxGruposRecarregar()" title="Buscar de novo no WhatsApp">↻</button></div>
+        <div class="wg-gl" id="wg-gl">${W.carregando?`<div class="wg-empty"><span class="wg-load"></span><br>Buscando os grupos do seu número…</div>`:W.erroGrupos?`<div class="wg-warn" style="margin:12px">${E(W.erroGrupos)}</div>`:vis.length?vis.map(g=>`<label class="wg-g"><input type="checkbox" ${sel.has(g.id)?'checked':''} onchange="gxWgGrupo('${E(g.id)}',this.checked)"><span class="n">${E(g.nome)}</span>${g.membros?`<small>${g.membros} membros</small>`:''}</label>`).join(''):`<div class="wg-empty">Nenhum grupo encontrado.</div>`}</div>
+      </div>
+      ${(ed.passos||[]).map((p,i)=>stepHtml(p,i)).join('')}
+      <button class="wg-btn" style="align-self:flex-start" onclick="gxWgPasso()">+ Mensagem na sequência</button>
+      ${totalEnvios?`<div class="wg-note"><b>${totalEnvios} envio${totalEnvios!==1?'s':''}</b> no total (${sel.size} grupos × ${(ed.passos||[]).length} mensagens). Com o limite de ${lim} grupos por dia neste número, cada mensagem leva cerca de <b>${Math.max(1,Math.ceil(sel.size/lim))} dia${Math.ceil(sel.size/lim)>1?'s':''}</b> para chegar em todos os grupos${sel.size>lim?' — o restante sai nos dias seguintes':''}.</div>`:''}
+    </div>
+    <div class="wg-f">${ed.id?`<button class="wg-btn dng" style="margin-right:auto" onclick="gxGruposExcluir('${ed.id}')">Excluir campanha</button>`:''}<button class="wg-btn" onclick="gxGruposVoltar()">Cancelar</button><button class="wg-btn" onclick="gxGruposSalvar(false)">Salvar pausada</button><button class="wg-btn pri" onclick="gxGruposSalvar(true)">Salvar e ativar</button></div>`;
+  }
+  function stepHtml(p,i){
+    return `<div class="wg-step">
+      <div class="wg-step-h"><span class="wg-num">${i+1}</span>Dia <input class="wg-in" type="number" min="0" max="365" style="width:72px" value="${E(p.dia)}" oninput="gxWgP(${i},'dia',this.value)" aria-label="Dia"> às <input class="wg-in" type="time" value="${E(p.hora)}" onchange="gxWgP(${i},'hora',this.value)" aria-label="Horário">
+        <small style="font-weight:600;color:var(--wg-mu)">${quandoPasso(p)}</small>
+        ${(W.ed.passos||[]).length>1?`<button class="wg-btn sm dng" style="margin-left:auto" onclick="gxWgPassoDel(${i})">Remover</button>`:''}</div>
+      <textarea class="wg-in" placeholder="Texto da mensagem (vira a legenda se tiver imagem ou vídeo)" oninput="gxWgP(${i},'texto',this.value)">${E(p.texto)}</textarea>
+      <div class="wg-media">
+        <div class="wg-prev">${p.media_url?(p.media_type==='video'?`<video src="${E(p.media_url)}" muted></video>`:`<img src="${E(p.media_url)}" alt="">`):'<small style="color:var(--wg-mu);font-size:11px">sem mídia</small>'}</div>
+        <label class="wg-btn sm" style="cursor:pointer">${p.__subindo?'<span class="wg-load"></span> Enviando…':(p.media_url?'Trocar imagem/vídeo':'Anexar imagem ou vídeo')}<input type="file" accept="image/*,video/*" style="display:none" onchange="gxWgMidia(${i},this.files[0])"></label>
+        ${p.media_url?`<button class="wg-btn sm dng" onclick="gxWgP(${i},'media_url','')">Tirar mídia</button>`:''}
+        <small style="color:var(--wg-mu);font-size:11.5px">Até 16 MB</small>
+      </div>
+    </div>`;
+  }
+  function quandoPasso(p){
+    const ini=W.ed?.inicio||hojeSP();const d=new Date(ini+'T12:00:00');d.setDate(d.getDate()+(+p.dia||0));
+    const h=+String(p.hora||'09:00').slice(0,2);
+    return `= ${d.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'})}${h<8||h>=20?' · fora das 8h–20h: sai às 8h do dia seguinte':''}`;
+  }
+  const sujo=()=>{W.ed.__sujo=true};
+  window.gxWgSet=(k,v)=>{W.ed[k]=v;sujo();if(k==='inicio')desenhar()};
+  window.gxWgBusca=v=>{W.busca=v;const pos=document.getElementById('wg-busca')?.selectionStart;desenhar();const el=document.getElementById('wg-busca');if(el){el.focus();try{el.setSelectionRange(pos,pos)}catch(e){}}};
+  window.gxWgGrupo=function(id,on){
+    const g=(W.grupos||[]).concat(W.ed.grupos).find(x=>x.id===id);if(!g)return;
+    W.ed.grupos=(W.ed.grupos||[]).filter(x=>x.id!==id);if(on)W.ed.grupos.push({id:g.id,nome:g.nome});sujo();
+    const h=document.querySelector('.wg-sec-h small');if(h)h.textContent=`${W.ed.grupos.length} selecionado${W.ed.grupos.length!==1?'s':''}${W.grupos?` de ${W.grupos.length}`:''}`;
+  };
+  window.gxWgTodos=function(on){
+    const q=W.busca.trim().toLowerCase();const vis=(W.grupos||[]).filter(g=>!q||String(g.nome).toLowerCase().includes(q));
+    if(on){vis.forEach(g=>{if(!W.ed.grupos.some(x=>x.id===g.id))W.ed.grupos.push({id:g.id,nome:g.nome})})}
+    else{const ids=new Set(vis.map(g=>g.id));W.ed.grupos=W.ed.grupos.filter(g=>!ids.has(g.id))}
+    sujo();desenhar();
+  };
+  window.gxWgPasso=function(){const ps=W.ed.passos;const ult=ps[ps.length-1];ps.push({id:uidp(),dia:ult?(+ult.dia||0)+2:0,hora:ult?.hora||'09:00',texto:'',media_url:'',media_type:'',media_nome:''});sujo();desenhar();setTimeout(()=>document.querySelector('.wg-b')?.scrollTo({top:1e6,behavior:'smooth'}),50)};
+  window.gxWgPassoDel=function(i){W.ed.passos.splice(i,1);sujo();desenhar()};
+  window.gxWgP=function(i,k,v){
+    const p=W.ed.passos[i];if(!p)return;
+    if(k==='dia')p.dia=Math.max(0,Math.round(+v||0));else p[k]=v;
+    if(k==='media_url'&&!v){p.media_type='';p.media_nome=''}
+    sujo();
+    if(k==='dia'||k==='hora'){const sm=document.querySelectorAll('.wg-step')[i]?.querySelector('.wg-step-h small');if(sm)sm.textContent=quandoPasso(p)}
+    if(k==='media_url')desenhar();
+  };
+  window.gxWgMidia=function(i,f){
+    if(!f)return;
+    if(f.size>16*1024*1024){toast('Arquivo maior que 16 MB','#EF4444');return}
+    if(!/^image\/|^video\//.test(f.type)){toast('Envie uma imagem ou um vídeo','#EF4444');return}
+    const p=W.ed.passos[i];p.__subindo=true;desenhar();
+    const rd=new FileReader();
+    rd.onload=async()=>{
+      const r=await api('upload',{data:rd.result});
+      p.__subindo=false;
+      if(!r.ok){toast(r.message||'Não foi possível enviar o arquivo','#EF4444');desenhar();return}
+      p.media_url=r.url;p.media_type=r.type;p.media_nome=f.name;sujo();desenhar();toast('Mídia anexada ✓','#10B981');
+    };
+    rd.onerror=()=>{p.__subindo=false;desenhar();toast('Não foi possível ler o arquivo','#EF4444')};
+    rd.readAsDataURL(f);
+  };
+  window.gxGruposVoltar=function(){
+    if(W.ed?.__sujo&&!confirm('Há alterações não salvas. Voltar sem salvar?'))return;
+    W.view='lista';W.ed=null;desenhar();
+  };
+  window.gxGruposSalvar=async function(ativar){
+    const ed=W.ed;if(!ed)return;
+    if(!String(ed.nome||'').trim()){toast('Dê um nome para a campanha','#F59E0B');return}
+    if(!(ed.grupos||[]).length){toast('Escolha pelo menos um grupo','#F59E0B');return}
+    if((ed.passos||[]).some(p=>p.__subindo)){toast('Espere a mídia terminar de enviar','#F59E0B');return}
+    const passos=(ed.passos||[]).filter(p=>String(p.texto||'').trim()||p.media_url).map(({__subindo,...p})=>p);
+    if(!passos.length){toast('Escreva pelo menos uma mensagem','#F59E0B');return}
+    const btns=document.querySelectorAll('.wg-f .wg-btn');btns.forEach(b=>b.disabled=true);
+    const r=await api('save',{campanha:{id:ed.id||'',nome:ed.nome,inicio:ed.inicio,grupos:ed.grupos,passos,ativo:!!ativar}});
+    btns.forEach(b=>b.disabled=false);
+    if(!r.ok){toast(r.message||'Não foi possível salvar','#EF4444');return}
+    toast(ativar?`Campanha ativa ✓ ${r.naFila} envio${r.naFila!==1?'s':''} na fila`:'Campanha salva (pausada)',ativar?'#10B981':'#6B7280');
+    W.ed=null;W.view='lista';W.camps=null;desenhar();
+    const ls=await api('list');W.camps=ls.ok?ls.campanhas:[];desenhar();
+  };
+  window.gxGruposExcluir=function(id){
+    const go=async()=>{const r=await api('delete',{id});if(!r.ok){toast(r.message||'Erro','#EF4444');return}W.ed=null;W.view='lista';W.camps=(W.camps||[]).filter(c=>c.id!==id);desenhar();toast('Campanha excluída','#6B7280')};
+    if(typeof confirmDelete==='function')confirmDelete(go,{title:'Excluir campanha',message:'A campanha e a fila de envios dela serão apagadas. O que já foi enviado continua nos grupos.'});else if(confirm('Excluir a campanha?'))go();
+  };
+
+  // ── andamento ──
+  window.gxGruposDetalhe=async function(id){
+    W.view='detalhe';W.det=null;desenhar();
+    const r=await api('detail',{id});
+    W.det=r.ok?r:{erro:r.message};desenhar();
+  };
+  function detalheHtml(){
+    const d=W.det;
+    const head=`<div class="wg-h"><button class="wg-back" onclick="gxGruposVoltarLista()" aria-label="Voltar">‹</button><div><h2>${d?.campanha?E(d.campanha.nome):'Andamento'}</h2><p>Situação de cada mensagem em cada grupo.</p></div><button class="wg-x" onclick="gxGruposFechar()" aria-label="Fechar">✕</button></div>`;
+    if(!d)return head+`<div class="wg-b"><div class="wg-empty"><span class="wg-load"></span></div></div>`;
+    if(d.erro)return head+`<div class="wg-b"><div class="wg-warn">${E(d.erro)}</div></div>`;
+    const c=d.campanha,ev=d.envios||[];
+    const falhas=ev.filter(e=>e.status==='falhou');
+    const linhas=(c.passos||[]).map((p,i)=>{
+      const es=ev.filter(e=>e.passo_id===p.id);
+      const n=k=>es.filter(e=>e.status===k).length;
+      const prox=es.filter(e=>e.status==='fila').sort((a,b)=>a.agendado_para.localeCompare(b.agendado_para))[0];
+      return `<tr><td><b>${i+1}.</b> Dia ${p.dia} às ${E(p.hora)}${p.media_url?` · ${p.media_type==='video'?'vídeo':'imagem'}`:''}<br><small style="color:var(--wg-mu)">${E(String(p.texto||'').slice(0,80))}${String(p.texto||'').length>80?'…':''}</small></td><td>${n('enviado')}</td><td>${n('fila')}${prox?`<br><small style="color:var(--wg-mu)">${dataHora(prox.agendado_para)}</small>`:''}</td><td style="color:${n('falhou')?'#DC2626':'inherit'}">${n('falhou')}</td></tr>`;
+    }).join('');
+    return head+`<div class="wg-b">
+      <div class="wg-stats"><div><span>Status</span><b>${c.ativo?'Ativa':'Pausada'}</b></div><div><span>Enviados</span><b>${ev.filter(e=>e.status==='enviado').length}</b></div><div><span>Na fila</span><b>${ev.filter(e=>e.status==='fila').length}</b></div><div><span>Falharam</span><b style="color:${falhas.length?'#DC2626':'inherit'}">${falhas.length}</b></div></div>
+      <div class="wg-sec" style="overflow-x:auto"><table class="wg-tbl"><thead><tr><th>Mensagem</th><th>Enviados</th><th>Na fila</th><th>Falharam</th></tr></thead><tbody>${linhas}</tbody></table></div>
+      ${falhas.length?`<div class="wg-sec"><div class="wg-sec-h">Falhas<button class="wg-btn sm" style="margin-left:auto" onclick="gxGruposRetry('${c.id}')">Tentar de novo</button></div>${falhas.slice(0,100).map(f=>`<div class="wg-g" style="cursor:default"><span class="n">${E(f.group_nome||f.group_id)}</span><small>${E(f.erro||'')}</small></div>`).join('')}</div>`:''}
+    </div>`;
+  }
+  window.gxGruposVoltarLista=async function(){W.view='lista';desenhar();const ls=await api('list');W.camps=ls.ok?ls.campanhas:W.camps;desenhar()};
+  window.gxGruposRetry=async function(id){const r=await api('retry',{id});if(r.ok){toast(`${r.reenviando} envio(s) de volta na fila`,'#10B981');gxGruposDetalhe(id)}else toast(r.message||'Erro','#EF4444')};
 })();
 </script>
 
