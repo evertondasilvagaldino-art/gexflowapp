@@ -2299,6 +2299,10 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
       Integrações
     </div>
     <div class="nav-lbl">Gestão</div>
+    <div class="nav-item" data-page="metas" onclick="navigate('metas')">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+      Metas
+    </div>
     <div class="nav-grp-hdr" id="grp-hdr-financas" onclick="toggleGrp('financas')">
       <div class="nav-grp-left">
         <svg class="nav-grp-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
@@ -2655,6 +2659,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
   <!-- GERAR LEADS -->
   <div class="page" id="page-gerar-leads"></div>
   <div class="page" id="page-automacoes"></div>
+  <div class="page" id="page-metas"></div>
   <div class="page" id="page-whatsapp-chat"></div>
 
   <!-- CONFIGURAÇÕES -->
@@ -3067,7 +3072,7 @@ let userPermDraft = null;
 let userPermTargetId = '';
 
 // Permissões por cargo (declarado aqui para estar disponível antes de qualquer callback)
-const MODULES = ['inicio','clientes','churn','contratos','comercial','gerar_leads','financas','projetos','onboarding','entregas','tarefas','agenda','aprovacao','esquemas','creators','integracoes','rh','usuarios','perfil'];
+const MODULES = ['inicio','clientes','churn','contratos','comercial','gerar_leads','financas','projetos','onboarding','entregas','tarefas','agenda','aprovacao','esquemas','creators','integracoes','rh','usuarios','perfil','metas'];
 const ACTIONS = ['view','create','edit','delete','approve','export','manage'];
 
 // Permissões por setor e por aba/subsetor.
@@ -3111,6 +3116,7 @@ const PERMISSION_SECTIONS = [
   {id:'whatsapp-chat', label:'WhatsApp', color:'#128C7E', tabs:[{id:'whatsapp-chat', label:'WhatsApp', parent:'whatsapp-chat'}]},
   {id:'rh', label:'Recursos Humanos', color:'#64748B', tabs:[{id:'rh', label:'Recursos Humanos', parent:'rh'}]},
   {id:'calendario', label:'Calendário', color:'#0EA5E9', tabs:[{id:'calendario', label:'Calendário', parent:'calendario'}]},
+  {id:'metas', label:'Metas', color:'#F59E0B', tabs:[{id:'metas', label:'Central de Metas', parent:'metas'}]},
   {id:'perfil', label:'Meu Perfil', color:'#8B5CF6', tabs:[{id:'perfil', label:'Meu perfil', parent:'perfil'}]}
 ];
 
@@ -3190,6 +3196,7 @@ const ROLE_PERMS = {
     rh:{view:true,create:true,edit:true,delete:true,manage:true},
     calendario:{view:true,create:true,edit:true,delete:true,manage:true},
     usuarios:{view:true,create:true,edit:true,manage:true},
+    metas:{view:true,create:true,edit:true,delete:true,manage:true},
     perfil:{view:true,edit:true},
   },
   'CS/Atendimento': {
@@ -3201,6 +3208,7 @@ const ROLE_PERMS = {
     tarefas:{view:true,create:true,edit:true},
     calendario:{view:true,create:true,edit:true},
     aprovacao:{view:true},
+    metas:{view:true},
     perfil:{view:true,edit:true},
   },
   'Colaborador': {
@@ -3210,6 +3218,7 @@ const ROLE_PERMS = {
     agenda:{view:true},
     calendario:{view:true,create:true,edit:true},
     aprovacao:{view:true,create:true},
+    metas:{view:true},
     perfil:{view:true,edit:true},
   },
   // Papel enxuto pra parceiros externos da agência: só o chat do WhatsApp,
@@ -4290,7 +4299,7 @@ const GEX_DB_COLLECTIONS = [
   'tracking_links','integration_events','integration_connections','manual_trackings','tracking_events',
   'conversion_settings','conversion_events','lead_forms','lead_form_submissions','leadgen_settings',
   'whatsapp_widgets','automacoes','automacao_tasks','automacao_log','email_smtp_settings','zapi_settings',
-  'op_listas','op_tarefas','op_acessos','notificacoes','op_automacoes'
+  'op_listas','op_tarefas','op_acessos','notificacoes','op_automacoes','metas','metas_regras'
 ];
 const GEX_KV_EXCLUDED = new Set([
   // gx2_usuarios: mesmo "usuarios" já sendo excluído da sincronização por
@@ -5345,6 +5354,7 @@ function applyNavPermissions(){
     {selector:'[data-page="integracoes"]', mod:'integracoes'},
     {selector:'[data-page="rh"]', mod:'rh'},
     {selector:'[data-page="calendario"]', mod:'calendario'},
+    {selector:'[data-page="metas"]', mod:'metas'},
     {selector:'[data-page="perfil"]', mod:'perfil'}
   ];
 
@@ -5712,13 +5722,13 @@ function navigate(page){
   const hasPageAccess = page==='integracoes' ? (can('config_integracoes','view')||can('integracoes','view')) : can(navPermPage,'view');
   if(!hasPageAccess){
     if(pageEl){
-      const pageNames={configuracoes:'Configurações',integracoes:'Integrações',rh:'Recursos Humanos',calendario:'Calendário',usuarios:'Gestão de Usuários',perfil:'Perfil',inicio:'Início',automacoes:'Automações','whatsapp-chat':'WhatsApp'};
+      const pageNames={configuracoes:'Configurações',integracoes:'Integrações',rh:'Recursos Humanos',calendario:'Calendário',usuarios:'Gestão de Usuários',perfil:'Perfil',inicio:'Início',automacoes:'Automações','whatsapp-chat':'WhatsApp',metas:'Metas'};
       showAccessDenied(pageEl,pageNames[page]||page);
     }
     return;
   }
   gxSaveLastLocation({kind:'top',page});
-  ({inicio:renderInicio,configuracoes:renderConfiguracoes,integracoes:renderIntegracoes,rh:renderRH,calendario:renderCalendario,usuarios:renderUsuarios,perfil:renderPerfil,automacoes:renderAutomacoes,'whatsapp-chat':renderWhatsappChat})[page]?.();
+  ({inicio:renderInicio,configuracoes:renderConfiguracoes,integracoes:renderIntegracoes,rh:renderRH,calendario:renderCalendario,usuarios:renderUsuarios,perfil:renderPerfil,automacoes:renderAutomacoes,'whatsapp-chat':renderWhatsappChat,metas:()=>window.renderMetas&&window.renderMetas()})[page]?.();
 }
 
 // ═══ TOAST ═══
@@ -25551,7 +25561,7 @@ function opMoveTo(id,statusId){
   if(!guardEdit(l))return;
   const old=statusOf(l,t),nw=(l.statuses||[]).find(s=>s.id===statusId);
   if(!nw||old?.id===nw.id)return;
-  upd(id,{statusId,ordem:Date.now()},`mudou o status de "${old?.nome||'—'}" para "${nw.nome}"`);
+  upd(id,{statusId,ordem:Date.now(),concluidoEm:nw.concluido?(old?.concluido&&t.concluidoEm?t.concluidoEm:new Date().toISOString()):''},`mudou o status de "${old?.nome||'—'}" para "${nw.nome}"`);
   if(typeof window.gxOpOnStatus==='function')window.gxOpOnStatus(tarefa(id),l,old,nw);
   renderOp();
 }
@@ -28385,6 +28395,7 @@ html[data-theme="dark"] .gx-age-avg.ok{color:#6EE7B7}html[data-theme="dark"] .gx
       if(L.kind==='op_tarefa'){navigateSub('entregas','projetos');setTimeout(()=>window.opGoTask&&window.opGoTask(L.id),450)}
       else if(L.kind==='lead'){navigateSub('comercial','comercial');switchComTab('pipeline');setTimeout(()=>typeof openDealDetail==='function'&&openDealDetail(L.id),400)}
       else if(L.kind==='com_task'){navigateSub('comercial','comercial');switchComTab('tarefas')}
+      else if(L.kind==='metas'){navigate('metas')}
     }catch(e){}
   };
   document.addEventListener('click',()=>document.getElementById('gxn-panel')?.remove());
@@ -29043,5 +29054,648 @@ body:has(#page-whatsapp-chat.active) .gxw-popup{bottom:166px!important}
 body:has(#page-whatsapp-chat.active) .gxc-fab{bottom:96px}
 body:has(#page-whatsapp-chat.active) .gxc-fab.up{bottom:166px}
 </style>
+<style id="gx-metas-v1">
+/* ═══ CENTRAL DE METAS (04/11/2026) — metas do mês, progresso, comissão automática, eficiência e ranking ═══ */
+.mt,.mt-dr{--mt-ac:#7C3AED;--mt-ac2:#6D28D9;--mt-soft:rgba(124,58,237,.08);--mt-line:var(--g-line,var(--border,#E5E7EB));--mt-card:var(--g-card,var(--card,#fff));--mt-mu:var(--g-mu,var(--muted,#64748B));--mt-tx:var(--g-tx,var(--txt,#1A1A2E));--mt-bg2:var(--g-soft,#F7F6FB)}
+.mt-top{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.mt-top .page-title{margin:0}
+.mt-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.mt-btn{height:38px;border-radius:10px;border:1px solid var(--mt-line);background:var(--mt-card);color:var(--mt-tx);font:600 13px/1 inherit;font-family:inherit;padding:0 14px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.mt-btn:hover{border-color:#C4B5FD;color:var(--mt-ac2)}
+.mt-btn.pri{background:var(--mt-ac);border-color:var(--mt-ac);color:#fff}.mt-btn.pri:hover{background:var(--mt-ac2);color:#fff}
+.mt-btn.sm{height:32px;padding:0 11px;font-size:12.5px;border-radius:9px}
+.mt-btn.dng{color:#DC2626}.mt-btn.dng:hover{border-color:#FCA5A5;color:#B91C1C}
+.mt-btn:focus-visible,.mt-seg button:focus-visible,.mt-row:focus-visible{outline:2px solid #A78BFA;outline-offset:2px}
+.mt-btn svg{width:16px;height:16px}
+.mt-month{display:inline-flex;align-items:center;border:1px solid var(--mt-line);border-radius:10px;background:var(--mt-card);height:38px}
+.mt-month button{border:0;background:none;width:34px;height:36px;cursor:pointer;color:var(--mt-mu);font-size:17px}
+.mt-month button:hover{color:var(--mt-ac2)}
+.mt-month b{font-size:13.5px;min-width:138px;text-align:center}
+.mt-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--mt-card);border:1px solid var(--mt-line);border-radius:14px;padding:10px 12px;margin-bottom:14px}
+.mt-seg{display:inline-flex;background:var(--mt-bg2);border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap}
+.mt-seg button{border:0;background:none;border-radius:8px;height:32px;padding:0 13px;font:600 13px inherit;font-family:inherit;color:var(--mt-mu);cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.mt-seg button.on{background:var(--mt-card);color:var(--mt-ac2);box-shadow:0 1px 3px rgba(15,23,42,.1)}
+.mt-seg .dot{width:7px;height:7px;border-radius:50%}
+.mt-grid{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+@media (max-width:1640px){.mt-grid{grid-template-columns:1fr}}
+.mt-card{background:var(--mt-card);border:1px solid var(--mt-line);border-radius:14px;min-width:0}
+.mt-card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--mt-line)}
+.mt-card-h h3{margin:0;font-size:14.5px;font-weight:800}
+.mt-card-h small{font-size:12px;color:var(--mt-mu)}
+.mt-tbl-wrap{overflow-x:auto}
+.mt-tbl{width:100%;border-collapse:collapse;min-width:720px}
+.mt-tbl th{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--mt-mu);text-align:left;padding:10px 12px;border-bottom:1px solid var(--mt-line);white-space:nowrap}
+.mt-tbl td{padding:12px;border-bottom:1px solid var(--mt-line);vertical-align:middle;font-size:13px}
+.mt-tbl tr:last-child td{border-bottom:0}
+.mt-row{cursor:pointer}.mt-row:hover td{background:var(--mt-soft)}
+.mt-tbl .num{text-align:right;font-variant-numeric:tabular-nums}
+.mt-ind{display:flex;align-items:center;gap:10px;min-width:200px}
+.mt-ind .ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none}
+.mt-ind .ic svg{width:16px;height:16px}
+.mt-ind b{display:block;font-size:13.5px;line-height:1.3}
+.mt-ind small{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;font-size:11.5px;color:var(--mt-mu);margin-top:3px;white-space:nowrap}
+.mt-who{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.mt-av{width:28px;height:28px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:rgba(139,92,246,.15);color:var(--mt-ac2);font-size:10.5px;font-weight:800;flex:none}
+.mt-av img{width:100%;height:100%;object-fit:cover}
+.mt-prog{display:flex;align-items:center;gap:10px;min-width:170px}
+.mt-track{flex:1;height:8px;border-radius:999px;background:var(--mt-bg2);overflow:hidden;position:relative;min-width:90px}
+.mt-fill{height:100%;border-radius:999px;background:var(--mt-ac);transition:width .4s ease}
+.mt-fill.ok{background:#10B981}.mt-fill.over{background:linear-gradient(90deg,#10B981,#0EA5E9)}
+.mt-pct{font-weight:800;font-size:13px;font-variant-numeric:tabular-nums;min-width:44px;text-align:right}
+.mt-qty{font-size:11.5px;color:var(--mt-mu);font-variant-numeric:tabular-nums;white-space:nowrap}
+.mt-com{font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;color:#047857}
+.mt-com.zero{color:var(--mt-mu);font-weight:600}
+.mt-com small{display:block;font-size:11px;font-weight:600;color:var(--mt-mu)}
+.mt-selo{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:800;border-radius:999px;padding:3px 9px;white-space:nowrap}
+.mt-selo.bronze{background:#FDF0E6;color:#9A4B13}.mt-selo.prata{background:#EEF2F6;color:#475569}.mt-selo.ouro{background:#FEF6D8;color:#946200}.mt-selo.diamante{background:#E0F2FE;color:#0369A1}
+.mt-st{font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.mt-st.ok{background:rgba(16,185,129,.14);color:#047857}.mt-st.ritmo{background:rgba(59,130,246,.12);color:#1D4ED8}.mt-st.atencao{background:rgba(245,158,11,.16);color:#B45309}.mt-st.fechada{background:#1A1A2E;color:#fff}
+.mt-area{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;border-radius:5px;padding:1px 6px}
+.mt-empty{padding:44px 20px;text-align:center;color:var(--mt-mu);font-size:13.5px;line-height:1.6}
+.mt-empty b{display:block;color:var(--mt-tx);font-size:15px;margin-bottom:4px}
+/* ranking */
+.mt-pod{display:grid;grid-template-columns:1fr 1.15fr 1fr;align-items:end;gap:8px;padding:18px 14px 6px}
+.mt-pod,.mt-rk{max-width:460px;margin-left:auto;margin-right:auto}
+.mt-pod .p{text-align:center;min-width:0}
+.mt-pod .p .mt-av{width:46px;height:46px;font-size:14px;margin:0 auto 6px;border:3px solid #fff;box-shadow:0 0 0 2px var(--c)}
+.mt-pod .p.p1 .mt-av{width:58px;height:58px}
+.mt-pod .p b{display:block;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mt-pod .p span{font-size:12px;font-weight:800;color:var(--mt-ac2);font-variant-numeric:tabular-nums}
+.mt-pod .blk{margin-top:8px;border-radius:10px 10px 0 0;background:var(--c);color:#fff;font-weight:900;font-size:18px;display:grid;place-items:center}
+.mt-rk{list-style:none;margin:0;padding:6px 10px 12px}
+.mt-rk li{display:grid;grid-template-columns:24px 28px 1fr auto;gap:9px;align-items:center;padding:8px 6px;border-radius:10px}
+.mt-rk li.me{background:var(--mt-soft)}
+.mt-rk .pos{font-weight:900;font-size:12.5px;color:var(--mt-mu);text-align:center;font-variant-numeric:tabular-nums}
+.mt-rk .nm{min-width:0}.mt-rk .nm b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mt-rk .nm .mt-track{height:5px;margin-top:5px}
+.mt-rk .v{font-weight:800;font-size:12.5px;font-variant-numeric:tabular-nums;text-align:right}
+/* gaveta */
+.mt-ov{position:fixed;inset:0;background:rgba(15,23,42,.38);z-index:9990;display:none}
+.mt-ov.open{display:block}
+.mt-dr{position:fixed;top:0;right:0;bottom:0;width:min(560px,100vw);background:var(--mt-card);color:var(--mt-tx);z-index:9991;box-shadow:-18px 0 50px rgba(15,23,42,.2);display:flex;flex-direction:column;transform:translateX(102%);transition:transform .22s ease}
+.mt-dr.open{transform:none}
+@media (prefers-reduced-motion:reduce){.mt-dr,.mt-fill{transition:none}}
+.mt-dr-h{display:flex;align-items:flex-start;gap:12px;padding:18px 20px;border-bottom:1px solid var(--mt-line)}
+.mt-dr-h h2{margin:0;font-size:18px;font-weight:800;line-height:1.3;text-wrap:balance}
+.mt-dr-h small{display:flex;gap:6px;align-items:center;flex-wrap:wrap;color:var(--mt-mu);font-size:12.5px;margin-top:5px}
+.mt-dr-ic{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;flex:none}.mt-dr-ic svg{width:19px;height:19px}
+.mt-x{margin-left:auto;width:34px;height:34px;border-radius:9px;border:1px solid var(--mt-line);background:none;color:inherit;cursor:pointer;flex:none;font-size:15px}
+.mt-dr-b{flex:1;overflow:auto;padding:18px 20px;display:flex;flex-direction:column;gap:16px}
+.mt-big{display:grid;grid-template-columns:1fr auto;gap:6px 14px;align-items:end;background:var(--mt-bg2);border-radius:14px;padding:16px}
+.mt-big .pct{font-size:34px;font-weight:900;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1}
+.mt-big .qty{font-size:13px;color:var(--mt-mu);text-align:right}
+.mt-big .mt-track{grid-column:1/-1;height:12px}
+.mt-sec h4{margin:0 0 8px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--mt-mu)}
+.mt-kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.mt-kv>div{border:1px solid var(--mt-line);border-radius:12px;padding:11px 13px}
+.mt-kv span{display:block;font-size:11.5px;color:var(--mt-mu);font-weight:600}
+.mt-kv b{display:block;font-size:17px;font-weight:800;margin-top:3px;font-variant-numeric:tabular-nums}
+.mt-kv small{display:block;font-size:11.5px;color:var(--mt-mu);margin-top:2px;line-height:1.4}
+.mt-chk{border:1px solid var(--mt-line);border-radius:12px;overflow:hidden}
+.mt-chk-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:var(--mt-bg2);font-size:12.5px;font-weight:700}
+.mt-it{display:flex;align-items:center;gap:10px;padding:9px 12px;border-top:1px solid var(--mt-line);font-size:13px}
+.mt-it input[type=checkbox]{width:17px;height:17px;accent-color:#10B981;flex:none}
+.mt-it .t{flex:1;min-width:0}
+.mt-it.done .t{text-decoration:line-through;color:var(--mt-mu)}
+.mt-it .q{font-variant-numeric:tabular-nums;font-size:12px;color:var(--mt-mu);white-space:nowrap}
+.mt-it .by{font-size:11px;color:var(--mt-mu);white-space:nowrap}
+.mt-it .del{border:0;background:none;color:var(--mt-mu);cursor:pointer;padding:3px 6px;border-radius:6px}.mt-it .del:hover{color:#DC2626;background:rgba(239,68,68,.1)}
+.mt-it.auto{background:rgba(16,185,129,.05)}
+.mt-more summary{cursor:pointer;padding:9px 12px;border-top:1px solid var(--mt-line);font-size:12.5px;font-weight:700;color:var(--mt-ac2)}.mt-more[open] summary{display:none}
+.mt-it.auto .tag{font-size:10px;font-weight:800;background:rgba(16,185,129,.15);color:#047857;border-radius:5px;padding:1px 6px}
+.mt-add{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--mt-line)}
+.mt-in{height:38px;border:1px solid var(--mt-line);border-radius:10px;padding:0 12px;font:inherit;font-size:13.5px;background:var(--mt-card);color:var(--mt-tx);min-width:0;outline:none;box-sizing:border-box}
+.mt-in:focus{border-color:#8B5CF6;box-shadow:0 0 0 3px rgba(139,92,246,.15)}
+.mt-fld{display:flex;flex-direction:column;gap:6px}
+.mt-fld>span{font-size:12.5px;font-weight:700}
+.mt-fld small{font-size:11.5px;color:var(--mt-mu);line-height:1.4}
+.mt-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.mt-form .full{grid-column:1/-1}
+@media (max-width:560px){.mt-form,.mt-kv{grid-template-columns:1fr}}
+.mt-people{display:flex;flex-wrap:wrap;gap:6px;max-height:170px;overflow:auto}
+.mt-people label{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--mt-line);border-radius:999px;padding:4px 11px 4px 4px;font-size:12.5px;cursor:pointer}
+.mt-people label.on{border-color:var(--mt-ac);background:var(--mt-soft);color:var(--mt-ac2);font-weight:700}
+.mt-people input{display:none}
+.mt-people .mt-av{width:24px;height:24px;font-size:9.5px}
+.mt-dr-f{display:flex;gap:8px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--mt-line);flex-wrap:wrap}
+.mt-note{font-size:12px;color:var(--mt-mu);line-height:1.55;background:var(--mt-bg2);border-radius:10px;padding:10px 12px}
+/* comissões */
+.mt-rule{border:1px solid var(--mt-line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:12px}
+.mt-rule-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.mt-rule-h b{font-size:14px}
+.mt-rule-h .who{font-size:12px;color:var(--mt-mu)}
+.mt-tiers{display:flex;flex-direction:column;gap:6px}
+.mt-tier{display:grid;grid-template-columns:auto 84px auto 120px auto 30px;gap:7px;align-items:center;font-size:12.5px}
+.mt-tier .mt-in{height:34px;padding:0 9px}
+.mt-tier select.mt-in{padding:0 6px}
+@media (max-width:560px){.mt-tier{grid-template-columns:auto 70px auto 1fr;}.mt-tier .x2{display:none}}
+.mt-sim{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;background:var(--mt-bg2);border-radius:10px;padding:9px 11px}
+.mt-sim input{width:72px;height:32px}
+.mt-sim b{color:#047857;font-variant-numeric:tabular-nums}
+</style>
+<script id="gx-metas-js">
+/* ═══ CENTRAL DE METAS (04/11/2026) ═══
+   Coleções (sincronizam com o Supabase como as outras): metas, metas_regras.
+   - Uma meta = 1 pessoa + 1 mês + 1 indicador + alvo. Progresso = contagem automática (quando o indicador tem) + itens lançados à mão.
+   - Operacional/Produção: conta sozinho as tarefas concluídas em Gestão de entregas no mês em que a pessoa é responsável.
+   - Comercial/Vendas: soma os negócios ganhos no Pipeline no mês em que a pessoa é dona.
+   - Tráfego: lançamento manual (campanhas validadas, LTV, contas gerenciadas).
+   - Comissão: regra por área (ou específica de uma pessoa), recalculada na hora; "Fechar mês" congela os valores.
+   - Ranking aberto: todos veem posição e %; comissão só a própria (gestor vê tudo). */
+(function(){
+  if(window.__GX_METAS__)return;window.__GX_METAS__=true;
+  const E=v=>typeof escHtml==='function'?escHtml(v):String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const uidm=()=>'mt'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+  const BRL=n=>typeof fmtBRL==='function'?fmtBRL(Math.round((+n||0)*100)/100):'R$ '+(+n||0).toFixed(2);
+  const NUM=n=>(Math.round((+n||0)*100)/100).toLocaleString('pt-BR');
+  const norm=v=>String(v||'').normalize('NFD').replace(/[̀-ͯ]/g,'').trim().toLowerCase();
+  const ico=p=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+
+  const AREAS={
+    operacional:{nome:'Operacional',cor:'#7C3AED',fundo:'rgba(124,58,237,.12)',ic:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'},
+    trafego:{nome:'Tráfego pago',cor:'#0EA5E9',fundo:'rgba(14,165,233,.13)',ic:'<path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>'},
+    comercial:{nome:'Comercial',cor:'#10B981',fundo:'rgba(16,185,129,.13)',ic:'<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>'}
+  };
+  const INDICADORES={
+    producao:{area:'operacional',nome:'Quantidade de produção',un:'un',auto:true,autoTxt:'tarefas concluídas em Gestão de entregas'},
+    campanhas:{area:'trafego',nome:'Campanhas validadas',un:'un',auto:false},
+    ltv:{area:'trafego',nome:'LTV gerado',un:'R$',auto:false},
+    contas:{area:'trafego',nome:'Contas gerenciadas',un:'un',auto:false},
+    vendas:{area:'comercial',nome:'Volume de vendas',un:'R$',auto:true,autoTxt:'negócios ganhos no Pipeline'}
+  };
+  const S={mes:mesAtual(),area:'',view:'metas',drId:null,regraArea:'operacional'};
+  window.__gxMetasS=S;
+
+  // ── utilidades de data ──
+  function mesAtual(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}
+  function mesLabel(m){const [y,mm]=m.split('-').map(Number);const t=new Date(y,mm-1,1).toLocaleDateString('pt-BR',{month:'long',year:'numeric'});return t.charAt(0).toUpperCase()+t.slice(1)}
+  function mesShift(m,n){const [y,mm]=m.split('-').map(Number);const d=new Date(y,mm-1+n,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`}
+  function fimMes(m){const [y,mm]=m.split('-').map(Number);const d=new Date(y,mm,0);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+  function noMes(iso,m){if(!iso)return false;const d=new Date(iso);if(isNaN(d))return false;return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`===m}
+  function dataBR(s){if(!s)return '—';const d=new Date(String(s).length===10?s+'T12:00:00':s);return isNaN(d)?'—':d.toLocaleDateString('pt-BR')}
+  // % do mês já percorrido (para saber se está "no ritmo")
+  function ritmoEsperado(m){
+    const hoje=mesAtual();if(m<hoje)return 100;if(m>hoje)return 0;
+    const d=new Date(),dias=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();
+    return Math.min(100,(d.getDate()/dias)*100);
+  }
+
+  // ── pessoas e papéis ──
+  const role=u=>{try{return resolveRole(u?.permissao||u?.cargo||'Colaborador')}catch(e){return 'Colaborador'}};
+  const gestor=()=>{const r=role(sessionUser);return r==='Fundador'||r==='Adm Gerente'};
+  function equipe(){
+    let us=[];try{us=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios'))||[]}catch(e){}
+    const vistos=new Set();
+    return us.filter(u=>String(u.status||'Ativo').toLowerCase()!=='inativo'&&!['Gex Parceiro','Operador de Funil'].includes(role(u)))
+      .filter(u=>{const k=String(u.supabaseId||u.id||u.email);if(!k||vistos.has(k))return false;vistos.add(k);return true})
+      .sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));
+  }
+  const userId=u=>String(u?.supabaseId||u?.id||'');
+  function chavesDe(u){return [u?.id,u?.supabaseId,u?.email,u?.nome].map(norm).filter(Boolean)}
+  function pessoa(id){return equipe().find(u=>userId(u)===String(id)||String(u.id)===String(id))||null}
+  function souEu(meta){const ks=chavesDe(sessionUser);return [meta.userId,meta.userEmail,meta.userNome].map(norm).some(k=>k&&ks.includes(k))}
+  function av(u,nome){const n=nome||u?.nome||'?';return `<span class="mt-av">${typeof gxAvInner==='function'?gxAvInner(u||{nome:n},n):E(n.slice(0,1))}</span>`}
+
+  // ── dados ──
+  const metas=()=>DB.get('metas')||[];
+  const regras=()=>DB.get('metas_regras')||[];
+  const meta=id=>metas().find(m=>m.id===id);
+
+  // Contagem automática
+  function respBate(t,keys){
+    let ps=[];try{ps=getProjectPeople()}catch(e){}
+    return (t.resp||[]).some(id=>{
+      const p=ps.find(x=>String(x.id)===String(id));
+      const ck=[id,p?.id,p?.email,p?.nome].map(norm).filter(Boolean);
+      return ck.some(k=>keys.includes(k));
+    });
+  }
+  // Data em que a tarefa foi concluída: campo novo (concluidoEm) ou, nas antigas, o registro de mudança de status
+  function concluidaEm(t,l){
+    const st=(l?.statuses||[]).find(s=>s.id===t.statusId);
+    if(!st||!st.concluido)return '';
+    if(t.concluidoEm)return t.concluidoEm;
+    const finais=(l.statuses||[]).filter(s=>s.concluido).map(s=>s.nome);
+    const at=(t.atividade||[]).slice().reverse().find(a=>a.tipo!=='comentario'&&/mudou o status/.test(a.texto||'')&&finais.some(n=>String(a.texto).includes(`para "${n}"`)));
+    return at?.data||'';
+  }
+  function autoItens(m){
+    const ind=INDICADORES[m.indicador];if(!ind||!ind.auto||m.contarAuto===false)return [];
+    const u=pessoa(m.userId)||{id:m.userId,nome:m.userNome,email:m.userEmail};
+    const keys=[...chavesDe(u),norm(m.userId),norm(m.userEmail),norm(m.userNome)].filter(Boolean);
+    if(m.indicador==='producao'){
+      const listas=DB.get('op_listas')||[];
+      return (DB.get('op_tarefas')||[]).map(t=>{const l=listas.find(x=>x.id===t.listaId);const em=concluidaEm(t,l);return {t,l,em}})
+        .filter(x=>x.em&&noMes(x.em,m.mes)&&respBate(x.t,keys))
+        .map(x=>({id:'a_'+x.t.id,texto:x.t.titulo||'Tarefa',qtd:1,em:x.em,onde:x.l?.nome||''}));
+    }
+    if(m.indicador==='vendas'){
+      return (DB.get('leads')||[]).filter(l=>{
+        let won=false;try{won=isWonOpportunity(l)}catch(e){won=/ganh/i.test(l.dealStatus||'')}
+        if(!won)return false;
+        const dt=l.dataFechamento||l.wonAt||l.closedAt;if(!noMes(dt&&String(dt).length===10?dt+'T12:00:00':dt,m.mes))return false;
+        let ok=[];try{ok=[getLeadOwnerId(l),getLeadOwnerEmail(l),getLeadOwnerName(l)]}catch(e){ok=[l.ownerId,l.ownerEmail,l.ownerName,l.responsavel]}
+        return ok.map(norm).some(k=>k&&keys.includes(k));
+      }).map(l=>{let v=0;try{v=getOpportunityValue(l)}catch(e){v=+l.valor||0}return {id:'a_'+l.id,texto:l.empresa||l.nome||'Negócio',qtd:v,em:l.dataFechamento||l.wonAt||'',onde:'Pipeline'}});
+    }
+    return [];
+  }
+  function calc(m){
+    if(m.fechamento)return {...m.fechamento,auto:autoItens(m),fechado:true};
+    const auto=autoItens(m);
+    const manual=(m.itens||[]).filter(i=>i.feito);
+    const realizado=auto.reduce((a,i)=>a+(+i.qtd||0),0)+manual.reduce((a,i)=>a+(+i.qtd||1),0);
+    const alvo=+m.alvo||0;
+    const pct=alvo>0?(realizado/alvo)*100:0;
+    const regra=regraDe(m);
+    const com=comissao(regra,realizado,pct,INDICADORES[m.indicador]?.un);
+    const eficiencia=Math.round(Math.min(100,pct));
+    return {realizado,alvo,pct,comissao:com.valor,comissaoTxt:com.txt,regraId:regra?.id||'',eficiencia,auto,fechado:false};
+  }
+  function regraDe(m){
+    const rs=regras().filter(r=>r.ativo!==false);
+    return rs.find(r=>r.area===m.area&&r.userId&&String(r.userId)===String(m.userId))||rs.find(r=>r.area===m.area&&!r.userId)||null;
+  }
+  // Comissão conforme o tipo de regra
+  function comissao(r,realizado,pct,un){
+    if(!r)return {valor:0,txt:'Sem regra de comissão'};
+    if(r.tipo==='faixas'){
+      const fs=(r.faixas||[]).filter(f=>+f.min>0).slice().sort((a,b)=>b.min-a.min);
+      const f=fs.find(f=>pct>=+f.min);
+      if(!f){const prox=fs[fs.length-1];return {valor:0,txt:prox?`Ganha a partir de ${prox.min}% da meta`:'Sem faixas'}}
+      const v=f.modo==='pct'?realizado*(+f.valor||0)/100:(+f.valor||0);
+      return {valor:v,txt:`Faixa ${f.min}%: ${f.modo==='pct'?`${NUM(f.valor)}% de ${un==='R$'?BRL(realizado):NUM(realizado)}`:BRL(f.valor)}`};
+    }
+    const gatilho=+r.minPct||0;
+    if(pct<gatilho)return {valor:0,txt:`Começa a ganhar com ${gatilho}% da meta`};
+    if(r.tipo==='percentual'){
+      const taxa=pct>=100&&+r.pctAcima?+r.pctAcima:(+r.pct||0);
+      return {valor:realizado*taxa/100,txt:`${NUM(taxa)}% de ${BRL(realizado)}${pct>=100&&+r.pctAcima?' (taxa de meta batida)':''}`};
+    }
+    if(r.tipo==='unidade'){
+      const base=realizado*(+r.valorUnidade||0),bonus=pct>=100?(+r.bonusMeta||0):0;
+      return {valor:base+bonus,txt:`${NUM(realizado)} × ${BRL(r.valorUnidade||0)}${bonus?` + bônus ${BRL(bonus)}`:''}`};
+    }
+    return {valor:0,txt:'—'};
+  }
+  function selo(e){
+    if(e>=100)return {k:'diamante',n:'Diamante',i:'◆'};
+    if(e>=80)return {k:'ouro',n:'Ouro',i:'★'};
+    if(e>=50)return {k:'prata',n:'Prata',i:'●'};
+    return {k:'bronze',n:'Bronze',i:'●'};
+  }
+  function status(m,c){
+    if(c.fechado)return {k:'fechada',n:'Mês fechado'};
+    if(c.pct>=100)return {k:'ok',n:'Meta batida'};
+    return c.pct>=ritmoEsperado(m.mes)-5?{k:'ritmo',n:'No ritmo'}:{k:'atencao',n:'Abaixo do ritmo'};
+  }
+  const barCls=p=>p>=110?'over':p>=100?'ok':'';
+
+  // Metas que eu posso ver na lista: gestor vê todas; colaborador só as dele
+  function visiveis(){
+    return metas().filter(m=>m.mes===S.mes&&(!S.area||m.area===S.area)&&(gestor()||souEu(m)));
+  }
+  function ranking(){
+    const ms=metas().filter(m=>m.mes===S.mes&&(!S.area||m.area===S.area));
+    const by={};
+    ms.forEach(m=>{const k=String(m.userId||m.userNome);const c=calc(m);(by[k]=by[k]||{userId:m.userId,nome:m.userNome,ps:[],ef:[],com:0,meta:m}).ps.push(Math.min(c.pct,150));by[k].ef.push(c.eficiencia);by[k].com+=c.comissao});
+    return Object.values(by).map(x=>({...x,pct:x.ps.reduce((a,b)=>a+b,0)/x.ps.length,ef:Math.round(x.ef.reduce((a,b)=>a+b,0)/x.ef.length)}))
+      .sort((a,b)=>b.pct-a.pct||b.ef-a.ef);
+  }
+
+  // Aviso no sino ao bater a meta (uma vez por meta)
+  function avisarBatidas(){
+    try{
+      metas().filter(m=>m.mes===mesAtual()&&!m.avisoBatida&&!m.fechamento).forEach(m=>{
+        const c=calc(m);if(c.pct<100)return;
+        DB.update('metas',m.id,{avisoBatida:new Date().toISOString()});
+        if(typeof gxNotify==='function'){
+          const u=pessoa(m.userId)||{id:m.userId,nome:m.userNome,email:m.userEmail};
+          gxNotify({para:u,tipo:'ok',titulo:'🎯 Meta batida!',texto:`${m.titulo} · ${Math.round(c.pct)}%`,link:{kind:'metas'},self:true,chave:'meta_batida_'+m.id});
+        }
+      });
+    }catch(e){}
+  }
+
+  // ═══ TELA ═══
+  window.renderMetas=function(){
+    const pg=document.getElementById('page-metas');if(!pg)return;
+    avisarBatidas();
+    const g=gestor();
+    const vs=visiveis(),cs=vs.map(m=>({m,c:calc(m)}));
+    const rk=ranking();
+    const abertas=metas().filter(m=>m.mes===S.mes&&!m.fechamento).length;
+    pg.innerHTML=`<div class="mt">
+      <div class="mt-top">
+        <div><div class="page-title">Central de Metas</div><div class="page-sub">Meta do mês, progresso, comissão calculada na hora e ranking da equipe</div></div>
+        <div class="mt-acts">
+          <div class="mt-month" role="group" aria-label="Mês"><button onclick="mtMes(-1)" aria-label="Mês anterior">‹</button><b>${E(mesLabel(S.mes))}</b><button onclick="mtMes(1)" aria-label="Próximo mês">›</button></div>
+          ${g?`<button class="mt-btn" onclick="mtRegras()">${ico('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>')}Comissões</button>
+          ${abertas?`<button class="mt-btn" onclick="mtFecharMes()">${ico('<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>')}Fechar mês</button>`:''}
+          <button class="mt-btn pri" onclick="mtNova()">+ Nova meta</button>`:''}
+        </div>
+      </div>
+      <div class="mt-bar">
+        <div class="mt-seg" role="tablist">
+          <button class="${!S.area?'on':''}" onclick="mtArea('')">Todas</button>
+          ${Object.entries(AREAS).map(([k,a])=>`<button class="${S.area===k?'on':''}" onclick="mtArea('${k}')"><span class="dot" style="background:${a.cor}"></span>${a.nome}</button>`).join('')}
+        </div>
+        ${g&&!metas().some(m=>m.mes===S.mes)&&metas().some(m=>m.mes===mesShift(S.mes,-1))?`<button class="mt-btn sm" style="margin-left:auto" onclick="mtCopiar()">Copiar metas do mês anterior</button>`:''}
+      </div>
+      ${kpis(cs,rk,g)}
+      <div class="mt-grid">
+        <div class="mt-card">
+          <div class="mt-card-h"><h3>${g?'Metas da equipe':'Minhas metas'}</h3><small>${cs.length} meta${cs.length!==1?'s':''}</small></div>
+          ${cs.length?`<div class="mt-tbl-wrap"><table class="mt-tbl"><thead><tr><th>Indicador</th>${g?'<th>Responsável</th>':''}<th>Progresso da meta</th><th class="num">Comissão</th><th>Eficiência</th><th>Status</th></tr></thead><tbody>
+            ${cs.sort((a,b)=>String(a.m.userNome).localeCompare(String(b.m.userNome))||b.c.pct-a.c.pct).map(({m,c})=>linha(m,c,g)).join('')}
+          </tbody></table></div>`:`<div class="mt-empty"><b>${g?'Nenhuma meta neste mês':'Você ainda não tem meta neste mês'}</b>${g?'Crie as metas da equipe em “+ Nova meta”. Você pode criar a mesma meta para várias pessoas de uma vez.':'Quando o gestor lançar sua meta, ela aparece aqui com a barra de progresso e a comissão.'}</div>`}
+        </div>
+        ${rankHtml(rk)}
+      </div>
+    </div>`;
+  };
+  function kpis(cs,rk,g){
+    const ic=p=>ico(p);
+    if(g){
+      const bat=cs.filter(x=>x.c.pct>=100).length,tot=cs.reduce((a,x)=>a+x.c.comissao,0);
+      const med=cs.length?cs.reduce((a,x)=>a+Math.min(x.c.pct,150),0)/cs.length:0;
+      const ef=cs.length?Math.round(cs.reduce((a,x)=>a+x.c.eficiencia,0)/cs.length):0;
+      return `<div class="gx-kpis">
+        <div class="gx-kpi hero"><div class="gx-kpi-l">${ic('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>')}Metas batidas</div><div class="gx-kpi-v">${bat} de ${cs.length}</div><div class="gx-kpi-s">${mesLabel(S.mes)}</div></div>
+        <div class="gx-kpi"><div class="gx-kpi-l">${ic('<path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>')}Atingimento médio</div><div class="gx-kpi-v">${Math.round(med)}%</div><div class="gx-kpi-s">Esperado até hoje: ${Math.round(ritmoEsperado(S.mes))}%</div></div>
+        <div class="gx-kpi"><div class="gx-kpi-l">${ic('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>')}Comissões ${cs.some(x=>!x.c.fechado)?'previstas':'fechadas'}</div><div class="gx-kpi-v">${BRL(tot)}</div><div class="gx-kpi-s">Somando todas as metas da lista</div></div>
+        <div class="gx-kpi"><div class="gx-kpi-l">${ic('<path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>')}Eficiência média</div><div class="gx-kpi-v">${ef}</div><div class="gx-kpi-s"><span class="mt-selo ${selo(ef).k}">${selo(ef).i} ${selo(ef).n}</span></div></div>
+      </div>`;
+    }
+    const meus=cs,tot=meus.reduce((a,x)=>a+x.c.comissao,0);
+    const pct=meus.length?meus.reduce((a,x)=>a+Math.min(x.c.pct,150),0)/meus.length:0;
+    const pos=rk.findIndex(r=>souEu({userId:r.userId,userNome:r.nome}))+1;
+    const ef=meus.length?Math.round(meus.reduce((a,x)=>a+x.c.eficiencia,0)/meus.length):0;
+    return `<div class="gx-kpis">
+      <div class="gx-kpi hero"><div class="gx-kpi-l">${ic('<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>')}Minha meta</div><div class="gx-kpi-v">${Math.round(pct)}%</div><div class="gx-kpi-s">Esperado até hoje: ${Math.round(ritmoEsperado(S.mes))}%</div></div>
+      <div class="gx-kpi"><div class="gx-kpi-l">${ic('<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>')}Minha comissão</div><div class="gx-kpi-v" style="color:#047857">${BRL(tot)}</div><div class="gx-kpi-s">Atualiza conforme você produz</div></div>
+      <div class="gx-kpi"><div class="gx-kpi-l">${ic('<path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0Z"/><path d="M17 5h3v2a3 3 0 0 1-3 3"/><path d="M7 5H4v2a3 3 0 0 0 3 3"/>')}Minha posição</div><div class="gx-kpi-v">${pos?pos+'º':'—'}</div><div class="gx-kpi-s">de ${rk.length} no ranking</div></div>
+      <div class="gx-kpi"><div class="gx-kpi-l">${ic('<path d="m12 2 3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>')}Eficiência</div><div class="gx-kpi-v">${ef}</div><div class="gx-kpi-s"><span class="mt-selo ${selo(ef).k}">${selo(ef).i} ${selo(ef).n}</span></div></div>
+    </div>`;
+  }
+  function linha(m,c,g){
+    const a=AREAS[m.area]||AREAS.operacional,ind=INDICADORES[m.indicador]||{},st=status(m,c),sl=selo(c.eficiencia);
+    const u=pessoa(m.userId);
+    const nItens=(m.itens||[]).length,feitos=(m.itens||[]).filter(i=>i.feito).length;
+    const fmt=v=>ind.un==='R$'?BRL(v):NUM(v);
+    return `<tr class="mt-row" tabindex="0" onclick="mtAbrir('${m.id}')" onkeydown="if(event.key==='Enter')mtAbrir('${m.id}')">
+      <td><div class="mt-ind"><span class="ic" style="background:${a.fundo};color:${a.cor}">${ico(a.ic)}</span><div><b>${E(m.titulo)}</b><small><span class="mt-area" style="background:${a.fundo};color:${a.cor}">${a.nome}</span>${c.auto.length?`<span>${c.auto.length} auto</span>`:''}${nItens?`<span>☑ ${feitos}/${nItens}</span>`:''}</small></div></div></td>
+      ${g?`<td><div class="mt-who">${av(u,m.userNome)}<span>${E(m.userNome)}</span></div></td>`:''}
+      <td><div class="mt-prog"><div class="mt-track" role="progressbar" aria-valuenow="${Math.round(c.pct)}" aria-valuemin="0" aria-valuemax="100"><div class="mt-fill ${barCls(c.pct)}" style="width:${Math.min(100,c.pct)}%"></div></div><span class="mt-pct">${Math.round(c.pct)}%</span></div><div class="mt-qty">${fmt(c.realizado)} de ${fmt(c.alvo)}</div></td>
+      <td class="num"><span class="mt-com ${c.comissao?'':'zero'}" title="${E(c.comissaoTxt||'')}">${BRL(c.comissao)}<small>${E(c.comissaoTxt||'')}</small></span></td>
+      <td><span class="mt-selo ${sl.k}">${sl.i} ${sl.n} · ${c.eficiencia}</span></td>
+      <td><span class="mt-st ${st.k}">${st.n}</span><div class="mt-qty" style="margin-top:4px">até ${dataBR(m.prazo)}</div></td>
+    </tr>`;
+  }
+  function rankHtml(rk){
+    const cores=['#F5B300','#94A3B8','#C26A2B'];
+    const top=rk.slice(0,3);
+    const ord=[top[1],top[0],top[2]];
+    const alt=[64,88,50];
+    const pod=top.length?`<div class="mt-pod">${ord.map((r,i)=>{if(!r)return '<div></div>';const pos=i===1?1:i===0?2:3;const u=pessoa(r.userId);return `<div class="p p${pos}" style="--c:${cores[pos-1]}">${av(u,r.nome)}<b>${E(String(r.nome).split(' ')[0])}</b><span>${Math.round(r.pct)}%</span><div class="blk" style="height:${alt[i]}px">${pos}</div></div>`}).join('')}</div>`:'';
+    return `<div class="mt-card">
+      <div class="mt-card-h"><h3>Ranking de ${E(mesLabel(S.mes).split(' ')[0])}</h3><small>${S.area?AREAS[S.area].nome:'Todas as áreas'}</small></div>
+      ${rk.length?pod+`<ol class="mt-rk">${rk.map((r,i)=>{const u=pessoa(r.userId),sl=selo(r.ef),eu=souEu({userId:r.userId,userNome:r.nome});return `<li class="${eu?'me':''}"><span class="pos">${i+1}º</span>${av(u,r.nome)}<div class="nm"><b>${E(r.nome)}${eu?' <small style="color:var(--mt-ac2)">(você)</small>':''}</b><div class="mt-track"><div class="mt-fill ${barCls(r.pct)}" style="width:${Math.min(100,r.pct)}%"></div></div></div><span class="v">${Math.round(r.pct)}%<br><span class="mt-selo ${sl.k}" style="padding:1px 6px;font-size:10px">${sl.i} ${sl.n}</span></span></li>`}).join('')}</ol>`:`<div class="mt-empty" style="padding:30px 16px">O ranking aparece quando houver metas no mês.</div>`}
+    </div>`;
+  }
+
+  // ═══ AÇÕES DA TELA ═══
+  window.mtMes=n=>{S.mes=mesShift(S.mes,n);renderMetas()};
+  window.mtArea=a=>{S.area=a;renderMetas()};
+  function gaveta(html){
+    let ov=document.getElementById('mt-ov'),dr=document.getElementById('mt-dr');
+    if(!ov){ov=document.createElement('div');ov.id='mt-ov';ov.className='mt-ov';ov.onclick=mtFechar;document.body.appendChild(ov)}
+    if(!dr){dr=document.createElement('div');dr.id='mt-dr';dr.className='mt-dr';dr.setAttribute('role','dialog');document.body.appendChild(dr)}
+    dr.innerHTML=html;ov.classList.add('open');requestAnimationFrame(()=>dr.classList.add('open'));
+    return dr;
+  }
+  window.mtFechar=function(){S.drId=null;document.getElementById('mt-ov')?.classList.remove('open');document.getElementById('mt-dr')?.classList.remove('open')};
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('mt-dr')?.classList.contains('open'))mtFechar()});
+
+  // ── detalhe da meta ──
+  window.mtAbrir=function(id){S.drId=id;desenharDetalhe()};
+  function podeLancar(m){return !m.fechamento&&(gestor()||souEu(m))}
+  function desenharDetalhe(){
+    const m=meta(S.drId);if(!m){mtFechar();return}
+    const c=calc(m),a=AREAS[m.area]||AREAS.operacional,ind=INDICADORES[m.indicador]||{},st=status(m,c),sl=selo(c.eficiencia);
+    const g=gestor(),u=pessoa(m.userId),pode=podeLancar(m);
+    const fmt=v=>ind.un==='R$'?BRL(v):NUM(v);
+    const verCom=g||souEu(m);
+    const falta=Math.max(0,c.alvo-c.realizado);
+    const dr=gaveta(`
+      <div class="mt-dr-h"><span class="mt-dr-ic" style="background:${a.fundo};color:${a.cor}">${ico(a.ic)}</span>
+        <div style="min-width:0"><h2>${E(m.titulo)}</h2><small>${av(u,m.userNome)} ${E(m.userNome)} · <span class="mt-area" style="background:${a.fundo};color:${a.cor}">${a.nome}</span> · prazo ${dataBR(m.prazo)}</small></div>
+        <button class="mt-x" onclick="mtFechar()" aria-label="Fechar">✕</button></div>
+      <div class="mt-dr-b">
+        <div class="mt-big"><div class="pct">${Math.round(c.pct)}%</div><div class="qty"><b>${fmt(c.realizado)}</b> de ${fmt(c.alvo)}<br>${c.pct>=100?'Meta batida 🎉':`faltam ${fmt(falta)}`}</div><div class="mt-track"><div class="mt-fill ${barCls(c.pct)}" style="width:${Math.min(100,c.pct)}%"></div></div></div>
+        <div class="mt-kv">
+          <div><span>Comissão ${c.fechado?'fechada':'até agora'}</span><b style="color:#047857">${verCom?BRL(c.comissao):'—'}</b><small>${verCom?E(c.comissaoTxt||''):'Visível só para a pessoa e o gestor'}</small></div>
+          <div><span>Eficiência</span><b>${c.eficiencia}</b><small><span class="mt-selo ${sl.k}">${sl.i} ${sl.n}</span> · quantidade entregue em relação à meta</small></div>
+          <div><span>Status</span><b style="font-size:14px;margin-top:6px"><span class="mt-st ${st.k}">${st.n}</span></b><small>Esperado até hoje: ${Math.round(ritmoEsperado(m.mes))}%</small></div>
+          <div><span>Como é contado</span><b style="font-size:13.5px">${ind.auto&&m.contarAuto!==false?'Automático + itens':'Itens lançados'}</b><small>${ind.auto&&m.contarAuto!==false?E(ind.autoTxt):'Marque cada entrega na lista abaixo'}</small></div>
+        </div>
+        ${c.auto.length||(ind.auto&&m.contarAuto!==false)?`<div class="mt-sec"><h4>Contado automaticamente (${c.auto.length})</h4><div class="mt-chk">
+          ${c.auto.length?c.auto.slice(0,300).map((i,ix)=>(ix===8?`<details class="mt-more"><summary>Ver todos os ${c.auto.length}</summary>`:'')+`<div class="mt-it auto"><input type="checkbox" checked disabled aria-label="Contado"><span class="t">${E(i.texto)}${i.onde?` <span class="by">· ${E(i.onde)}</span>`:''}</span><span class="q">${ind.un==='R$'?BRL(i.qtd):''}</span><span class="by">${dataBR(i.em)}</span><span class="tag">AUTO</span></div>`).join('')+(c.auto.length>8?'</details>':''):`<div class="mt-it"><span class="t" style="color:var(--mt-mu)">Nada concluído neste mês ainda. Ao concluir ${ind.autoTxt}, conta aqui sozinho.</span></div>`}
+        </div></div>`:''}
+        <div class="mt-sec"><h4>Itens lançados (checklist)</h4><div class="mt-chk">
+          <div class="mt-chk-h"><span>Total concluído: ${(m.itens||[]).filter(i=>i.feito).length}/${(m.itens||[]).length}</span>${ind.un==='R$'?'<span style="font-weight:600;color:var(--mt-mu)">valor por item</span>':''}</div>
+          ${(m.itens||[]).map(i=>`<div class="mt-it ${i.feito?'done':''}"><input type="checkbox" ${i.feito?'checked':''} ${pode?'':'disabled'} onchange="mtItem('${m.id}','${i.id}',this.checked)" aria-label="Concluído"><span class="t">${E(i.texto)}</span>${ind.un==='R$'||(+i.qtd||1)!==1?`<span class="q">${ind.un==='R$'?BRL(i.qtd):'× '+NUM(i.qtd)}</span>`:''}<span class="by" title="${E(i.por||'')}">${E(String(i.por||'').split(' ')[0])}</span>${pode?`<button class="del" onclick="mtItemDel('${m.id}','${i.id}')" aria-label="Remover item">✕</button>`:''}</div>`).join('')}
+          ${pode?`<div class="mt-add"><input class="mt-in" id="mt-it-txt" style="flex:1" placeholder="${ind.un==='R$'?'Ex.: Renovação cliente X':'Ex.: Social media 01 EFA'}" onkeydown="if(event.key==='Enter')mtItemAdd('${m.id}')">${ind.un==='R$'?`<input class="mt-in" id="mt-it-q" type="number" min="0" step="0.01" style="width:120px" placeholder="Valor R$">`:`<input class="mt-in" id="mt-it-q" type="number" min="1" step="1" style="width:74px" value="1" title="Quantidade">`}<button class="mt-btn sm pri" onclick="mtItemAdd('${m.id}')">Adicionar</button></div>`:''}
+          ${!(m.itens||[]).length&&!pode?`<div class="mt-it"><span class="t" style="color:var(--mt-mu)">Nenhum item lançado.</span></div>`:''}
+        </div></div>
+        ${m.fechamento?`<div class="mt-note">Mês fechado em ${dataBR(m.fechamento.em)} por ${E(m.fechamento.por||'')}. Os valores acima ficaram congelados.</div>`:''}
+      </div>
+      ${g?`<div class="mt-dr-f">${m.fechamento?`<button class="mt-btn" onclick="mtReabrir('${m.id}')">Reabrir meta</button>`:`<button class="mt-btn dng" onclick="mtExcluir('${m.id}')">Excluir</button><button class="mt-btn" onclick="mtEditar('${m.id}')">Editar meta</button>`}</div>`:''}`);
+    dr.querySelector('.mt-dr-b').scrollTop=0;
+  }
+  window.mtItemAdd=function(id){
+    const m=meta(id);if(!m||!podeLancar(m))return;
+    const t=document.getElementById('mt-it-txt'),q=document.getElementById('mt-it-q');
+    const txt=String(t?.value||'').trim();if(!txt){t?.focus();return}
+    const qtd=Math.max(0,+String(q?.value||'1').replace(',','.')||(INDICADORES[m.indicador]?.un==='R$'?0:1));
+    const it={id:uidm(),texto:txt.slice(0,160),qtd,feito:true,por:sessionUser?.nome||'',em:new Date().toISOString()};
+    DB.update('metas',id,{itens:[...(m.itens||[]),it]});
+    desenharDetalhe();renderMetas();
+  };
+  window.mtItem=function(id,iid,on){
+    const m=meta(id);if(!m||!podeLancar(m))return;
+    DB.update('metas',id,{itens:(m.itens||[]).map(i=>i.id===iid?{...i,feito:on,por:sessionUser?.nome||i.por,em:new Date().toISOString()}:i)});
+    desenharDetalhe();renderMetas();
+  };
+  window.mtItemDel=function(id,iid){
+    const m=meta(id);if(!m||!podeLancar(m))return;
+    DB.update('metas',id,{itens:(m.itens||[]).filter(i=>i.id!==iid)});
+    desenharDetalhe();renderMetas();
+  };
+  window.mtExcluir=function(id){
+    const go=()=>{DB.remove('metas',id);mtFechar();renderMetas();toast('Meta excluída','#6B7280')};
+    if(typeof confirmDelete==='function')confirmDelete(go,{title:'Excluir meta',message:'A meta e os itens lançados serão apagados.'});else if(confirm('Excluir esta meta?'))go();
+  };
+  window.mtReabrir=function(id){DB.update('metas',id,{fechamento:null});desenharDetalhe();renderMetas();toast('Meta reaberta: valores voltam a ser calculados','#7C3AED')};
+
+  // ── nova / editar meta ──
+  window.mtNova=function(){formMeta(null)};
+  window.mtEditar=function(id){formMeta(meta(id))};
+  function formMeta(m){
+    if(!gestor())return;
+    const ed=!!m,area=m?.area||(S.area||'operacional');
+    const inds=k=>Object.entries(INDICADORES).filter(([,v])=>v.area===k);
+    const pessoas=equipe();
+    S.form={area,indicador:m?.indicador||inds(area)[0][0],sel:new Set(m?[String(m.userId)]:[])};
+    const dr=gaveta(`
+      <div class="mt-dr-h"><div><h2>${ed?'Editar meta':'Nova meta do mês'}</h2><small>${E(mesLabel(ed?m.mes:S.mes))}</small></div><button class="mt-x" onclick="mtFechar()" aria-label="Fechar">✕</button></div>
+      <div class="mt-dr-b"><div class="mt-form">
+        <label class="mt-fld"><span>Área</span><select class="mt-in" id="mtf-area" onchange="mtfArea(this.value)" ${ed?'disabled':''}>${Object.entries(AREAS).map(([k,a])=>`<option value="${k}" ${k===area?'selected':''}>${a.nome}</option>`).join('')}</select></label>
+        <label class="mt-fld"><span>Indicador</span><select class="mt-in" id="mtf-ind" onchange="mtfInd()" ${ed?'disabled':''}></select></label>
+        <label class="mt-fld full"><span>Nome da meta</span><input class="mt-in" id="mtf-tit" value="${E(m?.titulo||'')}" placeholder="Gerado sozinho se ficar em branco"></label>
+        <label class="mt-fld"><span id="mtf-alvo-l">Meta (alvo)</span><input class="mt-in" id="mtf-alvo" type="number" min="1" step="any" value="${E(m?.alvo||'')}" placeholder="Ex.: 88"></label>
+        <label class="mt-fld"><span>Prazo</span><input class="mt-in" id="mtf-prazo" type="date" value="${E(m?.prazo||fimMes(S.mes))}"></label>
+        <label class="mt-fld full" id="mtf-auto-w"><span><input type="checkbox" id="mtf-auto" ${m?.contarAuto===false?'':'checked'} style="accent-color:#10B981;vertical-align:-2px"> Contar automaticamente</span><small id="mtf-auto-s"></small></label>
+        <div class="mt-fld full"><span>${ed?'Responsável':'Para quem (pode marcar várias pessoas)'}</span>
+          <div class="mt-people" id="mtf-people">${pessoas.map(u=>{const id=userId(u),on=S.form.sel.has(id);return `<label class="${on?'on':''}"><input type="checkbox" value="${E(id)}" ${on?'checked':''} ${ed?'disabled':''} onchange="mtfPessoa(this)">${av(u)}${E(u.nome)}</label>`}).join('')||'<span style="color:var(--mt-mu);font-size:12.5px">Nenhum colaborador ativo.</span>'}</div></div>
+      </div>
+      <div class="mt-note">A comissão vem da regra da área (botão <b>Comissões</b>). Se a pessoa tiver uma regra só dela, vale a dela.</div></div>
+      <div class="mt-dr-f"><button class="mt-btn" onclick="mtFechar()">Cancelar</button><button class="mt-btn pri" onclick="mtSalvar('${m?.id||''}')">${ed?'Salvar':'Criar meta'}</button></div>`);
+    mtfArea(area,m?.indicador);
+    setTimeout(()=>dr.querySelector('#mtf-alvo')?.focus(),250);
+  }
+  window.mtfArea=function(area,ind){
+    S.form.area=area;
+    const sel=document.getElementById('mtf-ind');if(!sel)return;
+    sel.innerHTML=Object.entries(INDICADORES).filter(([,v])=>v.area===area).map(([k,v])=>`<option value="${k}" ${k===ind?'selected':''}>${v.nome}${v.un==='R$'?' (R$)':''}</option>`).join('');
+    mtfInd();
+  };
+  window.mtfInd=function(){
+    const k=document.getElementById('mtf-ind')?.value,ind=INDICADORES[k]||{};
+    S.form.indicador=k;
+    const w=document.getElementById('mtf-auto-w');if(w)w.style.display=ind.auto?'':'none';
+    const s=document.getElementById('mtf-auto-s');if(s)s.textContent=ind.auto?`Soma ${ind.autoTxt} no mês, além dos itens lançados à mão.`:'';
+    const l=document.getElementById('mtf-alvo-l');if(l)l.textContent=ind.un==='R$'?'Meta em R$':'Meta (quantidade)';
+  };
+  window.mtfPessoa=function(el){if(el.checked)S.form.sel.add(el.value);else S.form.sel.delete(el.value);el.closest('label').classList.toggle('on',el.checked)};
+  window.mtSalvar=function(id){
+    const alvo=+String(document.getElementById('mtf-alvo')?.value||'').replace(',','.');
+    if(!(alvo>0)){toast('Informe a meta (alvo)','#F59E0B');document.getElementById('mtf-alvo')?.focus();return}
+    const prazo=document.getElementById('mtf-prazo')?.value||fimMes(S.mes);
+    const contarAuto=!!document.getElementById('mtf-auto')?.checked;
+    const ind=INDICADORES[S.form.indicador];
+    let titulo=String(document.getElementById('mtf-tit')?.value||'').trim();
+    const mesNome=mesLabel(S.mes).replace(/^./,c=>c.toUpperCase());
+    if(id){
+      const m=meta(id);
+      DB.update('metas',id,{alvo,prazo,contarAuto,titulo:titulo||m.titulo});
+      toast('Meta atualizada','#10B981');S.drId=id;desenharDetalhe();renderMetas();return;
+    }
+    if(!S.form.sel.size){toast('Escolha pelo menos uma pessoa','#F59E0B');return}
+    if(!titulo)titulo=`Indicador: ${ind.nome} - ${mesNome}`;
+    let n=0;
+    S.form.sel.forEach(uid=>{
+      const u=pessoa(uid);if(!u)return;
+      const m={id:uidm(),mes:S.mes,area:S.form.area,indicador:S.form.indicador,titulo,alvo,prazo,contarAuto,itens:[],
+        userId:userId(u),userNome:u.nome||'',userEmail:u.email||'',criadoPor:sessionUser?.nome||'',criadoEm:new Date().toISOString(),fechamento:null};
+      DB.push('metas',m);n++;
+      if(typeof gxNotify==='function')gxNotify({para:u,tipo:'tarefa',titulo:'Nova meta do mês',texto:`${titulo} · alvo ${ind.un==='R$'?BRL(alvo):NUM(alvo)}`,link:{kind:'metas'}});
+    });
+    mtFechar();renderMetas();toast(`${n} meta${n!==1?'s':''} criada${n!==1?'s':''} ✓`,'#10B981');
+  };
+  window.mtCopiar=function(){
+    const ant=metas().filter(m=>m.mes===mesShift(S.mes,-1));if(!ant.length)return;
+    const nomeMes=mesLabel(S.mes).replace(/^./,c=>c.toUpperCase()),nomeAnt=mesLabel(mesShift(S.mes,-1)).replace(/^./,c=>c.toUpperCase());
+    ant.forEach(m=>DB.push('metas',{...m,id:uidm(),mes:S.mes,prazo:fimMes(S.mes),itens:[],fechamento:null,avisoBatida:null,titulo:String(m.titulo).replace(nomeAnt,nomeMes),criadoPor:sessionUser?.nome||'',criadoEm:new Date().toISOString()}));
+    renderMetas();toast(`${ant.length} metas copiadas (itens zerados)`,'#10B981');
+  };
+  window.mtFecharMes=function(){
+    const abertas=metas().filter(m=>m.mes===S.mes&&!m.fechamento);if(!abertas.length)return;
+    const go=()=>{
+      const em=new Date().toISOString(),por=sessionUser?.nome||'';
+      abertas.forEach(m=>{const c=calc(m);DB.update('metas',m.id,{fechamento:{realizado:c.realizado,alvo:c.alvo,pct:c.pct,comissao:c.comissao,comissaoTxt:c.comissaoTxt,eficiencia:c.eficiencia,regraId:c.regraId,em,por}})});
+      renderMetas();toast(`Mês fechado: ${abertas.length} metas congeladas`,'#10B981');
+    };
+    if(typeof confirmDelete==='function')confirmDelete(go,{icon:'🔒',title:`Fechar ${mesLabel(S.mes)}?`,message:'Os valores de progresso e comissão ficam congelados como estão agora. Dá para reabrir uma meta depois, se precisar.',okText:'Fechar mês'});else if(confirm('Fechar o mês?'))go();
+  };
+
+  // ═══ COMISSÕES (regras ajustáveis a qualquer hora) ═══
+  window.mtRegras=function(area){if(!gestor())return;if(area)S.regraArea=area;desenharRegras()};
+  function regraVazia(area,userId){return {id:uidm(),area,userId:userId||'',tipo:area==='comercial'?'faixas':'unidade',faixas:[{min:100,valor:500,modo:'fixo'},{min:120,valor:800,modo:'fixo'}],pct:3,pctAcima:5,valorUnidade:10,bonusMeta:200,minPct:0,ativo:true}}
+  function desenharRegras(){
+    const area=S.regraArea,rs=regras().filter(r=>r.area===area);
+    const geral=rs.find(r=>!r.userId),esp=rs.filter(r=>r.userId);
+    const semRegra=equipe().filter(u=>!esp.some(r=>String(r.userId)===userId(u)));
+    gaveta(`
+      <div class="mt-dr-h"><div><h2>Comissões</h2><small>Ajuste quando quiser: as metas abertas recalculam na hora. Meses fechados não mudam.</small></div><button class="mt-x" onclick="mtFechar()" aria-label="Fechar">✕</button></div>
+      <div class="mt-dr-b">
+        <div class="mt-seg">${Object.entries(AREAS).map(([k,a])=>`<button class="${k===area?'on':''}" onclick="mtRegras('${k}')"><span class="dot" style="background:${a.cor}"></span>${a.nome}</button>`).join('')}</div>
+        ${geral?regraHtml(geral,'Regra da área — vale para todos'):`<div class="mt-empty" style="padding:22px"><b>Sem regra para ${AREAS[area].nome}</b>Sem regra, a comissão fica R$ 0.<div style="margin-top:12px"><button class="mt-btn pri sm" onclick="mtRegraNova('${area}','')">Criar regra da área</button></div></div>`}
+        ${esp.map(r=>regraHtml(r,`Regra só de ${E(pessoa(r.userId)?.nome||r.userNome||'pessoa')}`)).join('')}
+        <div class="mt-fld"><span>Regra diferente para uma pessoa</span><div style="display:flex;gap:8px"><select class="mt-in" id="mt-rg-p" style="flex:1"><option value="">Escolha a pessoa…</option>${semRegra.map(u=>`<option value="${E(userId(u))}">${E(u.nome)}</option>`).join('')}</select><button class="mt-btn sm" onclick="mtRegraNova('${area}',document.getElementById('mt-rg-p').value)">Adicionar</button></div><small>A regra da pessoa vale no lugar da regra da área.</small></div>
+      </div>`);
+  }
+  function regraHtml(r,titulo){
+    const un=r.area==='comercial'||r.area==='trafego'?'R$':'un';
+    const tipos=[['faixas','Por faixa de meta'],['percentual','% sobre o valor'],['unidade','Valor por unidade']];
+    let corpo='';
+    if(r.tipo==='faixas'){
+      corpo=`<div class="mt-tiers">${(r.faixas||[]).map((f,i)=>`<div class="mt-tier"><span>Bateu</span><input class="mt-in" type="number" min="0" step="1" value="${E(f.min)}" onchange="mtRg('${r.id}','faixa',${i},'min',this.value)" aria-label="% da meta"><span>% → ganha</span><input class="mt-in" type="number" min="0" step="0.01" value="${E(f.valor)}" onchange="mtRg('${r.id}','faixa',${i},'valor',this.value)" aria-label="Valor"><select class="mt-in x2" onchange="mtRg('${r.id}','faixa',${i},'modo',this.value)"><option value="fixo" ${f.modo!=='pct'?'selected':''}>R$ fixo</option><option value="pct" ${f.modo==='pct'?'selected':''}>% do realizado</option></select><button class="mt-it del" style="border:0;background:none;cursor:pointer;color:var(--mt-mu)" onclick="mtRg('${r.id}','faixaDel',${i})" aria-label="Remover faixa">✕</button></div>`).join('')}
+        <button class="mt-btn sm" style="align-self:flex-start" onclick="mtRg('${r.id}','faixaAdd')">+ Faixa</button></div>
+        <small style="font-size:11.5px;color:var(--mt-mu)">Vale a maior faixa atingida. Ex.: bateu 100% ganha R$ 500; bateu 120% ganha R$ 800.</small>`;
+    }else if(r.tipo==='percentual'){
+      corpo=`<div class="mt-form"><label class="mt-fld"><span>% sobre o valor realizado</span><input class="mt-in" type="number" min="0" step="0.1" value="${E(r.pct)}" onchange="mtRg('${r.id}','pct',0,0,this.value)"></label>
+        <label class="mt-fld"><span>% quando bate a meta</span><input class="mt-in" type="number" min="0" step="0.1" value="${E(r.pctAcima||'')}" placeholder="igual" onchange="mtRg('${r.id}','pctAcima',0,0,this.value)"><small>Vale sobre tudo ao passar de 100%</small></label>
+        <label class="mt-fld"><span>Começa a ganhar a partir de</span><input class="mt-in" type="number" min="0" step="1" value="${E(r.minPct||0)}" onchange="mtRg('${r.id}','minPct',0,0,this.value)"><small>% da meta (0 = desde o 1º real)</small></label></div>`;
+    }else{
+      corpo=`<div class="mt-form"><label class="mt-fld"><span>R$ por unidade entregue</span><input class="mt-in" type="number" min="0" step="0.01" value="${E(r.valorUnidade)}" onchange="mtRg('${r.id}','valorUnidade',0,0,this.value)"></label>
+        <label class="mt-fld"><span>Bônus ao bater 100%</span><input class="mt-in" type="number" min="0" step="0.01" value="${E(r.bonusMeta||0)}" onchange="mtRg('${r.id}','bonusMeta',0,0,this.value)"></label>
+        <label class="mt-fld"><span>Começa a ganhar a partir de</span><input class="mt-in" type="number" min="0" step="1" value="${E(r.minPct||0)}" onchange="mtRg('${r.id}','minPct',0,0,this.value)"><small>% da meta</small></label></div>`;
+    }
+    return `<div class="mt-rule">
+      <div class="mt-rule-h"><b>${titulo}</b><span class="who">${r.atualizadoPor?`alterada por ${E(r.atualizadoPor)} em ${dataBR(r.atualizadoEm)}`:''}</span><button class="mt-btn sm dng" style="margin-left:auto" onclick="mtRg('${r.id}','del')">Remover</button></div>
+      <div class="mt-seg">${tipos.map(([k,n])=>`<button class="${r.tipo===k?'on':''}" onclick="mtRg('${r.id}','tipo',0,0,'${k}')">${n}</button>`).join('')}</div>
+      ${corpo}
+      <div class="mt-sim">Simular: se bater <input class="mt-in" type="number" min="0" value="100" oninput="mtSim('${r.id}',this.value,this.nextElementSibling.nextElementSibling)"> % de uma meta de <b style="color:inherit">${un==='R$'?'R$ 10.000':'100 un'}</b> → <b>${BRL(comissao(r,un==='R$'?10000:100,100,un).valor)}</b></div>
+    </div>`;
+  }
+  window.mtSim=function(id,p,el){const r=regras().find(x=>x.id===id);if(!r||!el)return;const un=r.area==='operacional'?'un':'R$';const base=un==='R$'?10000:100;const pct=+p||0;el.textContent=BRL(comissao(r,base*pct/100,pct,un).valor)};
+  window.mtRegraNova=function(area,uid){
+    if(uid===undefined)return;
+    if(uid===''&&regras().some(r=>r.area===area&&!r.userId))return;
+    if(uid===null)return;
+    if(uid!==''&&!pessoa(uid)){toast('Escolha a pessoa','#F59E0B');return}
+    const r=regraVazia(area,uid);if(uid)r.userNome=pessoa(uid)?.nome||'';
+    r.atualizadoPor=sessionUser?.nome||'';r.atualizadoEm=new Date().toISOString();
+    DB.push('metas_regras',r);desenharRegras();renderMetas();
+  };
+  window.mtRg=function(id,campo,i,sub,val){
+    const r=regras().find(x=>x.id===id);if(!r)return;
+    if(campo==='del'){const go=()=>{DB.remove('metas_regras',id);desenharRegras();renderMetas()};if(typeof confirmDelete==='function')confirmDelete(go,{title:'Remover regra',message:'As metas abertas passam a usar a regra da área (ou ficam sem comissão).',okText:'Remover'});else go();return}
+    const p={atualizadoPor:sessionUser?.nome||'',atualizadoEm:new Date().toISOString()};
+    const n=v=>Math.max(0,+String(v).replace(',','.')||0);
+    if(campo==='tipo')p.tipo=val;
+    else if(campo==='faixa'){const fs=(r.faixas||[]).map(f=>({...f}));fs[i][sub]=sub==='modo'?val:n(val);p.faixas=fs}
+    else if(campo==='faixaAdd'){const fs=(r.faixas||[]).slice();const max=fs.reduce((a,f)=>Math.max(a,+f.min||0),0);fs.push({min:max?max+20:100,valor:0,modo:'fixo'});p.faixas=fs}
+    else if(campo==='faixaDel'){p.faixas=(r.faixas||[]).filter((_,k)=>k!==i)}
+    else p[campo]=n(val);
+    DB.update('metas_regras',id,p);
+    desenharRegras();renderMetas();
+    toast('Comissão atualizada: metas abertas recalculadas','#10B981');
+  };
+
+  // Atualiza a tela quando chegam dados novos (outra pessoa concluiu tarefa, lançou item, etc.)
+  setInterval(()=>{
+    try{
+      const pg=document.getElementById('page-metas');
+      if(!pg||!pg.classList.contains('active')||document.hidden)return;
+      const ae=document.activeElement;if(ae&&/INPUT|TEXTAREA|SELECT/.test(ae.tagName))return;
+      renderMetas();
+      if(S.drId&&document.getElementById('mt-dr')?.classList.contains('open'))desenharDetalhe();
+    }catch(e){}
+  },20000);
+})();
+</script>
+
 </body>
 </html>
