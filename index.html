@@ -29540,7 +29540,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
       <td><div class="mt-ind"><span class="ic" style="background:${a.fundo};color:${a.cor}">${ico(a.ic)}</span><div><b>${E(m.titulo)}</b><small><span class="mt-area" style="background:${a.fundo};color:${a.cor}">${a.nome}</span>${c.auto.length?`<span>${c.auto.length} auto</span>`:''}${nItens?`<span>☑ ${feitos}/${nItens}</span>`:''}</small></div></div></td>
       ${g?`<td><div class="mt-who">${av(u,m.userNome)}<span>${E(m.userNome)}</span></div></td>`:''}
       <td><div class="mt-prog"><div class="mt-track" role="progressbar" aria-valuenow="${Math.round(c.pct)}" aria-valuemin="0" aria-valuemax="100"><div class="mt-fill ${barCls(c.pct)}" style="width:${Math.min(100,c.pct)}%"></div></div><span class="mt-pct">${Math.round(c.pct)}%</span></div><div class="mt-qty">${fmt(c.realizado)} de ${fmt(c.alvo)}</div></td>
-      <td class="num"><span class="mt-com ${c.comissao?'':'zero'}" title="${E(c.comissaoTxt||'')}">${BRL(c.comissao)}<small>${E(c.comissaoTxt||'')}</small></span></td>
+      <td class="num"><span class="mt-com ${c.comissao?'':'zero'}" title="${E(txtCom(c))}">${BRL(c.comissao)}<small>${E(txtCom(c))}</small></span></td>
       <td><span class="mt-selo ${sl.k}">${sl.i} ${sl.n} · ${c.eficiencia}</span></td>
       <td><span class="mt-st ${st.k}">${st.n}</span><div class="mt-qty" style="margin-top:4px">${dataBR(periodo(m).ini).slice(0,5)} → ${dataBR(periodo(m).fim)}</div></td>
     </tr>`;
@@ -29589,7 +29589,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
       <div class="mt-dr-b">
         <div class="mt-big"><div class="pct">${Math.round(c.pct)}%</div><div class="qty"><b>${fmt(c.realizado)}</b> de ${fmt(c.alvo)}<br>${c.pct>=100?'Meta batida 🎉':`faltam ${fmt(falta)}`}</div><div class="mt-track"><div class="mt-fill ${barCls(c.pct)}" style="width:${Math.min(100,c.pct)}%"></div></div></div>
         <div class="mt-kv">
-          <div><span>Comissão ${c.fechado?'fechada':'até agora'}</span><b style="color:#047857">${verCom?BRL(c.comissao):'—'}</b><small>${verCom?E(c.comissaoTxt||''):'Visível só para a pessoa e o gestor'}</small></div>
+          <div><span>Comissão ${c.fechado?'fechada':'até agora'}</span><b style="color:#047857">${verCom?BRL(c.comissao):'—'}</b><small>${verCom?E(txtCom(c)):'Visível só para a pessoa e o gestor'}</small></div>
           <div><span>Eficiência</span><b>${c.eficiencia}</b><small><span class="mt-selo ${sl.k}">${sl.i} ${sl.n}</span> · quantidade entregue em relação à meta</small></div>
           <div><span>Status</span><b style="font-size:14px;margin-top:6px"><span class="mt-st ${st.k}">${st.n}</span></b><small>Esperado até hoje: ${Math.round(ritmoMeta(m))}% do período</small></div>
           <div><span>Como é contado</span><b style="font-size:13.5px">${ind.auto&&m.contarAuto!==false?'Automático + itens':'Itens lançados'}</b><small>${ind.auto&&m.contarAuto!==false?E(ind.autoTxt):'Marque cada entrega na lista abaixo'}</small></div>
@@ -29603,12 +29603,21 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
           ${pode?`<div class="mt-add"><input class="mt-in" id="mt-it-txt" style="flex:1" placeholder="${ind.un==='R$'?'Ex.: Renovação cliente X':'Ex.: Social media 01 EFA'}" onkeydown="if(event.key==='Enter')mtItemAdd('${m.id}')">${ind.un==='R$'?`<input class="mt-in" id="mt-it-q" type="text" inputmode="decimal" data-moeda="1" oninput="mtMoeda(this)" style="width:140px" placeholder="R$ 0,00" onkeydown="if(event.key==='Enter')mtItemAdd('${m.id}')">`:`<input class="mt-in" id="mt-it-q" type="number" min="1" step="1" style="width:74px" value="1" title="Quantidade">`}<button class="mt-btn sm pri" onclick="mtItemAdd('${m.id}')">Adicionar</button></div>`:''}
           ${!(m.itens||[]).length&&!pode?`<div class="mt-it"><span class="t" style="color:var(--mt-mu)">Nenhum item lançado.</span></div>`:''}
         </div></div>
-        ${c.regraTipo==='carteira'&&(g||souEu(m))?carteiraDetalhe(m,c):''}
+        ${c.regraTipo==='carteira'&&g?carteiraDetalhe(m,c):''}
         ${m.fechamento?`<div class="mt-note">Mês fechado em ${dataBR(m.fechamento.em)} por ${E(m.fechamento.por||'')}. Os valores acima ficaram congelados.</div>`:''}
       </div>
       ${g?`<div class="mt-dr-f">${m.fechamento?`<button class="mt-btn" onclick="mtReabrir('${m.id}')">Reabrir meta</button>`:`<button class="mt-btn dng" onclick="mtExcluir('${m.id}')">Excluir</button><button class="mt-btn" onclick="mtEditar('${m.id}')">Editar meta</button>`}</div>`:''}`);
     dr.querySelector('.mt-dr-b').scrollTop=0;
   });
+  // Valores da carteira (total e por cliente) só para Fundador/Adm Gerente. Colaborador vê só a própria comissão e o %.
+  function txtCom(c){
+    const t=String(c.comissaoTxt||'');
+    if(gestor()||c.regraTipo!=='carteira')return t;
+    const pct=(t.match(/([\d.,]+)% da carteira/)||[])[1];
+    const faixa=(t.match(/ao bater ([\d.,]+)%/)||[])[1];
+    if(faixa)return `Ganha ${pct?pct+'% da carteira':'comissão'} ao bater ${faixa}% da meta`;
+    return pct?`${pct}% da carteira do setor`:'Comissão sobre a carteira do setor';
+  }
   function carteiraDetalhe(m,c){
     const r=regras().find(x=>x.id===c.regraId);
     const cart=c.fechado?null:carteira(r?.squads,m);
