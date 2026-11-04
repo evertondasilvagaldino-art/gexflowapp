@@ -193,10 +193,10 @@ body.tv-on{overflow:hidden}
 .tv-tile span{display:block;font-size:clamp(11px,.9vw,14px);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.55)}
 .tv-tile b{display:block;font-size:clamp(20px,2.4vw,40px);font-weight:850;letter-spacing:-.02em;margin-top:4px;font-variant-numeric:tabular-nums}
 .tv-tile small{display:block;font-size:clamp(11px,.95vw,14px);color:rgba(255,255,255,.6);margin-top:2px}
-.tv-side{display:flex;flex-direction:column;gap:clamp(12px,1.6vw,22px);min-width:0}
+.tv-side{display:flex;flex-direction:column;gap:clamp(10px,1.2vw,18px);min-width:0}
 .tv-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:clamp(14px,1.4vw,22px)}
 .tv-card h3{margin:0 0 10px;font-size:clamp(12px,1vw,15px);font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.6)}
-.tv-rk{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:4px 10px;align-items:center;margin:9px 0}
+.tv-rk{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:3px 10px;align-items:center;margin:6px 0}
 .tv-rk .p{font-weight:900;font-size:clamp(14px,1.2vw,18px);color:rgba(255,255,255,.5);text-align:center}
 .tv-rk .p.g1{color:#FACC15}.tv-rk .p.g2{color:#CBD5E1}.tv-rk .p.g3{color:#F59E0B}
 .tv-rk .n{font-weight:700;font-size:clamp(13px,1.15vw,18px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -206,6 +206,19 @@ body.tv-on{overflow:hidden}
 .tv-ul:first-of-type{border-top:0}
 .tv-ul b{font-variant-numeric:tabular-nums;color:#34D399}
 .tv-ul small{color:rgba(255,255,255,.55)}
+.tv-ano-v{font-size:clamp(26px,3vw,48px);font-weight:900;letter-spacing:-.03em;font-variant-numeric:tabular-nums;background:linear-gradient(180deg,#fff 30%,#FDE68A 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.tv-ano-s{font-size:clamp(12px,1vw,15px);color:rgba(255,255,255,.65);margin-top:2px}
+.tv-ano-s b{color:#fff}
+.tv-ano-g{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:5px;margin-top:12px;height:clamp(70px,8vw,120px)}
+.tv-ano-g .c{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
+.tv-ano-g .t{position:relative;flex:1;width:100%;display:flex;align-items:flex-end}
+.tv-ano-g .bb{display:block;width:100%;border-radius:4px 4px 2px 2px;background:linear-gradient(180deg,#A855F7,#6D28D9)}
+.tv-ano-g .bb.ok{background:linear-gradient(180deg,#34D399,#059669)}
+.tv-ano-g .cur .bb{background:linear-gradient(180deg,#FACC15,#F59E0B)}
+.tv-ano-g .mm{position:absolute;left:-1px;right:-1px;height:2px;background:rgba(255,255,255,.75);border-radius:2px}
+.tv-ano-g span{font-size:clamp(9px,.75vw,12px);color:rgba(255,255,255,.5);font-weight:700}
+.tv-ano-g .cur span{color:#FACC15}
+.tv-ano-g .fut{opacity:.4}
 .tv-foot{padding:0 clamp(16px,3vw,44px) clamp(12px,1.6vw,22px);font-size:12px;color:rgba(255,255,255,.4);display:flex;gap:12px;flex-wrap:wrap}
 .tv-msg{padding:80px 20px;text-align:center;color:rgba(255,255,255,.7)}
 /* comemoração */
@@ -629,9 +642,9 @@ function tvRender(){
         '<div class="tv-tile"><span>'+(meta>0&&pct<100?'Por dia até a meta':'Média por dia')+'</span><b>'+brl(meta>0&&pct<100?falta/Math.max(1,d.diasMes-d.diaHoje+1):d.faturamento/Math.max(1,d.diaHoje))+'</b><small>'+(meta>0&&pct<100?(d.diasMes-d.diaHoje+1)+' dias restantes':'no mês')+'</small></div>'+
       '</div>'+
     '</div>'+
-    '<div class="tv-side">'+
-      '<div class="tv-card"><h3>Ranking do mês</h3>'+(d.ranking.length?d.ranking.slice(0,6).map((x,i)=>'<div class="tv-rk"><span class="p '+(i<3?'g'+(i+1):'')+'">'+(i+1)+'º</span><span class="n">'+esc(x.nome)+'</span><span class="v">'+brlShort(x.valor)+'</span><i style="width:'+Math.max(3,x.valor/maxR*100)+'%"></i></div>').join(''):'<div style="color:rgba(255,255,255,.6)">Primeira venda do mês ainda não saiu.</div>')+'</div>'+
-      '<div class="tv-card"><h3>Últimas vendas</h3>'+(d.ultimas.length?d.ultimas.map(u=>'<div class="tv-ul"><span>'+esc(u.vendedor)+'<br><small>'+new Date(u.em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</small></span><b>'+brl(u.valor)+'</b></div>').join(''):'<div style="color:rgba(255,255,255,.6)">—</div>')+'</div>'+
+    '<div class="tv-side">'+anoCard(d.ano,d.mes)+
+      '<div class="tv-card"><h3>Ranking do mês</h3>'+(d.ranking.length?d.ranking.slice(0,5).map((x,i)=>'<div class="tv-rk"><span class="p '+(i<3?'g'+(i+1):'')+'">'+(i+1)+'º</span><span class="n">'+esc(x.nome)+'</span><span class="v">'+brlShort(x.valor)+'</span><i style="width:'+Math.max(3,x.valor/maxR*100)+'%"></i></div>').join(''):'<div style="color:rgba(255,255,255,.6)">Primeira venda do mês ainda não saiu.</div>')+'</div>'+
+      '<div class="tv-card"><h3>Últimas vendas</h3>'+(d.ultimas.length?d.ultimas.slice(0,3).map(u=>'<div class="tv-ul"><span>'+esc(u.vendedor)+'<br><small>'+new Date(u.em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})+'</small></span><b>'+brl(u.valor)+'</b></div>').join(''):'<div style="color:rgba(255,255,255,.6)">—</div>')+'</div>'+
     '</div>'+
   '</div>';
   // número subindo e barra andando
@@ -645,6 +658,22 @@ function tvRender(){
     const bateuAgora=meta>0&&p.faturamento<meta&&d.faturamento>=meta;
     setTimeout(()=>bateuAgora?tvComemora('🏆 Meta batida!',brl(d.faturamento),'Parabéns, time!',true):tvComemora('🎉 Nova venda!','+ '+brl(ganho),quem?quem+' · '+(pct>0?pct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'% da meta':''):'',false),900);
   }
+}
+function anoCard(a,mesAtual){
+  if(!a)return '';
+  const maxV=Math.max(1,...a.meses.map(m=>Math.max(m.valor,m.meta)));
+  const pctAno=a.metaAteAgora>0?a.faturamento/a.metaAteAgora*100:0;
+  const L=['J','F','M','A','M','J','J','A','S','O','N','D'];
+  return '<div class="tv-card tv-ano"><h3>Acumulado de '+esc(a.ano)+'</h3>'+
+    '<div class="tv-ano-v">'+brl(a.faturamento)+'</div>'+
+    '<div class="tv-ano-s">'+int(a.vendas)+' venda'+(a.vendas!==1?'s':'')+' · ticket '+brl(a.ticket)+(a.metaAteAgora>0?' · <b>'+pctAno.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%</b> das metas até este mês':'')+'</div>'+
+    '<div class="tv-ano-g" aria-label="Faturamento mês a mês">'+a.meses.map((m,i)=>{
+      const h=Math.max(m.valor>0?4:0,m.valor/maxV*100),hm=m.meta>0?m.meta/maxV*100:0,cur=m.mes===mesAtual,fut=m.mes>mesAtual;
+      return '<div class="c'+(cur?' cur':'')+(fut?' fut':'')+'" title="'+esc(m.mes)+': '+brl(m.valor)+(m.meta?' · meta '+brl(m.meta):'')+'">'+
+        '<div class="t">'+(hm?'<i class="mm" style="bottom:'+hm+'%"></i>':'')+'<i class="bb'+(m.meta&&m.valor>=m.meta?' ok':'')+'" style="height:'+h+'%"></i></div><span>'+L[i]+'</span></div>';
+    }).join('')+'</div>'+
+    (a.meta>0?'<div class="tv-ano-s" style="margin-top:8px">Meta do ano (meses já definidos): <b>'+brl(a.meta)+'</b></div>':'')+
+  '</div>';
 }
 function tvClock(){const c=$('tv-clock');if(c)c.textContent=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}
 function tvAbrir(){
