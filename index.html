@@ -25350,7 +25350,7 @@ function sidebarHtml(){
     </div>`;
   }).join('');
   const nMinhas=minhasTarefas().filter(x=>!x.done).length;
-  return `<div class="op-side"><h4>Operacional</h4><div class="op-li op-my-li ${S.minhas?'on':''}" onclick="opMinhas()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Minhas tarefas</span><span class="cnt">${nMinhas}</span></div>${body||'<div style="font-size:12px;color:var(--light);padding:8px">Nenhum squad disponível para você ainda.</div>'}
+  return `<div class="op-side"><h4>Operacional</h4><div class="op-li op-my-li ${S.minhas?'on':''}" onclick="opMinhas()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg><span>Minhas tarefas</span><span class="cnt">${nMinhas}</span></div>${isProjectFounderView()?`<div class="op-li op-my-li ${S.equipe?'on':''}" onclick="opEquipe()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Tarefas da equipe</span><span class="cnt">${equipeTarefas().filter(x=>!x.done).length}</span></div>`:''}${body||'<div style="font-size:12px;color:var(--light);padding:8px">Nenhum squad disponível para você ainda.</div>'}
     ${manage?`<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px"><div class="op-add" style="padding-left:8px" onclick="openSquadMgr()">Gerenciar squads</div></div>`:''}</div>`;
 }
 
@@ -25369,7 +25369,8 @@ function renderOpInner(){
   const l=lista(S.listaId);
   const sq=squad(S.squadId);
   let main='';
-  if(S.minhas){main=minhasHtml()}
+  if(S.equipe&&isProjectFounderView()){main=equipeHtml()}
+  else if(S.minhas){main=minhasHtml()}
   else if(!l){
     main=`<div class="card" style="padding:40px;text-align:center;color:var(--muted)">${sq?(canManage()?'Este squad ainda não tem lista. Use "+ Nova lista" na lateral.':'Este squad ainda não tem listas. Peça a um gerente para criar.'):'Você ainda não está em nenhum squad. Peça a um gerente para te incluir.'}</div>`;
   }else{
@@ -25486,7 +25487,7 @@ function kanbanHtml(l,ts){
 
 /* ═══ AÇÕES DE NAVEGAÇÃO ═══ */
 window.opSelSquad=function(id){
-  S.minhas=false;
+  S.minhas=false;S.equipe=false;
   S.openSquads[id]=!S.openSquads[id];
   S.squadId=id;
   const sq=squad(id);ensureDefaultList(sq);
@@ -25494,7 +25495,7 @@ window.opSelSquad=function(id){
   if(!ls.find(l=>l.id===S.listaId))S.listaId=ls[0]?.id||null;
   renderOp();
 };
-window.opSelLista=function(sid,lid){S.minhas=false;S.squadId=sid;S.listaId=lid;S.busca='';S.resp='';S.prio='';renderOp()};
+window.opSelLista=function(sid,lid){S.minhas=false;S.equipe=false;S.squadId=sid;S.listaId=lid;S.busca='';S.resp='';S.prio='';renderOp()};
 /* ═══ MINHAS TAREFAS (30/10/2026): tudo em que eu sou responsável, de todos os squads/listas ═══ */
 function minhasTarefas(){
   return col('op_tarefas').filter(t=>!t.arquivada&&(t.resp||[]).some(id=>{const p=personById(id);return p&&personIsMe(p)})).map(t=>{
@@ -25502,7 +25503,48 @@ function minhasTarefas(){
     return {t,l,st,done:!!st?.concluido,acesso:!!(l&&nivelLista(l))};
   }).filter(x=>x.l&&!x.l.arquivada);
 }
-window.opMinhas=function(){S.minhas=true;renderOp()};
+window.opMinhas=function(){S.minhas=true;S.equipe=false;renderOp()};
+/* ═══ TAREFAS DA EQUIPE (04/11/2026): Fundador e Adm Gerente veem as tarefas de todo mundo, agrupadas por responsável ═══ */
+function equipeTarefas(){
+  return col('op_tarefas').filter(t=>!t.arquivada).map(t=>{
+    const l=lista(t.listaId);const st=l?statusOf(l,t):null;
+    return {t,l,st,done:!!st?.concluido};
+  }).filter(x=>x.l&&!x.l.arquivada);
+}
+window.opEquipe=function(){S.equipe=true;S.minhas=false;renderOp()};
+window.opEqResp=function(v){S.eqResp=v;renderOp()};
+function equipeHtml(){
+  const hojeD=new Date();const hoje=new Date(hojeD.getTime()-hojeD.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  const all=equipeTarefas().filter(x=>S.minhasDone||!x.done);
+  const grupos={};
+  all.forEach(x=>{
+    const ids=(x.t.resp||[]).map(String);
+    (ids.length?ids:['__none']).forEach(id=>{(grupos[id]=grupos[id]||[]).push(x)});
+  });
+  let chaves=Object.keys(grupos).sort((a,b)=>a==='__none'?1:b==='__none'?-1:String(personById(a)?.nome||'').localeCompare(String(personById(b)?.nome||'')));
+  const opts=chaves.map(k=>`<option value="${ea(k)}" ${S.eqResp===k?'selected':''}>${k==='__none'?'Sem responsável':esc(personById(k)?.nome||'Pessoa removida')}</option>`).join('');
+  if(S.eqResp)chaves=chaves.filter(k=>k===S.eqResp);
+  const row=x=>`<div class="op-my-row" onclick="opMinhasOpen('${x.t.id}')">
+      <span class="op-my-st" style="background:${ea(x.st?.cor||'#9CA3AF')}" title="${ea(x.st?.nome||'')}"></span>
+      <div style="min-width:0"><div class="op-my-tt">${esc(x.t.titulo)}</div><div class="op-my-sub">${esc(squad(x.l.squadId)?.nome||'')} / ${esc(x.l.nome)} · ${esc(x.st?.nome||'')}</div></div>
+      ${x.t.prioridade?`<span class="op-my-pr" style="color:${ea(PRIORIDADES[x.t.prioridade]||'#9CA3AF')}">${esc(x.t.prioridade)}</span>`:'<span></span>'}
+      <span class="op-my-dt" style="${x.t.venc&&x.t.venc<hoje&&!x.done?'color:#EF4444;font-weight:700':''}">${x.t.venc?esc(fmtData(x.t.venc)):'—'}</span>
+    </div>`;
+  const body=chaves.map(k=>{
+    const arr=grupos[k].slice().sort((a,b)=>(a.done-b.done)||String(a.t.venc||'9999').localeCompare(String(b.t.venc||'9999')));
+    const atras=arr.filter(x=>!x.done&&x.t.venc&&x.t.venc<hoje).length;
+    const nome=k==='__none'?'Sem responsável':(personById(k)?.nome||'Pessoa removida');
+    return `<div class="op-my-g"><div class="op-my-gh" style="display:flex;align-items:center;gap:8px">${k==='__none'?'':avs([k])}${esc(nome)} <span>${arr.filter(x=>!x.done).length} em aberto</span>${atras?`<span style="background:rgba(239,68,68,.12);color:#DC2626">${atras} atrasada${atras>1?'s':''}</span>`:''}</div>${arr.map(row).join('')}</div>`;
+  }).join('');
+  const abertas=all.filter(x=>!x.done).length;
+  return `<div class="card" style="padding:18px 20px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px"><h2 style="margin:0;font-size:18px;font-weight:800">Tarefas da equipe</h2><span style="font-size:12px;color:var(--muted)">${abertas} em aberto</span>
+      <select class="form-input" style="margin-left:auto;max-width:230px;height:34px" onchange="opEqResp(this.value)"><option value="">Todas as pessoas</option>${opts}</select>
+      <label style="font-size:12.5px;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${S.minhasDone?'checked':''} onchange="opMinhasDone(this.checked)"> Mostrar concluídas</label></div>
+    <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px">Todas as tarefas de todos os squads e listas, separadas por responsável. Só Fundador e Adm Gerente veem esta tela.</p>
+    ${body||'<div style="padding:30px;text-align:center;color:var(--muted);font-size:13px">Nenhuma tarefa.</div>'}
+  </div>`;
+}
 window.opMinhasDone=function(v){S.minhasDone=!!v;renderOp()};
 window.opMinhasOpen=function(id){
   const t=tarefa(id);const l=lista(t?.listaId);
@@ -29885,5 +29927,10 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
 })();
 </script>
 
+<style id="gx-fab-esconde">
+/* Botões flutuantes somem quando uma janela/gaveta está aberta (04/11/2026) */
+body:has(#op-ov.open) .gxc-fab,body:has(#op-md.open) .gxc-fab,body:has(#modal-ov.open) .gxc-fab,body:has(#deal-ov.open) .gxc-fab,body:has(#detail-ov.open) .gxc-fab,body:has(#task-edit-ov.open) .gxc-fab,body:has(#ob-ov.open) .gxc-fab,body:has(#proj-com-ov.open) .gxc-fab,body:has(#confirm-ov.open) .gxc-fab,body:has(#stages-ov.open) .gxc-fab,body:has(#squad-mgr-ov.open) .gxc-fab,body:has(#produtos-ov.open) .gxc-fab,body:has(#import-leads-ov.open) .gxc-fab,body:has(#wh-ov.open) .gxc-fab,
+body:has(#op-ov.open) .gxw-fab,body:has(#op-md.open) .gxw-fab,body:has(#modal-ov.open) .gxw-fab,body:has(#deal-ov.open) .gxw-fab,body:has(#detail-ov.open) .gxw-fab,body:has(#task-edit-ov.open) .gxw-fab{display:none!important}
+</style>
 </body>
 </html>
