@@ -30344,10 +30344,11 @@ textarea.wg-in{height:auto;min-height:92px;padding:10px 12px;resize:vertical;lin
     W.view='editar';W.busca='';desenhar();carregarGrupos();
   };
   async function carregarGrupos(force){
-    if(W.grupos&&!force)return;
-    W.carregando=true;desenhar();
-    const r=await api('groups');
-    W.carregando=false;W.grupos=r.ok?r.grupos.sort((a,b)=>String(a.nome).localeCompare(String(b.nome))):[];W.erroGrupos=r.ok?'':r.message;
+    if(W.grupos&&W.grupos.length&&!force)return;
+    W.carregando=true;W.avisoGrupos='';desenhar();
+    const r=await api('groups',{atualizar:!!force});
+    W.carregando=false;W.grupos=r.ok?r.grupos.sort((a,b)=>String(a.nome).localeCompare(String(b.nome))):(W.grupos||[]);W.erroGrupos=r.ok?'':r.message;
+    W.gruposEm=r.cacheEm||'';W.avisoGrupos=r.aviso||'';
     if(W.view==='editar')desenhar();
   }
   window.gxGruposRecarregar=()=>carregarGrupos(true);
@@ -30358,7 +30359,7 @@ textarea.wg-in{height:auto;min-height:92px;padding:10px 12px;resize:vertical;lin
     const vis=todos.filter(g=>!q||String(g.nome).toLowerCase().includes(q));
     const totalEnvios=(ed.grupos||[]).length*(ed.passos||[]).length;
     const lim=+(W.status?.limiteDia||40);
-    return `<div class="wg-h"><button class="wg-back" onclick="gxGruposVoltar()" aria-label="Voltar">‹</button><div><h2>${ed.id?'Editar campanha':'Nova campanha'}</h2><p>Escolha os grupos e monte a sequência. Cada mensagem sai no Dia N (contando a partir do início) no horário escolhido.</p></div><button class="wg-x" onclick="gxGruposFechar()" aria-label="Fechar">✕</button></div>
+    return `<div class="wg-h"><button class="wg-back" onclick="gxGruposVoltar()" aria-label="Voltar">‹</button><div><h2>${ed.id?'Editar campanha':'Nova campanha'}</h2><p>Escolha os grupos e monte a sequência. Cada mensagem sai no Dia N após o início, ou numa data específica, no horário escolhido. Pode ter várias mensagens no mesmo dia em horários diferentes.</p></div><button class="wg-x" onclick="gxGruposFechar()" aria-label="Fechar">✕</button></div>
     <div class="wg-b">
       <div class="wg-row"><label class="wg-fld"><span>Nome da campanha</span><input class="wg-in" value="${E(ed.nome)}" placeholder="Ex.: Lançamento novembro" oninput="gxWgSet('nome',this.value)"></label>
         <label class="wg-fld"><span>Início (Dia 0)</span><input class="wg-in" type="date" value="${E(ed.inicio)}" onchange="gxWgSet('inicio',this.value)"></label></div>
@@ -30366,7 +30367,7 @@ textarea.wg-in{height:auto;min-height:92px;padding:10px 12px;resize:vertical;lin
         <div class="wg-sec-h">Grupos <small>${sel.size} selecionado${sel.size!==1?'s':''}${W.grupos?` de ${W.grupos.length}`:''}</small>
           <input class="wg-in" style="height:32px;max-width:240px;margin-left:auto" placeholder="Buscar grupo…" value="${E(W.busca)}" oninput="gxWgBusca(this.value)" id="wg-busca">
           <button class="wg-btn sm" onclick="gxWgTodos(true)">Marcar visíveis</button><button class="wg-btn sm" onclick="gxWgTodos(false)">Limpar</button><button class="wg-btn sm" onclick="gxGruposRecarregar()" title="Buscar de novo no WhatsApp">↻</button></div>
-        <div class="wg-gl" id="wg-gl">${W.carregando?`<div class="wg-empty"><span class="wg-load"></span><br>Buscando os grupos do seu número…</div>`:W.erroGrupos?`<div class="wg-warn" style="margin:12px">${E(W.erroGrupos)}</div>`:vis.length?vis.map(g=>`<label class="wg-g"><input type="checkbox" ${sel.has(g.id)?'checked':''} onchange="gxWgGrupo('${E(g.id)}',this.checked)"><span class="n">${E(g.nome)}</span>${g.membros?`<small>${g.membros} membros</small>`:''}</label>`).join(''):`<div class="wg-empty">Nenhum grupo encontrado.</div>`}</div>
+        ${W.avisoGrupos&&!W.carregando?`<div class="wg-warn" style="margin:10px 14px 0">${E(W.avisoGrupos)}</div>`:''}${W.gruposEm&&!W.carregando&&!W.erroGrupos?`<div style="font-size:11.5px;color:var(--wg-mu);padding:8px 14px 0">Lista de ${dataHora(W.gruposEm)} · entrou em grupo novo? clique em ↻</div>`:''}<div class="wg-gl" id="wg-gl">${W.carregando?`<div class="wg-empty"><span class="wg-load"></span><br>Buscando os grupos no seu WhatsApp…<br><small>Em números com muitos grupos pode levar até 2 minutos. Depois fica guardado e abre na hora.</small></div>`:W.erroGrupos?`<div class="wg-warn" style="margin:12px">${E(W.erroGrupos)}</div>`:vis.length?vis.map(g=>`<label class="wg-g"><input type="checkbox" ${sel.has(g.id)?'checked':''} onchange="gxWgGrupo('${E(g.id)}',this.checked)"><span class="n">${E(g.nome)}</span>${g.membros?`<small>${g.membros} membros</small>`:''}</label>`).join(''):`<div class="wg-empty">Nenhum grupo encontrado.</div>`}</div>
       </div>
       ${(ed.passos||[]).map((p,i)=>stepHtml(p,i)).join('')}
       <button class="wg-btn" style="align-self:flex-start" onclick="gxWgPasso()">+ Mensagem na sequência</button>
@@ -30376,7 +30377,10 @@ textarea.wg-in{height:auto;min-height:92px;padding:10px 12px;resize:vertical;lin
   }
   function stepHtml(p,i){
     return `<div class="wg-step">
-      <div class="wg-step-h"><span class="wg-num">${i+1}</span>Dia <input class="wg-in" type="number" min="0" max="365" style="width:72px" value="${E(p.dia)}" oninput="gxWgP(${i},'dia',this.value)" aria-label="Dia"> às <input class="wg-in" type="time" value="${E(p.hora)}" onchange="gxWgP(${i},'hora',this.value)" aria-label="Horário">
+      <div class="wg-step-h"><span class="wg-num">${i+1}</span>
+        <select class="wg-in" style="width:auto" onchange="gxWgModo(${i},this.value)" aria-label="Quando"><option value="dia" ${p.data?'':'selected'}>Dia após o início</option><option value="data" ${p.data?'selected':''}>Data específica</option></select>
+        ${p.data?`<input class="wg-in" type="date" value="${E(p.data)}" onchange="gxWgP(${i},'data',this.value)" aria-label="Data">`:`Dia <input class="wg-in" type="number" min="0" max="365" style="width:72px" value="${E(p.dia)}" oninput="gxWgP(${i},'dia',this.value)" aria-label="Dia">`}
+        às <input class="wg-in" type="time" value="${E(p.hora)}" onchange="gxWgP(${i},'hora',this.value)" aria-label="Horário">
         <small style="font-weight:600;color:var(--wg-mu)">${quandoPasso(p)}</small>
         ${(W.ed.passos||[]).length>1?`<button class="wg-btn sm dng" style="margin-left:auto" onclick="gxWgPassoDel(${i})">Remover</button>`:''}</div>
       <textarea class="wg-in" placeholder="Texto da mensagem (vira a legenda se tiver imagem ou vídeo)" oninput="gxWgP(${i},'texto',this.value)">${E(p.texto)}</textarea>
@@ -30389,7 +30393,7 @@ textarea.wg-in{height:auto;min-height:92px;padding:10px 12px;resize:vertical;lin
     </div>`;
   }
   function quandoPasso(p){
-    const ini=W.ed?.inicio||hojeSP();const d=new Date(ini+'T12:00:00');d.setDate(d.getDate()+(+p.dia||0));
+    const ini=W.ed?.inicio||hojeSP();const d=new Date((p.data||ini)+'T12:00:00');if(!p.data)d.setDate(d.getDate()+(+p.dia||0));
     const h=+String(p.hora||'09:00').slice(0,2);
     return `= ${d.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'})}${h<8||h>=20?' · fora das 8h–20h: sai às 8h do dia seguinte':''}`;
   }
@@ -30407,14 +30411,22 @@ textarea.wg-in{height:auto;min-height:92px;padding:10px 12px;resize:vertical;lin
     else{const ids=new Set(vis.map(g=>g.id));W.ed.grupos=W.ed.grupos.filter(g=>!ids.has(g.id))}
     sujo();desenhar();
   };
-  window.gxWgPasso=function(){const ps=W.ed.passos;const ult=ps[ps.length-1];ps.push({id:uidp(),dia:ult?(+ult.dia||0)+2:0,hora:ult?.hora||'09:00',texto:'',media_url:'',media_type:'',media_nome:''});sujo();desenhar();setTimeout(()=>document.querySelector('.wg-b')?.scrollTo({top:1e6,behavior:'smooth'}),50)};
+  window.gxWgPasso=function(){const ps=W.ed.passos;const ult=ps[ps.length-1];
+    const [hh,mm]=String(ult?.hora||'08:00').split(':').map(Number);const h2=Math.min(19,(hh||8)+1);
+    ps.push({id:uidp(),dia:ult?(+ult.dia||0):0,data:ult?.data||'',hora:`${String(h2).padStart(2,'0')}:${String(mm||0).padStart(2,'0')}`,texto:'',media_url:'',media_type:'',media_nome:''});sujo();desenhar();setTimeout(()=>document.querySelector('.wg-b')?.scrollTo({top:1e6,behavior:'smooth'}),50)};
+  window.gxWgModo=function(i,m){
+    const p=W.ed.passos[i];if(!p)return;
+    if(m==='data'){const d=new Date((W.ed.inicio||hojeSP())+'T12:00:00');d.setDate(d.getDate()+(+p.dia||0));p.data=d.toISOString().slice(0,10)}else p.data='';
+    sujo();desenhar();
+  };
   window.gxWgPassoDel=function(i){W.ed.passos.splice(i,1);sujo();desenhar()};
   window.gxWgP=function(i,k,v){
     const p=W.ed.passos[i];if(!p)return;
     if(k==='dia')p.dia=Math.max(0,Math.round(+v||0));else p[k]=v;
+    if(k==='data'&&!v){p.data=hojeSP()}
     if(k==='media_url'&&!v){p.media_type='';p.media_nome=''}
     sujo();
-    if(k==='dia'||k==='hora'){const sm=document.querySelectorAll('.wg-step')[i]?.querySelector('.wg-step-h small');if(sm)sm.textContent=quandoPasso(p)}
+    if(k==='dia'||k==='hora'||k==='data'){const sm=document.querySelectorAll('.wg-step')[i]?.querySelector('.wg-step-h small');if(sm)sm.textContent=quandoPasso(p)}
     if(k==='media_url')desenhar();
   };
   window.gxWgMidia=function(i,f){
@@ -30473,7 +30485,7 @@ textarea.wg-in{height:auto;min-height:92px;padding:10px 12px;resize:vertical;lin
       const es=ev.filter(e=>e.passo_id===p.id);
       const n=k=>es.filter(e=>e.status===k).length;
       const prox=es.filter(e=>e.status==='fila').sort((a,b)=>a.agendado_para.localeCompare(b.agendado_para))[0];
-      return `<tr><td><b>${i+1}.</b> Dia ${p.dia} às ${E(p.hora)}${p.media_url?` · ${p.media_type==='video'?'vídeo':'imagem'}`:''}<br><small style="color:var(--wg-mu)">${E(String(p.texto||'').slice(0,80))}${String(p.texto||'').length>80?'…':''}</small></td><td>${n('enviado')}</td><td>${n('fila')}${prox?`<br><small style="color:var(--wg-mu)">${dataHora(prox.agendado_para)}</small>`:''}</td><td style="color:${n('falhou')?'#DC2626':'inherit'}">${n('falhou')}</td></tr>`;
+      return `<tr><td><b>${i+1}.</b> ${p.data?dataBR(p.data):'Dia '+p.dia} às ${E(p.hora)}${p.media_url?` · ${p.media_type==='video'?'vídeo':'imagem'}`:''}<br><small style="color:var(--wg-mu)">${E(String(p.texto||'').slice(0,80))}${String(p.texto||'').length>80?'…':''}</small></td><td>${n('enviado')}</td><td>${n('fila')}${prox?`<br><small style="color:var(--wg-mu)">${dataHora(prox.agendado_para)}</small>`:''}</td><td style="color:${n('falhou')?'#DC2626':'inherit'}">${n('falhou')}</td></tr>`;
     }).join('');
     return head+`<div class="wg-b">
       <div class="wg-stats"><div><span>Status</span><b>${c.ativo?'Ativa':'Pausada'}</b></div><div><span>Enviados</span><b>${ev.filter(e=>e.status==='enviado').length}</b></div><div><span>Na fila</span><b>${ev.filter(e=>e.status==='fila').length}</b></div><div><span>Falharam</span><b style="color:${falhas.length?'#DC2626':'inherit'}">${falhas.length}</b></div></div>
