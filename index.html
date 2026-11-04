@@ -5768,30 +5768,102 @@ function gxAddPwdEye(inputId){
 
 // ═══ CONFIRM ═══
 // opts (opcional): {icon,title,message,okText} — para ações que não são exclusão (ex.: Desconectar).
-function confirmDelete(cb,opts){
-  const ov=document.getElementById('confirm-ov');
-  try{
-    const o=opts||{};
-    const set=(id,v)=>{const el=document.getElementById(id); if(el)el.textContent=v;};
-    set('confirm-ico',o.icon||'🗑️'); set('confirm-title',o.title||'Confirmar exclusão'); set('confirm-msg',o.message||'Esta ação não pode ser desfeita.');
-    const okb=document.getElementById('confirm-ok'); if(okb)okb.textContent=o.okText||'Excluir';
-  }catch(e){}
-  if(!ov){
-    try{ if(typeof cb==='function')cb(); }catch(err){console.error('[GexFlow] Erro ao confirmar exclusão:',err);toast('Não foi possível excluir. Veja o console.','#EF4444')}
-    return;
+// ═══ DIÁLOGOS DO GEXFLOW (substituem confirm/alert/prompt do navegador) ═══
+// gxConfirm(msg|{icon,title,message,okText,cancelText,perigo}) → Promise<boolean>
+// gxAlert(msg|{...}) → Promise<void>   ·   gxPrompt({title,message,valor,placeholder,copiar}) → Promise<string|null>
+(function(){
+  if(window.gxDialog)return;
+  const css=`#gxd-ov{position:fixed;inset:0;z-index:100060;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(17,17,26,.48);backdrop-filter:blur(2px)}
+#gxd-ov.open{display:flex;animation:gxdF .14s ease-out}
+#gxd-bx{background:var(--g-card,var(--card,#fff));color:var(--g-tx,var(--txt,#1A1A2E));border:1px solid var(--g-line,var(--border,#E4E4EF));border-radius:16px;box-shadow:0 24px 60px -12px rgba(17,17,26,.35);width:100%;max-width:420px;padding:24px 24px 20px;text-align:center;animation:gxdS .16s ease-out;font-family:inherit}
+#gxd-ico{width:48px;height:48px;border-radius:14px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:24px;background:var(--g-p-soft,#F3EEFF)}
+#gxd-bx.perigo #gxd-ico{background:var(--g-er-bg,#FDEBEA)}
+#gxd-t{font-size:16px;font-weight:700;margin:0 0 6px;text-wrap:balance}
+#gxd-m{font-size:13.5px;line-height:1.55;color:var(--g-mu,var(--muted,#6B6B80));white-space:pre-line;max-height:46vh;overflow:auto;text-align:center}
+#gxd-m:empty{display:none}
+#gxd-in{display:none;width:100%;margin-top:14px;padding:10px 12px;border:1px solid var(--g-line,var(--border,#E4E4EF));border-radius:10px;font:inherit;font-size:13px;background:var(--g-soft,#FAFAFC);color:inherit;outline:none}
+#gxd-in:focus{border-color:var(--g-p,#7C3AED);box-shadow:0 0 0 3px var(--g-p-ring,rgba(124,58,237,.18))}
+#gxd-bx.com-in #gxd-in{display:block}
+#gxd-b{display:flex;gap:10px;justify-content:center;margin-top:20px}
+#gxd-b button{flex:1;max-width:170px;padding:10px 14px;border-radius:10px;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:filter .12s,background .12s}
+#gxd-no{background:var(--g-card,#fff);color:inherit;border-color:var(--g-line,#E4E4EF)!important}
+#gxd-no:hover{background:var(--g-soft,#F6F6F9)}
+#gxd-ok{background:var(--g-p,#7C3AED);color:#fff}
+#gxd-bx.perigo #gxd-ok{background:#DC2626}
+#gxd-ok:hover{filter:brightness(1.08)}
+#gxd-b button:focus-visible{outline:2px solid var(--g-p,#7C3AED);outline-offset:2px}
+#gxd-bx.so-ok #gxd-no{display:none}
+@keyframes gxdF{from{opacity:0}to{opacity:1}}
+@keyframes gxdS{from{opacity:0;transform:translateY(6px) scale(.97)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){#gxd-ov.open,#gxd-bx{animation:none}}`;
+  let fila=Promise.resolve();
+  function montar(){
+    let ov=document.getElementById('gxd-ov');if(ov)return ov;
+    const st=document.createElement('style');st.id='gx-dialogos';st.textContent=css;document.head.appendChild(st);
+    ov=document.createElement('div');ov.id='gxd-ov';
+    ov.innerHTML='<div id="gxd-bx" role="alertdialog" aria-modal="true" aria-labelledby="gxd-t" aria-describedby="gxd-m"><div id="gxd-ico"></div><h3 id="gxd-t"></h3><div id="gxd-m"></div><input id="gxd-in" autocomplete="off"><div id="gxd-b"><button type="button" id="gxd-no">Cancelar</button><button type="button" id="gxd-ok">OK</button></div></div>';
+    document.body.appendChild(ov);return ov;
   }
-  ov.classList.add('open');
-  const ok=document.getElementById('confirm-ok');
-  if(!ok)return;
-  ok.onclick=()=>{
-    ov.classList.remove('open');
-    try{
-      if(typeof cb==='function')cb();
-    }catch(err){
-      console.error('[GexFlow] Erro ao executar exclusão:',err);
-      toast('Não foi possível excluir. Atualize a página e tente novamente.','#EF4444');
-    }
-  };
+  // divide "Pergunta?\n\ndetalhes" em título + mensagem quando não vier título
+  function partes(o){
+    if(o.title)return [o.title,o.message||''];
+    const t=String(o.message||'');const i=t.indexOf('\n');
+    if(i>0&&i<120)return [t.slice(0,i).trim(),t.slice(i+1).trim()];
+    return t.length<=90?[t,'']:[o.padraoTitulo||'Confirmar',t];
+  }
+  function abrir(o){
+    return new Promise(res=>{
+      const ov=montar(),bx=ov.querySelector('#gxd-bx'),ok=ov.querySelector('#gxd-ok'),no=ov.querySelector('#gxd-no'),inp=ov.querySelector('#gxd-in');
+      const [t,m]=partes(o);
+      ov.querySelector('#gxd-ico').textContent=o.icon||(o.tipo==='alert'?'💬':o.tipo==='prompt'?'✏️':(o.perigo?'⚠️':'❓'));
+      ov.querySelector('#gxd-t').textContent=t;ov.querySelector('#gxd-m').textContent=m;
+      bx.className=(o.perigo?'perigo ':'')+(o.tipo==='alert'?'so-ok ':'')+(o.tipo==='prompt'?'com-in':'');
+      ok.textContent=o.okText||(o.tipo==='alert'?'Entendi':o.copiar?'Copiar':o.tipo==='prompt'?'OK':'Confirmar');
+      no.textContent=o.cancelText||(o.copiar?'Fechar':'Cancelar');
+      inp.value=o.valor!=null?String(o.valor):'';inp.placeholder=o.placeholder||'';inp.readOnly=!!o.copiar;
+      const foco=document.activeElement;
+      const fim=v=>{ov.classList.remove('open');document.removeEventListener('keydown',tecla,true);ok.onclick=no.onclick=ov.onmousedown=null;try{foco&&foco.focus&&foco.focus()}catch(e){}res(v)};
+      const confirmar=()=>{
+        if(o.tipo==='prompt'){
+          if(o.copiar){inp.select();const feito=()=>{if(typeof toast==='function')toast('Copiado ✓','#10B981')};
+            if(navigator.clipboard?.writeText)navigator.clipboard.writeText(inp.value).then(feito).catch(()=>{try{document.execCommand('copy');feito()}catch(e){}});else{try{document.execCommand('copy');feito()}catch(e){}}
+            return fim(inp.value)}
+          return fim(inp.value)}
+        fim(o.tipo==='alert'?undefined:true);
+      };
+      const cancelar=()=>fim(o.tipo==='prompt'?null:(o.tipo==='alert'?undefined:false));
+      // Esc/Enter só para o diálogo (não fecha a janela que está por trás)
+      function tecla(e){
+        if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();cancelar()}
+        else if(e.key==='Enter'&&!e.shiftKey&&(document.activeElement===inp||!bx.contains(document.activeElement)||document.activeElement===ok)){e.preventDefault();e.stopImmediatePropagation();confirmar()}
+        else if(e.key==='Tab'){const f=[inp.offsetParent?inp:null,no.offsetParent?no:null,ok].filter(Boolean);const i=f.indexOf(document.activeElement);e.preventDefault();f[(i+(e.shiftKey?-1:1)+f.length)%f.length].focus()}
+      }
+      document.addEventListener('keydown',tecla,true);
+      ok.onclick=confirmar;no.onclick=cancelar;
+      ov.onmousedown=e=>{if(e.target===ov)cancelar()};
+      ov.classList.add('open');
+      setTimeout(()=>{if(o.tipo==='prompt'){inp.focus();inp.select()}else (o.perigo?no:ok).focus()},30);
+    });
+  }
+  // um diálogo de cada vez
+  window.gxDialog=function(o){const p=fila.then(()=>abrir(o));fila=p.catch(()=>{});return p};
+  const norm=(x,tipo)=>Object.assign({tipo},typeof x==='object'&&x?x:{message:String(x??'')});
+  const perigoso=/excluir|apagar|remover|desconectar|desativar|limpar|regenerar|chave nova/i;
+  window.gxConfirm=function(x){const o=norm(x,'confirm');if(o.perigo==null)o.perigo=perigoso.test((o.title||'')+' '+(o.message||'')+' '+(o.okText||''));return gxDialog(o)};
+  window.gxAlert=function(x){return gxDialog(Object.assign(norm(x,'alert'),{padraoTitulo:'Aviso'}))};
+  window.gxPrompt=function(x){return gxDialog(norm(x,'prompt'))};
+  // qualquer alert() que sobrar (inclusive de bibliotecas) usa o nosso visual
+  try{window.alert=function(m){gxAlert(m)}}catch(e){}
+})();
+
+function confirmDelete(cb,opts){
+  const o=opts||{};
+  gxConfirm({icon:o.icon||'🗑️',title:o.title||'Confirmar exclusão',message:o.message||'Esta ação não pode ser desfeita.',okText:o.okText||'Excluir',perigo:o.perigo!=null?o.perigo:!/^(salvar|confirmar|fechar|trocar|ok|sim|continuar)/i.test(o.okText||'Excluir')})
+    .then(ok=>{
+      if(!ok)return;
+      try{ if(typeof cb==='function')cb(); }
+      catch(err){console.error('[GexFlow] Erro ao confirmar:',err);toast('Não foi possível concluir. Atualize a página e tente novamente.','#EF4444')}
+    });
 }
 
 // ═══ BADGE ═══
@@ -6711,8 +6783,8 @@ window.cfgWebhookSaveDestino=function(){
   if(!funnelId||!stageId){toast('Escolha o funil e a etapa de destino.','#F59E0B');return}
   cfgWebhookKeyUpdate({defaultFunnelId:funnelId,defaultFunnelName:funnelName,defaultStageId:stageId,defaultStageName:stageName},'Destino salvo ✓');
 };
-window.cfgWebhookRegenerate=function(){
-  if(!confirm('Isso cria uma chave nova e a chave atual para de funcionar. Se alguma integração externa já usa a chave antiga, ela vai parar de enviar leads até você atualizar lá também. Continuar?'))return;
+window.cfgWebhookRegenerate=async function(){
+  if(!await gxConfirm('Isso cria uma chave nova e a chave atual para de funcionar. Se alguma integração externa já usa a chave antiga, ela vai parar de enviar leads até você atualizar lá também. Continuar?'))return;
   cfgWebhookKeyUpdate({regenerate:true},'Nova chave gerada ✓');
 };
 window.cfgWebhookToggleActive=function(checked){
@@ -8152,7 +8224,7 @@ function formCliente(d,contexto='full'){
 
 // Cria, em Contratos, um contrato já ligado a este cliente (o mesmo cadastro,
 // sem digitar de novo) pra o financeiro completar valor/datas/status.
-function enviarClienteParaContratos(clienteId){
+async function enviarClienteParaContratos(clienteId){
   const c=DB.find('clientes',clienteId);
   if(!c){toast('Cliente não encontrado','#EF4444');return;}
   // Usa o que está na janela agora (LTV e período), senão o que está salvo.
@@ -8163,7 +8235,7 @@ function enviarClienteParaContratos(clienteId){
   if(mrr==null){toast('Preencha o LTV pra calcular o MRR antes de enviar','#F59E0B');return;}
   const jaTem=(DB.get('contratos')||[]).filter(x=>x&&x.clienteId===clienteId);
   if(jaTem.length){
-    const ok=confirm(`"${c.nome}" já tem ${jaTem.length} contrato(s) em Contratos.\n\nCriar mais um contrato para ele mesmo assim?\n\n(Cancelar abre a tela de Contratos sem criar outro.)`);
+    const ok=await gxConfirm(`"${c.nome}" já tem ${jaTem.length} contrato(s) em Contratos.\n\nCriar mais um contrato para ele mesmo assim?\n\n(Cancelar abre a tela de Contratos sem criar outro.)`);
     if(!ok){closeModal();navigateSub('contratos','clientes');return;}
   }
   const meses=parseInt(periodo);
@@ -8508,11 +8580,11 @@ async function loadBillingSectionForUser(userId){
     console.warn('[GexFlow] loadBillingSectionForUser:',e);
   }
 }
-window.unlockManualStatus=function(){
+window.unlockManualStatus=async function(){
   const statusSel=document.getElementById('f-status');
   const statusNote=document.getElementById('f-status-billing-note');
   if(!statusSel)return;
-  if(!confirm('Editar o Status manualmente enquanto há uma assinatura Stripe vinculada pode ser sobrescrito de novo no próximo evento de pagamento/cancelamento. Quer mesmo destravar?'))return;
+  if(!await gxConfirm('Editar o Status manualmente enquanto há uma assinatura Stripe vinculada pode ser sobrescrito de novo no próximo evento de pagamento/cancelamento. Quer mesmo destravar?'))return;
   statusSel.disabled=false;
   delete statusSel.dataset.lockedByBilling;
   if(statusNote)statusNote.style.display='none';
@@ -11359,7 +11431,7 @@ function excluirCadastroLead(id){
     if(typeof renderComercial==='function')renderComercial();
   };
   if(typeof confirmDelete==='function')confirmDelete(run);
-  else if(confirm(`Excluir "${nome}" definitivamente do banco de leads? Isso também remove do Pipeline. Não tem como desfazer.`))run();
+  else gxConfirm(`Excluir "${nome}" definitivamente do banco de leads? Isso também remove do Pipeline. Não tem como desfazer.`).then(ok=>{if(ok)run()});
 }
 
 function salvarCadastroLeadRapido(){
@@ -12746,7 +12818,7 @@ async function excluirUsuarioPermanente(id){
   const target=DB.find('usuarios',id);
   if(!target){toast('Usuário não encontrado','#EF4444');return}
   const nomeConfirma=target.nome||target.email||'este usuário';
-  const ok=confirm(`Excluir "${nomeConfirma}" definitivamente?\n\nIsso apaga o login dele no Supabase (nunca mais vai conseguir entrar com esse e-mail) e remove o cadastro do GexFlow. NÃO tem como desfazer.\n\nSe quiser só bloquear o acesso podendo reverter depois, cancele e use "Desativar".`);
+  const ok=await gxConfirm(`Excluir "${nomeConfirma}" definitivamente?\n\nIsso apaga o login dele no Supabase (nunca mais vai conseguir entrar com esse e-mail) e remove o cadastro do GexFlow. NÃO tem como desfazer.\n\nSe quiser só bloquear o acesso podendo reverter depois, cancele e use "Desativar".`);
   if(!ok)return;
 
   // Registro "fantasma": não tem supabaseId nem id em formato UUID de verdade
@@ -12833,7 +12905,7 @@ function copiarLinkPortalParceiro(){
       document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
       done();
     }catch(e){
-      prompt('Copie o link abaixo e envie pro parceiro:',url);
+      gxPrompt({title:'Link do Portal do Parceiro',message:'Copie o link abaixo e envie pro parceiro:',valor:url,copiar:true});
     }
   };
   if(navigator.clipboard&&navigator.clipboard.writeText){
@@ -13449,7 +13521,7 @@ async function criarSubUsuarioParceiro(){
 
 async function alternarStatusSubUsuario(subUserId,estaAtivo){
   const novoStatus=estaAtivo?'Inativo':'Ativo';
-  if(estaAtivo&&!confirm('Desativar o acesso dessa pessoa? Ela para de conseguir entrar no sistema na hora.'))return;
+  if(estaAtivo&&!await gxConfirm('Desativar o acesso dessa pessoa? Ela para de conseguir entrar no sistema na hora.'))return;
   try{
     const token=await getGexSupabaseToken();
     const res=await fetch(getSupabaseFunctionUrl('partner-subuser-set-status'),{
@@ -16269,7 +16341,7 @@ function gexForceBeatrizReimport(){
       sem_etapas:'O funil da Beatriz foi encontrado, mas está sem etapas.',
       excecao:'Deu um erro inesperado.'
     };
-    alert('Não deu pra corrigir os leads da Beatriz.\n\nMotivo: '+(motivos[r.motivo]||r.motivo)+'\n\nDetalhe técnico: '+(r.detalhe||'(sem detalhe)'));
+    gxAlert('Não deu pra corrigir os leads da Beatriz.\n\nMotivo: '+(motivos[r.motivo]||r.motivo)+'\n\nDetalhe técnico: '+(r.detalhe||'(sem detalhe)'));
     return;
   }
   localStorage.setItem('gex_fix_beatriz_reimport_2026_10_v9','1');
@@ -16278,7 +16350,7 @@ function gexForceBeatrizReimport(){
   // podia continuar olhando pro funil errado mesmo depois da correção.
   try{if(typeof setActiveFunnelId==='function')setActiveFunnelId(r.funilId);}catch(e){}
   const realinhadoMsg=r.realinhados>0?`\n${r.realinhados} lead(s) realinhado(s) (estavam num funil "Funil de BEATRIZ" duplicado)`:'';
-  alert(`Pronto! Funil "${r.funilNome}" (id: ${r.funilId}):\n\n${r.atualizados} lead(s) já existentes corrigido(s)\n${r.criados} lead(s) recriado(s)${realinhadoMsg}\n\nJá estão nas etapas certas. A tela vai recarregar nesse funil agora.`);
+  gxAlert(`Pronto! Funil "${r.funilNome}" (id: ${r.funilId}):\n\n${r.atualizados} lead(s) já existentes corrigido(s)\n${r.criados} lead(s) recriado(s)${realinhadoMsg}\n\nJá estão nas etapas certas. A tela vai recarregar nesse funil agora.`);
   try{if(typeof renderFunnelSelector==='function')renderFunnelSelector();}catch(e){}
   try{if(typeof renderComercial==='function')renderComercial();}catch(e){}
 }
@@ -16407,14 +16479,14 @@ function gexCleanupDuplicateFunnelsCore(){
 function gexCleanupDuplicateFunnels(){
   const r=gexCleanupDuplicateFunnelsCore();
   if(!r.ok){
-    alert('Não deu pra limpar os funis duplicados.\n\nMotivo: '+(r.detalhe||r.motivo||'desconhecido'));
+    gxAlert('Não deu pra limpar os funis duplicados.\n\nMotivo: '+(r.detalhe||r.motivo||'desconhecido'));
     return;
   }
   if(!r.gruposComDuplicata){
-    alert('Nenhum funil duplicado encontrado — já está tudo em ordem.');
+    gxAlert('Nenhum funil duplicado encontrado — já está tudo em ordem.');
     return;
   }
-  alert(`Limpeza concluída:\n\n${r.gruposComDuplicata} grupo(s) de funis duplicados encontrado(s)\n${r.leadsMovidos} lead(s) realinhado(s) pro funil que ficou\n${r.funisRemovidos} funil(is) duplicado(s) removido(s):\n- ${r.nomes.join('\n- ')}`);
+  gxAlert(`Limpeza concluída:\n\n${r.gruposComDuplicata} grupo(s) de funis duplicados encontrado(s)\n${r.leadsMovidos} lead(s) realinhado(s) pro funil que ficou\n${r.funisRemovidos} funil(is) duplicado(s) removido(s):\n- ${r.nomes.join('\n- ')}`);
   try{if(typeof renderFunnelSelector==='function')renderFunnelSelector();}catch(e){}
   try{if(typeof renderComercial==='function')renderComercial();}catch(e){}
 }
@@ -17027,7 +17099,7 @@ function gxFunilClassificaMemo(funnels){
 }
 // Fundador: exclui de uma vez os funis inativos/duplicados e todos os arquivados.
 // Leads que estiverem neles vão para o funil padrão (mesma regra do "Excluir" de Arquivados) — nenhum lead é apagado.
-function gxLimparFunisInativos(){
+async function gxLimparFunisInativos(){
   let ehFundador=false;try{ehFundador=resolveRole(sessionUser?.permissao||sessionUser?.cargo||'')==='Fundador'}catch(e){}
   if(!ehFundador){toast('Só o fundador pode fazer essa limpeza','#EF4444');return}
   if(typeof gexCloudReady!=='undefined'&&!gexCloudReady&&typeof supabaseClient!=='undefined'&&supabaseClient){toast('Aguarde os dados terminarem de carregar e tente de novo','#F59E0B');return}
@@ -17037,7 +17109,7 @@ function gxLimparFunisInativos(){
   if(!alvo.length){toast('Nenhum funil inativo ou arquivado para excluir','#10B981');return}
   const linhas=alvo.map(f=>`• ${f.name||'Funil sem nome'} — ${f.isArchived?'arquivado':(cls.get(f.id)||{}).motivo} (${getFunnelLeadCount(f.id)} lead(s))`).join('\n');
   const comLeads=alvo.reduce((n,f)=>n+getFunnelLeadCount(f.id),0);
-  if(!confirm(`Excluir ${alvo.length} funil(is)?\n\n${linhas}\n\n${comLeads?comLeads+' lead(s) desses funis serão movidos para o funil padrão (nenhum lead é apagado).':'Nenhum deles tem leads.'}`))return;
+  if(!await gxConfirm(`Excluir ${alvo.length} funil(is)?\n\n${linhas}\n\n${comLeads?comLeads+' lead(s) desses funis serão movidos para o funil padrão (nenhum lead é apagado).':'Nenhum deles tem leads.'}`))return;
   const funnels=getCommercialFunnels();
   alvo.forEach(a=>{const t=funnels.find(x=>x.id===a.id);if(t&&!t.isArchived){t.isArchived=true;t.updatedAt=new Date().toISOString()}});
   saveCommercialFunnels(funnels);
@@ -17146,7 +17218,7 @@ function onFunnelSelectChange(id){
 function confirmArchiveFunnel(id){
   const f=getCommercialFunnels().find(x=>x.id===id);
   if(!f) return;
-  if(confirm(`Arquivar "${f.name}"? O funil ficará oculto mas as oportunidades serão mantidas.`)) archiveCommercialFunnel(id);
+  gxConfirm({icon:'🗄️',title:'Arquivar funil',message:`Arquivar "${f.name}"? O funil ficará oculto mas as oportunidades serão mantidas.`,okText:'Arquivar'}).then(ok=>{if(ok)archiveCommercialFunnel(id)});
 }
 
 
@@ -17232,13 +17304,13 @@ function renderArchivedFunnelsModal(){
 }
 
 // "Excluir" de funil cujo dono saiu: arquiva e exclui (as oportunidades vão para o funil padrão, como no fluxo normal).
-function gxExcluirFunilDonoFora(funnelId){
+async function gxExcluirFunilDonoFora(funnelId){
   if(!gxFunisDonoForaDeCena().some(x=>String(x.f.id)===String(funnelId))){toast('Esse funil não está mais nessa lista','#F59E0B');return}
   const f=getCommercialFunnels().find(x=>x.id===funnelId);
   if(!f)return;
   const n=getFunnelLeadCount(funnelId);
   const msg=n?`Excluir definitivamente "${f.name}"?\n\nEsse funil tem ${n} oportunidade(s). Elas serão movidas para o funil padrão antes da exclusão.`:`Excluir definitivamente "${f.name}"?\n\nEssa ação não pode ser desfeita.`;
-  if(!confirm(msg))return;
+  if(!await gxConfirm(msg))return;
   const funnels=getCommercialFunnels();
   const t=funnels.find(x=>x.id===funnelId);
   if(t){t.isArchived=true;t.updatedAt=new Date().toISOString();saveCommercialFunnels(funnels)}
@@ -17270,7 +17342,7 @@ function confirmDeleteArchivedFunnel(funnelId){
   const msg=leadCount
     ? `Excluir definitivamente "${f.name}"?\n\nEsse funil tem ${leadCount} oportunidade(s). Elas serão movidas para o funil padrão antes da exclusão.`
     : `Excluir definitivamente "${f.name}"?\n\nEssa ação não pode ser desfeita.`;
-  if(confirm(msg)) deleteArchivedFunnel(funnelId,{moveLeadsToDefault:true});
+  gxConfirm({title:'Excluir funil',message:msg,okText:'Excluir',perigo:true}).then(ok=>{if(ok)deleteArchivedFunnel(funnelId,{moveLeadsToDefault:true})});
 }
 
 function deleteArchivedFunnel(funnelId,opts={}){
@@ -21232,7 +21304,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     }catch(e){toast(e.message||'Erro ao conectar o Asaas','#EF4444')}
   };
   window.gxiAsaasDisconnect=async()=>{
-    if(!confirm('Desconectar o Asaas? A chave será apagada do servidor.'))return;
+    if(!await gxConfirm('Desconectar o Asaas? A chave será apagada do servidor.'))return;
     try{
       await gxiAsaasCall({action:'disconnect'});
       Object.assign(gxiAsaas,{connected:false,keyHint:'',data:null,err:''});try{gxEsp.data=null;gxEsp.cache={}}catch(e){}
@@ -21306,7 +21378,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
       gxiLoadZapiLiveStatus();
     };
     if(typeof confirmDelete==='function')confirmDelete(run,{icon:'🔌',title:'Desconectar WhatsApp',message:'Será preciso escanear um novo QR Code para reconectar.',okText:'Desconectar'});
-    else if(confirm('Desconectar o número do WhatsApp? Será preciso escanear um novo QR Code para reconectar.'))run();
+    else gxConfirm('Desconectar o número do WhatsApp? Será preciso escanear um novo QR Code para reconectar.').then(ok=>{if(ok)run()});
   };
   function trackingListHtml(){const list=getTrackings();return `<div class="gxi-toolbar"><div class="gxi-toolbar-copy"><h2>${gxiIco('tracking')}Regras de rastreamento</h2><p>Mova leads no Pipeline quando uma mensagem corresponder ao critério configurado.</p></div><button class="gxi-btn primary" onclick="gxiNewTracking()">+ Novo rastreamento</button></div><div class="gxi-rules">${list.length?list.map(r=>`<div class="gxi-rule"><div><div class="gxi-rule-title">“${E(r.message)}”</div><div class="gxi-rule-sub">${E(MODES[r.mode]||r.mode)} • ${E(r.connectionName||'WhatsApp')}${(()=>{const fn=r.funnelName||((mapFunnels().find(x=>String(x.id)===String(r.funnelId))||{}).name)||'';return fn?` • Funil: ${E(fn)}`:''})()}</div></div><div><span class="gxi-tag">${E(r.stageName||'Sem etapa')}</span></div><div><div class="gxi-rule-title">${r.executions||0} execuções</div><div class="gxi-rule-sub">${r.lastExecutedAt?new Date(r.lastExecutedAt).toLocaleString('pt-BR'):'Nunca executado'}</div></div><div><span class="gxi-pill ${r.active!==false?'on':'off'}">${r.active!==false?'Ativo':'Pausado'}</span></div><div class="gxi-rule-actions"><button class="gxi-btn small" onclick="gxiToggleTracking('${r.id}')">${r.active!==false?'Pausar':'Ativar'}</button><button class="gxi-btn small" onclick="gxiEditTracking('${r.id}')">Editar</button><button class="gxi-btn small danger" onclick="gxiDeleteTracking('${r.id}')">Excluir</button></div></div>`).join(''):`<div class="gxi-empty"><i>${gxiIco('tracking').replace('width="16" height="16"','width="26" height="26"')}</i><b>Nenhum rastreamento criado</b>Crie a primeira regra para automatizar a movimentação dos leads.</div>`}</div>`}
   // A conexão de WhatsApp de verdade (Z-API, "meu número") nunca passou por
@@ -21653,14 +21725,14 @@ window.gxiTrkFunnelChange=id=>{const f=mapFunnels().find(x=>String(x.id)===Strin
       }
     };
     if(typeof confirmDelete==='function')confirmDelete(run,{icon:'🔌',title:'Desconectar e-mail',message:'As automações de e-mail param de funcionar até você reconectar.',okText:'Desconectar'});
-    else if(confirm('Desconectar a conexão de e-mail? As automações de e-mail param de funcionar até você reconectar.'))run();
+    else gxConfirm('Desconectar a conexão de e-mail? As automações de e-mail param de funcionar até você reconectar.').then(ok=>{if(ok)run()});
   };
   // CONEXÃO EM UM CLIQUE (Evolution, provedor principal): cria a instância no servidor GexFlow, liga o webhook
   // e abre o QR Code. Fica conferindo o status até o celular escanear.
   let gxiWaPoll=null;
   function gxiConfirmSwitch(msg,run){
     if(typeof confirmDelete==='function')confirmDelete(run,{icon:'🔁',title:'Trocar a conexão do WhatsApp',message:msg,okText:'Trocar'});
-    else if(confirm(msg))run();
+    else gxConfirm(msg).then(ok=>{if(ok)run()});
   }
   window.gxiWaConnect=async(btn,force)=>{
     if(btn&&btn.disabled)return;
@@ -24149,7 +24221,7 @@ ${gxlCloseScriptTag}`;
       }
     };
     if(typeof confirmDelete==='function')confirmDelete(run);
-    else if(confirm(`Excluir a etiqueta "${name}" do catálogo?`))run();
+    else gxConfirm(`Excluir a etiqueta "${name}" do catálogo?`).then(ok=>{if(ok)run()});
   };
 
   // Abre o mesmo formulário de "Novo Lead" do Pipeline, já preenchido com o
@@ -24202,7 +24274,7 @@ ${gxlCloseScriptTag}`;
       }
     };
     if(typeof confirmDelete==='function')confirmDelete(run);
-    else if(confirm(`Excluir a conversa com "${label}"? As mensagens salvas no histórico também serão apagadas.`))run();
+    else gxConfirm(`Excluir a conversa com "${label}"? As mensagens salvas no histórico também serão apagadas.`).then(ok=>{if(ok)run()});
   };
 
   window.wacPickFile=function(file){
@@ -24267,9 +24339,7 @@ ${gxlCloseScriptTag}`;
     if(wacDisconnecting)return;
     if(typeof confirmDelete==='function'){
       confirmDelete(async()=>{await doDisconnect()},{icon:'🔌',title:'Desconectar WhatsApp',message:'Será preciso escanear um novo QR Code para reconectar.',okText:'Desconectar'});
-    }else if(confirm('Desconectar o número do WhatsApp? Será preciso escanear um novo QR Code para reconectar.')){
-      doDisconnect();
-    }
+    }else gxConfirm('Desconectar o número do WhatsApp? Será preciso escanear um novo QR Code para reconectar.').then(ok=>{if(ok)doDisconnect()});
   };
   async function doDisconnect(){
     wacDisconnecting=true;
@@ -28128,7 +28198,7 @@ html[data-theme="dark"] .wac-meta-window{color:#FCD34D}
         };
       }else{
         ov.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
-          if(!confirm(`Apagar o modelo "${b.dataset.del}"?`))return;
+          if(!await gxConfirm(`Apagar o modelo "${b.dataset.del}"?`))return;
           const j=await call({action:'delete',name:b.dataset.del});
           if(j&&j.ok){toast('Modelo apagado','#10B981');load()}else toast(j?.message||'Não foi possível apagar','#EF4444');
         });
@@ -28989,7 +29059,7 @@ body.gxc-shake{animation:gxcShake .8s cubic-bezier(.36,.07,.19,.97)}
   };
   window.gxChatMenu=function(e){e.stopPropagation();document.getElementById('gxc-menu')?.classList.toggle('open')};
   window.gxChatDel=async function(id){
-    if(!confirm('Apagar esta mensagem para todos?'))return;
+    if(!await gxConfirm('Apagar esta mensagem para todos?'))return;
     const ch=C.channel;
     const {error}=await supabaseClient.from('gex_chat_messages').delete().eq('id',id).eq('sender_id',C.uid);
     if(error){toast('Não foi possível apagar: '+(error.message||'tente de novo'),'#EF4444');return}
@@ -28998,7 +29068,7 @@ body.gxc-shake{animation:gxcShake .8s cubic-bezier(.36,.07,.19,.97)}
   };
   window.gxChatClear=async function(){
     const ch=C.channel;if(!ch)return;
-    if(!confirm(`Limpar o histórico de ${chName(ch)}?\n\nAs mensagens somem só para você. Os outros continuam vendo.`))return;
+    if(!await gxConfirm(`Limpar o histórico de ${chName(ch)}?\n\nAs mensagens somem só para você. Os outros continuam vendo.`))return;
     const now=new Date().toISOString();
     const {error}=await supabaseClient.from('gex_chat_reads').upsert({user_id:C.uid,workspace_id:C.ws,channel:'clear:'+ch,last_read_at:now});
     if(error){toast('Não foi possível limpar: '+error.message,'#EF4444');return}
@@ -29610,8 +29680,8 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     dr.innerHTML=html;ov.classList.add('open');document.body.classList.add('mt-open');requestAnimationFrame(()=>dr.classList.add('open'));
     return dr;
   }
-  window.mtFechar=function(){
-    if(S.rd&&Object.keys(S.rd).length&&document.querySelector('#mt-dr .mt-rule')){if(!confirm('Há comissão alterada e não salva. Sair sem salvar?'))return;S.rd={}}
+  window.mtFechar=async function(){
+    if(S.rd&&Object.keys(S.rd).length&&document.querySelector('#mt-dr .mt-rule')){if(!await gxConfirm('Há comissão alterada e não salva. Sair sem salvar?'))return;S.rd={}}
     S.drId=null;document.body.classList.remove('mt-open');document.getElementById('mt-ov')?.classList.remove('open');document.getElementById('mt-dr')?.classList.remove('open')};
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('mt-dr')?.classList.contains('open'))mtFechar()});
 
@@ -29691,7 +29761,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   };
   window.mtExcluir=function(id){
     const go=()=>{DB.remove('metas',id);mtFechar();renderMetas();toast('Meta excluída','#6B7280')};
-    if(typeof confirmDelete==='function')confirmDelete(go,{title:'Excluir meta',message:'A meta e os itens lançados serão apagados.'});else if(confirm('Excluir esta meta?'))go();
+    if(typeof confirmDelete==='function')confirmDelete(go,{title:'Excluir meta',message:'A meta e os itens lançados serão apagados.'});else gxConfirm('Excluir esta meta?').then(ok=>{if(ok)go()});
   };
   window.mtReabrir=function(id){DB.update('metas',id,{fechamento:null});desenharDetalhe();renderMetas();toast('Meta reaberta: valores voltam a ser calculados','#7C3AED')};
 
@@ -29805,7 +29875,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
       abertas.forEach(m=>{const c=calc(m);DB.update('metas',m.id,{fechamento:{realizado:c.realizado,alvo:c.alvo,pct:c.pct,comissao:c.comissao,comissaoTxt:c.comissaoTxt,eficiencia:c.eficiencia,regraId:c.regraId,carteiraBase:c.carteiraBase??null,carteiraN:c.carteiraN??null,regraTipo:c.regraTipo||'',em,por}})});
       renderMetas();toast(`Mês fechado: ${abertas.length} metas congeladas`,'#10B981');
     };
-    if(typeof confirmDelete==='function')confirmDelete(go,{icon:'🔒',title:`Fechar ${mesLabel(S.mes)}?`,message:'Os valores de progresso e comissão ficam congelados como estão agora. Dá para reabrir uma meta depois, se precisar.',okText:'Fechar mês'});else if(confirm('Fechar o mês?'))go();
+    if(typeof confirmDelete==='function')confirmDelete(go,{icon:'🔒',title:`Fechar ${mesLabel(S.mes)}?`,message:'Os valores de progresso e comissão ficam congelados como estão agora. Dá para reabrir uma meta depois, se precisar.',okText:'Fechar mês'});else gxConfirm('Fechar o mês?').then(ok=>{if(ok)go()});
   };
 
   // ═══ COMISSÕES (regras ajustáveis a qualquer hora) ═══
@@ -30110,8 +30180,8 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
     const {ov,md}=modal();ov.classList.add('open');md.classList.add('open');desenhar();
   };
   function novoPart(u,f){const st=etapas(f?.id)[0];return {userId:uidOf(u),nome:u.nome||'',email:u.email||'',funnelId:f?.id||'',funnelNome:f?.name||'',stageId:st?.id||'',stageNome:st?.name||'',ativo:true}}
-  window.gxRoletaFechar=function(force){
-    if(!force&&RS&&RS.__sujo&&!confirm('Há alterações não salvas na roleta. Sair sem salvar?'))return;
+  window.gxRoletaFechar=async function(force){
+    if(!force&&RS&&RS.__sujo&&!await gxConfirm('Há alterações não salvas na roleta. Sair sem salvar?'))return;
     RS=null;document.getElementById('rl-ov')?.classList.remove('open');document.getElementById('rl-md')?.classList.remove('open');
   };
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('rl-md')?.classList.contains('open'))gxRoletaFechar()});
@@ -30278,11 +30348,22 @@ textarea.wg-in{height:auto;min-height:92px;padding:10px 12px;resize:vertical;lin
   const dataBR=s=>{const d=new Date(String(s).length===10?s+'T12:00:00':s);return isNaN(d)?'—':d.toLocaleDateString('pt-BR')};
 
   async function api(action,extra){
-    const token=await getGexSupabaseToken();
-    const r=await fetch(getSupabaseFunctionUrl('wa-groups'),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({action,...(extra||{})})});
-    const j=await r.json().catch(()=>({ok:false,message:`Erro ${r.status}`}));
-    if(r.status===404)return {ok:false,message:'A função wa-groups ainda não foi publicada no Supabase.'};
-    return j;
+    // nunca fica girando para sempre: mostra o motivo se a função não responder
+    const lim=action==='groups'?150000:(action==='upload'?90000:25000);
+    const ctrl=new AbortController();const to=setTimeout(()=>ctrl.abort(),lim);
+    try{
+      const token=await getGexSupabaseToken();
+      const r=await fetch(getSupabaseFunctionUrl('wa-groups'),{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},body:JSON.stringify({action,...(extra||{})}),signal:ctrl.signal});
+      if(r.status===404)return {ok:false,message:'A função wa-groups não foi encontrada no Supabase (confira o nome: wa-groups).'};
+      if(r.status===401)return {ok:false,message:'A função wa-groups recusou o acesso (401). Saia e entre de novo no GexFlow; se continuar, confira se o Verify JWT dela está LIGADO.'};
+      const txt=await r.text();
+      let j;try{j=JSON.parse(txt)}catch(e){j={ok:false,message:`A função wa-groups respondeu com erro (${r.status}). Veja em Supabase › Edge Functions › wa-groups › Logs.`}}
+      if(j&&j.ok===undefined&&j.enviados!==undefined)j={ok:false,message:'Parece que o código da wa-groups-cron foi colado na função wa-groups. Cole o arquivo wa-groups.ts nela.'};
+      if(!r.ok&&j.ok!==false)j={ok:false,message:j.message||j.msg||`Erro ${r.status} na função wa-groups.`};
+      return j;
+    }catch(e){
+      return {ok:false,message:e.name==='AbortError'?'A função wa-groups não respondeu a tempo. Veja em Supabase › Edge Functions › wa-groups › Logs.':'Sem conexão com o servidor: '+(e.message||e)};
+    }finally{clearTimeout(to)}
   }
 
   // ── card em Automações ──
@@ -30310,8 +30391,8 @@ textarea.wg-in{height:auto;min-height:92px;padding:10px 12px;resize:vertical;lin
     const [st,ls]=await Promise.all([api('status'),api('list')]);
     W.status=st;W.camps=ls.ok?ls.campanhas:[];W.erroLista=ls.ok?'':ls.message;desenhar();
   };
-  window.gxGruposFechar=function(force){
-    if(!force&&W.view==='editar'&&W.ed?.__sujo&&!confirm('Há alterações não salvas. Sair sem salvar?'))return;
+  window.gxGruposFechar=async function(force){
+    if(!force&&W.view==='editar'&&W.ed?.__sujo&&!await gxConfirm('Há alterações não salvas. Sair sem salvar?'))return;
     document.getElementById('wg-ov')?.classList.remove('open');document.getElementById('wg-md')?.classList.remove('open');W.view='lista';
   };
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('wg-md')?.classList.contains('open'))gxGruposFechar()});
@@ -30473,8 +30554,8 @@ textarea.wg-in{height:auto;min-height:92px;padding:10px 12px;resize:vertical;lin
     rd.onerror=()=>{p.__subindo=false;desenhar();toast('Não foi possível ler o arquivo','#EF4444')};
     rd.readAsDataURL(f);
   };
-  window.gxGruposVoltar=function(){
-    if(W.ed?.__sujo&&!confirm('Há alterações não salvas. Voltar sem salvar?'))return;
+  window.gxGruposVoltar=async function(){
+    if(W.ed?.__sujo&&!await gxConfirm('Há alterações não salvas. Voltar sem salvar?'))return;
     W.view='lista';W.ed=null;desenhar();
   };
   window.gxGruposSalvar=async function(ativar){
@@ -30494,7 +30575,7 @@ textarea.wg-in{height:auto;min-height:92px;padding:10px 12px;resize:vertical;lin
   };
   window.gxGruposExcluir=function(id){
     const go=async()=>{const r=await api('delete',{id});if(!r.ok){toast(r.message||'Erro','#EF4444');return}W.ed=null;W.view='lista';W.camps=(W.camps||[]).filter(c=>c.id!==id);desenhar();toast('Campanha excluída','#6B7280')};
-    if(typeof confirmDelete==='function')confirmDelete(go,{title:'Excluir campanha',message:'A campanha e a fila de envios dela serão apagadas. O que já foi enviado continua nos grupos.'});else if(confirm('Excluir a campanha?'))go();
+    if(typeof confirmDelete==='function')confirmDelete(go,{title:'Excluir campanha',message:'A campanha e a fila de envios dela serão apagadas. O que já foi enviado continua nos grupos.'});else gxConfirm('Excluir a campanha?').then(ok=>{if(ok)go()});
   };
 
   // ── andamento ──
