@@ -4299,7 +4299,7 @@ const GEX_DB_COLLECTIONS = [
   'tracking_links','integration_events','integration_connections','manual_trackings','tracking_events',
   'conversion_settings','conversion_events','lead_forms','lead_form_submissions','leadgen_settings',
   'whatsapp_widgets','automacoes','automacao_tasks','automacao_log','email_smtp_settings','zapi_settings',
-  'op_listas','op_tarefas','op_acessos','notificacoes','op_automacoes','metas','metas_regras','roleta_leads'
+  'op_listas','op_tarefas','op_acessos','notificacoes','op_automacoes','metas','metas_regras','roleta_leads','metas_anuais'
 ];
 const GEX_KV_EXCLUDED = new Set([
   // gx2_usuarios: mesmo "usuarios" já sendo excluído da sincronização por
@@ -29527,6 +29527,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
           <div class="mt-month" role="group" aria-label="Mês"><button onclick="mtMes(-1)" aria-label="Mês anterior">‹</button><b>${E(mesLabel(S.mes))}</b><button onclick="mtMes(1)" aria-label="Próximo mês">›</button></div>
           ${g?`<button class="mt-btn" onclick="mtRegras()">${ico('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>')}Comissões</button>
           ${abertas?`<button class="mt-btn" onclick="mtFecharMes()">${ico('<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>')}Fechar mês</button>`:''}
+          <button class="mt-btn" onclick="mtMetaAnual()">${ico('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>')}Meta anual</button>
           <button class="mt-btn pri" onclick="mtNova()">+ Nova meta</button>`:''}
         </div>
       </div>
@@ -29810,6 +29811,34 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   // ═══ COMISSÕES (regras ajustáveis a qualquer hora) ═══
   S.rd={}; // rascunhos das regras (só gravam ao clicar em Salvar)
   const rgVer=id=>S.rd[id]||regras().find(x=>x.id===id);
+  // ── META ANUAL do Comercial (empresa + por vendedor) — usada no BI (Modo TV › Acumulado do ano) ──
+  window.mtMetaAnual=function(anoSel){
+    if(!gestor())return;
+    const ano=String(anoSel||S.mes.slice(0,4));
+    const rec=(DB.get('metas_anuais')||[]).find(x=>String(x.id)===ano)||{id:ano,empresa:0,pessoas:{}};
+    const ps=equipe();
+    // sugestão: soma das metas mensais comerciais já lançadas no ano (para referência)
+    const somaMensal=metas().filter(m=>String(m.mes).startsWith(ano)&&m.area==='comercial').reduce((a,m)=>a+(+m.alvo||0),0);
+    gaveta(`
+      <div class="mt-dr-h"><div><h2>Meta anual do Comercial</h2><small>Aparece no BI (Modo TV › Acumulado do ano). A meta da empresa vale no link geral; a de cada vendedor, no link do funil dele.</small></div><button class="mt-x" onclick="mtFechar()" aria-label="Fechar">✕</button></div>
+      <div class="mt-dr-b">
+        <div class="mt-form">
+          <label class="mt-fld"><span>Ano</span><select class="mt-in" onchange="mtMetaAnual(this.value)">${[+ano-1,+ano,+ano+1].map(String).map(y=>`<option ${y===ano?'selected':''}>${y}</option>`).join('')}</select></label>
+          <label class="mt-fld"><span>Meta anual da empresa</span><input class="mt-in" id="mta-emp" type="text" inputmode="decimal" data-moeda="1" oninput="mtMoeda(this)" value="${rec.empresa?moedaFmt(rec.empresa):''}" placeholder="R$ 0,00"><small>${somaMensal?`Metas mensais já lançadas em ${ano}: ${BRL(somaMensal)}`:''}</small></label>
+        </div>
+        <div class="mt-sec"><h4>Meta anual por vendedor (opcional)</h4>
+          <div class="mt-chk">${ps.map(u=>`<div class="mt-it"><span class="mt-who" style="flex:1">${av(u)} ${E(u.nome)}</span><input class="mt-in" style="width:170px" type="text" inputmode="decimal" data-moeda="1" data-uid="${E(userId(u))}" oninput="mtMoeda(this)" value="${rec.pessoas?.[userId(u)]?moedaFmt(rec.pessoas[userId(u)]):''}" placeholder="R$ 0,00"></div>`).join('')}</div></div>
+      </div>
+      <div class="mt-dr-f"><button class="mt-btn" onclick="mtFechar()">Cancelar</button><button class="mt-btn pri" onclick="mtMetaAnualSalvar('${ano}')">Salvar meta anual</button></div>`);
+  };
+  window.mtMetaAnualSalvar=function(ano){
+    const emp=lerValor(document.getElementById('mta-emp')?.value);
+    const pessoas={};document.querySelectorAll('#mt-dr input[data-uid]').forEach(i=>{const v=lerValor(i.value);if(v>0)pessoas[i.dataset.uid]=v});
+    const dados={empresa:emp,pessoas,ano,atualizadoPor:sessionUser?.nome||'',atualizadoEm:new Date().toISOString()};
+    const ex=(DB.get('metas_anuais')||[]).find(x=>String(x.id)===String(ano));
+    if(ex)DB.update('metas_anuais',String(ano),dados);else DB.push('metas_anuais',{id:String(ano),...dados});
+    mtFechar();toast(`Meta anual de ${ano} salva ✓ aparece no BI em até 1 minuto`,'#10B981');
+  };
   window.mtRegras=function(area){if(!gestor())return;if(area)S.regraArea=area;desenharRegras()};
   function regraVazia(area,userId){return {id:uidm(),area,userId:userId||'',tipo:area==='comercial'?'faixas':area==='operacional'?'carteira':'unidade',squads:[],cfaixas:[{min:80,pct:1},{min:100,pct:2}],faixas:[{min:100,valor:500,modo:'fixo'},{min:120,valor:800,modo:'fixo'}],pct:3,pctAcima:5,valorUnidade:10,bonusMeta:200,minPct:0,ativo:true}}
   function desenharRegras(){
