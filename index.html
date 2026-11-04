@@ -6329,7 +6329,8 @@ function notifyLeadCreated(lead){
   try{
     const {ownerId,isManager}=resolveLeadOwnerForNotification(lead);
     if(isManager||!ownerId){
-      notifyEmailEvent('lead.criado',lead);
+      // vai para o Fundador + o dono do lead (a função descobre pelo id/e-mail)
+      notifyEmailEvent('lead.criado',Object.assign({},lead,{__donoId:ownerId||'',__donoEmail:getLeadOwnerEmail(lead)||''}));
       return;
     }
     const smtpId=`email_smtp_main__${ownerId}`;
