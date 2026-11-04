@@ -29192,6 +29192,9 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
 .mt-tier .mt-in{height:34px;padding:0 9px}
 .mt-tier select.mt-in{padding:0 6px}
 @media (max-width:560px){.mt-tier{grid-template-columns:auto 70px auto 1fr;}.mt-tier .x2{display:none}}
+.mt-rule-f{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;border-top:1px solid var(--mt-line);padding-top:12px}
+.mt-dirty{margin-right:auto;font-size:12px;font-weight:700;color:#B45309}
+.mt-btn:disabled{opacity:.45;cursor:not-allowed}
 .mt-sim{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;background:var(--mt-bg2);border-radius:10px;padding:9px 11px}
 .mt-sim input{width:72px;height:32px}
 .mt-sim b{color:#047857;font-variant-numeric:tabular-nums}
@@ -29269,7 +29272,12 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   // ── pessoas e papéis ──
   const role=u=>{try{return resolveRole(u?.permissao||u?.cargo||'Colaborador')}catch(e){return 'Colaborador'}};
   const gestor=()=>{const r=role(sessionUser);return r==='Fundador'||r==='Adm Gerente'};
-  function equipe(){
+  // Cache válido só durante um desenho da tela (evita recalcular a mesma coisa dezenas de vezes)
+  let RC=null;
+  function memo(k,fn){if(!RC)return fn();if(!(k in RC))RC[k]=fn();return RC[k]}
+  function comCache(fn){return function(){const dono=!RC;if(dono)RC={};try{return fn.apply(this,arguments)}finally{if(dono)RC=null}}}
+  function equipe(){return memo('equipe',equipeCalc)}
+  function equipeCalc(){
     let us=[];try{us=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios'))||[]}catch(e){}
     const vistos=new Set();
     return us.filter(u=>String(u.status||'Ativo').toLowerCase()!=='inativo'&&!['Gex Parceiro','Operador de Funil'].includes(role(u)))
@@ -29289,9 +29297,9 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
 
   // Contagem automática
   function respBate(t,keys){
-    let ps=[];try{ps=getProjectPeople()}catch(e){}
+    const mp=memo('ppmap',()=>{const o={};try{(getProjectPeople()||[]).forEach(p=>{o[String(p.id)]=p})}catch(e){}return o});
     return (t.resp||[]).some(id=>{
-      const p=ps.find(x=>String(x.id)===String(id));
+      const p=mp[String(id)];
       const ck=[id,p?.id,p?.email,p?.nome].map(norm).filter(Boolean);
       return ck.some(k=>keys.includes(k));
     });
@@ -29310,9 +29318,11 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const u=pessoa(m.userId)||{id:m.userId,nome:m.userNome,email:m.userEmail};
     const keys=[...chavesDe(u),norm(m.userId),norm(m.userEmail),norm(m.userNome)].filter(Boolean);
     if(m.indicador==='producao'){
-      const listas=DB.get('op_listas')||[];
-      return (DB.get('op_tarefas')||[]).map(t=>{const l=listas.find(x=>x.id===t.listaId);const em=concluidaEm(t,l);return {t,l,em}})
-        .filter(x=>x.em&&noPeriodo(x.em,m)&&respBate(x.t,keys))
+      // tarefas concluídas: calculado 1 vez por desenho
+      const concl=memo('concl',()=>{const lm={};(DB.get('op_listas')||[]).forEach(l=>{lm[l.id]=l});
+        return (DB.get('op_tarefas')||[]).map(t=>{const l=lm[t.listaId];return {t,l,em:concluidaEm(t,l)}}).filter(x=>x.em)});
+      return concl
+        .filter(x=>noPeriodo(x.em,m)&&respBate(x.t,keys))
         .map(x=>({id:'a_'+x.t.id,texto:x.t.titulo||'Tarefa',qtd:1,em:x.em,onde:x.l?.nome||''}));
     }
     if(m.indicador==='vendas'){
@@ -29326,7 +29336,8 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     }
     return [];
   }
-  function calc(m){
+  function calc(m){return m&&m.id?memo('calc_'+m.id,()=>calcReal(m)):calcReal(m)}
+  function calcReal(m){
     if(m.fechamento)return {...m.fechamento,auto:autoItens(m),fechado:true};
     const auto=autoItens(m);
     const manual=(m.itens||[]).filter(i=>i.feito);
@@ -29404,7 +29415,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   }
 
   // ═══ TELA ═══
-  window.renderMetas=function(){
+  window.renderMetas=comCache(function(){
     const pg=document.getElementById('page-metas');if(!pg)return;
     avisarBatidas();
     const g=gestor();
@@ -29439,7 +29450,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
         ${rankHtml(rk)}
       </div>
     </div>`;
-  };
+  });
   function kpis(cs,rk,g){
     const ic=p=>ico(p);
     if(g){
@@ -29500,13 +29511,15 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     dr.innerHTML=html;ov.classList.add('open');document.body.classList.add('mt-open');requestAnimationFrame(()=>dr.classList.add('open'));
     return dr;
   }
-  window.mtFechar=function(){S.drId=null;document.body.classList.remove('mt-open');document.getElementById('mt-ov')?.classList.remove('open');document.getElementById('mt-dr')?.classList.remove('open')};
+  window.mtFechar=function(){
+    if(S.rd&&Object.keys(S.rd).length&&document.querySelector('#mt-dr .mt-rule')){if(!confirm('Há comissão alterada e não salva. Sair sem salvar?'))return;S.rd={}}
+    S.drId=null;document.body.classList.remove('mt-open');document.getElementById('mt-ov')?.classList.remove('open');document.getElementById('mt-dr')?.classList.remove('open')};
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('mt-dr')?.classList.contains('open'))mtFechar()});
 
   // ── detalhe da meta ──
   window.mtAbrir=function(id){S.drId=id;desenharDetalhe()};
   function podeLancar(m){return !m.fechamento&&(gestor()||souEu(m))}
-  function desenharDetalhe(){
+  const desenharDetalhe=comCache(function(){
     const m=meta(S.drId);if(!m){mtFechar();return}
     const c=calc(m),a=AREAS[m.area]||AREAS.operacional,ind=INDICADORES[m.indicador]||{},st=status(m,c),sl=selo(c.eficiencia);
     const g=gestor(),u=pessoa(m.userId),pode=podeLancar(m);
@@ -29538,7 +29551,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
       </div>
       ${g?`<div class="mt-dr-f">${m.fechamento?`<button class="mt-btn" onclick="mtReabrir('${m.id}')">Reabrir meta</button>`:`<button class="mt-btn dng" onclick="mtExcluir('${m.id}')">Excluir</button><button class="mt-btn" onclick="mtEditar('${m.id}')">Editar meta</button>`}</div>`:''}`);
     dr.querySelector('.mt-dr-b').scrollTop=0;
-  }
+  });
   window.mtItemAdd=function(id){
     const m=meta(id);if(!m||!podeLancar(m))return;
     const t=document.getElementById('mt-it-txt'),q=document.getElementById('mt-it-q');
@@ -29675,14 +29688,16 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   };
 
   // ═══ COMISSÕES (regras ajustáveis a qualquer hora) ═══
+  S.rd={}; // rascunhos das regras (só gravam ao clicar em Salvar)
+  const rgVer=id=>S.rd[id]||regras().find(x=>x.id===id);
   window.mtRegras=function(area){if(!gestor())return;if(area)S.regraArea=area;desenharRegras()};
   function regraVazia(area,userId){return {id:uidm(),area,userId:userId||'',tipo:area==='comercial'?'faixas':'unidade',faixas:[{min:100,valor:500,modo:'fixo'},{min:120,valor:800,modo:'fixo'}],pct:3,pctAcima:5,valorUnidade:10,bonusMeta:200,minPct:0,ativo:true}}
   function desenharRegras(){
-    const area=S.regraArea,rs=regras().filter(r=>r.area===area);
+    const area=S.regraArea,rs=regras().filter(r=>r.area===area).map(r=>S.rd[r.id]||r);
     const geral=rs.find(r=>!r.userId),esp=rs.filter(r=>r.userId);
     const semRegra=equipe().filter(u=>!esp.some(r=>String(r.userId)===userId(u)));
     gaveta(`
-      <div class="mt-dr-h"><div><h2>Comissões</h2><small>Ajuste quando quiser: as metas abertas recalculam na hora. Meses fechados não mudam.</small></div><button class="mt-x" onclick="mtFechar()" aria-label="Fechar">✕</button></div>
+      <div class="mt-dr-h"><div><h2>Comissões</h2><small>Altere e clique em <b>Salvar comissão</b>: as metas abertas recalculam. Meses fechados não mudam.</small></div><button class="mt-x" onclick="mtFechar()" aria-label="Fechar">✕</button></div>
       <div class="mt-dr-b">
         <div class="mt-seg">${Object.entries(AREAS).map(([k,a])=>`<button class="${k===area?'on':''}" onclick="mtRegras('${k}')"><span class="dot" style="background:${a.cor}"></span>${a.nome}</button>`).join('')}</div>
         ${geral?regraHtml(geral,'Regra da área — vale para todos'):`<div class="mt-empty" style="padding:22px"><b>Sem regra para ${AREAS[area].nome}</b>Sem regra, a comissão fica R$ 0.<div style="margin-top:12px"><button class="mt-btn pri sm" onclick="mtRegraNova('${area}','')">Criar regra da área</button></div></div>`}
@@ -29695,26 +29710,55 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const tipos=[['faixas','Por faixa de meta'],['percentual','% sobre o valor'],['unidade','Valor por unidade']];
     let corpo='';
     if(r.tipo==='faixas'){
-      corpo=`<div class="mt-tiers">${(r.faixas||[]).map((f,i)=>`<div class="mt-tier"><span>Bateu</span><input class="mt-in" type="number" min="0" step="1" value="${E(f.min)}" onchange="mtRg('${r.id}','faixa',${i},'min',this.value)" aria-label="% da meta"><span>% → ganha</span><input class="mt-in" type="number" min="0" step="0.01" value="${E(f.valor)}" onchange="mtRg('${r.id}','faixa',${i},'valor',this.value)" aria-label="Valor"><select class="mt-in x2" onchange="mtRg('${r.id}','faixa',${i},'modo',this.value)"><option value="fixo" ${f.modo!=='pct'?'selected':''}>R$ fixo</option><option value="pct" ${f.modo==='pct'?'selected':''}>% do realizado</option></select><button class="mt-it del" style="border:0;background:none;cursor:pointer;color:var(--mt-mu)" onclick="mtRg('${r.id}','faixaDel',${i})" aria-label="Remover faixa">✕</button></div>`).join('')}
+      corpo=`<div class="mt-tiers">${(r.faixas||[]).map((f,i)=>`<div class="mt-tier"><span>Bateu</span><input class="mt-in" type="number" min="0" step="1" value="${E(f.min)}" oninput="mtRgIn('${r.id}','faixa',${i},'min',this.value)" aria-label="% da meta"><span>% → ganha</span><input class="mt-in" type="number" min="0" step="0.01" value="${E(f.valor)}" oninput="mtRgIn('${r.id}','faixa',${i},'valor',this.value)" aria-label="Valor"><select class="mt-in x2" onchange="mtRgIn('${r.id}','faixa',${i},'modo',this.value)"><option value="fixo" ${f.modo!=='pct'?'selected':''}>R$ fixo</option><option value="pct" ${f.modo==='pct'?'selected':''}>% do realizado</option></select><button class="mt-it del" style="border:0;background:none;cursor:pointer;color:var(--mt-mu)" onclick="mtRg('${r.id}','faixaDel',${i})" aria-label="Remover faixa">✕</button></div>`).join('')}
         <button class="mt-btn sm" style="align-self:flex-start" onclick="mtRg('${r.id}','faixaAdd')">+ Faixa</button></div>
         <small style="font-size:11.5px;color:var(--mt-mu)">Vale a maior faixa atingida. Ex.: bateu 100% ganha R$ 500; bateu 120% ganha R$ 800.</small>`;
     }else if(r.tipo==='percentual'){
-      corpo=`<div class="mt-form"><label class="mt-fld"><span>% sobre o valor realizado</span><input class="mt-in" type="number" min="0" step="0.1" value="${E(r.pct)}" onchange="mtRg('${r.id}','pct',0,0,this.value)"></label>
-        <label class="mt-fld"><span>% quando bate a meta</span><input class="mt-in" type="number" min="0" step="0.1" value="${E(r.pctAcima||'')}" placeholder="igual" onchange="mtRg('${r.id}','pctAcima',0,0,this.value)"><small>Vale sobre tudo ao passar de 100%</small></label>
-        <label class="mt-fld"><span>Começa a ganhar a partir de</span><input class="mt-in" type="number" min="0" step="1" value="${E(r.minPct||0)}" onchange="mtRg('${r.id}','minPct',0,0,this.value)"><small>% da meta (0 = desde o 1º real)</small></label></div>`;
+      corpo=`<div class="mt-form"><label class="mt-fld"><span>% sobre o valor realizado</span><input class="mt-in" type="number" min="0" step="0.1" value="${E(r.pct)}" oninput="mtRgIn('${r.id}','pct',0,0,this.value)"></label>
+        <label class="mt-fld"><span>% quando bate a meta</span><input class="mt-in" type="number" min="0" step="0.1" value="${E(r.pctAcima||'')}" placeholder="igual" oninput="mtRgIn('${r.id}','pctAcima',0,0,this.value)"><small>Vale sobre tudo ao passar de 100%</small></label>
+        <label class="mt-fld"><span>Começa a ganhar a partir de</span><input class="mt-in" type="number" min="0" step="1" value="${E(r.minPct||0)}" oninput="mtRgIn('${r.id}','minPct',0,0,this.value)"><small>% da meta (0 = desde o 1º real)</small></label></div>`;
     }else{
-      corpo=`<div class="mt-form"><label class="mt-fld"><span>R$ por unidade entregue</span><input class="mt-in" type="number" min="0" step="0.01" value="${E(r.valorUnidade)}" onchange="mtRg('${r.id}','valorUnidade',0,0,this.value)"></label>
-        <label class="mt-fld"><span>Bônus ao bater 100%</span><input class="mt-in" type="number" min="0" step="0.01" value="${E(r.bonusMeta||0)}" onchange="mtRg('${r.id}','bonusMeta',0,0,this.value)"></label>
-        <label class="mt-fld"><span>Começa a ganhar a partir de</span><input class="mt-in" type="number" min="0" step="1" value="${E(r.minPct||0)}" onchange="mtRg('${r.id}','minPct',0,0,this.value)"><small>% da meta</small></label></div>`;
+      corpo=`<div class="mt-form"><label class="mt-fld"><span>R$ por unidade entregue</span><input class="mt-in" type="number" min="0" step="0.01" value="${E(r.valorUnidade)}" oninput="mtRgIn('${r.id}','valorUnidade',0,0,this.value)"></label>
+        <label class="mt-fld"><span>Bônus ao bater 100%</span><input class="mt-in" type="number" min="0" step="0.01" value="${E(r.bonusMeta||0)}" oninput="mtRgIn('${r.id}','bonusMeta',0,0,this.value)"></label>
+        <label class="mt-fld"><span>Começa a ganhar a partir de</span><input class="mt-in" type="number" min="0" step="1" value="${E(r.minPct||0)}" oninput="mtRgIn('${r.id}','minPct',0,0,this.value)"><small>% da meta</small></label></div>`;
     }
     return `<div class="mt-rule">
       <div class="mt-rule-h"><b>${titulo}</b><span class="who">${r.atualizadoPor?`alterada por ${E(r.atualizadoPor)} em ${dataBR(r.atualizadoEm)}`:''}</span><button class="mt-btn sm dng" style="margin-left:auto" onclick="mtRg('${r.id}','del')">Remover</button></div>
       <div class="mt-seg">${tipos.map(([k,n])=>`<button class="${r.tipo===k?'on':''}" onclick="mtRg('${r.id}','tipo',0,0,'${k}')">${n}</button>`).join('')}</div>
       ${corpo}
-      <div class="mt-sim">Simular: se bater <input class="mt-in" type="number" min="0" value="100" oninput="mtSim('${r.id}',this.value,this.nextElementSibling.nextElementSibling)"> % de uma meta de <b style="color:inherit">${un==='R$'?'R$ 10.000':'100 un'}</b> → <b>${BRL(comissao(r,un==='R$'?10000:100,100,un).valor)}</b></div>
+      <div class="mt-sim">Simular: se bater <input class="mt-in" type="number" min="0" value="100" id="mt-sim-in-${r.id}" oninput="mtSim('${r.id}')"> % de uma meta de <b style="color:inherit">${un==='R$'?'R$ 10.000':'100 un'}</b> → <b id="mt-sim-out-${r.id}">${BRL(comissao(r,un==='R$'?10000:100,100,un).valor)}</b></div>
+      <div class="mt-rule-f"><span class="mt-dirty" id="mt-dirty-${r.id}" ${S.rd[r.id]?'':'hidden'}>● Alterações não salvas</span><button class="mt-btn sm" id="mt-desc-${r.id}" onclick="mtRgDescartar('${r.id}')" ${S.rd[r.id]?'':'disabled'}>Descartar</button><button class="mt-btn sm pri" id="mt-save-${r.id}" onclick="mtRgSalvar('${r.id}')" ${S.rd[r.id]?'':'disabled'}>Salvar comissão</button></div>
     </div>`;
   }
-  window.mtSim=function(id,p,el){const r=regras().find(x=>x.id===id);if(!r||!el)return;const un=r.area==='operacional'?'un':'R$';const base=un==='R$'?10000:100;const pct=+p||0;el.textContent=BRL(comissao(r,base*pct/100,pct,un).valor)};
+  window.mtSim=function(id){
+    const r=rgVer(id),inp=document.getElementById('mt-sim-in-'+id),out=document.getElementById('mt-sim-out-'+id);if(!r||!out)return;
+    const un=r.area==='operacional'?'un':'R$',base=un==='R$'?10000:100,pct=+(inp?.value||100)||0;
+    out.textContent=BRL(comissao(r,base*pct/100,pct,un).valor);
+  };
+  function rgSujo(id,on){
+    ['mt-save-','mt-desc-'].forEach(k=>{const b=document.getElementById(k+id);if(b)b.disabled=!on});
+    const d=document.getElementById('mt-dirty-'+id);if(d)d.hidden=!on;
+  }
+  function rgRascunho(id){if(!S.rd[id]){const r=regras().find(x=>x.id===id);if(!r)return null;S.rd[id]=JSON.parse(JSON.stringify(r))}return S.rd[id]}
+  // Digitação: só muda o rascunho e o simulador (sem redesenhar nada = rápido)
+  window.mtRgIn=function(id,campo,i,sub,val){
+    const r=rgRascunho(id);if(!r)return;
+    const n=v=>Math.max(0,+String(v).replace(',','.')||0);
+    if(campo==='faixa'){r.faixas=(r.faixas||[]).map(f=>({...f}));r.faixas[i][sub]=sub==='modo'?val:n(val)}
+    else r[campo]=n(val);
+    rgSujo(id,true);mtSim(id);
+  };
+  window.mtRgSalvar=function(id){
+    const r=S.rd[id];if(!r)return;
+    const {id:_i,...dados}=r;
+    if(r.tipo==='faixas')dados.faixas=(r.faixas||[]).filter(f=>+f.min>0).sort((a,b)=>a.min-b.min);
+    DB.update('metas_regras',id,{...dados,atualizadoPor:sessionUser?.nome||'',atualizadoEm:new Date().toISOString()});
+    delete S.rd[id];
+    desenharRegras();
+    setTimeout(()=>renderMetas(),0);
+    toast('Comissão salva ✓ metas abertas recalculadas','#10B981');
+  };
+  window.mtRgDescartar=function(id){delete S.rd[id];desenharRegras()};
   window.mtRegraNova=function(area,uid){
     if(uid===undefined)return;
     if(uid===''&&regras().some(r=>r.area===area&&!r.userId))return;
@@ -29725,18 +29769,13 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     DB.push('metas_regras',r);desenharRegras();renderMetas();
   };
   window.mtRg=function(id,campo,i,sub,val){
-    const r=regras().find(x=>x.id===id);if(!r)return;
-    if(campo==='del'){const go=()=>{DB.remove('metas_regras',id);desenharRegras();renderMetas()};if(typeof confirmDelete==='function')confirmDelete(go,{title:'Remover regra',message:'As metas abertas passam a usar a regra da área (ou ficam sem comissão).',okText:'Remover'});else go();return}
-    const p={atualizadoPor:sessionUser?.nome||'',atualizadoEm:new Date().toISOString()};
-    const n=v=>Math.max(0,+String(v).replace(',','.')||0);
-    if(campo==='tipo')p.tipo=val;
-    else if(campo==='faixa'){const fs=(r.faixas||[]).map(f=>({...f}));fs[i][sub]=sub==='modo'?val:n(val);p.faixas=fs}
-    else if(campo==='faixaAdd'){const fs=(r.faixas||[]).slice();const max=fs.reduce((a,f)=>Math.max(a,+f.min||0),0);fs.push({min:max?max+20:100,valor:0,modo:'fixo'});p.faixas=fs}
-    else if(campo==='faixaDel'){p.faixas=(r.faixas||[]).filter((_,k)=>k!==i)}
-    else p[campo]=n(val);
-    DB.update('metas_regras',id,p);
-    desenharRegras();renderMetas();
-    toast('Comissão atualizada: metas abertas recalculadas','#10B981');
+    if(campo==='del'){const go=()=>{delete S.rd[id];DB.remove('metas_regras',id);desenharRegras();renderMetas()};if(typeof confirmDelete==='function')confirmDelete(go,{title:'Remover regra',message:'As metas abertas passam a usar a regra da área (ou ficam sem comissão).',okText:'Remover'});else go();return}
+    // mudanças de estrutura (tipo, + faixa, remover faixa): mexem no rascunho e redesenham só a janela
+    const r=rgRascunho(id);if(!r)return;
+    if(campo==='tipo')r.tipo=val;
+    else if(campo==='faixaAdd'){const fs=(r.faixas||[]).slice();const max=fs.reduce((a,f)=>Math.max(a,+f.min||0),0);fs.push({min:max?max+20:100,valor:0,modo:'fixo'});r.faixas=fs}
+    else if(campo==='faixaDel'){r.faixas=(r.faixas||[]).filter((_,k)=>k!==i)}
+    desenharRegras();
   };
 
   // Atualiza a tela quando chegam dados novos (outra pessoa concluiu tarefa, lançou item, etc.)
