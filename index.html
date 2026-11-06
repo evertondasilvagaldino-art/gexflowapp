@@ -872,6 +872,11 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
 .htab.active{color:var(--p2);border-bottom-color:var(--p2);font-weight:600}
 .activity-item{display:flex;gap:10px;padding:12px 0;border-bottom:1px solid var(--border)}
 .act-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;margin-top:2px}
+.gx-fh-lista{margin-top:6px;display:flex;flex-direction:column;gap:6px;background:var(--bg);border-radius:8px;padding:10px 12px}
+.gx-fh-item{display:flex;flex-direction:column;gap:1px;font-size:12.5px;line-height:1.45;overflow-wrap:anywhere}
+.gx-fh-item span{color:var(--muted)}
+.gx-fh-item b{color:var(--txt);font-weight:600;white-space:pre-line}
+.gx-fh-item+.gx-fh-item{border-top:1px solid var(--border);padding-top:6px}
 .act-content{flex:1}
 .act-header{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 .act-type{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:2px 8px;border-radius:10px}
@@ -990,6 +995,10 @@ textarea.gcal-inline-input{width:100%;resize:vertical;min-height:44px;cursor:tex
 .sb-field:last-child{border-bottom:none}
 .sb-field-lbl{color:var(--muted);font-weight:500;flex-shrink:0;margin-right:8px}
 .sb-field-val{font-weight:600;color:var(--txt);text-align:right}
+.sb-field-lbl,.sb-field-val{min-width:0;overflow-wrap:anywhere}
+.sb-field.sb-qa{flex-direction:column;align-items:stretch;gap:3px;padding:8px 0}
+.sb-field.sb-qa .sb-field-lbl{flex-shrink:1;margin-right:0;line-height:1.4;white-space:normal}
+.sb-field.sb-qa .sb-field-val{text-align:left;line-height:1.45;white-space:pre-line}
 
 /* CONFIRM */
 .confirm-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;align-items:center;justify-content:center}
@@ -19095,6 +19104,7 @@ function renderDealMain(){
     <div style="font-size:13px;white-space:pre-wrap;line-height:1.5">${escHtml(leadDescText)}</div>
   </div>`:'';
 
+  const formHistHtml=gxLeadFormHistHtml(l);
   const histHtml=descBlockHtml+(ativs.length?ativs.map(a=>{
     const at=dealActionTypes.find(x=>x.key===a.tipo)||dealActionTypes[0];
     return `<div class="activity-item">
@@ -19109,7 +19119,7 @@ function renderDealMain(){
         <button style="background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;margin-top:5px" onclick="deleteDealActivity('${a.id}')">Remover</button>
       </div>
     </div>`;
-  }).join(''):(descBlockHtml?'':`<div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">Nenhuma atividade ainda</div><div style="font-size:12px;color:var(--light);margin-top:4px">Use as abas acima para registrar ações</div></div>`));
+  }).join(''):((descBlockHtml||formHistHtml)?'':`<div class="empty"><div class="empty-ico">📋</div><div class="empty-txt">Nenhuma atividade ainda</div><div style="font-size:12px;color:var(--light);margin-top:4px">Use as abas acima para registrar ações</div></div>`))+formHistHtml;
 
   const dealTasks=getTasksByOpportunity(currentDealId);
   const pendingDealTasks=dealTasks.filter(t=>!t.completed);
@@ -19344,6 +19354,37 @@ function gxLeadFormCompany(l){
     return '';
   }catch(e){return ''}
 }
+// Lista {pergunta, resposta} do formulário (mesma regra do bloco "Respostas do formulário" da lateral).
+function gxLeadFormAnswersList(l){
+  try{
+    const d=l&&l.formData;
+    if(!d||typeof d!=='object')return [];
+    const companyKeys=new Set(['empresa','nome_da_sua_empresa','nome_empresa','company','razao_social']);
+    const labels={};
+    try{(DB.get('lead_forms')||[]).forEach(f=>(f&&f.fields||[]).forEach(fl=>{if(fl&&fl.name&&!labels[fl.name])labels[fl.name]=fl.label||fl.name}))}catch(e){}
+    return Object.keys(d).filter(k=>!GX_FORM_STD_KEYS.has(k)&&!companyKeys.has(k)&&String(d[k]??'').trim()!=='')
+      .map(k=>({p:labels[k]||String(k).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase()),r:String(d[k]).trim()}));
+  }catch(e){return []}
+}
+// Nota automática no Histórico (jornada) do negócio com as respostas do formulário.
+function gxLeadFormHistHtml(l){
+  const itens=gxLeadFormAnswersList(l);
+  if(!itens.length)return '';
+  let quando='';
+  try{const dt=new Date(l.createdAt||l.criadoEm||l.dataCriacao||'');if(!isNaN(dt))quando=dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}catch(e){}
+  const origem=l.origem?String(l.origem):'Formulário';
+  return `<div class="activity-item gx-form-hist">
+    <div class="act-icon" style="background:#EDE9FE;color:#6D28D9"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+    <div class="act-content" style="min-width:0;flex:1">
+      <div class="act-header">
+        <span class="act-type" style="background:#EDE9FE;color:#6D28D9">Formulário</span>
+        <span class="act-user">⚙️ Automático · ${escHtml(origem)}</span>
+        ${quando?`<span class="act-time">${escHtml(quando)}</span>`:''}
+      </div>
+      <div class="gx-fh-lista">${itens.map(i=>`<div class="gx-fh-item"><span>${escHtml(i.p)}</span><b>${escHtml(i.r)}</b></div>`).join('')}</div>
+    </div>
+  </div>`;
+}
 function gxLeadFormExtrasHtml(l){
   try{
     const d=l&&l.formData;
@@ -19353,7 +19394,7 @@ function gxLeadFormExtrasHtml(l){
     try{(DB.get('lead_forms')||[]).forEach(f=>(f&&f.fields||[]).forEach(fl=>{if(fl&&fl.name&&!labels[fl.name])labels[fl.name]=fl.label||fl.name}))}catch(e){}
     const rows=Object.keys(d).filter(k=>!GX_FORM_STD_KEYS.has(k)&&!companyKeys.has(k)&&String(d[k]??'').trim()!=='').map(k=>{
       const lbl=labels[k]||String(k).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());
-      return `<div class="sb-field"><span class="sb-field-lbl">${escHtml(lbl)}</span><span class="sb-field-val">${escHtml(String(d[k]))}</span></div>`;
+      return `<div class="sb-field sb-qa"><span class="sb-field-lbl">${escHtml(lbl)}</span><span class="sb-field-val">${escHtml(String(d[k]))}</span></div>`;
     });
     if(!rows.length)return '';
     return `<div class="sb-section"><div class="sb-sec-title"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Respostas do formulário</div>${rows.join('')}</div>`;
