@@ -15385,13 +15385,14 @@ function renderEsquemas(){
   document.getElementById('proj-content').innerHTML=`
     <div class="page-header">
       <div><div class="page-title">Esquemas</div><div class="page-sub">Templates e modelos reutilizáveis para a agência</div></div>
-      ${podeCriar?`<button class="btn btn-primary" onclick="openModalEsquema()">+ Novo Esquema</button>`:''}
+      ${podeCriar?`<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-ghost" onclick="openModalEsquema()">+ Esquema de texto</button><button class="btn btn-primary" onclick="gxEsqNovoDoc()">+ Novo modelo de doc</button></div>`:''}
     </div>
     <div class="esquema-grid">
-      ${esquemas.map(e=>`<div class="esquema-card">
+      ${esquemas.map(e=>e.tipo==='doc'&&typeof gxEsqDocCard==='function'?gxEsqDocCard(e,{podeEditar,podeExcluir}):`<div class="esquema-card">
         <div class="esquema-ico">${gxEmojiIco(e.ico)}</div>
         <div class="esquema-name">${e.nome}</div>
         <div class="esquema-desc">${e.desc}</div>
+        <div class="esq-tipo">Texto · dá para usar nos Docs</div>
         <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn btn-primary btn-sm" onclick="usarEsquema('${e.id}')">Usar</button>
           ${podeEditar?`<button class="btn btn-ghost btn-sm" onclick="openModalEsquema('${e.id}')">Editar</button>`:''}
@@ -15444,10 +15445,10 @@ function openModalEsquema(id=null){
       <label class="form-label">Descrição</label>
       <input class="form-input" id="esq-desc" value="${e?.desc||''}" placeholder="Breve descrição do template">
     </div>
-    <div class="form-group">
+    ${e?.tipo==='doc'?`<div style="font-size:12px;color:var(--muted);background:var(--bg);border-radius:8px;padding:10px 12px">O conteúdo deste modelo (páginas e subpáginas) é editado no editor de Docs: botão <b>Abrir modelo</b> no card.</div>`:`<div class="form-group">
       <label class="form-label">Conteúdo do template *</label>
       <textarea class="form-input" id="esq-conteudo" style="height:320px;font-family:monospace;font-size:12px;line-height:1.6;resize:vertical" placeholder="Cole ou escreva o template aqui...">${e?.conteudo||''}</textarea>
-    </div>`;
+    </div>`}`;
   document.getElementById('modal-footer').innerHTML=`
     <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
     <button class="btn btn-primary" onclick="saveEsquema('${id||''}')">Salvar</button>`;
@@ -15459,8 +15460,12 @@ function saveEsquema(id){
   const nome=document.getElementById('esq-nome')?.value?.trim();
   const conteudo=document.getElementById('esq-conteudo')?.value?.trim();
   if(!nome){toast('Nome obrigatório','#EF4444');return}
-  if(!conteudo){toast('Conteúdo obrigatório','#EF4444');return}
-  const data={nome,desc:document.getElementById('esq-desc')?.value?.trim()||'',ico:document.getElementById('esq-ico')?.value||'📋',conteudo};
+  const _esqAtual=id?DB.get('esquemas').find(x=>x.id===id):null;
+  const _ehDoc=_esqAtual?.tipo==='doc';
+  if(!conteudo&&!_ehDoc){toast('Conteúdo obrigatório','#EF4444');return}
+  const data={nome,desc:document.getElementById('esq-desc')?.value?.trim()||'',ico:document.getElementById('esq-ico')?.value||'📋'};
+  if(!_ehDoc)data.conteudo=conteudo;
+  else if(_esqAtual.docRaizId){try{DB.update('docs',_esqAtual.docRaizId,{titulo:nome})}catch(e){}}
   if(id){
     DB.update('esquemas',id,data);
     toast('Esquema atualizado ✓','#10B981');
@@ -30825,6 +30830,26 @@ body.gd-open .gxc-fab,body.gd-open .gxw-fab,body.gd-open .gxw-popup{display:none
   .gd-st{display:none}
 }
 @media (prefers-reduced-motion:reduce){.gd-car,.gd-side{transition:none}}
+.gd-pick-ov{position:fixed;inset:0;z-index:99998;background:rgba(17,17,26,.45);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:16px}
+.gd-pick{width:100%;max-width:560px;max-height:min(80vh,680px);display:flex;flex-direction:column;background:var(--g-card,#fff);color:var(--g-tx,#17171F);border-radius:16px;box-shadow:0 24px 60px -12px rgba(0,0,0,.4);overflow:hidden}
+.gd-pick-h{display:flex;gap:12px;align-items:flex-start;padding:18px 18px 10px}
+.gd-pick-h div{flex:1}
+.gd-pick-h h3{margin:0 0 4px;font-size:16px}
+.gd-pick-h p{margin:0;font-size:12.5px;color:var(--g-mu,#6A6A7C);line-height:1.5}
+.gd-pick-h .gd-x{border:1px solid var(--g-line,#E9E9F0);background:var(--g-card,#fff);color:var(--g-mu,#6A6A7C)}
+.gd-pick-busca{margin:4px 18px 10px;height:38px;border:1px solid var(--g-line,#E9E9F0);border-radius:10px;padding:0 12px;font:inherit;font-size:13px;background:var(--g-soft,#FAFAFC);color:inherit;outline:none}
+.gd-pick-busca:focus{border-color:var(--g-p,#7C3AED);box-shadow:0 0 0 3px var(--g-p-ring,rgba(124,58,237,.18))}
+.gd-pick-lista{overflow:auto;padding:0 12px 10px;display:flex;flex-direction:column;gap:4px}
+.gd-pick-it{display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border:1px solid transparent;border-radius:11px;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.gd-pick-it:hover,.gd-pick-it:focus-visible{background:var(--g-p-soft,#F3EEFF);border-color:rgba(124,58,237,.25);outline:none}
+.gd-pick-ic{width:36px;height:36px;border-radius:10px;background:var(--g-soft,#FAFAFC);border:1px solid var(--g-line,#E9E9F0);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.gd-pick-it b{display:block;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gd-pick-it small{display:block;font-size:11.5px;color:var(--g-mu,#6A6A7C);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gd-pick-it em{font-style:normal;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--g-soft,#F1F1F6);color:var(--g-mu,#6A6A7C);white-space:nowrap}
+.gd-pick-it em.doc{background:var(--g-p-soft,#F3EEFF);color:var(--g-p,#7C3AED)}
+.gd-pick-f{padding:10px 18px 14px;border-top:1px solid var(--g-line,#E9E9F0);font-size:11.5px;color:var(--g-mu,#6A6A7C)}
+.esq-tipo{display:inline-block;margin-top:8px;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--g-soft,#F1F1F6);color:var(--g-mu,#6A6A7C)}
+.esq-tipo.doc{background:var(--g-p-soft,#F3EEFF);color:var(--g-p,#7C3AED)}
 </style>
 <script id="gx-docs-js">
 (function(){
@@ -30915,8 +30940,14 @@ body.gd-open .gxc-fab,body.gd-open .gxw-fab,body.gd-open .gxw-popup{display:none
   function atualizarBlocos(){document.querySelectorAll('[data-gd-bloco]').forEach(b=>{b.innerHTML=blocoInner(b.dataset.gdBloco,b.dataset.gdId)})}
   window.gxDocNovo=function(btn){
     const b=btn.closest('[data-gd-bloco]');if(!b)return;
-    const r=criar({vinculo:{tipo:b.dataset.gdBloco,id:b.dataset.gdId,nome:b.dataset.gdNome||''}});
-    atualizarBlocos();abrir(r.id,{focoTitulo:true});
+    const vinculo={tipo:b.dataset.gdBloco,id:b.dataset.gdId,nome:b.dataset.gdNome||''};
+    const m=menu({currentTarget:btn},`<button type="button" data-a="branco">📄 Doc em branco</button><button type="button" data-a="modelo">📋 Usar modelo dos Esquemas…</button>`);
+    m.onclick=e=>{const a=e.target.closest('button')?.dataset.a;if(!a)return;fecharMenus();
+      if(a==='branco'){const r=criar({vinculo});atualizarBlocos();abrir(r.id,{focoTitulo:true})}
+      else escolherModelo('Criar doc a partir de um modelo','Todas as páginas e subpáginas do modelo são copiadas para esta '+(vinculo.tipo==='cliente'?'ficha do cliente':'tarefa')+'. Você edita à vontade sem mexer no modelo.',esq=>{
+        const r=docDeModelo(esq,{parentId:'',raizId:'',vinculo});if(!r)return;atualizarBlocos();abrir(r.id);avisa('Doc criado a partir do modelo ✓');
+      });
+    };
   };
 
   // ── editor ──
@@ -30941,6 +30972,7 @@ body.gd-open .gxc-fab,body.gd-open .gxw-fab,body.gd-open .gxw-popup{display:none
     salvarJa();fecharMenus();
     const o=document.getElementById('gd-ov');if(o)o.classList.remove('open');document.body.classList.remove('gd-open');
     D.id=null;atualizarBlocos();
+    try{if(document.querySelector('#proj-content .esquema-grid')&&typeof renderEsquemas==='function')renderEsquemas()}catch(e){}
   }
   window.gxDocFechar=fechar;
 
@@ -30960,9 +30992,10 @@ body.gd-open .gxc-fab,body.gd-open .gxw-fab,body.gd-open .gxw-popup{display:none
     if(!p||!raiz){fechar();return}
     const cam=caminho(p.id);
     const v=raiz.vinculo||{};
-    const vTxt=v.tipo==='cliente'?'Cliente':v.tipo==='tarefa'?'Tarefa':'';
+    const vTxt=v.tipo==='cliente'?'Cliente':v.tipo==='tarefa'?'Tarefa':v.tipo==='esquema'?'Modelo dos Esquemas':'';
+    const ehModelo=v.tipo==='esquema';
     const subs=filhos(p.id);
-    const pub=raiz.publico?.ativo;
+    const pub=raiz.publico?.ativo&&raiz.vinculo?.tipo!=='esquema';
     app.innerHTML=`
       <aside class="gd-side">
         <div class="gd-side-h"><span class="gd-card-ic" style="width:26px;height:26px;border-radius:7px">${ICO_DOC}</span><b>${E(raiz.titulo||'Sem título')}</b>${pub?`<span title="Compartilhado na web" style="color:var(--gd-p);display:flex">${ICO_WEB}</span>`:''}</div>
@@ -30975,7 +31008,7 @@ body.gd-open .gxc-fab,body.gd-open .gxw-fab,body.gd-open .gxw-popup{display:none
           <button type="button" class="gd-x gd-side-tg" aria-label="Páginas" onclick="this.closest('.gd-app').classList.toggle('side-on')">☰</button>
           <nav class="gd-bc" aria-label="Caminho">${vTxt?`<span>${E(vTxt)}${v.nome?': '+E(v.nome):''}</span><i>/</i>`:''}${cam.map((c,i)=>`<a onclick="gxDocIr('${E(c.id)}')">${E(c.titulo||'Sem título')}</a>${i<cam.length-1?'<i>/</i>':''}`).join('')}</nav>
           <span class="gd-st" id="gd-st">Salvo</span>
-          <button type="button" class="gd-btn${pub?'':' pri'}" onclick="gxDocShare(event)">${ICO_WEB} Compartilhar</button>
+          ${ehModelo?`<span class="gd-st" style="color:var(--gd-p);font-weight:600">Editando o modelo</span>`:`<button type="button" class="gd-btn${pub?'':' pri'}" onclick="gxDocShare(event)">${ICO_WEB} Compartilhar</button>`}
           <button type="button" class="gd-x" aria-label="Fechar" onclick="gxDocFechar()">✕</button>
         </div>
         ${pub?`<div class="gd-banner">${ICO_WEB}<span>Este doc está compartilhado na web. Qualquer pessoa com o link pode ver (sem editar).</span><button type="button" onclick="gxDocAbrirPublico()">Visualizar</button><button type="button" onclick="gxDocCopiar()">Copiar link</button><button type="button" onclick="gxDocShare(event)">Configurar</button></div>`:''}
@@ -30995,9 +31028,11 @@ body.gd-open .gxc-fab,body.gd-open .gxw-fab,body.gd-open .gxw-popup{display:none
           <button type="button" title="Tabela" onmousedown="event.preventDefault()" onclick="gxDocTabela()">▦ Tabela</button>
           <button type="button" title="Divisória" onmousedown="event.preventDefault()" onclick="gxDocCmd('insertHorizontalRule')">―</button>
           <button type="button" title="Limpar formatação" onmousedown="event.preventDefault()" onclick="gxDocCmd('removeFormat')">⌫ Formatação</button>
+          <span class="sep"></span>
+          <button type="button" title="Inserir um modelo do banco de Esquemas nesta página" onmousedown="event.preventDefault()" onclick="gxDocInserirModelo()" style="color:var(--gd-p);font-weight:600">📋 Modelo</button>
         </div>
         <div class="gd-scroll" id="gd-scroll"><div class="gd-page">
-          ${!p.parentId&&vTxt?`<div class="gd-chip">${ICO_DOC} Doc ${v.tipo==='cliente'?'do cliente':'da tarefa'} ${E(v.nome||'')}</div>`:''}
+          ${!p.parentId&&vTxt?`<div class="gd-chip">${ICO_DOC} ${ehModelo?'Modelo de doc · quem usar recebe uma cópia de todas as páginas':`Doc ${v.tipo==='cliente'?'do cliente':'da tarefa'} ${E(v.nome||'')}`}</div>`:''}
           <input class="gd-title" id="gd-title" maxlength="160" placeholder="Sem título" value="${E(p.titulo||'')}" aria-label="Título da página">
           <div class="gd-by"><span class="gd-av">${E(ini(p.criadoPorNome))}</span>${E(p.criadoPorNome||'')}<span>•</span><span id="gd-upd">Atualizado por último ${E(quando(p.atualizadoEm))}${p.atualizadoPorNome&&p.atualizadoPorNome!==p.criadoPorNome?' por '+E(p.atualizadoPorNome):''}</span></div>
           <div class="gd-ed gd-c" id="gd-ed" contenteditable="true" spellcheck="true" data-placeholder="Comece a escrever… dica: # Título, - lista, [] checklist, cole imagens e links">${limpar(p.html||'')}</div>
@@ -31019,6 +31054,7 @@ body.gd-open .gxc-fab,body.gd-open .gxw-fab,body.gd-open .gxw-popup{display:none
     if(ed)patch.html=limpar(ed.innerHTML);
     if(ti)patch.titulo=ti.value.trim();
     salvarCampos(D.id,patch);
+    try{const pp=pg(D.id);if(pp&&!pp.parentId&&pp.vinculo?.tipo==='esquema'&&patch.titulo)DB.update('esquemas',pp.vinculo.id,{nome:patch.titulo})}catch(e){}
     status('Salvo ✓');
     const u=document.getElementById('gd-upd');if(u)u.textContent='Atualizado por último '+quando(agora());
   }
@@ -31246,6 +31282,104 @@ body.gd-open .gxc-fab,body.gd-open .gxw-fab,body.gd-open .gxw-popup{display:none
       });
     });
   }
+
+  // ── MODELOS (banco de Esquemas) ──
+  const listaEsquemas=()=>{try{if(typeof seedEsquemas==='function')seedEsquemas()}catch(e){}return DB.get('esquemas')||[]};
+  const nPags=esq=>esq.tipo==='doc'&&esq.docRaizId?paginasDaRaiz(esq.docRaizId).length:1;
+  const nomeEsq=esq=>{if(esq.tipo==='doc'&&esq.docRaizId){const r=pg(esq.docRaizId);if(r&&r.titulo)return r.titulo}return esq.nome||'Modelo'};
+  // texto do esquema antigo → HTML do doc (linhas "━━━ X ━━━" viram título)
+  function textoParaHtml(t){
+    return String(t||'').split(/\r?\n/).map(l=>{
+      const m=l.match(/^\s*━+\s*(.+?)\s*━+\s*$/);
+      if(m)return `<h2>${E(m[1])}</h2>`;
+      if(/^\s*[═━─=_\-]{6,}\s*$/.test(l))return '<hr>';
+      if(!l.trim())return '<p><br></p>';
+      return `<p>${E(l)}</p>`;
+    }).join('');
+  }
+  // copia a árvore de um modelo; devolve a página criada no topo
+  function docDeModelo(esq,{parentId,raizId,vinculo,titulo}){
+    if(esq.tipo==='doc'&&esq.docRaizId){
+      const src=pg(esq.docRaizId);if(!src){avisa('Esse modelo está vazio.','#F59E0B');return null}
+      const copia=(orig,pai,rz,top)=>{
+        const n=criar({parentId:pai,raizId:rz,vinculo:top?vinculo:null,titulo:top&&titulo?titulo:orig.titulo});
+        DB.update(COL,n.id,{html:orig.html||'',icone:orig.icone||''});
+        const raizReal=rz||n.id;
+        filhos(orig.id).forEach(f=>copia(f,n.id,raizReal,false));
+        return n;
+      };
+      return copia(src,parentId,raizId,true);
+    }
+    const n=criar({parentId,raizId,vinculo,titulo:titulo||esq.nome||'Modelo'});
+    DB.update(COL,n.id,{html:textoParaHtml(esq.conteudo)});
+    return pg(n.id);
+  }
+  function escolherModelo(titulo,sub,cb){
+    const lista=listaEsquemas();
+    let o=document.getElementById('gd-pick');if(o)o.remove();
+    o=document.createElement('div');o.id='gd-pick';o.className='gd-pick-ov';
+    const card=e=>`<button type="button" class="gd-pick-it" data-id="${E(e.id)}"><span class="gd-pick-ic">${E(e.ico||'📋')}</span><span style="min-width:0;flex:1"><b>${E(nomeEsq(e))}</b><small>${E(e.desc||'')}</small></span><em class="${e.tipo==='doc'?'doc':''}">${e.tipo==='doc'?`Doc · ${nPags(e)} pág.`:'Texto'}</em></button>`;
+    o.innerHTML=`<div class="gd-pick" role="dialog" aria-modal="true" aria-label="${E(titulo)}">
+      <div class="gd-pick-h"><div><h3>${E(titulo)}</h3><p>${E(sub)}</p></div><button type="button" class="gd-x" aria-label="Fechar" data-x>✕</button></div>
+      <input class="gd-pick-busca" placeholder="Buscar modelo…" aria-label="Buscar modelo">
+      <div class="gd-pick-lista">${lista.length?lista.slice().sort((a,b)=>(b.tipo==='doc')-(a.tipo==='doc')).map(card).join(''):'<div class="gd-vazio" style="padding:20px">Nenhum esquema cadastrado. Crie em Projetos › Esquemas.</div>'}</div>
+      <div class="gd-pick-f">Para criar ou editar modelos: <b>Projetos › Esquemas › + Novo modelo de doc</b></div></div>`;
+    document.body.appendChild(o);
+    const fecha=()=>{o.remove();document.removeEventListener('keydown',esc,true)};
+    const esc=e=>{if(e.key==='Escape'&&!document.getElementById('gxd-ov')?.classList.contains('open')){e.preventDefault();e.stopImmediatePropagation();fecha()}};
+    document.addEventListener('keydown',esc,true);
+    o.addEventListener('mousedown',e=>{if(e.target===o)fecha()});
+    o.querySelector('[data-x]').onclick=fecha;
+    const busca=o.querySelector('.gd-pick-busca');
+    busca.oninput=()=>{const q=busca.value.trim().toLowerCase();o.querySelectorAll('.gd-pick-it').forEach(b=>{b.style.display=!q||b.textContent.toLowerCase().includes(q)?'':'none'})};
+    o.querySelector('.gd-pick-lista').onclick=e=>{const b=e.target.closest('.gd-pick-it');if(!b)return;const esq=lista.find(x=>String(x.id)===b.dataset.id);fecha();if(esq)cb(esq)};
+    setTimeout(()=>busca.focus(),30);
+  }
+  // dentro do doc: insere o modelo na página aberta
+  window.gxDocInserirModelo=function(){
+    if(!D.id)return;
+    escolherModelo('Inserir modelo nesta página','O conteúdo do modelo entra no fim desta página. Se o modelo tiver subpáginas, elas viram subpáginas desta página.',esq=>{
+      salvarJa();
+      const atual=pg(D.id);if(!atual)return;
+      let htmlModelo='',subs=[];
+      if(esq.tipo==='doc'&&esq.docRaizId){const src=pg(esq.docRaizId);if(!src){avisa('Esse modelo está vazio.','#F59E0B');return}htmlModelo=src.html||'';subs=filhos(src.id)}
+      else htmlModelo=textoParaHtml(esq.conteudo);
+      const base=String(atual.html||'');
+      const vazio=!base.replace(/<p><br><\/p>|<br>|<p><\/p>|\s|&nbsp;/g,'');
+      salvarCampos(atual.id,{html:limpar((vazio?'':base)+htmlModelo),titulo:atual.titulo||nomeEsq(esq)});
+      const rz=String(atual.raizId||atual.id);
+      subs.forEach(f=>docDeModelo({tipo:'doc',docRaizId:f.id},{parentId:atual.id,raizId:rz,vinculo:null}));
+      D.abertos.add(String(atual.id));desenhar();
+      avisa(subs.length?`Modelo inserido ✓ (${subs.length} subpágina${subs.length!==1?'s':''})`:'Modelo inserido ✓');
+    });
+  };
+  // Esquemas: criar / card / excluir modelo de doc
+  window.gxEsqNovoDoc=function(){
+    const id='esq_'+Date.now().toString(36);
+    const r=criar({vinculo:{tipo:'esquema',id,nome:'Modelo'},titulo:'Implementação de projeto'});
+    DB.push('esquemas',{id,tipo:'doc',ico:'📄',nome:'Implementação de projeto',desc:'Modelo de doc com páginas e subpáginas',docRaizId:r.id});
+    try{renderEsquemas()}catch(e){}
+    abrir(r.id,{focoTitulo:true});
+  };
+  window.gxEsqDocCard=function(e,{podeEditar,podeExcluir}){
+    const n=nPags(e);
+    return `<div class="esquema-card">
+      <div class="esquema-ico">${typeof gxEmojiIco==='function'?gxEmojiIco(e.ico||'📄'):E(e.ico||'📄')}</div>
+      <div class="esquema-name">${E(nomeEsq(e))}</div>
+      <div class="esquema-desc">${E(e.desc||'')}</div>
+      <div class="esq-tipo doc">Modelo de doc · ${n} página${n!==1?'s':''}</div>
+      <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="gxDocAbrir('${E(e.docRaizId)}')">${podeEditar?'Abrir modelo':'Ver modelo'}</button>
+        ${podeEditar?`<button class="btn btn-ghost btn-sm" onclick="openModalEsquema('${E(e.id)}')">Nome e ícone</button>`:''}
+        ${podeExcluir?`<button class="btn btn-ghost btn-sm" style="color:var(--red)" aria-label="Excluir modelo" onclick="gxEsqDocExcluir('${E(e.id)}')">🗑️</button>`:''}
+      </div></div>`;
+  };
+  window.gxEsqDocExcluir=async function(id){
+    const e=(DB.get('esquemas')||[]).find(x=>String(x.id)===String(id));if(!e)return;
+    if(!await gxConfirm({title:'Excluir modelo',message:`"${nomeEsq(e)}" sai do banco de Esquemas. Os docs que já foram criados a partir dele continuam nas tarefas.`,okText:'Excluir',perigo:true}))return;
+    if(e.docRaizId)[...descendentes(e.docRaizId),pg(e.docRaizId)].filter(Boolean).forEach(x=>DB.remove(COL,x.id));
+    DB.remove('esquemas',id);try{renderEsquemas()}catch(_){}avisa('Modelo excluído','#6B7280');
+  };
 
   // ── compartilhar na web ──
   const linkPublico=tok=>(/^https?:/.test(location.protocol)?location.origin:SITE_PUBLICO)+'/doc.html?t='+tok;
