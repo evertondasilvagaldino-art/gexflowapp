@@ -25357,8 +25357,9 @@ function mySquadNames(){
   });
   return out;
 }
+function ordSquads(arr){return arr.map((s,i)=>[s,i]).sort((a,b)=>{const x=a[0].ordemOp,y=b[0].ordemOp;const ox=Number.isFinite(x)?x:1e6+a[1],oy=Number.isFinite(y)?y:1e6+b[1];return ox-oy}).map(x=>x[0])}
 function visibleSquads(){
-  const all=DB.get('squads')||[];
+  const all=ordSquads(DB.get('squads')||[]);
   if(isProjectFounderView())return all;
   const ids=new Set(grantsMe().map(g=>g.squadId));
   return all.filter(s=>ids.has(s.id));
@@ -25464,6 +25465,19 @@ window.renderEntregas=function(){
   renderOp();
 };
 
+let opSqDrag=null;
+window.opSqDragStart=function(e,id){if(!canManage())return;opSqDrag=id;e.dataTransfer.effectAllowed='move';try{e.dataTransfer.setData('text/plain',id)}catch(_){}e.currentTarget.classList.add('sq-arrastando')};
+window.opSqDragOver=function(e){if(!opSqDrag)return;e.preventDefault();const el=e.currentTarget,r=el.getBoundingClientRect();el.classList.remove('sq-antes','sq-depois');if(el.dataset.sq!==opSqDrag)el.classList.add(e.clientY<r.top+r.height/2?'sq-antes':'sq-depois')};
+window.opSqDragEnd=function(){opSqDrag=null;document.querySelectorAll('.op-sq').forEach(x=>x.classList.remove('sq-antes','sq-depois','sq-arrastando'))};
+window.opSqDrop=function(e,alvo){
+  e.preventDefault();const el=e.currentTarget,depois=el.classList.contains('sq-depois');const id=opSqDrag;opSqDragEnd();
+  if(!id||id===alvo||!canManage())return;
+  const lista=ordSquads(DB.get('squads')||[]);const mov=lista.find(s=>s.id===id);if(!mov)return;
+  const resto=lista.filter(s=>s.id!==id);let k=resto.findIndex(s=>s.id===alvo);if(k<0)return;if(depois)k++;
+  resto.splice(k,0,mov);
+  resto.forEach((s,i)=>{if(s.ordemOp!==i)DB.update('squads',s.id,{ordemOp:i})});
+  renderOp();toast('Ordem dos squads salva ✓','#10B981');
+};
 function sidebarHtml(){
   const sqs=visibleSquads();
   const manage=canManage();
@@ -25472,7 +25486,7 @@ function sidebarHtml(){
     const open=S.openSquads[sq.id];
     const total=ls.reduce((n,l)=>n+tarefasDaLista(l.id).length,0);
     return `<div>
-      <div class="op-sq" onclick="opSelSquad('${sq.id}')"><span style="font-size:10px;color:var(--light)">${open?'▾':'▸'}</span><span class="dot" style="background:${ea(sq.cor||'#9CA3AF')}"></span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(sq.nome)}</span><span class="cnt">${total}</span></div>
+      <div class="op-sq${manage?' op-sq-arr':''}" data-sq="${sq.id}" ${manage?`draggable="true" ondragstart="opSqDragStart(event,'${sq.id}')" ondragover="opSqDragOver(event)" ondragleave="this.classList.remove('sq-antes','sq-depois')" ondrop="opSqDrop(event,'${sq.id}')" ondragend="opSqDragEnd()" title="Arraste para mudar a ordem"`:''} onclick="opSelSquad('${sq.id}')">${manage?'<span class="op-sq-grip" aria-hidden="true">⋮⋮</span>':''}<span style="font-size:10px;color:var(--light)">${open?'▾':'▸'}</span><span class="dot" style="background:${ea(sq.cor||'#9CA3AF')}"></span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(sq.nome)}</span><span class="cnt">${total}</span></div>
       ${open?ls.map(l=>`<div class="op-li ${l.id===S.listaId?'on':''}" onclick="opSelLista('${sq.id}','${l.id}')">☰ <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.nome)}</span><span class="cnt">${tarefasDaLista(l.id).length}</span></div>`).join(''):''}
       ${open&&manage?`<div class="op-add" onclick="opNewLista('${sq.id}')">+ Nova lista</div>`:''}
     </div>`;
@@ -31259,5 +31273,22 @@ body.gd-open .gxc-fab,body.gd-open .gxw-fab,body.gd-open .gxw-popup{display:none
 })();
 </script>
 
+<style id="gx-op-centro">
+/* Tarefa (Gestão de entregas) centralizada com fundo borrado, igual ao card do Comercial — 10/11/2026 */
+html body .op-ov{align-items:center;justify-content:center;padding:24px;background:rgba(20,16,38,.5);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+html body .op-ov.open .op-drawer{width:100%;max-width:1360px;height:min(92vh,920px);border-radius:18px;overflow:hidden;box-shadow:0 24px 60px rgba(20,16,38,.35);animation:gxOpIn .18s ease-out}
+html body .op-ov .op-main{min-height:0}
+@keyframes gxOpIn{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){html body .op-ov.open .op-drawer{animation:none}}
+@media (max-width:860px){html body .op-ov{padding:0}html body .op-ov.open .op-drawer{height:100vh;max-height:none;border-radius:0}}
+</style>
+<style id="gx-op-ordsquad">
+.op-sq.op-sq-arr{cursor:grab;position:relative}
+.op-sq .op-sq-grip{font-size:10px;letter-spacing:-2px;color:var(--light);opacity:0;margin-left:-4px;width:8px;flex-shrink:0;transition:opacity .12s}
+.op-sq.op-sq-arr:hover .op-sq-grip{opacity:1}
+.op-sq.sq-arrastando{opacity:.45}
+.op-sq.sq-antes{box-shadow:inset 0 2px 0 var(--p2,#7C3AED)}
+.op-sq.sq-depois{box-shadow:inset 0 -2px 0 var(--p2,#7C3AED)}
+</style>
 </body>
 </html>
