@@ -4312,7 +4312,7 @@ const GEX_DB_COLLECTIONS = [
   'tracking_links','integration_events','integration_connections','manual_trackings','tracking_events',
   'conversion_settings','conversion_events','lead_forms','lead_form_submissions','leadgen_settings',
   'whatsapp_widgets','automacoes','automacao_tasks','automacao_log','email_smtp_settings','zapi_settings',
-  'op_listas','op_tarefas','op_acessos','notificacoes','op_automacoes','metas','metas_regras','roleta_leads','metas_anuais','docs','planejamento'
+  'op_listas','op_tarefas','op_acessos','notificacoes','op_automacoes','metas','metas_regras','roleta_leads','metas_anuais','docs','planejamento','fin_categorias'
 ];
 const GEX_KV_EXCLUDED = new Set([
   // gx2_usuarios: mesmo "usuarios" já sendo excluído da sincronização por
@@ -31978,9 +31978,9 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
 <script id="gx-fin-js">
 (function(){
   'use strict';
-  // ── PLANO DE CONTAS DA AGÊNCIA ──
+  // ── plano() DE CONTAS DA AGÊNCIA ──
   // fora:true = não entra no resultado (é movimentação de caixa: saldo inicial, reserva, distribuição de lucro…)
-  const PLANO=[
+  const PLANO_BASE=[
     {cat:'Mensalidades de clientes',tipo:'Receita',grupo:'Receitas'},
     {cat:'Projetos e serviços avulsos',tipo:'Receita',grupo:'Receitas'},
     {cat:'Cursos e treinamentos',tipo:'Receita',grupo:'Receitas'},
@@ -32011,6 +32011,23 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     {cat:'Reserva / investimento',tipo:'Despesa',grupo:'Fora do resultado',fora:true},
     {cat:'Ajustes de saldo',tipo:'Despesa',grupo:'Fora do resultado',fora:true}
   ];
+  // categorias criadas pela empresa (coleção fin_categorias): {id,cat,tipo,grupo,fora}
+  const CAT_COL='fin_categorias';
+  const minhasCats=()=>(DB.get(CAT_COL)||[]).filter(c=>c&&c.cat&&c.tipo);
+  let planoMemo=null,planoEm=0;
+  const planoReset=()=>{planoMemo=null};
+  function plano(){
+    if(planoMemo&&Date.now()-planoEm<1500)return planoMemo;
+    planoMemo=planoCalc();planoEm=Date.now();return planoMemo;
+  }
+  function planoCalc(){
+    const base=PLANO_BASE,extra=minhasCats().filter(c=>!base.some(b=>b.cat===c.cat)).map(c=>({cat:c.cat,tipo:c.tipo,grupo:c.fora?'Fora do resultado':(c.grupo||(c.tipo==='Receita'?'Receitas':'Operacional')),fora:!!c.fora,minha:true,id:c.id}));
+    if(!extra.length)return base;
+    // cada criada entra logo depois das do mesmo grupo
+    const out=base.slice();
+    extra.forEach(e=>{let k=-1;out.forEach((p,ix)=>{if(p.tipo===e.tipo&&p.grupo===e.grupo&&!!p.fora===e.fora)k=ix});out.splice(k<0?out.length:k+1,0,e)});
+    return out;
+  }
   // categorias antigas do GexFlow
   const LEGADO={'Mensalidade':'Mensalidades de clientes','Projeto':'Projetos e serviços avulsos','Software':'Ferramentas e plataformas','Pessoal':'Salários da equipe','Marketing':'Anúncios e publicidade','Ads / Tráfego Pago':'Anúncios e publicidade','Infraestrutura':'Obra, móveis e equipamentos','Manutenção e estrutura':'Obra, móveis e equipamentos'};
   const GRUPOS_DESP=['Impostos e taxas','Pessoal','Estrutura','Marketing','Ferramentas','Operacional'];
@@ -32041,13 +32058,13 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
 
   function info(cat,tipo){
     const c=LEGADO[cat]||cat;
-    const p=PLANO.find(x=>x.cat===c);
+    const p=plano().find(x=>x.cat===c);
     if(p)return {cat:c,grupo:p.grupo,fora:!!p.fora,tipo:p.tipo};
     return {cat:c||(tipo==='Receita'?'Outras receitas':'Outras despesas'),grupo:tipo==='Receita'?'Receitas':'Operacional',fora:false,tipo};
   }
   window.gxFinInfo=info;
   window.gxFinOperacional=t=>!!t&&!info(t.cat,t.tipo).fora;
-  window.gxFinPlano=PLANO;
+  window.gxFinPlano=plano;
 
   // ── estado ──
   const S={tab:'lanc',ano:new Date().getFullYear(),mes:'',tipo:'',cat:'',cli:'',q:'',lim:100,dreMes:''};
@@ -32094,8 +32111,8 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
   window.fxFiltro=(k,v)=>{S[k]=v;S.lim=100;renderFinancas();if(k==='q'){const i=document.getElementById('fx-q');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}}};
 
   function opcoesCat(tipo,sel,todas){
-    const grupos={};PLANO.filter(p=>!tipo||p.tipo===tipo).forEach(p=>{(grupos[(p.tipo==='Receita'&&!p.fora?'Entradas':p.fora?'Fora do resultado ('+(p.tipo==='Receita'?'entradas':'saídas')+')':p.grupo)]=grupos[(p.tipo==='Receita'&&!p.fora?'Entradas':p.fora?'Fora do resultado ('+(p.tipo==='Receita'?'entradas':'saídas')+')':p.grupo)]||[]).push(p.cat)});
-    return (todas?`<option value="">Todas as categorias</option>`:'')+Object.entries(grupos).map(([g,cs])=>`<optgroup label="${E(g)}">${cs.map(c=>`<option ${c===sel?'selected':''}>${E(c)}</option>`).join('')}</optgroup>`).join('');
+    const grupos={};plano().filter(p=>!tipo||p.tipo===tipo).forEach(p=>{(grupos[(p.tipo==='Receita'&&!p.fora?'Entradas':p.fora?'Fora do resultado ('+(p.tipo==='Receita'?'entradas':'saídas')+')':p.grupo)]=grupos[(p.tipo==='Receita'&&!p.fora?'Entradas':p.fora?'Fora do resultado ('+(p.tipo==='Receita'?'entradas':'saídas')+')':p.grupo)]||[]).push(p.cat)});
+    return (todas?`<option value="">Todas as categorias</option>`:'')+Object.entries(grupos).map(([g,cs])=>`<optgroup label="${E(g)}">${cs.map(c=>`<option ${c===sel?'selected':''}>${E(c)}</option>`).join('')}</optgroup>`).join('')+(!todas&&pode('create')?`<optgroup label="Suas categorias"><option value="__nova__">+ Criar categoria…</option>${minhasCats().filter(c=>!tipo||c.tipo===tipo).length?'<option value="__gerir__">Gerenciar categorias criadas…</option>':''}</optgroup>`:'');
   }
   function filtrados(){
     const q=norm(S.q);
@@ -32178,15 +32195,15 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     const col=(f,cls,cat)=>Array.from({length:12},(_,i)=>{const v=f(M[i]);return `<td class="${cls||''} ${cat?'cel':''}" ${cat?`onclick="fxIr('${E(cat)}','${String(i+1).padStart(2,'0')}')"`:''}>${v?R0(v):'<span style="color:var(--pl-li)">—</span>'}</td>`}).join('')+`<td style="font-weight:800">${R0(soma(f))}</td>`;
     const usadas=new Set();for(let i=0;i<12;i++)Object.keys(M[i].cats).forEach(c=>usadas.add(c));
     const linhaCat=c=>`<tr class="sub"><td>${E(c)}</td>${col(m=>m.cats[c]||0,'',c)}</tr>`;
-    const recCats=PLANO.filter(p=>p.tipo==='Receita'&&!p.fora&&usadas.has(p.cat)).map(p=>p.cat);
+    const recCats=plano().filter(p=>p.tipo==='Receita'&&!p.fora&&usadas.has(p.cat)).map(p=>p.cat);
     let html=`<tr class="grp"><td colspan="14">Entradas</td></tr>${recCats.map(linhaCat).join('')}<tr class="res"><td>Total de entradas</td>${col(m=>m.rec,'fx-in')}</tr>
       <tr class="grp"><td colspan="14">Saídas</td></tr>`;
-    GRUPOS_DESP.forEach(g=>{const cs=PLANO.filter(p=>p.grupo===g&&usadas.has(p.cat)).map(p=>p.cat);if(!cs.length)return;
+    GRUPOS_DESP.forEach(g=>{const cs=plano().filter(p=>p.grupo===g&&usadas.has(p.cat)).map(p=>p.cat);if(!cs.length)return;
       html+=`<tr><td style="font-weight:700">${E(g)}</td>${col(m=>cs.reduce((a,c)=>a+(m.cats[c]||0),0))}</tr>${cs.map(linhaCat).join('')}`});
     html+=`<tr class="res"><td>Total de saídas</td>${col(m=>m.desp,'fx-out')}</tr>
       <tr class="res"><td>Resultado operacional</td>${Array.from({length:12},(_,i)=>{const v=M[i].rec-M[i].desp;return `<td class="${v<0?'neg':'real'}">${M[i].rec||M[i].desp?R0(v):'—'}</td>`}).join('')}<td style="font-weight:800">${R0(soma(m=>m.rec-m.desp))}</td></tr>
       <tr><td class="pc">Margem</td>${Array.from({length:12},(_,i)=>`<td class="pc">${M[i].rec?P((M[i].rec-M[i].desp)/M[i].rec):'—'}</td>`).join('')}<td class="pc">${soma(m=>m.rec)?P(soma(m=>m.rec-m.desp)/soma(m=>m.rec)):'—'}</td></tr>`;
-    const foraCats=PLANO.filter(p=>p.fora&&usadas.has(p.cat));
+    const foraCats=plano().filter(p=>p.fora&&usadas.has(p.cat));
     if(foraCats.length){html+=`<tr class="grp"><td colspan="14">Retiradas, reserva e outros movimentos de caixa (não são venda nem custo)</td></tr>${foraCats.map(p=>`<tr class="sub"><td>${p.tipo==='Receita'?'(+) ':'(−) '}${E(p.cat)}</td>${col(m=>m.cats[p.cat]||0,'',p.cat)}</tr>`).join('')}`}
     let acc=0;const saldo=Array.from({length:12},(_,i)=>{const m=M[i];const v=m.rec+m.recFora-m.desp-m.despFora;acc+=v;return {v,acc,tem:m.rec||m.desp||m.recFora||m.despFora}});
     html+=`<tr class="res"><td>Saldo do mês (caixa)</td>${saldo.map(s=>`<td class="${s.v<0?'neg':''}">${s.tem?R0(s.v):'—'}</td>`).join('')}<td style="font-weight:800">${R0(saldo.reduce((a,s)=>a+s.v,0))}</td></tr>
@@ -32198,8 +32215,8 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
   function telaDre(){
     const M=porMes(S.ano),idx=S.dreMes?[+S.dreMes-1]:[...Array(12).keys()];
     const cat=c=>idx.reduce((a,i)=>a+(M[i].cats[c]||0),0);
-    const grupo=g=>PLANO.filter(p=>p.grupo===g&&!p.fora).reduce((a,p)=>a+cat(p.cat),0);
-    const recCats=PLANO.filter(p=>p.tipo==='Receita'&&!p.fora).map(p=>p.cat);
+    const grupo=g=>plano().filter(p=>p.grupo===g&&!p.fora).reduce((a,p)=>a+cat(p.cat),0);
+    const recCats=plano().filter(p=>p.tipo==='Receita'&&!p.fora).map(p=>p.cat);
     const bruta=recCats.reduce((a,c)=>a+cat(c),0);
     const imp=grupo('Impostos e taxas'),liq=bruta-imp;
     const pes=grupo('Pessoal'),est=grupo('Estrutura'),mkt=grupo('Marketing'),fer=grupo('Ferramentas'),ope=grupo('Operacional');
@@ -32207,7 +32224,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     const dist=cat('Distribuição de lucro'),resv=cat('Reserva / investimento');
     const pc=v=>bruta?P(v/bruta):'—';
     const l=(t,v,o={})=>`<tr class="${o.res?'res':''} ${o.sub?'sub':''}"><td>${t}</td><td class="${o.cls||''}">${o.neg&&v?'− ':''}${R(v)}</td><td class="pc">${o.semPc?'':pc(v)}</td></tr>`;
-    const subs=g=>PLANO.filter(p=>p.grupo===g&&!p.fora).map(p=>{const v=cat(p.cat);return v?l(E(p.cat),v,{sub:1,neg:1}):''}).join('');
+    const subs=g=>plano().filter(p=>p.grupo===g&&!p.fora).map(p=>{const v=cat(p.cat);return v?l(E(p.cat),v,{sub:1,neg:1}):''}).join('');
     return `<div class="pl-card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h3>DRE ${S.dreMes?MESES_LONGO[+S.dreMes-1]+' de ':''}${S.ano}</h3><p class="sub">Demonstrativo de resultado: o que a operação gerou, sem contar reserva, retiradas e saldo inicial.</p></div>
       <div class="fx-fil" style="margin:0"><select aria-label="Período" onchange="S_dre(this.value)"><option value="">Ano inteiro</option>${MESES_LONGO.map((m,i)=>{const v=String(i+1).padStart(2,'0');return `<option value="${v}" ${S.dreMes===v?'selected':''}>${m[0].toUpperCase()+m.slice(1)}</option>`}).join('')}</select></div></div>
       <div class="pl-tw" style="max-width:720px"><table class="pl-t"><thead><tr><th>Conta</th><th>Valor</th><th>% receita</th></tr></thead><tbody>
@@ -32276,6 +32293,13 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
       <div class="pl-btns"><button type="button" class="pl-btn" data-x>Cancelar</button><button type="button" class="pl-btn pri" data-ok>${t.id?'Salvar':'Lançar'}</button></div>`);
     let tp=tipo;
     o.querySelectorAll('.fx-tg button').forEach(b=>b.onclick=()=>{tp=b.dataset.t;o.querySelectorAll('.fx-tg button').forEach(x=>x.classList.toggle('on',x===b));const sc=o.querySelector('#fx-cat');sc.innerHTML=opcoesCat(tp,tp==='Receita'?'Mensalidades de clientes':'Outras despesas');try{gxSelectAtualiza(sc)}catch(e){}});
+    const scat=o.querySelector('#fx-cat');let catAnterior=scat.value;
+    scat.addEventListener('change',()=>{
+      const v=scat.value;if(v!=='__nova__'&&v!=='__gerir__'){catAnterior=v;return}
+      scat.value=catAnterior;try{gxSelectAtualiza(scat)}catch(e){}
+      if(v==='__nova__')novaCategoria(tp,nome=>{scat.innerHTML=opcoesCat(tp,nome);scat.value=nome;catAnterior=nome;try{gxSelectAtualiza(scat)}catch(e){}});
+      else gerirCategorias(tp,()=>{const atual=catAnterior;scat.innerHTML=opcoesCat(tp,atual);try{gxSelectAtualiza(scat)}catch(e){}});
+    });
     try{gxMelhorarSelects(o);gxData(o.querySelector('#fx-data'));gxCombo(o.querySelector('#fx-cli'),()=>cs.map(c=>({valor:c.id,texto:c.nome,sub:c.status&&c.status!=='Ativo'?c.status:''})),{vazio:'Cliente não cadastrado: o nome digitado fica no lançamento.'})}catch(e){console.warn(e)}
     const vi=o.querySelector('#fx-valor');vi.addEventListener('blur',()=>{const n=typeof gxParseBRL==='function'?gxParseBRL(vi.value):parseFloat(vi.value.replace(/\./g,'').replace(',','.'));if(n)vi.value=R(n)});
     o.querySelector('[data-x]').onclick=fecharMd;
@@ -32291,6 +32315,48 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
       fecharMd();if(String(data).slice(0,4)!==String(S.ano))S.ano=+String(data).slice(0,4);renderFinancas();avisa(t.id?'Lançamento atualizado ✓':(tp==='Receita'?'Entrada lançada ✓':'Saída lançada ✓'));
     };
     setTimeout(()=>o.querySelector(t.id?'#fx-desc':'#fx-valor')?.focus(),40);
+  }
+  // ── criar / gerenciar categorias (janela por cima do lançamento) ──
+  function md2(html){const o=document.createElement('div');o.className='fx-ov';o.style.zIndex='99993';o.innerHTML=`<div class="fx-md pl" role="dialog" aria-modal="true" style="max-width:440px">${html}</div>`;document.body.appendChild(o);
+    const esc=e=>{if(e.key==='Escape'&&!document.querySelector('.gxs-pop')){e.preventDefault();e.stopImmediatePropagation();fechar()}};
+    const fechar=()=>{o.remove();document.removeEventListener('keydown',esc,true)};document.addEventListener('keydown',esc,true);
+    o.addEventListener('mousedown',e=>{if(e.target===o)fechar()});return {o,fechar}}
+  function novaCategoria(tipo,cb){
+    const grupos=tipo==='Receita'?['Receitas']:GRUPOS_DESP;
+    const {o,fechar}=md2(`<h3>Nova categoria de ${tipo==='Receita'?'entrada':'saída'}</h3><p class="sub">Fica disponível para todos os lançamentos da empresa.</p>
+      <div class="fx-grid"><div class="pl-f full"><label for="fx-nc-nome">Nome</label><input id="fx-nc-nome" maxlength="60" placeholder="${tipo==='Receita'?'Ex.: Consultorias':'Ex.: Contabilidade'}"></div>
+      ${tipo==='Receita'?'':`<div class="pl-f full"><label for="fx-nc-grupo">Grupo no DRE</label><select id="fx-nc-grupo">${grupos.map(g=>`<option ${g==='Operacional'?'selected':''}>${E(g)}</option>`).join('')}</select></div>`}
+      <label class="pl-f full" style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-size:13px"><input type="checkbox" id="fx-nc-fora" style="width:18px;height:18px;margin-top:1px;accent-color:var(--g-p,#7C3AED)"><span><b style="display:block">Não entra no resultado</b><span style="color:var(--g-mu);font-size:12px">${tipo==='Receita'?'Dinheiro que entra mas não é venda (ex.: empréstimo, aporte).':'Dinheiro que sai mas não é custo (ex.: retirada, aplicação).'}</span></span></label></div>
+      <div class="pl-btns"><button type="button" class="pl-btn" data-x>Cancelar</button><button type="button" class="pl-btn pri" data-ok>Criar categoria</button></div>`);
+    try{gxMelhorarSelects(o)}catch(e){}
+    const fora=o.querySelector('#fx-nc-fora'),gsel=o.querySelector('#fx-nc-grupo');
+    fora.onchange=()=>{const b=gsel&&gsel.nextElementSibling;if(b)b.style.opacity=fora.checked?.45:1;if(b)b.disabled=fora.checked};
+    o.querySelector('[data-x]').onclick=fechar;
+    const criar=()=>{
+      const nome=o.querySelector('#fx-nc-nome').value.trim().replace(/\s+/g,' ');
+      if(!nome){avisa('Dê um nome para a categoria','#EF4444');return}
+      if(plano().some(p=>norm(p.cat)===norm(nome))){avisa('Já existe uma categoria com esse nome','#F59E0B');return}
+      planoReset();DB.push(CAT_COL,{id:uidF(),cat:nome,tipo,grupo:fora.checked?'Fora do resultado':(gsel?gsel.value:'Receitas'),fora:fora.checked});
+      fechar();avisa('Categoria criada ✓');cb&&cb(nome);
+    };
+    o.querySelector('[data-ok]').onclick=criar;o.querySelector('#fx-nc-nome').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();criar()}});
+    setTimeout(()=>o.querySelector('#fx-nc-nome').focus(),30);
+  }
+  function gerirCategorias(tipo,cb){
+    const desenhar=()=>{
+      const cs=minhasCats().filter(c=>!tipo||c.tipo===tipo);
+      const uso=c=>(DB.get('transacoes')||[]).filter(t=>t&&t.cat===c.cat).length;
+      return cs.length?cs.map(c=>`<div class="fx-it" style="padding:10px 0"><em style="display:block">${E(c.cat)}<small style="display:block;font-weight:400;color:var(--g-mu);font-size:11.5px">${E(c.fora?'Não entra no resultado':c.grupo)} · ${uso(c)} lançamento(s)</small></em><button type="button" class="fx-ib del" aria-label="Excluir ${E(c.cat)}" data-del="${E(c.id)}">${IC.lixo}</button></div>`).join(''):'<p class="sub">Nenhuma categoria criada.</p>';
+    };
+    const {o,fechar}=md2(`<h3>Categorias criadas</h3><p class="sub">As categorias padrão do GexFlow não podem ser excluídas.</p><div id="fx-gc">${desenhar()}</div><div class="pl-btns"><button type="button" class="pl-btn pri" data-x>Pronto</button></div>`);
+    o.querySelector('[data-x]').onclick=()=>{fechar();cb&&cb()};
+    o.querySelector('#fx-gc').addEventListener('click',async e=>{const b=e.target.closest('[data-del]');if(!b)return;
+      const c=minhasCats().find(x=>String(x.id)===b.dataset.del);if(!c)return;
+      const n=(DB.get('transacoes')||[]).filter(t=>t&&t.cat===c.cat).length;
+      if(!await gxConfirm({title:'Excluir categoria',message:`"${c.cat}" sai da lista.${n?` Os ${n} lançamento(s) com ela passam para "${c.tipo==='Receita'?'Outras receitas':'Outras despesas'}".`:''}`,okText:'Excluir',perigo:true}))return;
+      if(n){const nova=c.tipo==='Receita'?'Outras receitas':'Outras despesas';DB.set('transacoes',(DB.get('transacoes')||[]).map(t=>t&&t.cat===c.cat?{...t,cat:nova}:t))}
+      DB.remove(CAT_COL,c.id);planoReset();o.querySelector('#fx-gc').innerHTML=desenhar();avisa('Categoria excluída','#6B7280');
+    });
   }
   window.fxNovo=tipo=>form({tipo});
   window.fxEditar=id=>{const t=(DB.get('transacoes')||[]).find(x=>String(x.id)===String(id));if(t)form(t)};
@@ -32399,7 +32465,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     const atuais=DB.get('transacoes')||[];const porChave=new Map(atuais.filter(t=>t.chave).map(t=>[chaveCurta(t.chave),t]));
     const novos=linhas.filter(l=>!porChave.has(l.chave)),atualiza=linhas.filter(l=>{const t=porChave.get(l.chave);return t&&l.chave.startsWith('taxas|')&&Math.abs(valorNum(t)-l.valor)>.009});
     const resumo={};linhas.forEach(l=>{const k=l.cat;resumo[k]=resumo[k]||{tipo:l.tipo,n:0,v:0};resumo[k].n+=(l.qtd||1);resumo[k].v+=l.valor});
-    const ordem=PLANO.map(p=>p.cat).filter(c=>resumo[c]);
+    const ordem=plano().map(p=>p.cat).filter(c=>resumo[c]);
     const rec=linhas.filter(l=>l.tipo==='Receita'&&!info(l.cat,'Receita').fora).reduce((a,l)=>a+l.valor,0),desp=linhas.filter(l=>l.tipo==='Despesa'&&!info(l.cat,'Despesa').fora).reduce((a,l)=>a+l.valor,0);
     const semCli=linhas.filter(l=>l.cat==='Mensalidades de clientes'&&!l.clienteId).length,comCli=linhas.filter(l=>l.clienteId).length;
     o.querySelector('#fx-drop').style.display='none';
@@ -32442,23 +32508,23 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     const M=porMes(S.ano),usadas=new Set();Object.values(M).forEach(m=>Object.keys(m.cats).forEach(c=>usadas.add(c)));
     const linha=(t,f)=>{const vs=Array.from({length:12},(_,i)=>f(M[i]));return [t,...vs,vs.reduce((a,b)=>a+b,0)]};
     const fl=[['Categoria',...MESES_LONGO.map(m=>m[0].toUpperCase()+m.slice(1)),'Total']];
-    fl.push(['ENTRADAS']);PLANO.filter(p=>p.tipo==='Receita'&&!p.fora&&usadas.has(p.cat)).forEach(p=>fl.push(linha('  '+p.cat,m=>m.cats[p.cat]||0)));fl.push(linha('Total de entradas',m=>m.rec));
-    fl.push([]);fl.push(['SAÍDAS']);GRUPOS_DESP.forEach(g=>{const cs=PLANO.filter(p=>p.grupo===g&&usadas.has(p.cat));if(!cs.length)return;fl.push(linha(g,m=>cs.reduce((a,p)=>a+(m.cats[p.cat]||0),0)));cs.forEach(p=>fl.push(linha('  '+p.cat,m=>m.cats[p.cat]||0)))});
+    fl.push(['ENTRADAS']);plano().filter(p=>p.tipo==='Receita'&&!p.fora&&usadas.has(p.cat)).forEach(p=>fl.push(linha('  '+p.cat,m=>m.cats[p.cat]||0)));fl.push(linha('Total de entradas',m=>m.rec));
+    fl.push([]);fl.push(['SAÍDAS']);GRUPOS_DESP.forEach(g=>{const cs=plano().filter(p=>p.grupo===g&&usadas.has(p.cat));if(!cs.length)return;fl.push(linha(g,m=>cs.reduce((a,p)=>a+(m.cats[p.cat]||0),0)));cs.forEach(p=>fl.push(linha('  '+p.cat,m=>m.cats[p.cat]||0)))});
     fl.push(linha('Total de saídas',m=>m.desp));fl.push([]);fl.push(linha('RESULTADO DA OPERAÇÃO',m=>m.rec-m.desp));
-    const fora=PLANO.filter(p=>p.fora&&usadas.has(p.cat));if(fora.length){fl.push([]);fl.push(['RETIRADAS, RESERVA E OUTROS MOVIMENTOS DE CAIXA']);fora.forEach(p=>fl.push(linha((p.tipo==='Receita'?'  (+) ':'  (−) ')+p.cat,m=>m.cats[p.cat]||0)))}
+    const fora=plano().filter(p=>p.fora&&usadas.has(p.cat));if(fora.length){fl.push([]);fl.push(['RETIRADAS, RESERVA E OUTROS MOVIMENTOS DE CAIXA']);fora.forEach(p=>fl.push(linha((p.tipo==='Receita'?'  (+) ':'  (−) ')+p.cat,m=>m.cats[p.cat]||0)))}
     fl.push([]);fl.push(linha('SALDO DO MÊS (caixa)',m=>m.rec+m.recFora-m.desp-m.despFora));
     let acc=0;fl.push(['SALDO ACUMULADO',...Array.from({length:12},(_,i)=>{const m=M[i];acc+=m.rec+m.recFora-m.desp-m.despFora;return acc}),acc]);
     XLSX.utils.book_append_sheet(wb,folha(fl,[34,...Array(12).fill(13),15]),'Fluxo mensal');
     // 3) DRE (mês a mês + ano)
-    const cat=(i,c)=>M[i].cats[c]||0,grp=(i,g)=>PLANO.filter(p=>p.grupo===g&&!p.fora).reduce((a,p)=>a+cat(i,p.cat),0);
-    const recCats=PLANO.filter(p=>p.tipo==='Receita'&&!p.fora).map(p=>p.cat);
+    const cat=(i,c)=>M[i].cats[c]||0,grp=(i,g)=>plano().filter(p=>p.grupo===g&&!p.fora).reduce((a,p)=>a+cat(i,p.cat),0);
+    const recCats=plano().filter(p=>p.tipo==='Receita'&&!p.fora).map(p=>p.cat);
     const calc=i=>{const bruta=recCats.reduce((a,c)=>a+cat(i,c),0),imp=grp(i,'Impostos e taxas'),liq=bruta-imp,res=liq-grp(i,'Pessoal')-grp(i,'Estrutura')-grp(i,'Marketing')-grp(i,'Ferramentas')-grp(i,'Operacional');return {bruta,imp,liq,res}};
     const dl=(t,f)=>{const vs=Array.from({length:12},(_,i)=>f(i));return [t,...vs,vs.reduce((a,b)=>a+b,0)]};
     const dre=[['Conta',...MESES_LONGO.map(m=>m[0].toUpperCase()+m.slice(1)),'Ano']];
     dre.push(dl('Receita bruta',i=>calc(i).bruta));recCats.forEach(c=>dre.push(dl('  '+c,i=>cat(i,c))));
-    dre.push(dl('(−) Impostos e taxas',i=>-calc(i).imp));PLANO.filter(p=>p.grupo==='Impostos e taxas').forEach(p=>dre.push(dl('  '+p.cat,i=>-cat(i,p.cat))));
+    dre.push(dl('(−) Impostos e taxas',i=>-calc(i).imp));plano().filter(p=>p.grupo==='Impostos e taxas').forEach(p=>dre.push(dl('  '+p.cat,i=>-cat(i,p.cat))));
     dre.push(dl('Receita líquida',i=>calc(i).liq));
-    ['Pessoal','Estrutura','Marketing','Ferramentas','Operacional'].forEach(g=>{dre.push(dl('(−) '+g,i=>-grp(i,g)));PLANO.filter(p=>p.grupo===g).forEach(p=>dre.push(dl('  '+p.cat,i=>-cat(i,p.cat))))});
+    ['Pessoal','Estrutura','Marketing','Ferramentas','Operacional'].forEach(g=>{dre.push(dl('(−) '+g,i=>-grp(i,g)));plano().filter(p=>p.grupo===g).forEach(p=>dre.push(dl('  '+p.cat,i=>-cat(i,p.cat))))});
     dre.push(dl('RESULTADO DA OPERAÇÃO',i=>calc(i).res));
     const mg=['Margem',...Array.from({length:12},(_,i)=>{const c=calc(i);return c.bruta?c.res/c.bruta:0})];{const b=Array.from({length:12},(_,i)=>calc(i)).reduce((a,c)=>[a[0]+c.bruta,a[1]+c.res],[0,0]);mg.push(b[0]?b[1]/b[0]:0)}dre.push(mg);
     dre.push(dl('(−) Distribuição de lucro',i=>-cat(i,'Distribuição de lucro')));dre.push(dl('(−) Reserva / investimento',i=>-cat(i,'Reserva / investimento')));
