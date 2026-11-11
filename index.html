@@ -2323,6 +2323,9 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
       <div class="nav-sub" data-sub="financas" onclick="navigateSub('financas','financas')">
         <span class="nav-sub-ico">·</span>Controle financeiro
       </div>
+      <div class="nav-sub" data-sub="planejamento" style="display:none" onclick="navigateSub('planejamento','financas')">
+        <span class="nav-sub-ico">·</span>Planejamento do negócio
+      </div>
       <div class="nav-sub" data-sub="espelho-banco" style="display:none" onclick="navigateSub('espelho-banco','financas')">
         <span class="nav-sub-ico">·</span>Espelho do banco
       </div>
@@ -2643,6 +2646,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
 
   <!-- FINANÇAS -->
   <div class="page" id="page-espelho-banco"></div>
+  <div class="page" id="page-planejamento"></div>
   <div class="page" id="page-financas">
     <div class="page-header">
       <div><div class="page-title">Finanças</div><div class="page-sub">Controle financeiro da agência</div></div>
@@ -4308,7 +4312,7 @@ const GEX_DB_COLLECTIONS = [
   'tracking_links','integration_events','integration_connections','manual_trackings','tracking_events',
   'conversion_settings','conversion_events','lead_forms','lead_form_submissions','leadgen_settings',
   'whatsapp_widgets','automacoes','automacao_tasks','automacao_log','email_smtp_settings','zapi_settings',
-  'op_listas','op_tarefas','op_acessos','notificacoes','op_automacoes','metas','metas_regras','roleta_leads','metas_anuais','docs'
+  'op_listas','op_tarefas','op_acessos','notificacoes','op_automacoes','metas','metas_regras','roleta_leads','metas_anuais','docs','planejamento'
 ];
 const GEX_KV_EXCLUDED = new Set([
   // gx2_usuarios: mesmo "usuarios" já sendo excluído da sincronização por
@@ -5465,7 +5469,7 @@ function applyNavPermissions(){
     setVisible(group.hdr,any);
     setVisible(group.wrap,any);
   });
-  try{const _eb=gxEspelhoAllowed();const _el=document.querySelector('[data-sub="espelho-banco"]');if(_el)_el.style.display=_eb?'':'none';if(_eb){setVisible('#grp-hdr-financas',true);setVisible('#grp-wrap-financas',true)}}catch(e){}
+  try{const _eb=gxEspelhoAllowed();const _el=document.querySelector('[data-sub="espelho-banco"]');if(_el)_el.style.display=_eb?'':'none';const _pl=document.querySelector('[data-sub="planejamento"]');if(_pl)_pl.style.display=_eb?'':'none';if(_eb){setVisible('#grp-hdr-financas',true);setVisible('#grp-wrap-financas',true)}}catch(e){}
 
   // Se a página ativa ficou escondida, leva para a primeira área permitida.
   const activeNav=document.querySelector('.nav-item.active:not([style*="display: none"]), .nav-sub.active:not([style*="display: none"])');
@@ -5580,7 +5584,7 @@ function navigateSub(sub,grp){
     clientes:'clientes',churn:'churn',contratos:'contratos',
     onboarding:'projetos',entregas:'projetos',tarefas:'projetos',
     agenda:'projetos',aprovacao:'projetos',esquemas:'projetos',creators:'projetos',
-    comercial:'comercial',financas:'financas','espelho-banco':'espelho-banco',
+    comercial:'comercial',financas:'financas','espelho-banco':'espelho-banco',planejamento:'planejamento',
     'gerar-leads-whatsapp':'gerar-leads','gerar-leads-formularios':'gerar-leads','gerar-leads-meta':'gerar-leads','gerar-leads-api':'gerar-leads',
     'config-integracoes':'integracoes','config-webhook-api':'configuracoes','config-pagamentos':'configuracoes','config-empresa':'configuracoes','config-usuarios':'usuarios','config-seguranca':'configuracoes','config-preferencias':'configuracoes'
   };
@@ -5632,13 +5636,13 @@ function navigateSub(sub,grp){
     };
     checkMod=cfgPermMap[sub]||'config_integracoes';
   }
-  if(sub==='espelho-banco'?!gxEspelhoAllowed():!can(checkMod,'view')){
+  if((sub==='espelho-banco'||sub==='planejamento')?!gxEspelhoAllowed():!can(checkMod,'view')){
     const pageEl=document.getElementById('page-'+page);
     if(pageEl){
       const names={clientes:'Clientes',churn:'Análise de Churn',contratos:'Contratos',
         onboarding:'Onboarding',entregas:'Entregas',tarefas:'Tarefas',agenda:'Agenda',
         aprovacao:'Aprovação de Conteúdo',esquemas:'Esquemas',creators:'Creators',
-        comercial:'Comercial',financas:'Finanças','espelho-banco':'Espelho do banco','config-integracoes':'Integrações','config-webhook-api':'Webhook & API','config-pagamentos':'Pagamentos','config-empresa':'Dados da Empresa','config-usuarios':'Gestão de Usuários','config-seguranca':'Segurança','config-preferencias':'Preferências'};
+        comercial:'Comercial',financas:'Finanças','espelho-banco':'Espelho do banco',planejamento:'Planejamento do negócio','config-integracoes':'Integrações','config-webhook-api':'Webhook & API','config-pagamentos':'Pagamentos','config-empresa':'Dados da Empresa','config-usuarios':'Gestão de Usuários','config-seguranca':'Segurança','config-preferencias':'Preferências'};
       showAccessDenied(pageEl,names[sub]||sub);
     }
     return;
@@ -5653,7 +5657,7 @@ function navigateSub(sub,grp){
     renderConfiguracoes(sub);
   } else {
     ({clientes:renderClientes,churn:renderChurn,contratos:renderContratos,
-      comercial:renderComercial,'gerar-leads':renderGerarLeads,financas:renderFinancas,'espelho-banco':renderEspelhoBanco,usuarios:renderUsuarios,integracoes:renderIntegracoes})[page]?.();
+      comercial:renderComercial,'gerar-leads':renderGerarLeads,financas:renderFinancas,'espelho-banco':renderEspelhoBanco,planejamento:()=>window.renderPlanejamento&&window.renderPlanejamento(),usuarios:renderUsuarios,integracoes:renderIntegracoes})[page]?.();
   }
 }
 
@@ -31424,5 +31428,430 @@ html body .op-ov .op-main{min-height:0}
 .op-sq.sq-antes{box-shadow:inset 0 2px 0 var(--p2,#7C3AED)}
 .op-sq.sq-depois{box-shadow:inset 0 -2px 0 var(--p2,#7C3AED)}
 </style>
+<style id="gx-plan-v1">
+/* ═══ PLANEJAMENTO DO NEGÓCIO (Finanças) — 11/11/2026 ═══ */
+.pl{--pl-card:var(--g-card,#fff);--pl-line:var(--g-line,#E9E9F0);--pl-soft:var(--g-soft,#FAFAFC);--pl-tx:var(--g-tx,#17171F);--pl-mu:var(--g-mu,#6A6A7C);--pl-li:var(--g-li,#9A9AAC);--pl-p:var(--g-p,#7C3AED);--pl-ps:var(--g-p-soft,#F3EEFF);
+  --pl-ok:#0F7A43;--pl-okbg:#E8F7EF;--pl-wa:#9A5B05;--pl-wabg:#FEF3DC;--pl-er:#B42318;--pl-erbg:#FDEBEA;--pl-real:#10B981;color:var(--pl-tx)}
+html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-wabg:rgba(245,158,11,.14);--pl-wa:#FBBF24;--pl-erbg:rgba(239,68,68,.14);--pl-er:#F87171}
+.pl-h{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.pl-h h1{font-size:24px;font-weight:800;letter-spacing:-.02em;margin:0}
+.pl-h p{margin:4px 0 0;font-size:13px;color:var(--pl-mu)}
+.pl-ano{display:flex;align-items:center;gap:6px}
+.pl-ano button{width:32px;height:32px;border-radius:9px;border:1px solid var(--pl-line);background:var(--pl-card);color:var(--pl-tx);cursor:pointer;font-size:15px}
+.pl-ano b{font-size:15px;min-width:52px;text-align:center;font-variant-numeric:tabular-nums}
+.pl-tabs{display:flex;gap:4px;border-bottom:1px solid var(--pl-line);margin-bottom:18px;overflow-x:auto}
+.pl-tabs button{border:none;background:none;padding:10px 14px;font:inherit;font-size:13px;font-weight:600;color:var(--pl-mu);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.pl-tabs button.on{color:var(--pl-p);border-bottom-color:var(--pl-p)}
+.pl-tabs button:hover{color:var(--pl-tx)}
+.pl-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:14px}
+.pl-k{background:var(--pl-card);border:1px solid var(--pl-line);border-radius:14px;padding:14px 16px;min-width:0}
+.pl-k span{display:block;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--pl-mu)}
+.pl-k b{display:block;font-size:22px;font-weight:800;letter-spacing:-.02em;margin-top:6px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pl-k small{display:block;font-size:11.5px;color:var(--pl-mu);margin-top:3px}
+.pl-k.dest{background:var(--pl-ps);border-color:rgba(124,58,237,.25)}
+.pl-k.dest b{color:var(--pl-p)}
+.pl-card{background:var(--pl-card);border:1px solid var(--pl-line);border-radius:14px;padding:16px 18px;margin-bottom:14px}
+.pl-card h3{margin:0 0 4px;font-size:14.5px;font-weight:700}
+.pl-card .sub{margin:0 0 12px;font-size:12px;color:var(--pl-mu)}
+.pl-alert{display:flex;gap:12px;align-items:flex-start;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:13px;line-height:1.5}
+.pl-alert.ok{background:var(--pl-okbg);color:var(--pl-ok)}
+.pl-alert.wa{background:var(--pl-wabg);color:var(--pl-wa)}
+.pl-alert b{display:block;font-size:13.5px}
+.pl-taxas{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.pl-tx{border:1px solid var(--pl-line);border-radius:11px;padding:10px 12px}
+.pl-tx span{font-size:11.5px;color:var(--pl-mu)}
+.pl-tx b{display:block;font-size:18px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums}
+.pl-tx em{display:inline-block;font-style:normal;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:999px;margin-top:4px}
+.pl-tx em.ok{background:var(--pl-okbg);color:var(--pl-ok)}
+.pl-tx em.er{background:var(--pl-erbg);color:var(--pl-er)}
+.pl-chart{width:100%;overflow-x:auto}
+.pl-chart svg{display:block;min-width:640px;width:100%;height:auto}
+.pl-leg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--pl-mu);margin-top:6px}
+.pl-leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.pl-tw{overflow-x:auto;border:1px solid var(--pl-line);border-radius:12px}
+.pl-t{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}
+.pl-t th,.pl-t td{padding:8px 10px;border-bottom:1px solid var(--pl-line);text-align:right;white-space:nowrap}
+.pl-t th{font-size:11px;font-weight:700;color:var(--pl-mu);background:var(--pl-soft);position:sticky;top:0}
+.pl-t td:first-child,.pl-t th:first-child{text-align:left;position:sticky;left:0;background:var(--pl-card);z-index:1;font-weight:600;color:var(--pl-tx)}
+.pl-t th:first-child{background:var(--pl-soft)}
+.pl-t tr.grp td{background:var(--pl-soft);font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--pl-mu);text-align:left}
+.pl-t tr.grp td:first-child{background:var(--pl-soft);color:var(--pl-mu)}
+.pl-t tr.tot td{font-weight:800}
+.pl-t td.real{color:var(--pl-ok)}
+.pl-t td.neg{color:var(--pl-er)}
+.pl-t td.mut{color:var(--pl-li)}
+.pl-t th.atual,.pl-t td.atual{box-shadow:inset 2px 0 0 var(--pl-p),inset -2px 0 0 var(--pl-p)}
+.pl-t td.ed{cursor:pointer;position:relative}
+.pl-t td.ed:hover{background:var(--pl-ps)}
+.pl-t td.man:after{content:"";position:absolute;top:6px;right:4px;width:6px;height:6px;border-radius:50%;background:#F59E0B}
+.pl-nota{font-size:11.5px;color:var(--pl-mu);margin-top:8px;line-height:1.5}
+.pl-nota i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#F59E0B;margin:0 4px 1px 0}
+.pl-form{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.pl-f label{display:block;font-size:12px;font-weight:600;margin-bottom:5px}
+.pl-f input,.pl-f select{width:100%;height:38px;border:1px solid var(--pl-line);border-radius:10px;padding:0 11px;font:inherit;font-size:13.5px;background:var(--pl-card);color:var(--pl-tx);font-variant-numeric:tabular-nums}
+.pl-f input:focus,.pl-f select:focus{outline:none;border-color:var(--pl-p);box-shadow:0 0 0 3px rgba(124,58,237,.15)}
+.pl-f small{display:block;font-size:11px;color:var(--pl-mu);margin-top:4px;line-height:1.4}
+.pl-f .suf{position:relative}
+.pl-f .suf input{padding-right:34px}
+.pl-f .suf span{position:absolute;right:11px;top:50%;transform:translateY(-50%);font-size:12px;color:var(--pl-mu)}
+.pl-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+.pl-btn{height:36px;padding:0 14px;border-radius:10px;border:1px solid var(--pl-line);background:var(--pl-card);color:var(--pl-tx);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.pl-btn:hover{border-color:var(--pl-p);color:var(--pl-p)}
+.pl-btn.pri{background:var(--pl-p);border-color:var(--pl-p);color:#fff}
+.pl-btn.pri:hover{filter:brightness(1.08);color:#fff}
+.pl-mes{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px}
+.pl-fmap{display:grid;grid-template-columns:minmax(160px,1.3fr) repeat(3,minmax(140px,1fr));gap:8px;align-items:center;font-size:12.5px}
+.pl-fmap .hd{font-size:11px;font-weight:700;color:var(--pl-mu);text-transform:uppercase;letter-spacing:.04em}
+.pl-fmap select{height:34px;border:1px solid var(--pl-line);border-radius:9px;padding:0 8px;font:inherit;font-size:12.5px;background:var(--pl-card);color:var(--pl-tx);width:100%}
+.pl-chk{display:flex;align-items:center;gap:8px;font-weight:600}
+.pl-pill{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--pl-soft);color:var(--pl-mu)}
+.pl-pill.ok{background:var(--pl-okbg);color:var(--pl-ok)}
+.pl-pill.er{background:var(--pl-erbg);color:var(--pl-er)}
+.pl-pill.wa{background:var(--pl-wabg);color:var(--pl-wa)}
+.pl-in-mini{width:86px;height:30px;border:1px solid var(--pl-line);border-radius:8px;padding:0 8px;font:inherit;font-size:12.5px;text-align:right;background:var(--pl-card);color:var(--pl-tx)}
+@media (max-width:720px){.pl-fmap{grid-template-columns:1fr}.pl-fmap .hd{display:none}.pl-k b{font-size:19px}}
+</style>
+<script id="gx-plan-js">
+(function(){
+  'use strict';
+  const COL='planejamento';
+  const MESES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const E=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const R=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0});
+  const R2=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const N=v=>Math.round(Number(v||0)).toLocaleString('pt-BR');
+  const P=(v,d=1)=>(Number(v||0)*100).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d})+'%';
+  const avisa=(m,c)=>{try{toast(m,c||'#10B981')}catch(e){}};
+  const pode=()=>{try{return typeof gxEspelhoAllowed==='function'&&gxEspelhoAllowed()}catch(e){return false}};
+  const hojeMes=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')};
+  const mesDe=v=>{const s=String(v||'');return /^\d{4}-\d{2}/.test(s)?s.slice(0,7):''};
+  const S={ano:new Date().getFullYear(),tab:'painel'};
+
+  // ── premissas (por ano) e configuração geral ──
+  const PADRAO={metaNovos:5,expansao:0.02,despesaFixa:0,imposto:0.06,churnManual:null,mrrBase:null,ticketManual:null,
+    taxasPadrao:{resposta:0.5,agendamento:0.3,comparecimento:0.6,fechamento:0.3,cpl:30},
+    alertas:{resposta:0.8,agendamento:0.35,comparecimento:0.65,fechamento:0.3,churnMax:0.05},vendasAdicionais:{},ajustes:{}};
+  // Valores vindos da planilha Forecast_Comercial_GEX (fev–jul/2026) — só para a Gex Company, na 1ª vez
+  const PLANILHA_2026={metaNovos:5,expansao:0.02,despesaFixa:34952.73,imposto:0.06,vendasAdicionais:{'2026-07':1497},
+    alertas:{resposta:0.8,agendamento:0.35,comparecimento:0.65,fechamento:0.3,churnMax:0.05},
+    ajustes:{'2026-02':{leads:36,respostas:19,agendadas:7,realizadas:10,vendas:6,receita:49070,investimento:515.37},
+      '2026-03':{leads:63,respostas:71,agendadas:30,realizadas:15,vendas:3,receita:34143,investimento:2061.99},
+      '2026-04':{leads:57,respostas:24,agendadas:9,realizadas:5,vendas:2,receita:24164,investimento:2483},
+      '2026-05':{leads:88,respostas:77,agendadas:23,realizadas:13,vendas:3,receita:27843,investimento:3324.5},
+      '2026-06':{leads:60,respostas:43,agendadas:14,realizadas:10,vendas:6,receita:83289,investimento:1379.74},
+      '2026-07':{leads:81,respostas:61,agendadas:10,realizadas:8,vendas:1,receita:7794,investimento:3380.34}}};
+  const reg=id=>(DB.get(COL)||[]).find(x=>String(x.id)===id);
+  function premissas(ano){
+    let r=reg('ano_'+ano);
+    if(!r&&pode()){
+      const ws=(typeof GEX_WORKSPACE_ID!=='undefined'&&GEX_WORKSPACE_ID)||'gex_company';
+      const base=(ws==='gex_company'&&+ano===2026)?PLANILHA_2026:{};
+      r=Object.assign(JSON.parse(JSON.stringify(PADRAO)),JSON.parse(JSON.stringify(base)),{id:'ano_'+ano,ano:+ano,criadoEm:new Date().toISOString()});
+      DB.push(COL,r);
+    }
+    const o=Object.assign(JSON.parse(JSON.stringify(PADRAO)),r||{});
+    o.taxasPadrao=Object.assign({},PADRAO.taxasPadrao,o.taxasPadrao||{});o.alertas=Object.assign({},PADRAO.alertas,o.alertas||{});
+    return o;
+  }
+  const salvarPrem=(ano,patch)=>{premissas(ano);DB.update(COL,'ano_'+ano,patch)};
+  function config(){let c=reg('config');if(!c&&pode()){c={id:'config',funis:null,etapas:{},riscos:{}};DB.push(COL,c)}return Object.assign({funis:null,etapas:{},riscos:{}},c||{})}
+  const salvarCfg=patch=>{config();DB.update(COL,'config',patch)};
+
+  // ── dados do sistema ──
+  function usuarios(){try{return (typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios'))||[]}catch(e){return []}}
+  function funisEmpresa(){
+    const us=usuarios();
+    return (typeof getCommercialFunnels==='function'?getCommercialFunnels():[]).filter(f=>{
+      if(!f||f.isArchived)return false;
+      if(!f.createdBy)return true;
+      const u=us.find(x=>String(x.id)===String(f.createdBy)||String(x.supabaseId||'')===String(f.createdBy));
+      let r='';try{r=resolveRole(u?.permissao||u?.cargo||'')}catch(e){}
+      return r!=='Gex Parceiro'&&r!=='Operador de Funil';
+    });
+  }
+  function funisContados(){const c=config(),all=funisEmpresa();if(Array.isArray(c.funis))return all.filter(f=>c.funis.includes(f.id));return all}
+  const ETAPA_RE={resposta:/respond|respost|conex|contat|qualif|atend|convers|interess/i,agendada:/agend|marcad/i,realizada:/realiz|reuni|apresent|diagn|propost|negoci|call feita|compare/i};
+  function etapasDoFunil(f){
+    const c=config(),m=Object.assign({},(c.etapas||{})[f.id]||{});
+    const st=(f.stages||[]).filter(s=>!s.isLost);
+    ['resposta','agendada','realizada'].forEach(k=>{if(!m[k]||!st.some(s=>s.id===m[k])){const g=st.find(s=>!s.isWon&&ETAPA_RE[k].test(s.name||''));m[k]=g?g.id:''}});
+    return m;
+  }
+  const dataLead=l=>String(l.createdAt||l.criadoEm||l.dataCriacao||l.data||'');
+  const dataGanho=l=>String(l.dataFechamento||l.wonAt||l.closedAt||l.stageChangedAt||l._updatedAt||'');
+  const valorCliente=c=>{let v=null;try{if(c.periodoMeses&&typeof clienteMrrCalc==='function')v=clienteMrrCalc(c.ltv,c.periodoMeses)}catch(e){}
+    if(v==null&&c.mrr){try{v=typeof gxParseBRL==='function'?gxParseBRL(c.mrr):null}catch(e){}}
+    if(v==null){try{v=typeof contratoValorNum==='function'?contratoValorNum(c.ltv):0}catch(e){v=0}}return +v||0};
+
+  // Funil automático por mês: leads, respostas, agendadas, realizadas, vendas, receita, investimento
+  function funilAuto(){
+    const fs=funisContados(),ids=new Set(fs.map(f=>f.id)),porId={};fs.forEach(f=>porId[f.id]=f);
+    const padrao=fs.find(f=>f.isDefault)||fs[0];
+    const out={};const add=(m,k,v=1)=>{if(!m)return;(out[m]=out[m]||{leads:0,respostas:0,agendadas:0,realizadas:0,vendas:0,receita:0,investimento:0})[k]+=v};
+    const mapas={};fs.forEach(f=>{const e=etapasDoFunil(f),idx={};(f.stages||[]).forEach((s,i)=>idx[s.id]=i);mapas[f.id]={e,idx,lost:new Set((f.stages||[]).filter(s=>s.isLost).map(s=>s.id))}});
+    (DB.get('leads')||[]).forEach(l=>{
+      if(!l)return;const fid=l.funnelId||padrao?.id;if(!ids.has(fid))return;
+      add(mesDe(dataLead(l)),'leads');
+      const mp=mapas[fid];const hist=(Array.isArray(l.stageHistory)?l.stageHistory:[]).filter(h=>h&&h.at&&!mp.lost.has(h.s));
+      const ganhou=typeof isWonOpportunity==='function'&&isWonOpportunity(l);
+      ['resposta','agendada','realizada'].forEach(k=>{
+        const alvo=mp.e[k];if(!alvo)return;const ia=mp.idx[alvo];
+        const h=hist.filter(x=>mp.idx[x.s]!=null&&mp.idx[x.s]>=ia).sort((a,b)=>String(a.at).localeCompare(String(b.at)))[0];
+        const d=h?h.at:(ganhou?dataGanho(l):'');
+        if(d)add(mesDe(d),k==='resposta'?'respostas':k==='agendada'?'agendadas':'realizadas');
+      });
+      if(ganhou){const m=mesDe(dataGanho(l));add(m,'vendas');add(m,'receita',typeof getOpportunityValue==='function'?getOpportunityValue(l):0)}
+    });
+    (DB.get('transacoes')||[]).forEach(t=>{if(t&&t.tipo==='Despesa'&&/ads|tr[aá]fego/i.test(String(t.cat||'')))add(mesDe(t.data),'investimento',+t.valor||0)});
+    return out;
+  }
+  const CAMPOS=['leads','respostas','agendadas','realizadas','vendas','receita','investimento'];
+  function funilMes(m,auto,pr){
+    const a=auto[m]||{},aj=(pr.ajustes||{})[m]||{},o={},man={};
+    CAMPOS.forEach(k=>{if(aj[k]!=null&&aj[k]!==''){o[k]=+aj[k];man[k]=true}else o[k]=+(a[k]||0)});
+    o.man=man;return o;
+  }
+  function financeiroReal(){
+    const o={};(DB.get('transacoes')||[]).forEach(t=>{if(!t)return;const m=mesDe(t.data);if(!m)return;o[m]=o[m]||{receita:0,despesa:0,n:0};
+      if(t.tipo==='Receita')o[m].receita+=+t.valor||0;else if(t.tipo==='Despesa')o[m].despesa+=+t.valor||0;o[m].n++});
+    return o;
+  }
+  function baseMrr(){
+    const cs=DB.get('clientes')||[];
+    const ativos=cs.filter(c=>c&&c.status==='Ativo').map(c=>({id:c.id,nome:c.nome||'Cliente',mrr:valorCliente(c),status:c.status}));
+    const saindo=cs.filter(c=>c&&c.status==='Pediu para sair'&&!/^\d{4}-\d{2}-\d{2}/.test(String(c.saidaEm||''))).map(c=>({id:c.id,nome:c.nome||'Cliente',mrr:valorCliente(c),status:c.status}));
+    const saidas=cs.filter(c=>c&&(c.status==='Inativo'||c.status==='Pediu para sair')&&/^\d{4}-\d{2}-\d{2}/.test(String(c.saidaEm||''))).map(c=>({id:c.id,nome:c.nome||'Cliente',mrr:valorCliente(c),saida:String(c.saidaEm).slice(0,10),status:c.status}));
+    const mrr=ativos.reduce((a,c)=>a+c.mrr,0)+saindo.reduce((a,c)=>a+c.mrr,0);
+    const n=ativos.length+saindo.length;
+    return {ativos,saindo,saidas,mrr,n,ticket:n?mrr/n:0};
+  }
+  // churn mensal automático: média dos últimos 6 meses fechados (MRR que saiu ÷ MRR da base no mês)
+  function churnAuto(b){
+    const meses=[];const d=new Date();for(let i=1;i<=6;i++){const x=new Date(d.getFullYear(),d.getMonth()-i,1);meses.push(x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0'))}
+    const taxas=meses.map(m=>{const saiu=b.saidas.filter(c=>c.saida.slice(0,7)===m).reduce((a,c)=>a+c.mrr,0);const depois=b.saidas.filter(c=>c.saida.slice(0,7)>=m).reduce((a,c)=>a+c.mrr,0);const base=b.mrr+depois;return base?saiu/base:0});
+    return {taxa:taxas.reduce((a,x)=>a+x,0)/taxas.length,meses:6,mrrSaiu:b.saidas.filter(c=>meses.includes(c.saida.slice(0,7))).reduce((a,c)=>a+c.mrr,0)};
+  }
+
+  // ── cálculo completo do ano ──
+  function calcular(ano){
+    const pr=premissas(ano),auto=funilAuto(),fin=financeiroReal(),b=baseMrr(),ch=churnAuto(b);
+    const meses=MESES.map((_,i)=>ano+'-'+String(i+1).padStart(2,'0'));
+    const funil=meses.map(m=>funilMes(m,auto,pr));
+    // taxas reais do funil (soma do ano até agora, como na planilha)
+    const tot=CAMPOS.reduce((o,k)=>(o[k]=funil.reduce((a,f)=>a+f[k],0),o),{});
+    const tp=pr.taxasPadrao;
+    const div=(a,b2,pad)=>b2>0&&a>0?a/b2:pad;
+    const tx={resposta:div(tot.respostas,tot.leads,tp.resposta),agendamento:div(tot.agendadas,tot.respostas,tp.agendamento),comparecimento:div(tot.realizadas,tot.agendadas,tp.comparecimento),fechamento:div(tot.vendas,tot.realizadas,tp.fechamento),cpl:div(tot.investimento,tot.leads,tp.cpl)};
+    tx.temDados=tot.leads>0;
+    const churn=pr.churnManual!=null&&pr.churnManual!==''?+pr.churnManual:ch.taxa;
+    const ticket=pr.ticketManual?+pr.ticketManual:b.ticket;
+    const mrrIni=pr.mrrBase?+pr.mrrBase:b.mrr;
+    const conv=tx.resposta*tx.agendamento*tx.comparecimento*tx.fechamento;
+    const leadsNec=conv>0?Math.ceil(pr.metaNovos/conv):0;
+    const linhas=[];let ini=mrrIni;
+    meses.forEach((m,i)=>{
+      const c=ini*churn,ex=ini*pr.expansao,novo=pr.metaNovos*ticket,fim=ini-c+ex+novo;
+      const inv=leadsNec*tx.cpl,desp=pr.despesaFixa+fim*pr.imposto+inv,adic=+((pr.vendasAdicionais||{})[m]||0);
+      const fat=fim+adic,lucro=fat-desp;
+      const r=fin[m]||null,f=funil[i];
+      linhas.push({m,ini,churn:c,exp:ex,novo,fim,adic,fat,clientes:pr.metaNovos,leadsNec,inv,desp,lucro,margem:fat?lucro/fat:0,
+        real:r&&r.n?{fat:r.receita,desp:r.despesa,lucro:r.receita-r.despesa,margem:r.receita?(r.receita-r.despesa)/r.receita:0}:null,funil:f});
+      ini=fim;
+    });
+    const al=pr.alertas,falhas=[];
+    if(tx.temDados){if(tx.resposta<al.resposta)falhas.push('Resposta abaixo do critério');if(tx.agendamento<al.agendamento)falhas.push('Agendamento abaixo do critério');
+      if(tx.comparecimento<al.comparecimento)falhas.push('Comparecimento abaixo do critério');if(tx.fechamento<al.fechamento)falhas.push('Fechamento abaixo do critério')}
+    if(churn>al.churnMax)falhas.push('Churn acima do critério');
+    return {pr,b,ch,churn,ticket,mrrIni,tx,conv,leadsNec,linhas,funil,meses,tot,falhas,cfg:config()};
+  }
+
+  // ── telas ──
+  function pg(){return document.getElementById('page-planejamento')}
+  window.renderPlanejamento=function(){
+    const el=pg();if(!el)return;
+    if(!pode()){el.innerHTML='<div class="pl"><div class="pl-card">Só o Fundador e o Adm Gerente acessam o Planejamento do negócio.</div></div>';return}
+    const C=calcular(S.ano);
+    const tabs=[['painel','Painel'],['forecast','Forecast 12 meses'],['funil','Funil mês a mês'],['base','Base MRR'],['premissas','Premissas']];
+    el.innerHTML=`<div class="pl">
+      <div class="pl-h"><div><h1>Planejamento do negócio</h1><p>Forecast, margem e saúde do funil. Base de clientes, vendas e despesas vêm do próprio GexFlow.</p></div>
+        <div class="pl-ano" aria-label="Ano"><button type="button" aria-label="Ano anterior" onclick="plAno(-1)">‹</button><b>${S.ano}</b><button type="button" aria-label="Próximo ano" onclick="plAno(1)">›</button></div></div>
+      <div class="pl-tabs" role="tablist">${tabs.map(([k,t])=>`<button type="button" role="tab" aria-selected="${S.tab===k}" class="${S.tab===k?'on':''}" onclick="plTab('${k}')">${t}</button>`).join('')}</div>
+      ${({painel,forecast,funil:telaFunil,base:telaBase,premissas:telaPrem})[S.tab](C)}
+    </div>`;
+  };
+  window.plTab=t=>{S.tab=t;renderPlanejamento()};
+  window.plAno=d=>{S.ano+=d;renderPlanejamento()};
+  const mesAtualIdx=ano=>{const h=hojeMes();return h.slice(0,4)===String(ano)?+h.slice(5,7)-1:(String(ano)<h.slice(0,4)?12:-1)};
+
+  function painel(C){
+    const L=C.linhas,dez=L[11],lucroAno=L.reduce((a,l)=>a+l.lucro,0),fatAno=L.reduce((a,l)=>a+l.fat,0);
+    const realFat=L.reduce((a,l)=>a+(l.real?l.real.fat:0),0),realLucro=L.reduce((a,l)=>a+(l.real?l.real.lucro:0),0);
+    const cresc=C.mrrIni?(dez.fim-C.mrrIni)/C.mrrIni:0;
+    const k=(t,v,s,d)=>`<div class="pl-k${d?' dest':''}"><span>${t}</span><b>${v}</b>${s?`<small>${s}</small>`:''}</div>`;
+    const al=C.pr.alertas;
+    const taxa=(t,v,min,inv)=>{const ok=inv?v<=min:v>=min;return `<div class="pl-tx"><span>${t}</span><b>${P(v)}</b><em class="${ok?'ok':'er'}">${inv?'máx':'mín'} ${P(min,0)}</em></div>`};
+    return `
+      <div class="pl-kpis">
+        ${k('MRR atual',R(C.b.mrr),`${C.b.n} clientes ativos`,true)}
+        ${k('Ticket médio',R(C.ticket),C.pr.ticketManual?'definido nas premissas':'MRR ÷ clientes')}
+        ${k('Churn mensal',P(C.churn),C.pr.churnManual!=null&&C.pr.churnManual!==''?'definido nas premissas':'automático · últimos 6 meses')}
+        ${k('MRR projetado em dez',R(dez.fim),`${cresc>=0?'+':''}${P(cresc)} no ano`,true)}
+        ${k('Faturamento projetado no ano',R(fatAno),realFat?`real até agora: ${R(realFat)}`:'')}
+        ${k('Lucro projetado no ano',R(lucroAno),realFat?`real até agora: ${R(realLucro)}`:`margem média ${P(fatAno?lucroAno/fatAno:0)}`)}
+        ${k('Leads necessários/mês',N(C.leadsNec),`para ${C.pr.metaNovos} clientes novos/mês`)}
+        ${k('Investimento em tráfego/mês',R(C.leadsNec*C.tx.cpl),`CPL ${R2(C.tx.cpl)}`)}
+      </div>
+      ${C.falhas.length?`<div class="pl-alert wa" role="status"><span aria-hidden="true">⚠️</span><div><b>Corrigir funil</b>${E(C.falhas.join(' · '))}. Ataque primeiro o gargalo apontado antes de aumentar o investimento.</div></div>`
+        :`<div class="pl-alert ok" role="status"><span aria-hidden="true">✅</span><div><b>Funil saudável</b>Todas as taxas estão dentro dos critérios. Dá para considerar aumento gradual de investimento.</div></div>`}
+      <div class="pl-card"><h3>Faturamento: projetado x real</h3><p class="sub">Linha = projeção (MRR final + vendas adicionais). Barras = receitas lançadas em Finanças.</p>${grafico(C)}</div>
+      <div class="pl-card"><h3>Saúde do funil</h3><p class="sub">${C.tx.temDados?`Taxas do ano (${N(C.tot.leads)} leads, ${N(C.tot.vendas)} vendas). Critérios editáveis em Premissas.`:'Ainda sem dados de funil no ano: usando as taxas padrão das Premissas.'}</p>
+        <div class="pl-taxas">${taxa('Resposta',C.tx.resposta,al.resposta)}${taxa('Agendamento',C.tx.agendamento,al.agendamento)}${taxa('Comparecimento',C.tx.comparecimento,al.comparecimento)}${taxa('Fechamento',C.tx.fechamento,al.fechamento)}${taxa('Churn mensal',C.churn,al.churnMax,true)}</div></div>`;
+  }
+  function grafico(C){
+    const L=C.linhas,W=760,H=240,pl=56,pr=12,pt=14,pb=28,iw=W-pl-pr,ih=H-pt-pb;
+    const max=Math.max(1,...L.map(l=>Math.max(l.fat,l.real?l.real.fat:0)))*1.1;
+    const x=i=>pl+iw*(i+.5)/12,y=v=>pt+ih-(v/max)*ih,bw=iw/12*.46;
+    const grid=[0,.25,.5,.75,1].map(f=>{const v=max*f;return `<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}" stroke="currentColor" stroke-opacity=".09"/><text x="${pl-8}" y="${y(v)+4}" text-anchor="end" font-size="10" fill="currentColor" fill-opacity=".55">${v>=1000?Math.round(v/1000)+'k':Math.round(v)}</text>`}).join('');
+    const barras=L.map((l,i)=>l.real&&l.real.fat?`<rect x="${x(i)-bw/2}" y="${y(l.real.fat)}" width="${bw}" height="${pt+ih-y(l.real.fat)}" rx="4" fill="#10B981" fill-opacity=".85"><title>${MESES[i]}: real ${R(l.real.fat)}</title></rect>`:'').join('');
+    const pts=L.map((l,i)=>`${x(i)},${y(l.fat)}`).join(' ');
+    const area=`${x(0)},${pt+ih} ${pts} ${x(11)},${pt+ih}`;
+    const ia=mesAtualIdx(S.ano);
+    return `<div class="pl-chart" style="color:var(--pl-tx)"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Faturamento projetado e real por mês">
+      ${grid}${ia>=0&&ia<12?`<rect x="${x(ia)-iw/24}" y="${pt}" width="${iw/12}" height="${ih}" fill="#7C3AED" fill-opacity=".06"/>`:''}
+      <polygon points="${area}" fill="#7C3AED" fill-opacity=".08"/>${barras}
+      <polyline points="${pts}" fill="none" stroke="#7C3AED" stroke-width="2.5" stroke-linejoin="round"/>
+      ${L.map((l,i)=>`<circle cx="${x(i)}" cy="${y(l.fat)}" r="${i===11?4.5:3}" fill="#7C3AED"><title>${MESES[i]}: projetado ${R(l.fat)}</title></circle>`).join('')}
+      ${L.map((l,i)=>`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="11" fill="currentColor" fill-opacity="${i===ia?1:.6}" font-weight="${i===ia?700:400}">${MESES[i]}</text>`).join('')}
+    </svg></div><div class="pl-leg"><span><i style="background:#7C3AED"></i>Projetado</span><span><i style="background:#10B981"></i>Real (Finanças)</span>${ia>=0&&ia<12?'<span><i style="background:rgba(124,58,237,.15)"></i>Mês atual</span>':''}</div>`;
+  }
+  function forecast(C){
+    const L=C.linhas,ia=mesAtualIdx(S.ano);
+    const th=L.map((l,i)=>`<th class="${i===ia?'atual':''}">${MESES[i]}/${String(S.ano).slice(2)}</th>`).join('');
+    const lin=(t,f,cls)=>`<tr><td>${t}</td>${L.map((l,i)=>{const v=f(l,i);const c=typeof cls==='function'?cls(l,i):cls||'';return `<td class="${c} ${i===ia?'atual':''}">${v}</td>`}).join('')}</tr>`;
+    const grp=t=>`<tr class="grp"><td colspan="13">${t}</td></tr>`;
+    const rv=(l,k,fmt)=>l.real?fmt(l.real[k]):'—';
+    return `<div class="pl-card"><h3>Forecast ${S.ano}</h3><p class="sub">Projeção mês a mês a partir do MRR ${C.pr.mrrBase?'definido nas premissas':'atual'} (${R(C.mrrIni)}), com churn de ${P(C.churn)}, expansão de ${P(C.pr.expansao)} e ${C.pr.metaNovos} clientes novos/mês. As linhas em verde são o real lançado em Finanças.</p>
+      <div class="pl-tw"><table class="pl-t"><thead><tr><th>Métrica</th>${th}</tr></thead><tbody>
+      ${grp('MRR')}
+      ${lin('MRR inicial',l=>R(l.ini))}${lin('(−) Churn',l=>R(l.churn),'neg')}${lin('(+) Expansão',l=>R(l.exp))}${lin('(+) Novo MRR',l=>R(l.novo))}${lin('MRR final',l=>R(l.fim))}
+      ${grp('Faturamento')}
+      ${lin('Vendas adicionais',l=>l.adic?R(l.adic):'—',l=>l.adic?'':'mut')}${lin('Faturamento projetado',l=>R(l.fat))}${lin('Faturamento real',l=>rv(l,'fat',R),l=>l.real?'real':'mut')}
+      ${grp('Aquisição')}
+      ${lin('Clientes novos (meta)',l=>N(l.clientes))}${lin('Vendas reais',l=>N(l.funil.vendas),l=>l.funil.vendas?'real':'mut')}${lin('Leads necessários',l=>N(l.leadsNec))}${lin('Leads reais',l=>N(l.funil.leads),l=>l.funil.leads?'real':'mut')}
+      ${lin('Investimento projetado',l=>R(l.inv))}${lin('Investimento real',l=>l.funil.investimento?R(l.funil.investimento):'—',l=>l.funil.investimento?'real':'mut')}
+      ${grp('Resultado')}
+      ${lin('Despesa total projetada',l=>R(l.desp),'neg')}${lin('Despesa real',l=>rv(l,'desp',R),l=>l.real?'real':'mut')}
+      <tr class="tot"><td>Lucro projetado</td>${L.map((l,i)=>`<td class="${l.lucro<0?'neg':''} ${i===ia?'atual':''}">${R(l.lucro)}</td>`).join('')}</tr>
+      ${lin('Lucro real',l=>rv(l,'lucro',R),l=>l.real?(l.real.lucro<0?'neg':'real'):'mut')}
+      ${lin('Margem projetada',l=>P(l.margem),l=>l.margem<0?'neg':'')}${lin('Margem real',l=>l.real?P(l.real.margem):'—',l=>l.real?'real':'mut')}
+      </tbody></table></div>
+      <p class="pl-nota">Despesa projetada = despesa fixa (${R(C.pr.despesaFixa)}) + imposto/variável de ${P(C.pr.imposto)} sobre o MRR + investimento em tráfego. Real = lançamentos de Receita e Despesa em Finanças › Controle financeiro.</p></div>`;
+  }
+  function telaFunil(C){
+    const ia=mesAtualIdx(S.ano),pr=C.pr;
+    const rot={leads:'Leads',respostas:'Respostas',agendadas:'Calls agendadas',realizadas:'Calls realizadas',vendas:'Vendas',receita:'Receita vendida',investimento:'Investimento em tráfego'};
+    const fmt=(k,v)=>k==='receita'||k==='investimento'?R2(v):N(v);
+    const linha=k=>`<tr><td>${rot[k]}</td>${C.funil.map((f,i)=>`<td class="ed ${f.man[k]?'man':''} ${i===ia?'atual':''}" tabindex="0" role="button" aria-label="${rot[k]} de ${MESES[i]}: ${fmt(k,f[k])}. Ajustar" onclick="plAjuste('${C.meses[i]}','${k}')" onkeydown="if(event.key==='Enter')plAjuste('${C.meses[i]}','${k}')">${f[k]?fmt(k,f[k]):'<span style="color:var(--pl-li)">0</span>'}</td>`).join('')}<td style="font-weight:800">${fmt(k,C.tot[k])}</td></tr>`;
+    const pct=(t,a,b)=>`<tr><td>${t}</td>${C.funil.map((f,i)=>`<td class="${i===ia?'atual':''}">${f[b]?P(f[a]/f[b]):'—'}</td>`).join('')}<td style="font-weight:800">${C.tot[b]?P(C.tot[a]/C.tot[b]):'—'}</td></tr>`;
+    const fs=funisEmpresa(),cont=new Set(funisContados().map(f=>f.id));
+    const opts=(f,sel)=>`<option value="">— nenhuma —</option>`+(f.stages||[]).filter(s=>!s.isLost&&!s.isWon).map(s=>`<option value="${E(s.id)}" ${s.id===sel?'selected':''}>${E(s.name||'Etapa')}</option>`).join('');
+    return `<div class="pl-card"><h3>Funil mês a mês</h3><p class="sub">Contado sozinho pelo Pipeline e por Finanças. Clique num número para ajustar na mão; para voltar ao automático, apague o valor.</p>
+      <div class="pl-tw"><table class="pl-t"><thead><tr><th>Etapa</th>${C.meses.map((m,i)=>`<th class="${i===ia?'atual':''}">${MESES[i]}</th>`).join('')}<th>Ano</th></tr></thead><tbody>
+      ${['leads','respostas','agendadas','realizadas','vendas','receita','investimento'].map(linha).join('')}
+      <tr class="grp"><td colspan="14">Taxas de conversão</td></tr>
+      ${pct('% resposta','respostas','leads')}${pct('% agendamento','agendadas','respostas')}${pct('% comparecimento','realizadas','agendadas')}${pct('% fechamento','vendas','realizadas')}
+      <tr><td>CPL</td>${C.funil.map((f,i)=>`<td class="${i===ia?'atual':''}">${f.leads&&f.investimento?R2(f.investimento/f.leads):'—'}</td>`).join('')}<td style="font-weight:800">${C.tot.leads&&C.tot.investimento?R2(C.tot.investimento/C.tot.leads):'—'}</td></tr>
+      </tbody></table></div>
+      <p class="pl-nota"><i></i>ajustado na mão (vale por cima do automático). Leads = criados no mês · Vendas e receita = negócios ganhos no mês · Investimento = despesas da categoria "Ads / Tráfego Pago" em Finanças.</p></div>
+      <div class="pl-card"><h3>Quais etapas contam no funil</h3><p class="sub">Para cada funil da empresa, escolha a etapa que marca Resposta, Call agendada e Call realizada. Quem passou por ela ou por uma etapa depois conta naquele mês.</p>
+        ${fs.length?`<div class="pl-fmap"><span class="hd">Funil</span><span class="hd">Resposta</span><span class="hd">Agendada</span><span class="hd">Realizada</span>
+        ${fs.map(f=>{const e=etapasDoFunil(f);return `<label class="pl-chk"><input type="checkbox" ${cont.has(f.id)?'checked':''} onchange="plFunil('${E(f.id)}',this.checked)"> ${E(f.name||'Funil')}</label>
+          ${['resposta','agendada','realizada'].map(k=>`<select aria-label="${k} em ${E(f.name||'')}" onchange="plEtapa('${E(f.id)}','${k}',this.value)">${opts(f,e[k])}</select>`).join('')}`}).join('')}</div>`:'<p class="sub">Nenhum funil da empresa encontrado.</p>'}
+        <p class="pl-nota">Funis de parceiros não entram. Desmarque um funil para tirá-lo da conta.</p></div>`;
+  }
+  function telaBase(C){
+    const cfg=C.cfg,rs=cfg.riscos||{};
+    const lista=C.b.ativos.concat(C.b.saindo).sort((a,b)=>b.mrr-a.mrr);
+    let liq=0,riscoTot=0,upTot=0;
+    const linhas=lista.map(c=>{const r=rs[c.id]||{};const risco=+r.risco||0,up=+r.upsell||0;const l=c.mrr*(1-risco)+up;liq+=l;riscoTot+=c.mrr*risco;upTot+=up;
+      return `<tr><td>${E(c.nome)} ${c.status==='Pediu para sair'?'<span class="pl-pill wa">pediu para sair</span>':''}</td><td>${R2(c.mrr)}</td>
+        <td><span class="pl-f suf" style="display:inline-block"><input class="pl-in-mini" type="number" min="0" max="100" step="5" value="${risco?Math.round(risco*100):''}" placeholder="0" aria-label="Risco de churn de ${E(c.nome)} em %" onchange="plRisco('${E(c.id)}','risco',this.value)"></span> %</td>
+        <td><input class="pl-in-mini" type="number" min="0" step="50" value="${up||''}" placeholder="0" aria-label="Upsell previsto de ${E(c.nome)}" onchange="plRisco('${E(c.id)}','upsell',this.value)"></td>
+        <td style="font-weight:700">${R2(l)}</td></tr>`}).join('');
+    const ano=String(S.ano);const saiuAno=C.b.saidas.filter(c=>c.saida.slice(0,4)===ano).sort((a,b)=>b.saida.localeCompare(a.saida));
+    return `<div class="pl-kpis">
+        <div class="pl-k dest"><span>MRR atual</span><b>${R(C.b.mrr)}</b><small>${C.b.n} clientes</small></div>
+        <div class="pl-k"><span>MRR em risco</span><b>${R(riscoTot)}</b><small>pelo risco de churn marcado</small></div>
+        <div class="pl-k"><span>Upsell previsto</span><b>${R(upTot)}</b></div>
+        <div class="pl-k dest"><span>MRR líquido previsto</span><b>${R(liq)}</b><small>MRR × (1 − risco) + upsell</small></div>
+        <div class="pl-k"><span>Churn em ${S.ano}</span><b>${R(saiuAno.reduce((a,c)=>a+c.mrr,0))}</b><small>${saiuAno.length} cliente${saiuAno.length!==1?'s':''} saíram</small></div></div>
+      <div class="pl-card"><h3>Base ativa</h3><p class="sub">Vem de Clientes (status Ativo e "Pediu para sair" ainda sem data de saída). MRR = LTV ÷ período do contrato. Marque o risco de churn e o upsell previsto de cada cliente.</p>
+        <div class="pl-tw"><table class="pl-t"><thead><tr><th>Cliente</th><th>MRR</th><th>Risco de churn</th><th>Upsell previsto</th><th>MRR líquido</th></tr></thead><tbody>${linhas||'<tr><td colspan="5" style="text-align:left;color:var(--pl-mu)">Nenhum cliente ativo.</td></tr>'}
+        <tr class="tot"><td>Total</td><td>${R2(C.b.mrr)}</td><td>${R2(riscoTot)}</td><td>${R2(upTot)}</td><td>${R2(liq)}</td></tr></tbody></table></div></div>
+      <div class="pl-card"><h3>Saíram em ${S.ano}</h3><p class="sub">Clientes Inativos ou que pediram para sair, pela data de saída. É daqui que sai o churn automático.</p>
+        ${saiuAno.length?`<div class="pl-tw"><table class="pl-t"><thead><tr><th>Cliente</th><th>Saiu em</th><th>MRR perdido</th></tr></thead><tbody>${saiuAno.map(c=>`<tr><td>${E(c.nome)}</td><td>${c.saida.split('-').reverse().join('/')}</td><td class="neg">${R2(c.mrr)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="sub" style="margin:0">Nenhuma saída registrada neste ano.</p>'}</div>`;
+  }
+  function telaPrem(C){
+    const p=C.pr,a=p.alertas,t=p.taxasPadrao;
+    const num=(id,lbl,val,dica,suf,step)=>`<div class="pl-f"><label for="${id}">${lbl}</label><div class="${suf?'suf':''}"><input id="${id}" type="number" step="${step||'any'}" value="${val==null||val===''?'':val}" inputmode="decimal">${suf?`<span>${suf}</span>`:''}</div>${dica?`<small>${dica}</small>`:''}</div>`;
+    const pc=v=>v==null||v===''?'':Math.round(+v*1000)/10;
+    return `<div class="pl-card"><h3>Cenário de ${S.ano}</h3><p class="sub">O forecast recalcula na hora quando você salva.</p><div class="pl-form">
+        ${num('pl-meta','Meta de clientes novos/mês',p.metaNovos,'Quantos contratos novos por mês.','',1)}
+        ${num('pl-exp','Expansão do MRR/mês',pc(p.expansao),'Upsell e reajustes sobre a base.','%')}
+        ${num('pl-desp','Despesa fixa/mês',p.despesaFixa,'Folha, ferramentas, estrutura. O real vem de Finanças.','R$')}
+        ${num('pl-imp','Imposto/variável',pc(p.imposto),'Percentual sobre o faturamento.','%')}
+        ${num('pl-churn','Churn mensal',pc(p.churnManual),`Deixe em branco para usar o automático (${P(C.ch.taxa)}).`,'%')}
+        ${num('pl-mrr','MRR inicial do plano',p.mrrBase||'',`Em branco = MRR atual (${R(C.b.mrr)}).`,'R$')}
+        ${num('pl-ticket','Ticket médio do cliente novo',p.ticketManual||'',`Em branco = ticket atual (${R(C.b.ticket)}).`,'R$')}
+      </div></div>
+      <div class="pl-card"><h3>Vendas adicionais por mês</h3><p class="sub">Receita pontual (projetos, setup). Entra no faturamento, não no MRR.</p>
+        <div class="pl-mes">${C.meses.map((m,i)=>`<div class="pl-f"><label for="pl-va-${i}">${MESES[i]}/${String(S.ano).slice(2)}</label><input id="pl-va-${i}" data-m="${m}" class="pl-va" type="number" step="any" value="${(p.vendasAdicionais||{})[m]||''}" placeholder="0"></div>`).join('')}</div></div>
+      <div class="pl-card"><h3>Critérios dos alertas</h3><p class="sub">Abaixo do mínimo (ou churn acima do máximo) aparece "Corrigir funil" no Painel.</p><div class="pl-form">
+        ${num('pl-a-r','Resposta mínima',pc(a.resposta),'','%')}${num('pl-a-a','Agendamento mínimo',pc(a.agendamento),'','%')}${num('pl-a-c','Comparecimento mínimo',pc(a.comparecimento),'','%')}${num('pl-a-f','Fechamento mínimo',pc(a.fechamento),'','%')}${num('pl-a-ch','Churn máximo',pc(a.churnMax),'','%')}
+      </div></div>
+      <div class="pl-card"><h3>Taxas padrão</h3><p class="sub">Usadas só enquanto o ano ainda não tem dados de funil.</p><div class="pl-form">
+        ${num('pl-t-r','Resposta',pc(t.resposta),'','%')}${num('pl-t-a','Agendamento',pc(t.agendamento),'','%')}${num('pl-t-c','Comparecimento',pc(t.comparecimento),'','%')}${num('pl-t-f','Fechamento',pc(t.fechamento),'','%')}${num('pl-t-cpl','Custo por lead (CPL)',t.cpl,'','R$')}
+      </div>
+      <div class="pl-btns"><button type="button" class="pl-btn pri" onclick="plSalvarPrem()">Salvar premissas</button></div></div>`;
+  }
+
+  // ── ações ──
+  const val=id=>{const v=document.getElementById(id)?.value;return v===''||v==null?null:Number(String(v).replace(',','.'))};
+  const pct=id=>{const v=val(id);return v==null?null:v/100};
+  window.plSalvarPrem=function(){
+    const va={};document.querySelectorAll('.pl-va').forEach(i=>{const v=Number(i.value);if(i.value!==''&&v)va[i.dataset.m]=v});
+    const p=premissas(S.ano);
+    salvarPrem(S.ano,{metaNovos:val('pl-meta')??0,expansao:pct('pl-exp')??0,despesaFixa:val('pl-desp')??0,imposto:pct('pl-imp')??0,
+      churnManual:pct('pl-churn'),mrrBase:val('pl-mrr'),ticketManual:val('pl-ticket'),vendasAdicionais:va,
+      alertas:{resposta:pct('pl-a-r')??p.alertas.resposta,agendamento:pct('pl-a-a')??p.alertas.agendamento,comparecimento:pct('pl-a-c')??p.alertas.comparecimento,fechamento:pct('pl-a-f')??p.alertas.fechamento,churnMax:pct('pl-a-ch')??p.alertas.churnMax},
+      taxasPadrao:{resposta:pct('pl-t-r')??p.taxasPadrao.resposta,agendamento:pct('pl-t-a')??p.taxasPadrao.agendamento,comparecimento:pct('pl-t-c')??p.taxasPadrao.comparecimento,fechamento:pct('pl-t-f')??p.taxasPadrao.fechamento,cpl:val('pl-t-cpl')??p.taxasPadrao.cpl}});
+    avisa('Premissas salvas ✓');renderPlanejamento();
+  };
+  window.plAjuste=async function(m,k){
+    const p=premissas(S.ano);const aj=JSON.parse(JSON.stringify(p.ajustes||{}));const atual=(aj[m]||{})[k];
+    const nomes={leads:'Leads',respostas:'Respostas',agendadas:'Calls agendadas',realizadas:'Calls realizadas',vendas:'Vendas',receita:'Receita vendida (R$)',investimento:'Investimento em tráfego (R$)'};
+    const [a,mm]=m.split('-');
+    const v=await gxPrompt({title:`${nomes[k]} · ${MESES[+mm-1]}/${a}`,message:'Digite o número do mês. Deixe em branco para voltar ao automático.',valor:atual??'',placeholder:'automático'});
+    if(v==null)return;
+    const t=String(v).trim().replace(/\./g,'').replace(',','.');
+    aj[m]=aj[m]||{};
+    if(t===''){delete aj[m][k];if(!Object.keys(aj[m]).length)delete aj[m]}
+    else{const n=Number(t);if(!isFinite(n)||n<0){avisa('Número inválido','#EF4444');return}aj[m][k]=n}
+    salvarPrem(S.ano,{ajustes:aj});renderPlanejamento();
+  };
+  window.plFunil=function(id,on){
+    const c=config();let l=Array.isArray(c.funis)?c.funis.slice():funisEmpresa().map(f=>f.id);
+    l=on?[...new Set([...l,id])]:l.filter(x=>x!==id);salvarCfg({funis:l});renderPlanejamento();
+  };
+  window.plEtapa=function(fid,k,v){const c=config();const e=JSON.parse(JSON.stringify(c.etapas||{}));e[fid]=Object.assign({},e[fid]||{},{[k]:v});salvarCfg({etapas:e});renderPlanejamento()};
+  window.plRisco=function(cid,k,v){
+    const c=config();const r=JSON.parse(JSON.stringify(c.riscos||{}));r[cid]=Object.assign({},r[cid]||{});
+    const n=v===''?0:Number(v);r[cid][k]=k==='risco'?Math.min(100,Math.max(0,n))/100:Math.max(0,n);
+    salvarCfg({riscos:r});renderPlanejamento();
+  };
+  window.gxPlanejamentoCalc=calcular;
+})();
+</script>
+
 </body>
 </html>
