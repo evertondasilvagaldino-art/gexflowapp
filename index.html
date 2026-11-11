@@ -29907,7 +29907,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const sqsTrf=(DB.get('squads')||[]).filter(q=>q&&(q.tipo==='trafego'||/tr[aá]fego/i.test(q.nome||''))).map(q=>q.nome);
     const regra=regraDe(m),cart=carteira(regra&&regra.tipo==='carteira'&&(regra.squads||[]).length?regra.squads:sqsTrf,m);
     const fatMes=cs.reduce((a,cli)=>{const p=pontosCli(m,cli);return a+(p.fm||0)},0),comFat=cs.filter(cli=>pontosCli(m,cli).fm!=null).length;
-    return `<div class="trf-res"><div><span>Carteira do squad de Tráfego</span><b>${moedaFmt(cart.total)}<small>/mês</small></b><small>${cart.clientes.length} cliente${cart.clientes.length!==1?'s':''} ativo${cart.clientes.length!==1?'s':''} no squad</small></div>
+    return `<div class="trf-res">${g?`<div><span>Carteira do squad de Tráfego</span><b>${moedaFmt(cart.total)}<small>/mês</small></b><small>${cart.clientes.length} cliente${cart.clientes.length!==1?'s':''} ativo${cart.clientes.length!==1?'s':''} no squad · visível só para Fundador e Adm</small></div>`:''}
         <div><span>Faturamento dos clientes no mês</span><b>${moedaFmt(fatMes)}</b><small>${comFat?`lançado em ${comFat} de ${cs.length}`:'nenhum lançado ainda (opcional)'}</small></div></div>
       <div class="mt-sec"><h4>Carteira do mês (${cs.length} cliente${cs.length!==1?'s':''} · meta ${cs.length*2} pontos)</h4>
       <div class="trf-w"><table class="trf"><thead><tr><th>Cliente</th><th>Vendeu?</th><th>Fatur. anterior <span class="trf-op">opcional</span></th><th>Fatur. do mês <span class="trf-op">opcional</span></th><th>Cresceu?</th><th>Relacion.</th><th>Pontos</th><th>Validação</th></tr></thead><tbody>${linhas}</tbody></table></div>
