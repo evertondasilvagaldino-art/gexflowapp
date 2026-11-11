@@ -29594,8 +29594,17 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
       const cart=carteira(r.squads,m);
       const fs=(r.cfaixas||[]).filter(f=>+f.min>0).slice().sort((a,b)=>b.min-a.min);
       const f=fs.find(f=>pct>=+f.min);
-      if(!f){const prox=fs[fs.length-1];return {valor:0,txt:prox?`Ganha ${NUM(prox.pct)}% da carteira (${BRL(cart.total)}) ao bater ${prox.min}%`:'Sem faixas',base:cart.total,nCli:cart.clientes.length}}
-      return {valor:cart.total*(+f.pct||0)/100,txt:`${NUM(f.pct)}% da carteira de ${BRL(cart.total)} (${cart.clientes.length} cliente${cart.clientes.length!==1?'s':''})`,base:cart.total,nCli:cart.clientes.length};
+      const nCli=cart.clientes.length,cli=`${nCli} cliente${nCli!==1?'s':''}`;
+      // Proporcional (padrão): a comissão vai crescendo conforme a entrega, até o valor cheio da faixa
+      if(r.proporcional!==false&&fs.length){
+        const asc=fs.slice().reverse(),val=x=>cart.total*(+x.pct||0)/100,top=asc[asc.length-1];
+        if(pct>=+top.min)return {valor:val(top),txt:`${NUM(top.pct)}% da carteira de ${BRL(cart.total)} (${cli})`,base:cart.total,nCli};
+        const prox=asc.find(x=>+x.min>pct),ant=asc.filter(x=>+x.min<=pct).pop()||{min:0,pct:0};
+        const v=val(ant)+(val(prox)-val(ant))*Math.max(0,pct-+ant.min)/Math.max(1,+prox.min-+ant.min);
+        return {valor:v,txt:`Acumulando: ${BRL(val(prox))} (${NUM(prox.pct)}% da carteira de ${BRL(cart.total)}) ao chegar em ${prox.min}%`,base:cart.total,nCli};
+      }
+      if(!f){const prox=fs[fs.length-1];return {valor:0,txt:prox?`Ganha ${NUM(prox.pct)}% da carteira (${BRL(cart.total)}) ao bater ${prox.min}%`:'Sem faixas',base:cart.total,nCli}}
+      return {valor:cart.total*(+f.pct||0)/100,txt:`${NUM(f.pct)}% da carteira de ${BRL(cart.total)} (${cli})`,base:cart.total,nCli};
     }
     if(r.tipo==='faixas'){
       const fs=(r.faixas||[]).filter(f=>+f.min>0).slice().sort((a,b)=>b.min-a.min);
@@ -30025,7 +30034,8 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
           <small>Hoje: <b style="color:#047857">${BRL(cart.total)}/mês</b> em ${cart.clientes.length} cliente${cart.clientes.length!==1?'s':''} ativo${cart.clientes.length!==1?'s':''}. Valor mensal = LTV ÷ período do contrato (MRR). Cliente que sai deixa de contar na hora.</small></div>
         <div class="mt-tiers">${(r.cfaixas||[]).map((f,i)=>`<div class="mt-tier" style="grid-template-columns:auto 84px auto 90px auto 30px"><span>Bateu</span><input class="mt-in" type="number" min="0" step="1" value="${E(f.min)}" oninput="mtRgIn('${r.id}','cfaixa',${i},'min',this.value)" aria-label="% da meta"><span>% da meta → ganha</span><input class="mt-in" type="number" min="0" step="0.01" value="${E(f.pct)}" oninput="mtRgIn('${r.id}','cfaixa',${i},'pct',this.value)" aria-label="% da carteira"><span>% da carteira</span><button style="border:0;background:none;cursor:pointer;color:var(--mt-mu)" onclick="mtRg('${r.id}','cfaixaDel',${i})" aria-label="Remover faixa">✕</button></div>`).join('')}
         <button class="mt-btn sm" style="align-self:flex-start" onclick="mtRg('${r.id}','cfaixaAdd')">+ Faixa</button></div>
-        <small style="font-size:11.5px;color:var(--mt-mu)">Vale a maior faixa atingida no indicador da pessoa. Ex.: bateu 80% ganha 1% da carteira; bateu 100% ganha 2%.</small>`;
+        <label style="display:flex;gap:10px;align-items:flex-start;font-size:12.5px;cursor:pointer;margin-top:4px"><input type="checkbox" ${r.proporcional!==false?'checked':''} onchange="mtRgIn('${r.id}','proporcional',0,0,this.checked)" style="width:17px;height:17px;margin-top:1px;accent-color:#7C3AED"><span><b style="display:block">Comissão cresce conforme a entrega</b><span style="color:var(--mt-mu)">Ligado: com 50% da meta já mostra metade da comissão, e chega ao valor cheio ao bater a faixa. Desligado: só ganha ao bater a faixa.</span></span></label>
+        <small style="font-size:11.5px;color:var(--mt-mu)">Ex.: bateu 80% ganha 1% da carteira; bateu 100% ganha 2%.</small>`;
     }else if(r.tipo==='faixas'){
       corpo=`<div class="mt-tiers">${(r.faixas||[]).map((f,i)=>`<div class="mt-tier"><span>Bateu</span><input class="mt-in" type="number" min="0" step="1" value="${E(f.min)}" oninput="mtRgIn('${r.id}','faixa',${i},'min',this.value)" aria-label="% da meta"><span>% → ganha</span><input class="mt-in" type="number" min="0" step="0.01" value="${E(f.valor)}" oninput="mtRgIn('${r.id}','faixa',${i},'valor',this.value)" aria-label="Valor"><select class="mt-in x2" onchange="mtRgIn('${r.id}','faixa',${i},'modo',this.value)"><option value="fixo" ${f.modo!=='pct'?'selected':''}>R$ fixo</option><option value="pct" ${f.modo==='pct'?'selected':''}>% do realizado</option></select><button class="mt-it del" style="border:0;background:none;cursor:pointer;color:var(--mt-mu)" onclick="mtRg('${r.id}','faixaDel',${i})" aria-label="Remover faixa">✕</button></div>`).join('')}
         <button class="mt-btn sm" style="align-self:flex-start" onclick="mtRg('${r.id}','faixaAdd')">+ Faixa</button></div>
@@ -30063,6 +30073,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const n=v=>Math.max(0,+String(v).replace(',','.')||0);
     if(campo==='faixa'){r.faixas=(r.faixas||[]).map(f=>({...f}));r.faixas[i][sub]=sub==='modo'?val:n(val)}
     else if(campo==='cfaixa'){r.cfaixas=(r.cfaixas||[]).map(f=>({...f}));r.cfaixas[i][sub]=n(val)}
+    else if(campo==='proporcional')r.proporcional=!!val;
     else r[campo]=n(val);
     rgSujo(id,true);mtSim(id);
   };
