@@ -29271,6 +29271,12 @@ body:has(#page-whatsapp-chat.active) .gxc-fab.up{bottom:166px}
 .trf-res b{display:block;font-size:20px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums;color:#7C3AED}
 .trf-res b small{font-size:12px;font-weight:600;color:var(--mt-mu,#6A6A7C);margin-left:2px}
 .trf-res>div>small{display:block;font-size:11.5px;color:var(--mt-mu,#6A6A7C);margin-top:2px}
+.trf-sv{margin-top:8px;font-size:12px}
+.trf-sv summary{cursor:pointer;color:#7C3AED;font-weight:700}
+.trf-sv ul{margin:6px 0;padding-left:18px;max-height:180px;overflow:auto}
+.trf-sv li{margin:3px 0}
+.trf-sv em{font-style:normal;color:var(--mt-mu,#6A6A7C);font-size:11px}
+.trf-sv small{display:block;color:var(--mt-mu,#6A6A7C);font-size:11px}
 .trf-ori{display:block;font-size:10.5px;font-weight:500;color:var(--mt-mu,#6A6A7C);margin-top:2px}
 .trf-op{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.03em;text-transform:none;padding:1px 6px;border-radius:999px;background:var(--mt-soft,#F1F1F6);color:var(--mt-mu,#6A6A7C);margin-left:2px}
 .trf-av{display:block;color:#B45309;font-size:10.5px;font-weight:600}
@@ -29564,10 +29570,20 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
         const em=concluidaEm(t,l);if(em&&String(em).slice(0,10)<ini)return; // saiu da carteira antes do mês
         const cr=(l.campos||[]).find(c=>/relacionamento/i.test(c.nome||''));const op=cr?(cr.opcoes||[]).find(o=>o.id===(t.campos||{})[cr.id]):null;
         const nomeT=String(t.titulo||'Cliente').replace(/^cliente\s*[-–:]\s*/i,'');
-        const cad=(t.clienteId&&cls.find(c=>String(c.id)===String(t.clienteId)))||cls.find(c=>norm(c.nome)===norm(nomeT));
-        out.push({id:t.id,nome:nomeT,mrr:cad?valorMensal(cad):0,lista:l.nome||'',squad:l._sq||'',relac:op?op.nome:'',relacOk:!!op&&RELAC_OK.test(norm(op.nome))})});
+        out.push({id:t.id,nome:nomeT,lista:l.nome||'',squad:l._sq||'',relac:op?op.nome:'',relacOk:!!op&&RELAC_OK.test(norm(op.nome))})});
       return out.sort((a,b)=>a.nome.localeCompare(b.nome));
     });
+  }
+  // acha o cliente cadastrado da tarefa: ligação direta, nome igual ou nome parecido (palavras em comum)
+  function acharCadastro(t,nomeT,cls){
+    if(t.clienteId){const c=cls.find(x=>String(x.id)===String(t.clienteId));if(c)return c}
+    const lim=v=>norm(v).replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+    const alvo=lim(nomeT);if(!alvo)return null;
+    const ex=cls.find(c=>lim(c.nome)===alvo);if(ex)return ex;
+    const cont=cls.filter(c=>{const n=lim(c.nome);return n.length>=4&&(alvo.includes(n)||n.includes(alvo))});if(cont.length===1)return cont[0];
+    const tok=alvo.split(' ').filter(w=>w.length>2&&!['cliente','ltda','eireli','com','dos','das'].includes(w));if(!tok.length)return null;
+    let best=null,bs=0;cls.forEach(c=>{const ct=lim(c.nome).split(' ').filter(w=>w.length>2);const com=tok.filter(w=>ct.includes(w)).length;const sc=com/Math.max(1,Math.min(tok.length,ct.length));if(com&&sc>bs){bs=sc;best=c}});
+    return bs>=.6?best:null;
   }
   function fatAnterior(m,tid){
     const ck=(m.checks||{})[tid]||{};if(ck.fatAnt!=null&&ck.fatAnt!=='')return +ck.fatAnt;
@@ -29888,8 +29904,10 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
         <td class="c"><b>${p.pts}</b>/2${p.pend?`<small class="trf-pend">+${p.pend} a validar</small>`:''}</td>
         <td class="c">${p.val?(pode&&!fech?`<button type="button" class="trf-v ok" onclick="mtTrfVal('${m.id}','${cli.id}',false)" title="Clique para desfazer e editar">Validado</button>`:'<span class="trf-v ok">Validado</span>'):(pode&&!fech?`<button type="button" class="trf-v pri" onclick="mtTrfVal('${m.id}','${cli.id}',true)">Validar</button>`:'<span class="trf-v">Pendente</span>')}</td></tr>`}).join('');
     const pend=cs.filter(cli=>!pontosCli(m,cli).val).length;
-    const receita=cs.reduce((a,cli)=>a+(cli.mrr||0),0),fatMes=cs.reduce((a,cli)=>{const p=pontosCli(m,cli);return a+(p.fm||0)},0),comFat=cs.filter(cli=>pontosCli(m,cli).fm!=null).length;
-    return `<div class="trf-res"><div><span>Receita da carteira</span><b>${moedaFmt(receita)}<small>/mês</small></b><small>${cs.length} cliente${cs.length!==1?'s':''} sob responsabilidade</small></div>
+    const sqsTrf=(DB.get('squads')||[]).filter(q=>q&&(q.tipo==='trafego'||/tr[aá]fego/i.test(q.nome||''))).map(q=>q.nome);
+    const regra=regraDe(m),cart=carteira(regra&&regra.tipo==='carteira'&&(regra.squads||[]).length?regra.squads:sqsTrf,m);
+    const fatMes=cs.reduce((a,cli)=>{const p=pontosCli(m,cli);return a+(p.fm||0)},0),comFat=cs.filter(cli=>pontosCli(m,cli).fm!=null).length;
+    return `<div class="trf-res"><div><span>Carteira do squad de Tráfego</span><b>${moedaFmt(cart.total)}<small>/mês</small></b><small>${cart.clientes.length} cliente${cart.clientes.length!==1?'s':''} ativo${cart.clientes.length!==1?'s':''} no squad</small></div>
         <div><span>Faturamento dos clientes no mês</span><b>${moedaFmt(fatMes)}</b><small>${comFat?`lançado em ${comFat} de ${cs.length}`:'nenhum lançado ainda (opcional)'}</small></div></div>
       <div class="mt-sec"><h4>Carteira do mês (${cs.length} cliente${cs.length!==1?'s':''} · meta ${cs.length*2} pontos)</h4>
       <div class="trf-w"><table class="trf"><thead><tr><th>Cliente</th><th>Vendeu?</th><th>Fatur. anterior <span class="trf-op">opcional</span></th><th>Fatur. do mês <span class="trf-op">opcional</span></th><th>Cresceu?</th><th>Relacion.</th><th>Pontos</th><th>Validação</th></tr></thead><tbody>${linhas}</tbody></table></div>
