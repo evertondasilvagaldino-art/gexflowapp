@@ -29772,6 +29772,8 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   }
 
   // ═══ TELA ═══
+  let _rmAg=0;
+  function listaDepois(){if(_rmAg)return;_rmAg=requestAnimationFrame(()=>{_rmAg=0;try{renderMetas()}catch(e){}})}
   window.renderMetas=comCache(function(){
     const pg=document.getElementById('page-metas');if(!pg)return;
     try{metas().forEach(m=>{if(m.inicio&&/^\d{4}-\d{2}/.test(m.inicio)&&m.inicio.slice(0,7)!==m.mes&&!m.fechamento)DB.update('metas',m.id,{mes:m.inicio.slice(0,7)})})}catch(e){}
@@ -29781,6 +29783,10 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const vs=visiveis(),cs=vs.map(m=>({m,c:calc(m)}));
     const rk=ranking();
     const abertas=metas().filter(m=>m.mes===S.mes&&!m.fechamento).length;
+    const _rolos=[];{let el=pg;while(el){if(el.scrollTop)_rolos.push([el,el.scrollTop]);el=el.parentElement}const se=document.scrollingElement;if(se&&se.scrollTop&&!_rolos.some(r=>r[0]===se))_rolos.push([se,se.scrollTop])}
+    const _alt=pg.offsetHeight;if(_alt)pg.style.minHeight=_alt+'px';
+    requestAnimationFrame(()=>{pg.style.minHeight='';});
+    queueMicrotask(()=>_rolos.forEach(([el,t])=>{el.scrollTop=t}));
     pg.innerHTML=`<div class="mt">
       <div class="mt-top">
         <div><div class="page-title">Central de Metas</div><div class="page-sub">Meta do mês, progresso, comissão calculada na hora e ranking da equipe</div></div>
@@ -29864,11 +29870,18 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   // ═══ AÇÕES DA TELA ═══
   window.mtMes=n=>{S.mes=mesShift(S.mes,n);renderMetas()};
   window.mtArea=a=>{S.area=a;renderMetas()};
-  function gaveta(html){
+  function gaveta(html,chave){
     let ov=document.getElementById('mt-ov'),dr=document.getElementById('mt-dr');
+    const mesma=!!(chave&&dr&&dr.classList.contains('open')&&dr.dataset.chave===chave);
+    let scr=0,foco=null,sel=null;
+    if(mesma){const bd=dr.querySelector('.mt-dr-b');scr=bd?bd.scrollTop:0;const ae=document.activeElement;
+      if(ae&&dr.contains(ae)&&ae.dataset&&ae.dataset.k){foco=ae.dataset.k;try{sel=[ae.selectionStart,ae.selectionEnd]}catch(e){}}}
     if(!ov){ov=document.createElement('div');ov.id='mt-ov';ov.className='mt-ov';ov.onclick=mtFechar;document.body.appendChild(ov)}
     if(!dr){dr=document.createElement('div');dr.id='mt-dr';dr.className='mt-dr';dr.setAttribute('role','dialog');document.body.appendChild(dr)}
-    dr.innerHTML=html;dr.classList.remove('largo');ov.classList.add('open');document.body.classList.add('mt-open');requestAnimationFrame(()=>dr.classList.add('open'));
+    dr.innerHTML=html;dr.dataset.chave=chave||'';if(!mesma)dr.classList.remove('largo');ov.classList.add('open');document.body.classList.add('mt-open');
+    if(mesma){dr.classList.add('open');const bd=dr.querySelector('.mt-dr-b');if(bd)bd.scrollTop=scr;
+      if(foco){const el=dr.querySelector(`[data-k="${CSS.escape(foco)}"]`);if(el){el.focus({preventScroll:true});try{if(sel&&el.setSelectionRange)el.setSelectionRange(sel[0],sel[1])}catch(e){}}}}
+    else requestAnimationFrame(()=>dr.classList.add('open'));
     return dr;
   }
   window.mtFechar=async function(){
@@ -29896,13 +29909,13 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
       const pr=p.prints.length?`<button type="button" class="trf-lk" onclick="mtTrfVer('${m.id}','${cli.id}')">${p.prints.length} print${p.prints.length>1?'s':''}</button>`:'';
       return `<tr>
         <td><b>${E(cli.nome)}</b><small class="trf-ori">${E([cli.squad,cli.lista].filter(Boolean).join(' › '))}</small></td>
-        <td class="c"><label class="trf-ck"><input type="checkbox" ${p.ck.vendeu?'checked':''} ${dis} onchange="mtTrf('${m.id}','${cli.id}','vendeu',this.checked)" aria-label="Vendeu"> ${pr}${!trava?`<button type="button" class="trf-lk" onclick="mtTrfPrint('${m.id}','${cli.id}')">${p.prints.length?'+':'Anexar print'}</button>`:''}</label>${p.vendeuSemPrint?'<small class="trf-av">falta o print</small>':''}</td>
-        <td><input class="mt-in trf-in" ${dis} value="${p.fa!=null?moedaFmt(p.fa):''}" placeholder="R$ 0,00" oninput="mtMoeda(this)" onchange="mtTrf('${m.id}','${cli.id}','fatAnt',this.value)" aria-label="Faturamento do mês anterior de ${E(cli.nome)}"></td>
-        <td><input class="mt-in trf-in" ${dis} value="${p.fm!=null?moedaFmt(p.fm):''}" placeholder="R$ 0,00" oninput="mtMoeda(this)" onchange="mtTrf('${m.id}','${cli.id}','fat',this.value)" aria-label="Faturamento do mês de ${E(cli.nome)}"></td>
+        <td class="c"><label class="trf-ck"><input type="checkbox" data-k="v-${cli.id}" ${p.ck.vendeu?'checked':''} ${dis} onchange="mtTrf('${m.id}','${cli.id}','vendeu',this.checked)" aria-label="Vendeu"> ${pr}${!trava?`<button type="button" class="trf-lk" onclick="mtTrfPrint('${m.id}','${cli.id}')">${p.prints.length?'+':'Anexar print'}</button>`:''}</label>${p.vendeuSemPrint?'<small class="trf-av">falta o print</small>':''}</td>
+        <td><input class="mt-in trf-in" data-k="fa-${cli.id}" ${dis} value="${p.fa!=null?moedaFmt(p.fa):''}" placeholder="R$ 0,00" oninput="mtMoeda(this)" onchange="mtTrf('${m.id}','${cli.id}','fatAnt',this.value)" aria-label="Faturamento do mês anterior de ${E(cli.nome)}"></td>
+        <td><input class="mt-in trf-in" data-k="fm-${cli.id}" ${dis} value="${p.fm!=null?moedaFmt(p.fm):''}" placeholder="R$ 0,00" oninput="mtMoeda(this)" onchange="mtTrf('${m.id}','${cli.id}','fat',this.value)" aria-label="Faturamento do mês de ${E(cli.nome)}"></td>
         <td class="c">${p.fm==null||p.fa==null?'<span class="trf-p">—</span>':p.cresceu?'<span class="trf-p ok">Sim</span>':'<span class="trf-p">Não</span>'}</td>
         <td class="c">${cli.relac?`<span class="trf-p ${cli.relacOk?'ok':'no'}">${E(cli.relac)}</span>`:'<span class="trf-p">sem nota</span>'}</td>
         <td class="c"><b>${p.pts}</b>/2${p.pend?`<small class="trf-pend">+${p.pend} a validar</small>`:''}</td>
-        <td class="c">${p.val?(pode&&!fech?`<button type="button" class="trf-v ok" onclick="mtTrfVal('${m.id}','${cli.id}',false)" title="Clique para desfazer e editar">Validado</button>`:'<span class="trf-v ok">Validado</span>'):(pode&&!fech?`<button type="button" class="trf-v pri" onclick="mtTrfVal('${m.id}','${cli.id}',true)">Validar</button>`:'<span class="trf-v">Pendente</span>')}</td></tr>`}).join('');
+        <td class="c">${p.val?(pode&&!fech?`<button type="button" class="trf-v ok" data-k="val-${cli.id}" onclick="mtTrfVal('${m.id}','${cli.id}',false)" title="Clique para desfazer e editar">Validado</button>`:'<span class="trf-v ok">Validado</span>'):(pode&&!fech?`<button type="button" class="trf-v pri" data-k="val-${cli.id}" onclick="mtTrfVal('${m.id}','${cli.id}',true)">Validar</button>`:'<span class="trf-v">Pendente</span>')}</td></tr>`}).join('');
     const pend=cs.filter(cli=>!pontosCli(m,cli).val).length;
     const sqsTrf=(DB.get('squads')||[]).filter(q=>q&&(q.tipo==='trafego'||/tr[aá]fego/i.test(q.nome||''))).map(q=>q.nome);
     const regra=regraDe(m),cart=carteira(regra&&regra.tipo==='carteira'&&(regra.squads||[]).length?regra.squads:sqsTrf,m);
@@ -29914,7 +29927,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
       <div class="trf-f"><small>Cada cliente vale 2 pontos: <b>vendeu</b> (com print) e <b>relacionamento</b>. O faturamento é opcional e não vale ponto. Anexe o print e clique em <b>Validar</b>: só aí os pontos e a comissão entram. Clientes = tarefas das listas do squad de Tráfego em que a pessoa está no campo <b>Responsáveis</b>. O relacionamento vem do campo da tarefa (Bom, Ótimo ou Excelente). Para corrigir um cliente validado, clique em <b>Validado</b>.</small>
       ${pode&&pend&&!fech?`<button type="button" class="mt-btn sm pri" onclick="mtTrfValTodos('${m.id}')">Validar todos (${pend})</button>`:''}</div></div>`;
   }
-  function salvarCk(mid,tid,patch){const m=meta(mid);if(!m)return;const ck={...((m.checks||{})[tid]||{}),...patch,por:sessionUser?.nome||'',em:new Date().toISOString()};DB.update('metas',mid,{checks:{...(m.checks||{}),[tid]:ck}});desenharDetalhe();renderMetas()}
+  function salvarCk(mid,tid,patch){const m=meta(mid);if(!m)return;const ck={...((m.checks||{})[tid]||{}),...patch,por:sessionUser?.nome||'',em:new Date().toISOString()};DB.update('metas',mid,{checks:{...(m.checks||{}),[tid]:ck}});desenharDetalhe();listaDepois()}
   window.mtTrf=function(mid,tid,campo,val){
     const m=meta(mid);if(!m||!podeLancar(m))return;const ck=(m.checks||{})[tid]||{};
     if(ck.val){toast('Cliente já validado. Clique em "Validado" para desfazer e editar.','#F59E0B');desenharDetalhe();return}
@@ -29982,7 +29995,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   };
   window.mtTrfValTodos=function(mid){const m=meta(mid);if(!m||!podeLancar(m))return;const ck={...(m.checks||{})};const agora=new Date().toISOString();let semPrint=0,n=0;
     carteiraTrf(m).forEach(cli=>{const c=ck[cli.id]||{};if(c.val)return;if(c.vendeu&&!(c.prints||[]).length){semPrint++;return}ck[cli.id]={...c,val:true,valPor:sessionUser?.nome||'',valEm:agora};n++});
-    DB.update('metas',mid,{checks:ck});desenharDetalhe();renderMetas();toast(semPrint?`${n} validado(s) · ${semPrint} marcado(s) como "vendeu" sem print ficaram de fora`:'Carteira validada ✓',semPrint?'#F59E0B':'#10B981')};
+    DB.update('metas',mid,{checks:ck});desenharDetalhe();listaDepois();toast(semPrint?`${n} validado(s) · ${semPrint} marcado(s) como "vendeu" sem print ficaram de fora`:'Carteira validada ✓',semPrint?'#F59E0B':'#10B981')};
 
   // ── detalhe da meta ──
   window.mtAbrir=function(id){S.drId=id;desenharDetalhe()};
@@ -30011,9 +30024,8 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
         ${c.regraTipo==='carteira'&&g&&!ind.fixo&&role(sessionUser)==='Fundador'?carteiraDetalhe(m,c):''}
         ${m.fechamento?`<div class="mt-note">Mês fechado em ${dataBR(m.fechamento.em)} por ${E(m.fechamento.por||'')}. Os valores acima ficaram congelados.</div>`:''}
       </div>
-      ${g?`<div class="mt-dr-f">${m.fechamento?`<button class="mt-btn" onclick="mtReabrir('${m.id}')">Reabrir meta</button>`:`<button class="mt-btn dng" onclick="mtExcluir('${m.id}')">Excluir</button><button class="mt-btn" onclick="mtEditar('${m.id}')">Editar meta</button>`}</div>`:''}`);
+      ${g?`<div class="mt-dr-f">${m.fechamento?`<button class="mt-btn" onclick="mtReabrir('${m.id}')">Reabrir meta</button>`:`<button class="mt-btn dng" onclick="mtExcluir('${m.id}')">Excluir</button><button class="mt-btn" onclick="mtEditar('${m.id}')">Editar meta</button>`}</div>`:''}`,'meta:'+m.id);
     try{dr.classList.toggle('largo',!!ind.fixo)}catch(e){}
-    dr.querySelector('.mt-dr-b').scrollTop=0;
   });
   // Valores da carteira (total e por cliente) só para Fundador/Adm Gerente. Colaborador vê só a própria comissão e o %.
   function txtCom(c){
@@ -30039,23 +30051,23 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const qtd=q?.dataset.moeda==='1'?lerValor(q.value):Math.max(0,+String(q?.value||'1').replace(',','.')||1);
     const it={id:uidm(),texto:txt.slice(0,160),qtd,feito:true,por:sessionUser?.nome||'',em:new Date().toISOString()};
     DB.update('metas',id,{itens:[...(m.itens||[]),it]});
-    desenharDetalhe();renderMetas();
+    desenharDetalhe();listaDepois();
   };
   window.mtItem=function(id,iid,on){
     const m=meta(id);if(!m||!podeLancar(m))return;
     DB.update('metas',id,{itens:(m.itens||[]).map(i=>i.id===iid?{...i,feito:on,por:sessionUser?.nome||i.por,em:new Date().toISOString()}:i)});
-    desenharDetalhe();renderMetas();
+    desenharDetalhe();listaDepois();
   };
   window.mtItemDel=function(id,iid){
     const m=meta(id);if(!m||!podeLancar(m))return;
     DB.update('metas',id,{itens:(m.itens||[]).filter(i=>i.id!==iid)});
-    desenharDetalhe();renderMetas();
+    desenharDetalhe();listaDepois();
   };
   window.mtExcluir=function(id){
     const go=()=>{DB.remove('metas',id);mtFechar();renderMetas();toast('Meta excluída','#6B7280')};
     if(typeof confirmDelete==='function')confirmDelete(go,{title:'Excluir meta',message:'A meta e os itens lançados serão apagados.'});else gxConfirm('Excluir esta meta?').then(ok=>{if(ok)go()});
   };
-  window.mtReabrir=function(id){DB.update('metas',id,{fechamento:null});desenharDetalhe();renderMetas();toast('Meta reaberta: valores voltam a ser calculados','#7C3AED')};
+  window.mtReabrir=function(id){DB.update('metas',id,{fechamento:null});desenharDetalhe();listaDepois();toast('Meta reaberta: valores voltam a ser calculados','#7C3AED')};
 
   // ── nova / editar meta ──
   window.mtNova=function(){formMeta(null)};
@@ -30143,7 +30155,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
       const novoMes=inicio.slice(0,7);
       DB.update('metas',id,{alvo,inicio,prazo,contarAuto,titulo:titulo||m.titulo,mes:novoMes});
       if(novoMes!==S.mes){S.mes=novoMes;toast(`Meta atualizada e movida para ${mesLabel(novoMes)}`,'#10B981')}else toast('Meta atualizada','#10B981');
-      S.drId=id;desenharDetalhe();renderMetas();return;
+      S.drId=id;desenharDetalhe();listaDepois();return;
     }
     if(!S.form.sel.size){toast('Escolha pelo menos uma pessoa','#F59E0B');return}
     if(!titulo)titulo=`Indicador: ${ind.nome} - ${mesNome}`;
