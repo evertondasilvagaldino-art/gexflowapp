@@ -4754,9 +4754,34 @@ function gexMergeById(localArr,cloudRows){
   });
   return Array.from(map.values());
 }
+function gxUsuarioInteragindo(){
+  try{
+    const pgA=document.querySelector('.page.active');const ae=document.activeElement;
+    if(pgA&&ae&&pgA.contains(ae)&&/^(SELECT|INPUT|TEXTAREA)$/.test(ae.tagName)&&ae.type!=='checkbox'&&ae.type!=='radio'&&ae.type!=='button')return ae;
+    if(pgA&&pgA.querySelector('.gx-menu.open,.gx-menu-list.open,.gx-menu-list.show'))return pgA;
+  }catch(e){}
+  return null;
+}
 function rerenderActivePageAfterCloudSync(){
   try{
     const active=document.querySelector('.page.active')?.id?.replace(/^page-/,'')||'inicio';
+    const _mud=window.__gxColsMudadas;window.__gxColsMudadas=null;
+    if(active==='comercial'&&_mud&&_mud.size){
+      const rel=['leads','commercial_funnels','usuarios','profiles','lead_forms','manual_trackings'];
+      if(![..._mud].some(c=>rel.includes(c)||String(c).startsWith('kv:gx2_active_funnel')))return;
+    }
+    const _foco=gxUsuarioInteragindo();
+    if(_foco){
+      // Alguém está escolhendo um funil/filtro ou digitando: redesenhar agora fecharia o seletor.
+      if(_mud){const s=window.__gxColsMudadas||(window.__gxColsMudadas=new Set());_mud.forEach(c=>s.add(c))}
+      if(!window.__gxRerenderPend){window.__gxRerenderPend=true;
+        const go=()=>{window.__gxRerenderPend=false;document.removeEventListener('focusout',fo,true);setTimeout(()=>scheduleRerenderActivePageAfterCloudSync(60),0)};
+        const fo=()=>setTimeout(()=>{if(!gxUsuarioInteragindo())go()},30);
+        document.addEventListener('focusout',fo,true);
+        setTimeout(()=>{if(window.__gxRerenderPend&&!gxUsuarioInteragindo())go()},15000);
+      }
+      return;
+    }
     if(active==='inicio')renderInicio?.();
     else if(active==='clientes')renderClientes?.();
     else if(active==='churn')renderChurn?.();
@@ -5077,6 +5102,7 @@ function startGexRecordsRealtime(){
           // const leadData={...(row.data||{}),id:String(row.record_id)};
           // notifyLeadCreated(leadData);
         }
+        try{(window.__gxColsMudadas=window.__gxColsMudadas||new Set()).add(row.collection==='kv'?'kv:'+row.record_id:row.collection)}catch(e){}
         scheduleRerenderActivePageAfterCloudSync(140);
       })
       .subscribe(status=>console.log('[GexCloudDB] Realtime:',status));
@@ -11639,6 +11665,16 @@ function renderComercial(){
     <div class="stat-card"><div class="stat-lbl">Pipeline Total</div><div class="stat-val" style="font-size:18px" title="${esc2(_compTip)}">${fmtBRL(total)}</div></div>
     <div class="stat-card"><div class="stat-lbl">${wonStage?wonStage.name:'Fechamento'}</div><div class="stat-val" style="font-size:18px;color:var(--green)">${fmtBRL(fechados)}</div></div>
     <div class="stat-card"><div class="stat-lbl">Leads Ativos</div><div class="stat-val">${_ativosReais.length}</div></div>`;
+  try{
+    let av=document.getElementById('pipe-fora-aviso');
+    const fora=funnelLeadsByOwner.length-funnelLeads.length;
+    const filtroPeriodo=!!(pipelineFilter.quick||pipelineFilter.mes||pipelineFilter.ano);
+    if(comStats&&fora>0&&filtroPeriodo&&!funnelLeads.length){
+      if(!av){av=document.createElement('div');av.id='pipe-fora-aviso';comStats.insertAdjacentElement('afterend',av)}
+      av.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 12px;padding:10px 14px;border:1px solid #DDD6FE;background:#F5F3FF;border-radius:10px;font-size:12.5px;color:#4C1D95';
+      av.innerHTML=`<span>${fora} lead${fora===1?'':'s'} deste funil ${fora===1?'está':'estão'} fora do período selecionado.</span><button type="button" class="fbtn" onclick="setPipelineQuick('todos')">Ver todos os períodos</button>`;
+    }else if(av)av.remove();
+  }catch(e){}
 
   // Alterna destaque dos botões Kanban/Lista e mostra só o container do modo ativo
   const btnKanban=document.getElementById('pipe-view-kanban');
