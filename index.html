@@ -29560,11 +29560,24 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   // Valor mensal de cada cliente = MRR (LTV ÷ período do contrato); sem período, usa o LTV como valor do mês.
   // Entra quem estava na carteira no FIM do período: ativo agora, ou que saiu depois do fim (data de saída).
   // Cliente saiu → sai da base na hora e a comissão recalcula.
+  // Valor mensal do cliente = MESMO MRR do setor de Contratos (soma dos contratos vigentes dele).
+  // Sem contrato vigente: usa LTV ÷ período do cadastro. Nunca usa o LTV inteiro como mensalidade.
+  let _ctrVig=null,_ctrVigEm=0;
+  function contratosVigentesPorCliente(){
+    if(_ctrVig&&Date.now()-_ctrVigEm<2000)return _ctrVig;
+    _ctrVigEm=Date.now();
+    return _ctrVig=(()=>{const o={};
+      try{(DB.get('contratos')||[]).forEach(ct=>{if(!ct||!ct.clienteId)return;const sit=typeof contratoSituacao==='function'?contratoSituacao(ct):'ativo';
+        if(!['ativo','avencer','renovacao'].includes(sit))return;const v=typeof contratoValorNum==='function'?contratoValorNum(ct.valor):(parseFloat(ct.valor)||0);
+        o[String(ct.clienteId)]=(o[String(ct.clienteId)]||0)+v})}catch(e){}
+      return o})();
+  }
   function valorMensal(c){
+    const porContrato=contratosVigentesPorCliente()[String(c.id)];
+    if(porContrato)return porContrato;
     let v=null;
     try{if(c.periodoMeses&&typeof clienteMrrCalc==='function')v=clienteMrrCalc(c.ltv,c.periodoMeses)}catch(e){}
     if(v==null&&c.mrr){try{v=typeof gxParseBRL==='function'?gxParseBRL(c.mrr):null}catch(e){}}
-    if(v==null){try{v=typeof contratoValorNum==='function'?contratoValorNum(c.ltv):(typeof gxParseBRL==='function'?gxParseBRL(c.ltv):0)}catch(e){v=0}}
     return +v||0;
   }
   function squadsDoCliente(c){try{return typeof clienteSquads==='function'?clienteSquads(c):[c.squad].filter(Boolean)}catch(e){return [c.squad].filter(Boolean)}}
@@ -30033,7 +30046,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
       const cart=carteira(sel,null);
       corpo=`<div class="mt-fld"><span>Carteira considerada</span>
           <div class="mt-people">${[`<label class="${!sel.length?'on':''}"><input type="checkbox" ${!sel.length?'checked':''} onchange="mtRg('${r.id}','squadsTodas')">Todas as squads</label>`].concat(todas.map((q,qi)=>`<label class="${sel.includes(q)?'on':''}"><input type="checkbox" ${sel.includes(q)?'checked':''} onchange="mtRg('${r.id}','squad',${qi})">${E(q)}</label>`)).join('')}</div>
-          <small>Hoje: <b style="color:#047857">${BRL(cart.total)}/mês</b> em ${cart.clientes.length} cliente${cart.clientes.length!==1?'s':''} ativo${cart.clientes.length!==1?'s':''}. Valor mensal = LTV ÷ período do contrato (MRR). Cliente que sai deixa de contar na hora.</small></div>
+          <small>Hoje: <b style="color:#047857">${BRL(cart.total)}/mês</b> em ${cart.clientes.length} cliente${cart.clientes.length!==1?'s':''} ativo${cart.clientes.length!==1?'s':''}. Valor mensal = contratos vigentes do cliente (o mesmo MRR do setor de Contratos); sem contrato, LTV ÷ período. Cliente que sai deixa de contar na hora.</small></div>
         <div class="mt-tiers">${(r.cfaixas||[]).map((f,i)=>`<div class="mt-tier" style="grid-template-columns:auto 84px auto 90px auto 30px"><span>Bateu</span><input class="mt-in" type="number" min="0" step="1" value="${E(f.min)}" oninput="mtRgIn('${r.id}','cfaixa',${i},'min',this.value)" aria-label="% da meta"><span>% da meta → ganha</span><input class="mt-in" type="number" min="0" step="0.01" value="${E(f.pct)}" oninput="mtRgIn('${r.id}','cfaixa',${i},'pct',this.value)" aria-label="% da carteira"><span>% da carteira</span><button style="border:0;background:none;cursor:pointer;color:var(--mt-mu)" onclick="mtRg('${r.id}','cfaixaDel',${i})" aria-label="Remover faixa">✕</button></div>`).join('')}
         <button class="mt-btn sm" style="align-self:flex-start" onclick="mtRg('${r.id}','cfaixaAdd')">+ Faixa</button></div>
         <label style="display:flex;gap:10px;align-items:flex-start;font-size:12.5px;cursor:pointer;margin-top:4px"><input type="checkbox" ${r.proporcional!==false?'checked':''} onchange="mtRgIn('${r.id}','proporcional',0,0,this.checked)" style="width:17px;height:17px;margin-top:1px;accent-color:#7C3AED"><span><b style="display:block">Comissão cresce conforme a entrega</b><span style="color:var(--mt-mu)">Ligado: com 50% da meta já mostra metade da comissão, e chega ao valor cheio ao bater a faixa. Desligado: só ganha ao bater a faixa.</span></span></label>
