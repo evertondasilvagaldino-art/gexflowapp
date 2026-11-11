@@ -31745,8 +31745,8 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
         ${k('Leads necessários/mês',N(C.leadsNec),`para ${C.pr.metaNovos} clientes novos/mês`)}
         ${k('Investimento em tráfego/mês',R(C.leadsNec*C.tx.cpl),`CPL ${R2(C.tx.cpl)}`)}
       </div>
-      ${C.falhas.length?`<div class="pl-alert wa" role="status"><span aria-hidden="true">⚠️</span><div><b>Corrigir funil</b>${E(C.falhas.join(' · '))}. Ataque primeiro o gargalo apontado antes de aumentar o investimento.</div></div>`
-        :`<div class="pl-alert ok" role="status"><span aria-hidden="true">✅</span><div><b>Funil saudável</b>Todas as taxas estão dentro dos critérios. Dá para considerar aumento gradual de investimento.</div></div>`}
+      ${C.falhas.length?`<div class="pl-alert wa" role="status"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg><div><b>Corrigir funil</b>${E(C.falhas.join(' · '))}. Ataque primeiro o gargalo apontado antes de aumentar o investimento.</div></div>`
+        :`<div class="pl-alert ok" role="status"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><div><b>Funil saudável</b>Todas as taxas estão dentro dos critérios. Dá para considerar aumento gradual de investimento.</div></div>`}
       <div class="pl-card"><h3>Faturamento: projetado x real</h3><p class="sub">Linha = projeção (MRR final + vendas adicionais). Barras = faturamento real (Finanças ou estimado pela carteira).</p>${grafico(C)}</div>
       <div class="pl-card"><h3>Saúde do funil</h3><p class="sub">${C.tx.temDados?`Taxas do ano (${N(C.tot.leads)} leads, ${N(C.tot.vendas)} vendas). Critérios editáveis em Premissas.`:'Ainda sem dados de funil no ano: usando as taxas padrão das Premissas.'}</p>
         <div class="pl-taxas">${taxa('Resposta',C.tx.resposta,al.resposta)}${taxa('Agendamento',C.tx.agendamento,al.agendamento)}${taxa('Comparecimento',C.tx.comparecimento,al.comparecimento)}${taxa('Fechamento',C.tx.fechamento,al.fechamento)}${taxa('Churn mensal',C.churn,al.churnMax,true)}</div></div>`;
@@ -31945,7 +31945,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
 .fx-drop{border:2px dashed var(--g-line,#E9E9F0);border-radius:14px;padding:26px;text-align:center;cursor:pointer;color:var(--g-mu,#6A6A7C);font-size:13px}
 .fx-drop:hover,.fx-drop.on{border-color:var(--g-p,#7C3AED);color:var(--g-p,#7C3AED);background:var(--g-p-soft,#F3EEFF)}
 .fx-drop b{display:block;font-size:14px;color:var(--g-tx,#17171F);margin-bottom:4px}
-.fx-ponte{display:grid;grid-template-columns:1fr auto 1.25fr auto 1.25fr auto 1fr;gap:10px;align-items:stretch}
+.fx-ponte{display:grid;grid-template-columns:1fr auto 1.25fr auto 1.25fr auto 1fr;gap:10px;align-items:stretch;margin-top:12px}
 .fx-pc{border:1px solid var(--pl-line);border-radius:14px;padding:14px 16px;background:var(--pl-card);display:flex;flex-direction:column;min-width:0}
 .fx-pc>span{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--pl-mu)}
 .fx-pc>b{display:block;font-size:24px;font-weight:800;margin-top:6px;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -31955,9 +31955,14 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
 .fx-pc.menos>b{color:var(--pl-er)}
 .fx-pc.mais>b{color:var(--pl-ok)}
 .fx-pc.fim{border:2px solid var(--pl-tx)}
-.fx-it{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--pl-line);font-size:12.5px;align-items:baseline}
+.fx-it{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--pl-line);font-size:12.5px;align-items:center}
 .fx-it:first-of-type{margin-top:10px}
-.fx-it em{font-style:normal;color:var(--pl-tx);font-weight:600}
+.fx-it em{font-style:normal;color:var(--pl-tx);font-weight:600;display:flex;align-items:center;gap:8px}
+.fx-ic{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;background:var(--pl-soft);color:var(--pl-mu);flex-shrink:0;vertical-align:middle;margin-right:6px}
+.fx-it .fx-ic{margin-right:0}
+.fx-pc.menos .fx-ic{background:var(--pl-erbg);color:var(--pl-er)}
+.fx-pc.mais .fx-ic{background:var(--pl-okbg);color:var(--pl-ok)}
+.fx-desc small .fx-ico{vertical-align:-2px}
 .fx-it em small{display:block;font-weight:400;color:var(--pl-mu);font-size:11px}
 .fx-it b{font-variant-numeric:tabular-nums;white-space:nowrap}
 .fx-pc.menos .fx-it b{color:var(--pl-er)}
@@ -32019,6 +32024,19 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
   const avisa=(m,c)=>{try{toast(m,c||'#10B981')}catch(e){}};
   const norm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
   const uidF=()=>(typeof uid==='function'?uid():'tx_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7));
+  const SV=(p,w)=>`<svg class="fx-ico" viewBox="0 0 24 24" width="${w||15}" height="${w||15}" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+  const IC={
+    socio:SV('<path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/>'),
+    cofre:SV('<path d="M3 10h18"/><path d="M5 10V20h14V10"/><path d="M12 3 3 8h18z"/><path d="M9 14v3M15 14v3M12 14v3"/>'),
+    ajuste:SV('<path d="M12 3v18"/><path d="M5 7h14"/><path d="M5 7l-3 6a3 3 0 0 0 6 0z"/><path d="M19 7l-3 6a3 3 0 0 0 6 0z"/>'),
+    entrada:SV('<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/>'),
+    resgate:SV('<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>'),
+    estorno:SV('<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>'),
+    cliente:SV('<path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/>',12),
+    editar:SV('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',14),
+    lixo:SV('<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>',14),
+    mais:SV('<path d="M12 5v14M5 12h14"/>',13),
+    menos:SV('<path d="M5 12h14"/>',13)};
   const valorNum=t=>typeof t.valor==='number'?t.valor:((typeof gxParseBRL==='function'?gxParseBRL(t.valor):parseFloat(t.valor))||0);
 
   function info(cat,tipo){
@@ -32086,12 +32104,12 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
   }
   // ── "Para onde foi o dinheiro": do resultado da operação até a sobra no caixa ──
   const PONTE=[
-    {cat:'Distribuição de lucro',tit:'Retiradas dos sócios',dica:'distribuição de lucro',sinal:-1,ic:'👤'},
-    {cat:'Reserva / investimento',tit:'Guardado / investido',dica:'reserva e aplicações',sinal:-1,ic:'🏦'},
-    {cat:'Ajustes de saldo',tit:'Ajustes',dica:'diferenças de valor',sinal:-1,ic:'⚖️'},
-    {cat:'Saldo inicial',tit:'Saldo do ano anterior',dica:'dinheiro que já estava no caixa',sinal:1,ic:'📥'},
-    {cat:'Aportes e resgates',tit:'Aportes e resgates',dica:'dinheiro que voltou de reserva/fundo',sinal:1,ic:'↩️'},
-    {cat:'Estornos e reembolsos recebidos',tit:'Estornos recebidos',dica:'devoluções que voltaram',sinal:1,ic:'🔁'}];
+    {cat:'Distribuição de lucro',tit:'Retiradas dos sócios',dica:'distribuição de lucro',sinal:-1,ic:IC.socio},
+    {cat:'Reserva / investimento',tit:'Guardado / investido',dica:'reserva e aplicações',sinal:-1,ic:IC.cofre},
+    {cat:'Ajustes de saldo',tit:'Ajustes',dica:'diferenças de valor',sinal:-1,ic:IC.ajuste},
+    {cat:'Saldo inicial',tit:'Saldo do ano anterior',dica:'dinheiro que já estava no caixa',sinal:1,ic:IC.entrada},
+    {cat:'Aportes e resgates',tit:'Aportes e resgates',dica:'dinheiro que voltou de reserva/fundo',sinal:1,ic:IC.resgate},
+    {cat:'Estornos e reembolsos recebidos',tit:'Estornos recebidos',dica:'devoluções que voltaram',sinal:1,ic:IC.estorno}];
   function ponteHtml(L,titulo){
     let rec=0,desp=0,recC=0,despC=0;const c={};
     L.forEach(t=>{const f=info(t.cat,t.tipo),v=valorNum(t);if(t.tipo==='Receita'){recC+=v;if(!f.fora)rec+=v}else{despC+=v;if(!f.fora)desp+=v}if(f.fora)c[f.cat]=(c[f.cat]||0)+v});
@@ -32100,19 +32118,19 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     const sobra=recC-despC;
     const saiu=itens.filter(p=>p.sinal<0),entrou=itens.filter(p=>p.sinal>0);
     const tot=arr=>arr.reduce((x,p)=>x+c[p.cat],0);
-    const lista=arr=>arr.map(p=>`<div class="fx-it"><em>${p.ic} ${p.tit}<small>${p.dica}</small></em><b>${R0(c[p.cat])}</b></div>`).join('');
+    const lista=arr=>arr.map(p=>`<div class="fx-it"><em><span class="fx-ic">${p.ic}</span>${p.tit}</em><b>${R0(c[p.cat])}</b></div>`).join('');
     const op=t=>`<div class="fx-op" aria-hidden="true">${t}</div>`;
-    return `<div class="pl-card"><h3>${titulo||'Para onde foi o dinheiro'}</h3><p class="sub">O resultado da operação é o lucro da agência. Depois disso saiu dinheiro que não é custo (retiradas, reserva) e entrou dinheiro que não é venda (saldo anterior, resgates). O que sobra é o que ficou em conta.</p>
+    return `<div class="pl-card"><h3>${titulo||'Para onde foi o dinheiro'}</h3>
       <div class="fx-ponte">
         <div class="fx-pc ini"><span>Resultado da operação</span><b>${res<0?'− ':''}${R0(Math.abs(res))}</b><small>vendas ${R0(rec)}<br>− custos ${R0(desp)}<br>margem ${P(rec?res/rec:0)}</small></div>
         ${op('−')}
-        <div class="fx-pc menos"><span>Saiu do caixa · não é custo</span><b>${R0(tot(saiu))}</b>${lista(saiu)||'<small>nada no período</small>'}</div>
+        <div class="fx-pc menos"><span>Saiu do caixa</span><b>${R0(tot(saiu))}</b>${lista(saiu)||'<small>nada no período</small>'}</div>
         ${op('+')}
-        <div class="fx-pc mais"><span>Entrou no caixa · não é venda</span><b>${R0(tot(entrou))}</b>${lista(entrou)||'<small>nada no período</small>'}</div>
+        <div class="fx-pc mais"><span>Entrou no caixa</span><b>${R0(tot(entrou))}</b>${lista(entrou)||'<small>nada no período</small>'}</div>
         ${op('=')}
-        <div class="fx-pc fim"><span>Sobrou no caixa</span><b>${sobra<0?'− ':''}${R0(Math.abs(sobra))}</b><small>o que ficou em conta no período</small></div>
+        <div class="fx-pc fim"><span>Sobrou no caixa</span><b>${sobra<0?'− ':''}${R0(Math.abs(sobra))}</b></div>
       </div>
-      <div class="fx-caixa"><div>Tudo que entrou no caixa: <b>${R(recC)}</b></div><div>Tudo que saiu do caixa: <b>${R(despC)}</b></div><div>Diferença: <b>${R(sobra)}</b> <span style="color:var(--pl-li)">(igual à planilha)</span></div></div></div>`;
+      <div class="fx-caixa"><div>Tudo que entrou no caixa: <b>${R(recC)}</b></div><div>Tudo que saiu do caixa: <b>${R(despC)}</b></div><div>Diferença: <b>${R(sobra)}</b></div></div></div>`;
   }
   function telaLanc(){
     const L=filtrados();
@@ -32120,10 +32138,10 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     const clientes=[...new Map(doAno(S.ano).filter(t=>t.clienteNome).map(t=>[t.clienteId||norm(t.clienteNome),t.clienteNome])).entries()].sort((a,b)=>a[1].localeCompare(b[1]));
     const linhas=L.slice(0,S.lim).map(t=>{const f=info(t.cat,t.tipo),v=valorNum(t);
       return `<tr><td class="d">${String(t.data).slice(8,10)}/${String(t.data).slice(5,7)}</td>
-        <td><div class="fx-desc">${E(t.desc||'—')}${t.clienteNome||t.meio||t.obs?`<small>${[t.clienteNome?'👤 '+E(t.clienteNome):'',t.meio?E(t.meio):'',t.qtd>1?E(t.qtd+' lançamentos agrupados'):'',t.obs?E(t.obs):''].filter(Boolean).join(' · ')}</small>`:''}</div></td>
+        <td><div class="fx-desc">${E(t.desc||'—')}${t.clienteNome||t.meio||t.obs?`<small>${[t.clienteNome?IC.cliente+' '+E(t.clienteNome):'',t.meio?E(t.meio):'',t.qtd>1?E(t.qtd+' lançamentos agrupados'):'',t.obs?E(t.obs):''].filter(Boolean).join(' · ')}</small>`:''}</div></td>
         <td><span class="fx-cat"><b>${E(f.cat)}</b><span>${f.fora?`<span class="pl-pill wa">${t.tipo==='Receita'?'entrada de caixa · não é venda':'saída de caixa · não é custo'}</span>`:E(f.grupo)}</span></span></td>
         <td class="v ${t.tipo==='Receita'?'fx-in':'fx-out'}">${t.tipo==='Receita'?'+':'−'} ${R(v)}</td>
-        <td style="white-space:nowrap;text-align:right">${pode('edit')?`<button type="button" class="fx-ib" aria-label="Editar" onclick="fxEditar('${E(t.id)}')">✎</button>`:''} ${pode('delete')?`<button type="button" class="fx-ib del" aria-label="Excluir" onclick="fxExcluir('${E(t.id)}')">🗑</button>`:''}</td></tr>`}).join('');
+        <td style="white-space:nowrap;text-align:right">${pode('edit')?`<button type="button" class="fx-ib" aria-label="Editar" onclick="fxEditar('${E(t.id)}')">${IC.editar}</button>`:''} ${pode('delete')?`<button type="button" class="fx-ib del" aria-label="Excluir" onclick="fxExcluir('${E(t.id)}')">${IC.lixo}</button>`:''}</td></tr>`}).join('');
     return `<div class="pl-kpis">
         <div class="pl-k"><span>Vendas e receitas</span><b class="fx-in">${R0(rec)}</b><small>no caixa entrou ${R0(recC)}</small></div>
         <div class="pl-k"><span>Custos da agência</span><b class="fx-out">${R0(desp)}</b><small>do caixa saiu ${R0(despC)}</small></div>
@@ -32368,7 +32386,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
         <div class="pl-k"><span>Receita operacional</span><b class="fx-in">${R0(rec)}</b></div><div class="pl-k"><span>Despesa operacional</span><b class="fx-out">${R0(desp)}</b></div>
         <div class="pl-k dest"><span>Resultado</span><b>${R0(rec-desp)}</b><small>margem ${P(rec?(rec-desp)/rec:0)}</small></div></div>
       <div class="pl-tw" style="max-height:300px;overflow:auto"><table class="pl-t"><thead><tr><th>Categoria</th><th>Linhas</th><th>Valor</th></tr></thead><tbody>
-        ${ordem.map(c=>{const r=resumo[c],f=info(c,r.tipo);return `<tr><td>${r.tipo==='Receita'?'＋ ':'－ '}${E(c)} ${f.fora?'<span class="pl-pill wa">movimento de caixa</span>':''}</td><td>${r.n}</td><td class="${r.tipo==='Receita'?'fx-in':'fx-out'}">${R(r.v)}</td></tr>`}).join('')}</tbody></table></div>
+        ${ordem.map(c=>{const r=resumo[c],f=info(c,r.tipo);return `<tr><td><span class="fx-ic ${r.tipo==='Receita'?'fx-in':'fx-out'}">${r.tipo==='Receita'?IC.mais:IC.menos}</span>${E(c)} ${f.fora?'<span class="pl-pill wa">movimento de caixa</span>':''}</td><td>${r.n}</td><td class="${r.tipo==='Receita'?'fx-in':'fx-out'}">${R(r.v)}</td></tr>`}).join('')}</tbody></table></div>
       <p class="pl-nota">${comCli} lançamento(s) ligados a clientes cadastrados${semCli?` · ${semCli} mensalidade(s) com cliente que não achei no cadastro (fica só o nome)`:''}.<br>
       <b>${novos.length}</b> novo(s) para importar${atualiza.length?` · ${atualiza.length} total(is) de taxas do mês para atualizar`:''} · ${linhas.length-novos.length-atualiza.length} já estavam no sistema.</p>
       <div class="pl-btns"><button type="button" class="pl-btn" data-x>Cancelar</button><button type="button" class="pl-btn pri" data-ok ${novos.length||atualiza.length?'':'disabled'}>Importar ${novos.length} lançamento${novos.length!==1?'s':''}</button></div>`;
