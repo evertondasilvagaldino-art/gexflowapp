@@ -29255,6 +29255,27 @@ body:has(#page-whatsapp-chat.active) .gxc-fab{bottom:96px}
 body:has(#page-whatsapp-chat.active) .gxc-fab.up{bottom:166px}
 </style>
 <style id="gx-metas-v1">
+.trf-w{overflow-x:auto;border:1px solid var(--mt-line,#E9E9F0);border-radius:12px}
+.trf{width:100%;border-collapse:collapse;font-size:12.5px;min-width:780px}
+.trf th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--mt-mu,#6A6A7C);text-align:left;padding:9px 8px;background:var(--mt-soft,#FAFAFC);border-bottom:1px solid var(--mt-line,#E9E9F0);white-space:nowrap}
+.trf td{padding:8px 8px;border-bottom:1px solid var(--mt-line,#E9E9F0);vertical-align:middle}
+.trf tr:last-child td{border-bottom:none}
+.trf td.c{text-align:center;white-space:nowrap}
+.trf-in{width:116px;height:32px;font-size:12.5px;padding:0 8px}
+.trf-ck{display:inline-flex;align-items:center;gap:6px}
+.trf-ck input{width:17px;height:17px;accent-color:#7C3AED}
+.trf-lk{border:none;background:none;color:#7C3AED;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer;padding:2px 4px;text-decoration:underline;text-underline-offset:2px}
+.trf-av{display:block;color:#B45309;font-size:10.5px;font-weight:600}
+.trf-p{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--mt-soft,#F1F1F6);color:var(--mt-mu,#6A6A7C)}
+.trf-p.ok{background:#E8F7EF;color:#0F7A43}.trf-p.no{background:#FDEBEA;color:#B42318}
+.trf-pend{display:block;font-size:10.5px;color:#B45309;font-weight:600}
+.trf-v{border:1px solid var(--mt-line,#E9E9F0);background:var(--mt-card,#fff);color:var(--mt-mu,#6A6A7C);border-radius:8px;padding:4px 10px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer}
+button.trf-v:hover{border-color:#7C3AED;color:#7C3AED}
+.trf-v.ok{background:#E8F7EF;border-color:#A7E3C2;color:#0F7A43}
+span.trf-v{cursor:default}
+.trf-f{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;margin-top:8px;flex-wrap:wrap}
+.trf-f small{flex:1;min-width:240px;font-size:11.5px;color:var(--mt-mu,#6A6A7C);line-height:1.5}
+
 /* ═══ CENTRAL DE METAS (04/11/2026) — metas do mês, progresso, comissão automática, eficiência e ranking ═══ */
 .mt,.mt-dr{--mt-ac:#7C3AED;--mt-ac2:#6D28D9;--mt-soft:rgba(124,58,237,.08);--mt-line:var(--g-line,var(--border,#E5E7EB));--mt-card:var(--g-card,var(--card,#fff));--mt-mu:var(--g-mu,var(--muted,#64748B));--mt-tx:var(--g-tx,var(--txt,#1A1A2E));--mt-bg2:var(--g-soft,#F7F6FB)}
 .mt-top{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px}
@@ -29339,6 +29360,7 @@ body:has(#page-whatsapp-chat.active) .gxc-fab.up{bottom:166px}
 .mt-dr.open{opacity:1;pointer-events:auto;transform:translate(-50%,-50%)}
 .mt-ov{z-index:99989!important}
 body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none!important}
+@media (min-width:601px){.mt-dr.largo{width:min(1080px,calc(100vw - 32px))}}
 @media (max-width:600px){.mt-dr{top:auto;bottom:0;left:0;width:100vw;max-height:92vh;border-radius:18px 18px 0 0;transform:translateY(20px)}.mt-dr.open{transform:none}}
 @media (prefers-reduced-motion:reduce){.mt-dr,.mt-fill{transition:none}}
 .mt-dr-h{display:flex;align-items:flex-start;gap:12px;padding:18px 20px;border-bottom:1px solid var(--mt-line)}
@@ -29427,6 +29449,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   };
   const INDICADORES={
     producao:{area:'operacional',nome:'Quantidade de produção',un:'un',auto:true,autoTxt:'tarefas concluídas em Gestão de entregas'},
+    carteiratrf:{area:'trafego',nome:'Resultado da carteira',un:'pts',auto:true,fixo:true,autoTxt:'3 pontos por cliente: vendeu (com print), faturou mais que o mês anterior e relacionamento Bom ou melhor'},
     campanhas:{area:'trafego',nome:'Campanhas validadas',un:'un',auto:false},
     ltv:{area:'trafego',nome:'LTV gerado',un:'R$',auto:false},
     contas:{area:'trafego',nome:'Contas gerenciadas',un:'un',auto:false},
@@ -29516,8 +29539,36 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const at=(t.atividade||[]).slice().reverse().find(a=>a.tipo!=='comentario'&&/mudou o status/.test(a.texto||'')&&finais.some(n=>String(a.texto).includes(`para "${n}"`)));
     return at?.data||'';
   }
+  // ── TRÁFEGO: carteira do gestor (tarefas da lista "Carteira Clientes" em que ele é responsável) ──
+  const RELAC_OK=/^(bom|otimo|excelente)$/;
+  function carteiraTrf(m){
+    return memo('ctrf_'+(m.id||'novo')+'_'+m.userId+'_'+(m.inicio||m.mes),()=>{
+      const u=pessoa(m.userId)||{id:m.userId,nome:m.userNome,email:m.userEmail};
+      const keys=[...chavesDe(u),norm(m.userId),norm(m.userEmail),norm(m.userNome)].filter(Boolean);
+      const sqs=DB.get('squads')||[];
+      const listas={};(DB.get('op_listas')||[]).forEach(l=>{if(!l||l.arquivada)return;const temRel=(l.campos||[]).some(c=>/relacionamento/i.test(c.nome||''));const traf=(sqs.find(q=>q.id===l.squadId)||{}).tipo==='trafego';if(temRel||traf)listas[l.id]=l});
+      const ini=periodo(m).ini,out=[];
+      (DB.get('op_tarefas')||[]).forEach(t=>{const l=listas[t.listaId];if(!l||!respBate(t,keys))return;
+        const em=concluidaEm(t,l);if(em&&String(em).slice(0,10)<ini)return; // saiu da carteira antes do mês
+        const cr=(l.campos||[]).find(c=>/relacionamento/i.test(c.nome||''));const op=cr?(cr.opcoes||[]).find(o=>o.id===(t.campos||{})[cr.id]):null;
+        out.push({id:t.id,nome:String(t.titulo||'Cliente').replace(/^cliente\s*[-–:]\s*/i,''),relac:op?op.nome:'',relacOk:!!op&&RELAC_OK.test(norm(op.nome))})});
+      return out.sort((a,b)=>a.nome.localeCompare(b.nome));
+    });
+  }
+  function fatAnterior(m,tid){
+    const ck=(m.checks||{})[tid]||{};if(ck.fatAnt!=null&&ck.fatAnt!=='')return +ck.fatAnt;
+    const mesAnt=mesShift(m.mes,-1);const ant=(DB.get('metas')||[]).find(x=>x&&x.mes===mesAnt&&x.checks&&x.checks[tid]&&x.checks[tid].fat!=null&&x.checks[tid].fat!=='');
+    return ant?+ant.checks[tid].fat:null;
+  }
+  function pontosCli(m,cli){
+    const ck=(m.checks||{})[cli.id]||{};const fa=fatAnterior(m,cli.id),fm=ck.fat!=null&&ck.fat!==''?+ck.fat:null;
+    const prints=ck.prints||[];const vendeu=!!ck.vendeu&&prints.length>0,cresceu=fm!=null&&fa!=null&&fm>fa,val=!!ck.val;
+    const lanc=(vendeu?1:0)+(cresceu?1:0);
+    return {ck,fa,fm,prints,vendeu,vendeuSemPrint:!!ck.vendeu&&!prints.length,cresceu,val,relac:cli.relacOk,pts:(val?lanc:0)+(cli.relacOk?1:0),pend:val?0:lanc};
+  }
   function autoItens(m){
-    const ind=INDICADORES[m.indicador];if(!ind||!ind.auto||m.contarAuto===false)return [];
+    const ind=INDICADORES[m.indicador];if(!ind||!ind.auto||m.contarAuto===false&&!ind.fixo)return [];
+    if(m.indicador==='carteiratrf')return carteiraTrf(m).map(cli=>{const p=pontosCli(m,cli);return {id:'a_'+cli.id,texto:cli.nome,qtd:p.pts,em:'',onde:`${p.pts}/3 pontos`}});
     const u=pessoa(m.userId)||{id:m.userId,nome:m.userNome,email:m.userEmail};
     const keys=[...chavesDe(u),norm(m.userId),norm(m.userEmail),norm(m.userNome)].filter(Boolean);
     if(m.indicador==='producao'){
@@ -29545,7 +29596,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const auto=autoItens(m);
     const manual=(m.itens||[]).filter(i=>i.feito);
     const realizado=auto.reduce((a,i)=>a+(+i.qtd||0),0)+manual.reduce((a,i)=>a+(+i.qtd||1),0);
-    const alvo=+m.alvo||0;
+    const alvo=INDICADORES[m.indicador]?.fixo?carteiraTrf(m).length*3:(+m.alvo||0);
     const pct=alvo>0?(realizado/alvo)*100:0;
     const regra=regraDe(m);
     const com=comissao(regra,realizado,pct,INDICADORES[m.indicador]?.un,m);
@@ -29787,13 +29838,86 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     let ov=document.getElementById('mt-ov'),dr=document.getElementById('mt-dr');
     if(!ov){ov=document.createElement('div');ov.id='mt-ov';ov.className='mt-ov';ov.onclick=mtFechar;document.body.appendChild(ov)}
     if(!dr){dr=document.createElement('div');dr.id='mt-dr';dr.className='mt-dr';dr.setAttribute('role','dialog');document.body.appendChild(dr)}
-    dr.innerHTML=html;ov.classList.add('open');document.body.classList.add('mt-open');requestAnimationFrame(()=>dr.classList.add('open'));
+    dr.innerHTML=html;dr.classList.remove('largo');ov.classList.add('open');document.body.classList.add('mt-open');requestAnimationFrame(()=>dr.classList.add('open'));
     return dr;
   }
   window.mtFechar=async function(){
     if(S.rd&&Object.keys(S.rd).length&&document.querySelector('#mt-dr .mt-rule')){if(!await gxConfirm('Há comissão alterada e não salva. Sair sem salvar?'))return;S.rd={}}
     S.drId=null;document.body.classList.remove('mt-open');document.getElementById('mt-ov')?.classList.remove('open');document.getElementById('mt-dr')?.classList.remove('open')};
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('mt-dr')?.classList.contains('open'))mtFechar()});
+
+  // seções de itens (auto + checklist) das metas comuns
+  function secoesItens(m,c,pode,ind){return `
+        ${c.auto.length||(ind.auto&&m.contarAuto!==false)?`<div class="mt-sec"><h4>Contado automaticamente (${c.auto.length})</h4><div class="mt-chk">
+          ${c.auto.length?c.auto.slice(0,300).map((i,ix)=>(ix===8?`<details class="mt-more"><summary>Ver todos os ${c.auto.length}</summary>`:'')+`<div class="mt-it auto"><input type="checkbox" checked disabled aria-label="Contado"><span class="t">${E(i.texto)}${i.onde?` <span class="by">· ${E(i.onde)}</span>`:''}</span><span class="q">${ind.un==='R$'?BRL(i.qtd):''}</span><span class="by">${dataBR(i.em)}</span><span class="tag">AUTO</span></div>`).join('')+(c.auto.length>8?'</details>':''):`<div class="mt-it"><span class="t" style="color:var(--mt-mu)">Nada concluído neste mês ainda. Ao concluir ${ind.autoTxt}, conta aqui sozinho.</span></div>`}
+        </div></div>`:''}
+        <div class="mt-sec"><h4>Itens lançados (checklist)</h4><div class="mt-chk">
+          <div class="mt-chk-h"><span>Total concluído: ${(m.itens||[]).filter(i=>i.feito).length}/${(m.itens||[]).length}</span>${ind.un==='R$'?'<span style="font-weight:600;color:var(--mt-mu)">valor por item</span>':''}</div>
+          ${(m.itens||[]).map(i=>`<div class="mt-it ${i.feito?'done':''}"><input type="checkbox" ${i.feito?'checked':''} ${pode?'':'disabled'} onchange="mtItem('${m.id}','${i.id}',this.checked)" aria-label="Concluído"><span class="t">${E(i.texto)}</span>${ind.un==='R$'||(+i.qtd||1)!==1?`<span class="q">${ind.un==='R$'?BRL(i.qtd):'× '+NUM(i.qtd)}</span>`:''}<span class="by" title="${E(i.por||'')}">${E(String(i.por||'').split(' ')[0])}</span>${pode?`<button class="del" onclick="mtItemDel('${m.id}','${i.id}')" aria-label="Remover item">✕</button>`:''}</div>`).join('')}
+          ${pode?`<div class="mt-add"><input class="mt-in" id="mt-it-txt" style="flex:1" placeholder="${ind.un==='R$'?'Ex.: Renovação cliente X':'Ex.: Social media 01 EFA'}" onkeydown="if(event.key==='Enter')mtItemAdd('${m.id}')">${ind.un==='R$'?`<input class="mt-in" id="mt-it-q" type="text" inputmode="decimal" data-moeda="1" oninput="mtMoeda(this)" style="width:140px" placeholder="R$ 0,00" onkeydown="if(event.key==='Enter')mtItemAdd('${m.id}')">`:`<input class="mt-in" id="mt-it-q" type="number" min="1" step="1" style="width:74px" value="1" title="Quantidade">`}<button class="mt-btn sm pri" onclick="mtItemAdd('${m.id}')">Adicionar</button></div>`:''}
+          ${!(m.itens||[]).length&&!pode?`<div class="mt-it"><span class="t" style="color:var(--mt-mu)">Nenhum item lançado.</span></div>`:''}
+        </div></div>
+`}
+  function trfTabela(m,c,pode,g){
+    const cs=carteiraTrf(m);
+    if(!cs.length)return `<div class="mt-sec"><h4>Carteira do mês</h4><div class="mt-note">Nenhum cliente encontrado. Os clientes vêm das tarefas da lista <b>Carteira Clientes</b> (squad de Tráfego) em que ${E(m.userNome)} é responsável.</div></div>`;
+    const fech=!!m.fechamento;
+    const linhas=cs.map(cli=>{const p=pontosCli(m,cli);const trava=(p.val&&!g)||fech||!pode;const dis=trava?'disabled':'';
+      const pr=p.prints.length?`<button type="button" class="trf-lk" onclick="mtTrfVer('${m.id}','${cli.id}')">${p.prints.length} print${p.prints.length>1?'s':''}</button>`:'';
+      return `<tr>
+        <td><b>${E(cli.nome)}</b></td>
+        <td class="c"><label class="trf-ck"><input type="checkbox" ${p.ck.vendeu?'checked':''} ${dis} onchange="mtTrf('${m.id}','${cli.id}','vendeu',this.checked)" aria-label="Vendeu"> ${pr}${!trava?`<button type="button" class="trf-lk" onclick="mtTrfPrint('${m.id}','${cli.id}')">${p.prints.length?'+':'Anexar print'}</button>`:''}</label>${p.vendeuSemPrint?'<small class="trf-av">falta o print</small>':''}</td>
+        <td><input class="mt-in trf-in" ${dis} value="${p.fa!=null?moedaFmt(p.fa):''}" placeholder="R$ 0,00" oninput="mtMoeda(this)" onchange="mtTrf('${m.id}','${cli.id}','fatAnt',this.value)" aria-label="Faturamento do mês anterior de ${E(cli.nome)}"></td>
+        <td><input class="mt-in trf-in" ${dis} value="${p.fm!=null?moedaFmt(p.fm):''}" placeholder="R$ 0,00" oninput="mtMoeda(this)" onchange="mtTrf('${m.id}','${cli.id}','fat',this.value)" aria-label="Faturamento do mês de ${E(cli.nome)}"></td>
+        <td class="c">${p.fm==null||p.fa==null?'<span class="trf-p">—</span>':p.cresceu?'<span class="trf-p ok">Sim</span>':'<span class="trf-p no">Não</span>'}</td>
+        <td class="c">${cli.relac?`<span class="trf-p ${cli.relacOk?'ok':'no'}">${E(cli.relac)}</span>`:'<span class="trf-p">sem nota</span>'}</td>
+        <td class="c"><b>${p.pts}</b>/3${p.pend?`<small class="trf-pend">+${p.pend} a validar</small>`:''}</td>
+        <td class="c">${p.val?(g&&!fech?`<button type="button" class="trf-v ok" onclick="mtTrfVal('${m.id}','${cli.id}',false)" title="Desfazer validação">Validado</button>`:'<span class="trf-v ok">Validado</span>'):(g&&!fech?`<button type="button" class="trf-v" onclick="mtTrfVal('${m.id}','${cli.id}',true)">Validar</button>`:'<span class="trf-v">Aguardando</span>')}</td></tr>`}).join('');
+    const pend=cs.filter(cli=>!pontosCli(m,cli).val).length;
+    return `<div class="mt-sec"><h4>Carteira do mês (${cs.length} cliente${cs.length!==1?'s':''} · meta ${cs.length*3} pontos)</h4>
+      <div class="trf-w"><table class="trf"><thead><tr><th>Cliente</th><th>Vendeu?</th><th>Fatur. mês anterior</th><th>Fatur. do mês</th><th>Cresceu?</th><th>Relacion.</th><th>Pontos</th><th>Validação</th></tr></thead><tbody>${linhas}</tbody></table></div>
+      <div class="trf-f"><small>Cada cliente vale 3 pontos. <b>Vendeu</b> só conta com o print da venda anexado. <b>Vendeu</b> e <b>Faturou mais</b> contam depois da validação do Fundador ou Adm. O relacionamento vem do campo da tarefa do cliente (Bom, Ótimo ou Excelente).</small>
+      ${g&&pend&&!fech?`<button type="button" class="mt-btn sm pri" onclick="mtTrfValTodos('${m.id}')">Validar todos (${pend})</button>`:''}</div></div>`;
+  }
+  function salvarCk(mid,tid,patch){const m=meta(mid);if(!m)return;const ck={...((m.checks||{})[tid]||{}),...patch,por:sessionUser?.nome||'',em:new Date().toISOString()};DB.update('metas',mid,{checks:{...(m.checks||{}),[tid]:ck}});desenharDetalhe();renderMetas()}
+  window.mtTrf=function(mid,tid,campo,val){
+    const m=meta(mid);if(!m||!podeLancar(m))return;const ck=(m.checks||{})[tid]||{};
+    if(ck.val&&!gestor()){toast('Esse cliente já foi validado. Peça ao gestor para desfazer a validação.','#F59E0B');desenharDetalhe();return}
+    const patch={};
+    if(campo==='vendeu'){patch.vendeu=!!val;if(val&&!(ck.prints||[]).length){salvarCk(mid,tid,patch);toast('Anexe o print da venda para o ponto contar','#F59E0B');setTimeout(()=>mtTrfPrint(mid,tid),150);return}}
+    else{const t=String(val||'').trim();patch[campo]=t===''?null:lerValor(t)}
+    if(!gestor())patch.val=false;
+    salvarCk(mid,tid,patch);
+  };
+  window.mtTrfPrint=function(mid,tid){
+    const m=meta(mid);if(!m||!podeLancar(m))return;
+    const inp=document.createElement('input');inp.type='file';inp.accept='image/*,application/pdf';inp.multiple=true;
+    inp.onchange=async()=>{
+      const c=(typeof supabaseClient!=='undefined')?supabaseClient:null;if(!c){toast('Abra o sistema publicado para anexar prints','#F59E0B');return}
+      const novos=[];
+      for(const f of [...inp.files]){
+        if(f.size>10*1024*1024){toast(`${f.name}: acima de 10 MB`,'#EF4444');continue}
+        const safe=String(f.name||'print').normalize('NFD').replace(/[^\w.\-]+/g,'_').slice(-60);
+        const path=`${(typeof GEX_WORKSPACE_ID!=='undefined'&&GEX_WORKSPACE_ID)||'gex_company'}/metas/${mid}/${tid}/${Date.now().toString(36)}_${safe}`;
+        toast('Enviando print…','#7C3AED');
+        const {error}=await c.storage.from('op-anexos').upload(path,f,{contentType:f.type||'application/octet-stream',upsert:false});
+        if(error){console.warn(error);toast('Não foi possível enviar o print','#EF4444');continue}
+        novos.push({path,nome:f.name,em:new Date().toISOString(),por:sessionUser?.nome||''});
+      }
+      if(!novos.length)return;
+      const mm=meta(mid);const ck=(mm.checks||{})[tid]||{};
+      salvarCk(mid,tid,{prints:[...(ck.prints||[]),...novos],vendeu:true,...(gestor()?{}:{val:false})});toast('Print anexado ✓','#10B981');
+    };
+    inp.click();
+  };
+  window.mtTrfVer=async function(mid,tid){
+    const m=meta(mid);const ck=((m||{}).checks||{})[tid]||{};const ps=ck.prints||[];if(!ps.length)return;
+    const c=(typeof supabaseClient!=='undefined')?supabaseClient:null;if(!c){toast('Abra o sistema publicado para ver os prints','#F59E0B');return}
+    for(const pr of ps){const {data}=await c.storage.from('op-anexos').createSignedUrl(pr.path,300);if(data?.signedUrl)window.open(data.signedUrl,'_blank','noopener')}
+  };
+  window.mtTrfVal=function(mid,tid,on){if(!gestor())return;salvarCk(mid,tid,{val:!!on,valPor:on?(sessionUser?.nome||''):'',valEm:on?new Date().toISOString():''})};
+  window.mtTrfValTodos=function(mid){if(!gestor())return;const m=meta(mid);if(!m)return;const ck={...(m.checks||{})};const agora=new Date().toISOString();
+    carteiraTrf(m).forEach(cli=>{ck[cli.id]={...(ck[cli.id]||{}),val:true,valPor:sessionUser?.nome||'',valEm:agora}});DB.update('metas',mid,{checks:ck});desenharDetalhe();renderMetas();toast('Carteira validada ✓','#10B981')};
 
   // ── detalhe da meta ──
   window.mtAbrir=function(id){S.drId=id;desenharDetalhe()};
@@ -29815,21 +29939,15 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
           <div><span>Comissão ${c.fechado?'fechada':'até agora'}</span><b style="color:#047857">${verCom?BRL(c.comissao):'—'}</b><small>${verCom?E(txtCom(c)):'Visível só para a pessoa e o gestor'}</small></div>
           <div><span>Eficiência</span><b>${c.eficiencia}</b><small><span class="mt-selo ${sl.k}">${sl.i} ${sl.n}</span> · quantidade entregue em relação à meta</small></div>
           <div><span>Status</span><b style="font-size:14px;margin-top:6px"><span class="mt-st ${st.k}">${st.n}</span></b><small>Esperado até hoje: ${Math.round(ritmoMeta(m))}% do período</small></div>
-          <div><span>Como é contado</span><b style="font-size:13.5px">${ind.auto&&m.contarAuto!==false?'Automático + itens':'Itens lançados'}</b><small>${ind.auto&&m.contarAuto!==false?E(ind.autoTxt):'Marque cada entrega na lista abaixo'}</small></div>
+          <div><span>Como é contado</span><b style="font-size:13.5px">${ind.fixo?'Carteira de clientes':ind.auto&&m.contarAuto!==false?'Automático + itens':'Itens lançados'}</b><small>${ind.auto&&m.contarAuto!==false?E(ind.autoTxt):'Marque cada entrega na lista abaixo'}</small></div>
         </div>
-        ${c.auto.length||(ind.auto&&m.contarAuto!==false)?`<div class="mt-sec"><h4>Contado automaticamente (${c.auto.length})</h4><div class="mt-chk">
-          ${c.auto.length?c.auto.slice(0,300).map((i,ix)=>(ix===8?`<details class="mt-more"><summary>Ver todos os ${c.auto.length}</summary>`:'')+`<div class="mt-it auto"><input type="checkbox" checked disabled aria-label="Contado"><span class="t">${E(i.texto)}${i.onde?` <span class="by">· ${E(i.onde)}</span>`:''}</span><span class="q">${ind.un==='R$'?BRL(i.qtd):''}</span><span class="by">${dataBR(i.em)}</span><span class="tag">AUTO</span></div>`).join('')+(c.auto.length>8?'</details>':''):`<div class="mt-it"><span class="t" style="color:var(--mt-mu)">Nada concluído neste mês ainda. Ao concluir ${ind.autoTxt}, conta aqui sozinho.</span></div>`}
-        </div></div>`:''}
-        <div class="mt-sec"><h4>Itens lançados (checklist)</h4><div class="mt-chk">
-          <div class="mt-chk-h"><span>Total concluído: ${(m.itens||[]).filter(i=>i.feito).length}/${(m.itens||[]).length}</span>${ind.un==='R$'?'<span style="font-weight:600;color:var(--mt-mu)">valor por item</span>':''}</div>
-          ${(m.itens||[]).map(i=>`<div class="mt-it ${i.feito?'done':''}"><input type="checkbox" ${i.feito?'checked':''} ${pode?'':'disabled'} onchange="mtItem('${m.id}','${i.id}',this.checked)" aria-label="Concluído"><span class="t">${E(i.texto)}</span>${ind.un==='R$'||(+i.qtd||1)!==1?`<span class="q">${ind.un==='R$'?BRL(i.qtd):'× '+NUM(i.qtd)}</span>`:''}<span class="by" title="${E(i.por||'')}">${E(String(i.por||'').split(' ')[0])}</span>${pode?`<button class="del" onclick="mtItemDel('${m.id}','${i.id}')" aria-label="Remover item">✕</button>`:''}</div>`).join('')}
-          ${pode?`<div class="mt-add"><input class="mt-in" id="mt-it-txt" style="flex:1" placeholder="${ind.un==='R$'?'Ex.: Renovação cliente X':'Ex.: Social media 01 EFA'}" onkeydown="if(event.key==='Enter')mtItemAdd('${m.id}')">${ind.un==='R$'?`<input class="mt-in" id="mt-it-q" type="text" inputmode="decimal" data-moeda="1" oninput="mtMoeda(this)" style="width:140px" placeholder="R$ 0,00" onkeydown="if(event.key==='Enter')mtItemAdd('${m.id}')">`:`<input class="mt-in" id="mt-it-q" type="number" min="1" step="1" style="width:74px" value="1" title="Quantidade">`}<button class="mt-btn sm pri" onclick="mtItemAdd('${m.id}')">Adicionar</button></div>`:''}
-          ${!(m.itens||[]).length&&!pode?`<div class="mt-it"><span class="t" style="color:var(--mt-mu)">Nenhum item lançado.</span></div>`:''}
-        </div></div>
+        ${ind.fixo?trfTabela(m,c,pode,g):''}
+        ${ind.fixo?'':secoesItens(m,c,pode,ind)}
         ${c.regraTipo==='carteira'&&g?carteiraDetalhe(m,c):''}
         ${m.fechamento?`<div class="mt-note">Mês fechado em ${dataBR(m.fechamento.em)} por ${E(m.fechamento.por||'')}. Os valores acima ficaram congelados.</div>`:''}
       </div>
       ${g?`<div class="mt-dr-f">${m.fechamento?`<button class="mt-btn" onclick="mtReabrir('${m.id}')">Reabrir meta</button>`:`<button class="mt-btn dng" onclick="mtExcluir('${m.id}')">Excluir</button><button class="mt-btn" onclick="mtEditar('${m.id}')">Editar meta</button>`}</div>`:''}`);
+    try{dr.classList.toggle('largo',!!ind.fixo)}catch(e){}
     dr.querySelector('.mt-dr-b').scrollTop=0;
   });
   // Valores da carteira (total e por cliente) só para Fundador/Adm Gerente. Colaborador vê só a própria comissão e o %.
@@ -29918,6 +30036,8 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const w=document.getElementById('mtf-auto-w');if(w)w.style.display=ind.auto?'':'none';
     const s=document.getElementById('mtf-auto-s');if(s)s.textContent=ind.auto?`Soma ${ind.autoTxt} entre o início e o prazo, além dos itens lançados à mão.`:'';
     const l=document.getElementById('mtf-alvo-l');if(l)l.textContent=ind.un==='R$'?'Meta em R$':'Meta (quantidade)';
+    const aw=document.getElementById('mtf-alvo')?.closest('label');if(aw)aw.style.display=ind.fixo?'none':'';
+    if(ind.fixo&&w)w.style.display='none';
     setTimeout(()=>window.mtfPrevia&&mtfPrevia(),0);
     const inp=document.getElementById('mtf-alvo');
     if(inp){
@@ -29934,6 +30054,9 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const box=document.getElementById('mtf-prev');if(!box)return;
     const ind=INDICADORES[S.form.indicador]||{};
     const auto=document.getElementById('mtf-auto');
+    if(ind.fixo&&S.form.sel.size){
+      const inicio=document.getElementById('mtf-ini')?.value||iniMes(S.mes);
+      box.innerHTML='A meta é automática: <b>3 pontos por cliente</b> da carteira.<br>'+[...S.form.sel].map(uid=>{const u=pessoa(uid);if(!u)return '';const n=carteiraTrf({mes:S.mes,inicio,userId:userId(u),userNome:u.nome,userEmail:u.email}).length;return `<b>${E(u.nome)}</b>: ${n} cliente${n!==1?'s':''} → meta de ${n*3} pontos`}).filter(Boolean).join('<br>');box.style.display='';return}
     if(!ind.auto||(auto&&!auto.checked)||!S.form.sel.size){box.style.display='none';return}
     const inicio=document.getElementById('mtf-ini')?.value||iniMes(S.mes),prazo=document.getElementById('mtf-prazo')?.value||fimMes(S.mes);
     const linhas=[...S.form.sel].map(uid=>{const u=pessoa(uid);if(!u)return '';
@@ -29945,7 +30068,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   window.mtSalvar=function(id){
     const _a=document.getElementById('mtf-alvo');
     const alvo=_a?.dataset.moeda==='1'?lerValor(_a.value):+String(_a?.value||'').replace(',','.');
-    if(!(alvo>0)){toast('Informe a meta (alvo)','#F59E0B');document.getElementById('mtf-alvo')?.focus();return}
+    if(!(alvo>0)&&!INDICADORES[S.form.indicador]?.fixo){toast('Informe a meta (alvo)','#F59E0B');document.getElementById('mtf-alvo')?.focus();return}
     const prazo=document.getElementById('mtf-prazo')?.value||fimMes(S.mes);
     const inicio=document.getElementById('mtf-ini')?.value||iniMes(S.mes);
     if(prazo<inicio){toast('O prazo precisa ser depois do início','#F59E0B');document.getElementById('mtf-prazo')?.focus();return}
