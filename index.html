@@ -32051,22 +32051,27 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
 
   // ── estado ──
   const S={tab:'lanc',ano:new Date().getFullYear(),mes:'',tipo:'',cat:'',cli:'',q:'',lim:100,dreMes:''};
-  const txs=()=>(DB.get('transacoes')||[]).filter(t=>t&&/^\d{4}-\d{2}-\d{2}/.test(String(t.data||'')));
-  const doAno=a=>txs().filter(t=>String(t.data).slice(0,4)===String(a));
+  let RC=null; // cache válido só enquanto a tela está sendo desenhada (lê o banco local 1 vez)
+  const txs=()=>{if(RC&&RC.tx)return RC.tx;const v=(DB.get('transacoes')||[]).filter(t=>t&&/^\d{4}-\d{2}-\d{2}/.test(String(t.data||'')));if(RC)RC.tx=v;return v};
+  const doAno=a=>{const k='ano'+a;if(RC&&RC[k])return RC[k];const v=txs().filter(t=>String(t.data).slice(0,4)===String(a));if(RC)RC[k]=v;return v};
   const pode=a=>{try{return typeof can!=='function'||can('financas',a)}catch(e){return true}};
 
   // ── agregados ──
   function porMes(ano){
+    if(RC&&RC['pm'+ano])return RC['pm'+ano];
     const o={};for(let i=0;i<12;i++)o[i]={cats:{},rec:0,desp:0,recFora:0,despFora:0};
     doAno(ano).forEach(t=>{const i=+String(t.data).slice(5,7)-1;const f=info(t.cat,t.tipo),v=valorNum(t),b=o[i];
       b.cats[f.cat]=(b.cats[f.cat]||0)+v;
       if(t.tipo==='Receita'){f.fora?b.recFora+=v:b.rec+=v}else{f.fora?b.despFora+=v:b.desp+=v}});
+    if(RC)RC['pm'+ano]=o;
     return o;
   }
 
   // ── tela ──
   window.renderFinancas=function(){
     const pg=document.getElementById('page-financas');if(!pg)return;
+    RC={};try{enxugar()}catch(e){}
+    try{
     const tabs=[['lanc','Lançamentos'],['fluxo','Fluxo mensal'],['dre','DRE'],['painel','Painel']];
     const body=({lanc:telaLanc,fluxo:telaFluxo,dre:telaDre,painel:telaPainel})[S.tab]();
     pg.innerHTML=`<div class="pl">
@@ -32082,6 +32087,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
       ${body}</div>`;
     try{gxMelhorarSelects(pg)}catch(e){}
     try{desenharGraficosFin()}catch(e){console.warn(e)}
+    }finally{RC=null}
   };
   window.fxTab=t=>{S.tab=t;renderFinancas()};
   window.fxAno=d=>{S.ano+=d;S.lim=100;renderFinancas()};
@@ -32281,7 +32287,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
       if(!desc){avisa('Escreva uma descrição','#EF4444');return}
       const cliNome=o.querySelector('#fx-cli').value.trim();const cli=cs.find(c=>norm(c.nome)===norm(cliNome));
       const obj={tipo:tp,data,valor:Math.round(valor*100)/100,desc,cat:o.querySelector('#fx-cat').value,meio:o.querySelector('#fx-meio').value,obs:o.querySelector('#fx-obs').value.trim(),clienteNome:cli?cli.nome:cliNome,clienteId:cli?cli.id:''};
-      if(t.id)DB.update('transacoes',t.id,obj);else DB.push('transacoes',{id:uidF(),criadoPor:(typeof sessionUser!=='undefined'&&sessionUser?.nome)||'',criadoEm:new Date().toISOString(),...obj});
+      if(t.id)DB.update('transacoes',t.id,obj);else DB.push('transacoes',enxuto({id:uidF(),...obj}));
       fecharMd();if(String(data).slice(0,4)!==String(S.ano))S.ano=+String(data).slice(0,4);renderFinancas();avisa(t.id?'Lançamento atualizado ✓':(tp==='Receita'?'Entrada lançada ✓':'Saída lançada ✓'));
     };
     setTimeout(()=>o.querySelector(t.id?'#fx-desc':'#fx-valor')?.focus(),40);
@@ -32342,6 +32348,22 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
       const sc=com/Math.max(1,Math.min(tok.length,mt.length));if(com&&sc>bs){bs=sc;best=c}});
     return bs>=.6?best:null;
   }
+  // chave curta para não duplicar ao reimportar (hash da data, valor e descrição)
+  function hash(t){let h=2166136261;for(let i=0;i<t.length;i++){h^=t.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>0).toString(36)}
+  function chaveCurta(k){k=String(k||'');if(!k||k.startsWith('taxas|')||/^p[a-z0-9]+_\d+$/.test(k))return k;const i=k.lastIndexOf('|');return 'p'+hash(k.slice(0,i))+'_'+k.slice(i+1)}
+  // só guarda o que é usado (sem campos vazios nem dados de controle da importação)
+  const CAMPOS_TX=['id','tipo','data','valor','desc','cat','clienteNome','clienteId','meio','obs','qtd','chave','origem'];
+  function enxuto(t){const o={};CAMPOS_TX.forEach(k=>{const v=t[k];if(v!==undefined&&v!==null&&v!=='')o[k]=v});if(o.chave)o.chave=chaveCurta(o.chave);return o}
+  // limpeza única dos lançamentos que já foram importados com campos extras
+  let enxugado=false;
+  function enxugar(){
+    if(enxugado)return;enxugado=true;
+    if(!pode('edit'))return;
+    const all=DB.get('transacoes')||[];
+    const pesado=all.some(t=>t&&(t.contaPlanilha!==undefined||t.importadoEm!==undefined||(t.chave&&t.chave.length>24&&!t.chave.startsWith('taxas|'))));
+    if(!pesado)return;
+    DB.set('transacoes',all.map(t=>t&&(t.contaPlanilha!==undefined||t.importadoEm!==undefined||(t.chave&&t.chave.length>24&&!t.chave.startsWith('taxas|')))?enxuto(t):t));
+  }
   function lerPlanilha(wb){
     const pega=nome=>{const k=wb.SheetNames.find(s=>norm(s)===nome);return k?XLSX.utils.sheet_to_json(wb.Sheets[k],{header:1,raw:true,defval:''}):null};
     const rec=pega('receita'),des=pega('despesa');
@@ -32360,8 +32382,8 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     Object.entries(taxas).forEach(([k,arr])=>{const tot=arr.reduce((a,x)=>a+x.valor,0);const ult=arr.map(x=>x.data).sort().pop();
       out.push({tipo:'Despesa',data:ult,valor:Math.round(tot*100)/100,desc:`Taxas bancárias de ${MESES_LONGO[+k.slice(5,7)-1]} (${arr.length} tarifas de Pix, notificação e mensagem)`,cat:'Taxas bancárias',qtd:arr.length,chave:'taxas|'+k})});
     // chave para não duplicar ao importar de novo
-    const vistos={};out.forEach(l=>{if(l.chave)return;const b=[l.tipo,l.data,l.valor.toFixed(2),norm(l.desc).slice(0,60)].join('|');vistos[b]=(vistos[b]||0)+1;l.chave=b+'|'+vistos[b]});
-    return out;
+    const vistos={};out.forEach(l=>{if(l.chave)return;const b=[l.tipo,l.data,l.valor.toFixed(2),norm(l.desc).slice(0,60)].join('|');vistos[b]=(vistos[b]||0)+1;l.chave='p'+hash(b)+'_'+vistos[b]});
+    return out.map(l=>{delete l.contaPlanilha;return l});
   }
   window.fxImportar=function(){
     if(typeof XLSX==='undefined'){avisa('Leitor de planilha não carregou. Atualize a página.','#EF4444');return}
@@ -32374,7 +32396,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('on');ler(e.dataTransfer.files[0])});
   };
   function previa(o,linhas,nome){
-    const atuais=DB.get('transacoes')||[];const porChave=new Map(atuais.filter(t=>t.chave).map(t=>[t.chave,t]));
+    const atuais=DB.get('transacoes')||[];const porChave=new Map(atuais.filter(t=>t.chave).map(t=>[chaveCurta(t.chave),t]));
     const novos=linhas.filter(l=>!porChave.has(l.chave)),atualiza=linhas.filter(l=>{const t=porChave.get(l.chave);return t&&l.chave.startsWith('taxas|')&&Math.abs(valorNum(t)-l.valor)>.009});
     const resumo={};linhas.forEach(l=>{const k=l.cat;resumo[k]=resumo[k]||{tipo:l.tipo,n:0,v:0};resumo[k].n+=(l.qtd||1);resumo[k].v+=l.valor});
     const ordem=PLANO.map(p=>p.cat).filter(c=>resumo[c]);
@@ -32393,8 +32415,8 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     o.querySelector('[data-x]').onclick=fecharMd;
     o.querySelector('[data-ok]').onclick=()=>{
       const quem=(typeof sessionUser!=='undefined'&&sessionUser?.nome)||'';const agora=new Date().toISOString();
-      const lista=(DB.get('transacoes')||[]).map(t=>{const u=atualiza.find(a=>a.chave===t.chave);return u?{...t,valor:u.valor,desc:u.desc,qtd:u.qtd,data:u.data}:t});
-      novos.forEach(l=>lista.push({id:uidF(),...l,origem:'planilha',importadoEm:agora,criadoPor:quem}));
+      const lista=(DB.get('transacoes')||[]).map(t=>{const u=atualiza.find(a=>a.chave===chaveCurta(t.chave));return u?{...t,valor:u.valor,desc:u.desc,qtd:u.qtd,data:u.data}:t});
+      novos.forEach(l=>lista.push(enxuto({id:uidF(),...l,origem:'planilha'})));
       DB.set('transacoes',lista);
       fecharMd();const anos=[...new Set(novos.map(l=>l.data.slice(0,4)))].sort();if(anos.length)S.ano=+anos[anos.length-1];
       Object.assign(S,{tab:'painel',q:'',mes:'',tipo:'',cat:'',cli:''});renderFinancas();avisa(`${novos.length} lançamentos importados ✓`);
