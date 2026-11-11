@@ -29265,6 +29265,7 @@ body:has(#page-whatsapp-chat.active) .gxc-fab.up{bottom:166px}
 .trf-ck{display:inline-flex;align-items:center;gap:6px}
 .trf-ck input{width:17px;height:17px;accent-color:#7C3AED}
 .trf-lk{border:none;background:none;color:#7C3AED;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer;padding:2px 4px;text-decoration:underline;text-underline-offset:2px}
+.trf-op{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.03em;text-transform:none;padding:1px 6px;border-radius:999px;background:var(--mt-soft,#F1F1F6);color:var(--mt-mu,#6A6A7C);margin-left:2px}
 .trf-av{display:block;color:#B45309;font-size:10.5px;font-weight:600}
 .trf-p{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--mt-soft,#F1F1F6);color:var(--mt-mu,#6A6A7C)}
 .trf-p.ok{background:#E8F7EF;color:#0F7A43}.trf-p.no{background:#FDEBEA;color:#B42318}
@@ -29451,7 +29452,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   };
   const INDICADORES={
     producao:{area:'operacional',nome:'Quantidade de produção',un:'un',auto:true,autoTxt:'tarefas concluídas em Gestão de entregas'},
-    carteiratrf:{area:'trafego',nome:'Resultado da carteira',un:'pts',auto:true,fixo:true,autoTxt:'3 pontos por cliente: vendeu (com print), faturou mais que o mês anterior e relacionamento Bom ou melhor'},
+    carteiratrf:{area:'trafego',nome:'Resultado da carteira',un:'pts',auto:true,fixo:true,autoTxt:'2 pontos por cliente: vendeu (com print) e relacionamento Bom ou melhor. O faturamento é opcional'},
     campanhas:{area:'trafego',nome:'Campanhas validadas',un:'un',auto:false},
     ltv:{area:'trafego',nome:'LTV gerado',un:'R$',auto:false},
     contas:{area:'trafego',nome:'Contas gerenciadas',un:'un',auto:false},
@@ -29565,12 +29566,12 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   function pontosCli(m,cli){
     const ck=(m.checks||{})[cli.id]||{};const fa=fatAnterior(m,cli.id),fm=ck.fat!=null&&ck.fat!==''?+ck.fat:null;
     const prints=ck.prints||[];const vendeu=!!ck.vendeu&&prints.length>0,cresceu=fm!=null&&fa!=null&&fm>fa,val=!!ck.val;
-    const lanc=(vendeu?1:0)+(cresceu?1:0)+(cli.relacOk?1:0);
+    const lanc=(vendeu?1:0)+(cli.relacOk?1:0); // faturamento é opcional: aparece, mas não vale ponto
     return {ck,fa,fm,prints,vendeu,vendeuSemPrint:!!ck.vendeu&&!prints.length,cresceu,val,relac:cli.relacOk,pts:val?lanc:0,pend:val?0:lanc};
   }
   function autoItens(m){
     const ind=INDICADORES[m.indicador];if(!ind||!ind.auto||m.contarAuto===false&&!ind.fixo)return [];
-    if(m.indicador==='carteiratrf')return carteiraTrf(m).map(cli=>{const p=pontosCli(m,cli);return {id:'a_'+cli.id,texto:cli.nome,qtd:p.pts,em:'',onde:`${p.pts}/3 pontos`}});
+    if(m.indicador==='carteiratrf')return carteiraTrf(m).map(cli=>{const p=pontosCli(m,cli);return {id:'a_'+cli.id,texto:cli.nome,qtd:p.pts,em:'',onde:`${p.pts}/2 pontos`}});
     const u=pessoa(m.userId)||{id:m.userId,nome:m.userNome,email:m.userEmail};
     const keys=[...chavesDe(u),norm(m.userId),norm(m.userEmail),norm(m.userNome)].filter(Boolean);
     if(m.indicador==='producao'){
@@ -29598,7 +29599,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const auto=autoItens(m);
     const manual=INDICADORES[m.indicador]?.fixo?[]:(m.itens||[]).filter(i=>i.feito);
     const realizado=auto.reduce((a,i)=>a+(+i.qtd||0),0)+manual.reduce((a,i)=>a+(+i.qtd||1),0);
-    const alvo=INDICADORES[m.indicador]?.fixo?carteiraTrf(m).length*3:(+m.alvo||0);
+    const alvo=INDICADORES[m.indicador]?.fixo?carteiraTrf(m).length*2:(+m.alvo||0);
     const pct=alvo>0?(realizado/alvo)*100:0;
     const regra=regraDe(m);
     const com=comissao(regra,realizado,pct,INDICADORES[m.indicador]?.un,m);
@@ -29871,14 +29872,14 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
         <td class="c"><label class="trf-ck"><input type="checkbox" ${p.ck.vendeu?'checked':''} ${dis} onchange="mtTrf('${m.id}','${cli.id}','vendeu',this.checked)" aria-label="Vendeu"> ${pr}${!trava?`<button type="button" class="trf-lk" onclick="mtTrfPrint('${m.id}','${cli.id}')">${p.prints.length?'+':'Anexar print'}</button>`:''}</label>${p.vendeuSemPrint?'<small class="trf-av">falta o print</small>':''}</td>
         <td><input class="mt-in trf-in" ${dis} value="${p.fa!=null?moedaFmt(p.fa):''}" placeholder="R$ 0,00" oninput="mtMoeda(this)" onchange="mtTrf('${m.id}','${cli.id}','fatAnt',this.value)" aria-label="Faturamento do mês anterior de ${E(cli.nome)}"></td>
         <td><input class="mt-in trf-in" ${dis} value="${p.fm!=null?moedaFmt(p.fm):''}" placeholder="R$ 0,00" oninput="mtMoeda(this)" onchange="mtTrf('${m.id}','${cli.id}','fat',this.value)" aria-label="Faturamento do mês de ${E(cli.nome)}"></td>
-        <td class="c">${p.fm==null||p.fa==null?'<span class="trf-p">—</span>':p.cresceu?'<span class="trf-p ok">Sim</span>':'<span class="trf-p no">Não</span>'}</td>
+        <td class="c">${p.fm==null||p.fa==null?'<span class="trf-p">—</span>':p.cresceu?'<span class="trf-p ok">Sim</span>':'<span class="trf-p">Não</span>'}</td>
         <td class="c">${cli.relac?`<span class="trf-p ${cli.relacOk?'ok':'no'}">${E(cli.relac)}</span>`:'<span class="trf-p">sem nota</span>'}</td>
-        <td class="c"><b>${p.pts}</b>/3${p.pend?`<small class="trf-pend">+${p.pend} a validar</small>`:''}</td>
+        <td class="c"><b>${p.pts}</b>/2${p.pend?`<small class="trf-pend">+${p.pend} a validar</small>`:''}</td>
         <td class="c">${p.val?(pode&&!fech?`<button type="button" class="trf-v ok" onclick="mtTrfVal('${m.id}','${cli.id}',false)" title="Clique para desfazer e editar">Validado</button>`:'<span class="trf-v ok">Validado</span>'):(pode&&!fech?`<button type="button" class="trf-v pri" onclick="mtTrfVal('${m.id}','${cli.id}',true)">Validar</button>`:'<span class="trf-v">Pendente</span>')}</td></tr>`}).join('');
     const pend=cs.filter(cli=>!pontosCli(m,cli).val).length;
-    return `<div class="mt-sec"><h4>Carteira do mês (${cs.length} cliente${cs.length!==1?'s':''} · meta ${cs.length*3} pontos)</h4>
-      <div class="trf-w"><table class="trf"><thead><tr><th>Cliente</th><th>Vendeu?</th><th>Fatur. mês anterior</th><th>Fatur. do mês</th><th>Cresceu?</th><th>Relacion.</th><th>Pontos</th><th>Validação</th></tr></thead><tbody>${linhas}</tbody></table></div>
-      <div class="trf-f"><small>Cada cliente vale 3 pontos. Preencha, anexe o print da venda e clique em <b>Validar</b>: só aí os pontos e a comissão entram. <b>Vendeu</b> só conta com print. O relacionamento vem do campo da tarefa do cliente (Bom, Ótimo ou Excelente). Para corrigir um cliente validado, clique em <b>Validado</b>.</small>
+    return `<div class="mt-sec"><h4>Carteira do mês (${cs.length} cliente${cs.length!==1?'s':''} · meta ${cs.length*2} pontos)</h4>
+      <div class="trf-w"><table class="trf"><thead><tr><th>Cliente</th><th>Vendeu?</th><th>Fatur. anterior <span class="trf-op">opcional</span></th><th>Fatur. do mês <span class="trf-op">opcional</span></th><th>Cresceu?</th><th>Relacion.</th><th>Pontos</th><th>Validação</th></tr></thead><tbody>${linhas}</tbody></table></div>
+      <div class="trf-f"><small>Cada cliente vale 2 pontos: <b>vendeu</b> (com print) e <b>relacionamento</b>. O faturamento é opcional e não vale ponto. Anexe o print e clique em <b>Validar</b>: só aí os pontos e a comissão entram. O relacionamento vem do campo da tarefa do cliente (Bom, Ótimo ou Excelente). Para corrigir um cliente validado, clique em <b>Validado</b>.</small>
       ${pode&&pend&&!fech?`<button type="button" class="mt-btn sm pri" onclick="mtTrfValTodos('${m.id}')">Validar todos (${pend})</button>`:''}</div></div>`;
   }
   function salvarCk(mid,tid,patch){const m=meta(mid);if(!m)return;const ck={...((m.checks||{})[tid]||{}),...patch,por:sessionUser?.nome||'',em:new Date().toISOString()};DB.update('metas',mid,{checks:{...(m.checks||{}),[tid]:ck}});desenharDetalhe();renderMetas()}
@@ -30085,7 +30086,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const auto=document.getElementById('mtf-auto');
     if(ind.fixo&&S.form.sel.size){
       const inicio=document.getElementById('mtf-ini')?.value||iniMes(S.mes);
-      box.innerHTML='A meta é automática: <b>3 pontos por cliente</b> da carteira.<br>'+[...S.form.sel].map(uid=>{const u=pessoa(uid);if(!u)return '';const n=carteiraTrf({mes:S.mes,inicio,userId:userId(u),userNome:u.nome,userEmail:u.email}).length;return `<b>${E(u.nome)}</b>: ${n} cliente${n!==1?'s':''} → meta de ${n*3} pontos`}).filter(Boolean).join('<br>');box.style.display='';return}
+      box.innerHTML='A meta é automática: <b>2 pontos por cliente</b> da carteira (vendeu com print + relacionamento).<br>'+[...S.form.sel].map(uid=>{const u=pessoa(uid);if(!u)return '';const n=carteiraTrf({mes:S.mes,inicio,userId:userId(u),userNome:u.nome,userEmail:u.email}).length;return `<b>${E(u.nome)}</b>: ${n} cliente${n!==1?'s':''} → meta de ${n*2} pontos`}).filter(Boolean).join('<br>');box.style.display='';return}
     if(!ind.auto||(auto&&!auto.checked)||!S.form.sel.size){box.style.display='none';return}
     const inicio=document.getElementById('mtf-ini')?.value||iniMes(S.mes),prazo=document.getElementById('mtf-prazo')?.value||fimMes(S.mes);
     const linhas=[...S.form.sel].map(uid=>{const u=pessoa(uid);if(!u)return '';
