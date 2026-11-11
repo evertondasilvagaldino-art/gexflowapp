@@ -31928,6 +31928,9 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
 .fx-bar i.out{background:#EF4444}
 .fx-bar i.in{background:#10B981}
 .fx-bar b{text-align:right;font-variant-numeric:tabular-nums}
+.fx-fluxo th:last-child,.fx-fluxo td:last-child{background:var(--pl-ps)!important;color:var(--pl-p)!important;font-weight:800;border-left:1px solid rgba(124,58,237,.18)}
+.fx-fluxo tr.grp td:last-child{background:var(--pl-soft)!important;color:var(--pl-mu)!important;font-weight:700;border-left:none}
+.fx-fluxo tr.res td:last-child{background:rgba(124,58,237,.16)!important}
 .fx-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
 .fx-ov{position:fixed;inset:0;z-index:99990;background:rgba(17,17,26,.48);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px}
 .fx-md{width:100%;max-width:560px;max-height:min(90vh,820px);overflow:auto;background:var(--g-card,#fff);color:var(--g-tx,#17171F);border-radius:18px;box-shadow:0 24px 60px -12px rgba(0,0,0,.4);padding:20px 22px}
@@ -32209,7 +32212,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     html+=`<tr class="res"><td>Saldo do mês (caixa)</td>${saldo.map(s=>`<td class="${s.v<0?'neg':''}">${s.tem?R0(s.v):'—'}</td>`).join('')}<td style="font-weight:800">${R0(saldo.reduce((a,s)=>a+s.v,0))}</td></tr>
       <tr class="res"><td>Saldo acumulado</td>${saldo.map(s=>`<td class="${s.acc<0?'neg':''}">${s.tem?R0(s.acc):'—'}</td>`).join('')}<td></td></tr>`;
     return `<div class="pl-card"><h3>Fluxo mensal ${S.ano}</h3><p class="sub">Clique num valor para ver os lançamentos daquele mês e categoria. O resultado operacional não inclui retiradas, reserva, saldo inicial e estornos, que aparecem no fim.</p>
-      <div class="pl-tw"><table class="pl-t"><thead><tr><th>Categoria</th>${MESES.map(m=>`<th>${m}</th>`).join('')}<th>Total</th></tr></thead><tbody>${html}</tbody></table></div></div>`;
+      <div class="pl-tw"><table class="pl-t fx-fluxo"><thead><tr><th>Categoria</th>${MESES.map(m=>`<th>${m}</th>`).join('')}<th>Total</th></tr></thead><tbody>${html}</tbody></table></div></div>`;
   }
 
   function telaDre(){
