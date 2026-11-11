@@ -10754,6 +10754,7 @@ function getVisibleSalesUsersForMetrics(leads){
 }
 
 function salesRowFilterValue(user){
+  if(user&&String(user.id)==='__sem_responsavel')return '__unassigned';
   return _ownerFilterValueFromUser(user);
 }
 function salesRowMatchesFilter(row,filterValue){
@@ -10790,6 +10791,12 @@ function openCommercialOwnerPipeline(filterValue){
       leads.forEach(l=>{const fid=l.funnelId||(def&&def.id);if(fid)cont.set(String(fid),(cont.get(String(fid))||0)+1)});
       const atual=String(getActiveFunnelId()||'');
       let melhor=null,n=cont.get(atual)||0;fs.forEach(f=>{const c=cont.get(String(f.id))||0;if(c>n){n=c;melhor=f}});
+      if(!n&&filterValue.startsWith('id:')){
+        // Pessoa sem leads: abre o funil dela (se tiver), em vez de deixar o último funil aberto
+        const alvo=filterValue.slice(3);const u=getUserByOwnerIdOrEmail(alvo,'')||{};
+        const ids=[alvo,u.id,u.supabaseId].filter(Boolean).map(String);const em=normalizeLoginEmail(u.email||'');
+        melhor=fs.find(f=>ids.includes(String(f.createdBy||''))||(em&&normalizeLoginEmail(f.createdByEmail||'')===em))||null;
+      }
       if(melhor)setActiveFunnelId(melhor.id);
     }
   }catch(e){console.warn('[Equipe] não foi possível escolher o funil',e)}
