@@ -9494,7 +9494,7 @@ function renderInicio(){
   const selRespTxt=dashFilter.resp?(document.getElementById('dash-resp')?.selectedOptions?.[0]?.textContent||'').split(' · ')[0]:'';
   const info=document.getElementById('dash-filter-info');
   if(info)info.textContent='→ '+filterLabel+(dashSel?' · '+[selFunilTxt,selRespTxt].filter(Boolean).join(' · ')+' (Receita, Lucro, Clientes e Health são da empresa toda)':'');
-  const txsAll=DB.get('transacoes');
+  const txsAll=(DB.get('transacoes')||[]).filter(t=>typeof gxFinOperacional!=='function'||gxFinOperacional(t));
   const txs=txsAll.filter(txInPeriod);   // transações do período
   // Números da Início (Negócios Ganhos, Pipeline Comercial etc.) são da
   // operação comercial INTERNA — negócios do funil separado de um Gex
@@ -9542,7 +9542,7 @@ function renderInicio(){
     :null;
 
   // ── CAC (Custo de Aquisição de Cliente) ────────────────────────────────
-  const adsSpend=txs.filter(t=>t.tipo==='Despesa'&&/ads|tráfego|marketing/i.test(t.cat||'')).reduce((a,t)=>a+t.valor,0);
+  const adsSpend=txs.filter(t=>t.tipo==='Despesa'&&/ads|tráfego|marketing|anúncio|publicidade/i.test(t.cat||'')).reduce((a,t)=>a+t.valor,0);
   const novosClientes=leadsPeriod.filter(l=>l.dealStatus==='Ganho').length;
   // Ads é gasto da empresa toda — dividir pelos ganhos de UM funil/pessoa
   // daria um CAC enganoso; com filtro ativo o CAC não é calculado.
@@ -11933,7 +11933,7 @@ function getOpportunityClosedDate(o){
 
 function getComercialInvestment(period){
   // Busca transações da categoria Ads/Marketing no período
-  let txs=DB.get('transacoes').filter(t=>t.tipo==='Despesa'&&/ads|tráfego|marketing/i.test(t.cat||''));
+  let txs=DB.get('transacoes').filter(t=>t.tipo==='Despesa'&&/ads|tráfego|marketing|anúncio|publicidade/i.test(t.cat||''));
   txs=filterOpportunitiesByPeriod(txs.map(t=>({...t,dataInicio:t.data})),period);
   return txs.reduce((a,t)=>a+(parseFloat(t.valor)||0),0);
 }
@@ -12452,14 +12452,14 @@ function gxExportFinancasXLSX(){
   if(typeof XLSX==='undefined'){toast('Biblioteca de Excel não carregou. Recarregue a página e tente novamente.','#EF4444');return}
   const txs=getFilteredTransacoesFinancas();
   if(!txs.length){toast('Nenhuma transação pra exportar com esse filtro','#F59E0B');return}
-  const head=['Descrição','Categoria','Tipo','Valor (R$)','Data'];
-  const rows=txs.slice().sort((a,b)=>(b.data||'').localeCompare(a.data||'')).map(t=>[
+  const head=['Data','Tipo','Descrição','Categoria','Grupo','Fora do resultado','Cliente','Meio de pagamento','Valor (R$)'];
+  const rows=txs.slice().sort((a,b)=>(b.data||'').localeCompare(a.data||'')).map(t=>{const f=typeof gxFinInfo==='function'?gxFinInfo(t.cat,t.tipo):{cat:t.cat,grupo:'',fora:false};return [
+    t.data?new Date(t.data+'T00:00:00').toLocaleDateString('pt-BR'):'',
+    t.tipo==='Receita'?'Entrada':'Saída',
     t.desc||'',
-    t.cat||'',
-    t.tipo||'',
-    +(t.valor||0),
-    t.data?new Date(t.data+'T00:00:00').toLocaleDateString('pt-BR'):''
-  ]);
+    f.cat||'',f.grupo||'',f.fora?'Sim':'',
+    t.clienteNome||'',t.meio||'',
+    +(t.valor||0)]});
   const ws=XLSX.utils.aoa_to_sheet([head,...rows]);
   ws['!cols']=head.map(h=>({wch:Math.max(12,Math.min(32,String(h).length+6))}));
   const wb=XLSX.utils.book_new();
@@ -26600,7 +26600,7 @@ function gxIniTopo(){
 }
 function build(){
   const cls=DB.get('clientes')||[],mbs=DB.get('membros')||[],leads=DB.get('leads')||[];
-  const txsAll=DB.get('transacoes')||[];
+  const txsAll=(DB.get('transacoes')||[]).filter(t=>typeof gxFinOperacional!=='function'||gxFinOperacional(t));
   const dashSel=!!(dashFilter.funil||dashFilter.resp);
   const label=dashFilter.mes?`${M[dashFilter.mes-1]} / ${dashFilter.ano}`:`Ano ${dashFilter.ano}`;
   const pp=prevPeriod();
@@ -26629,7 +26629,7 @@ function build(){
   const ticket=ganhos.length?vGanho/ganhos.length:0;
   const gc=ganhos.filter(l=>_dk(l.dataInicio||l.createdAt)&&closeKey(l));
   const ciclo=gc.length?Math.round(gc.reduce((a,l)=>a+Math.max(0,Math.round((new Date(closeKey(l)+'T00:00:00')-new Date(_dk(l.dataInicio||l.createdAt)+'T00:00:00'))/864e5)),0)/gc.length):null;
-  const ads=txs.filter(t=>t.tipo==='Despesa'&&/ads|tráfego|marketing/i.test(t.cat||'')).reduce((a,t)=>a+(+t.valor||0),0);
+  const ads=txs.filter(t=>t.tipo==='Despesa'&&/ads|tráfego|marketing|anúncio|publicidade/i.test(t.cat||'')).reduce((a,t)=>a+(+t.valor||0),0);
   const nGanho=ganhos.length;
   const cac=(!dashSel&&nGanho>0)?Math.round(ads/nGanho):null;
   const avgH=cls.length?Math.round(cls.reduce((a,c)=>a+(c.health||0),0)/cls.length):0;
@@ -31602,7 +31602,7 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
       });
       if(ganhou){const m=mesDe(dataGanho(l));add(m,'vendas');add(m,'receita',typeof getOpportunityValue==='function'?getOpportunityValue(l):0)}
     });
-    (DB.get('transacoes')||[]).forEach(t=>{if(t&&t.tipo==='Despesa'&&/ads|tr[aá]fego/i.test(String(t.cat||'')))add(mesDe(t.data),'investimento',+t.valor||0)});
+    (DB.get('transacoes')||[]).forEach(t=>{if(t&&t.tipo==='Despesa'&&/ads|tr[aá]fego|an[uú]ncio|publicidade/i.test(String(t.cat||'')))add(mesDe(t.data),'investimento',+t.valor||0)});
     return out;
   }
   const CAMPOS=['leads','respostas','agendadas','realizadas','vendas','receita','investimento'];
@@ -31613,17 +31613,46 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
   }
   function financeiroReal(){
     const o={};(DB.get('transacoes')||[]).forEach(t=>{if(!t)return;const m=mesDe(t.data);if(!m)return;o[m]=o[m]||{receita:0,despesa:0,n:0};
-      if(t.tipo==='Receita')o[m].receita+=+t.valor||0;else if(t.tipo==='Despesa')o[m].despesa+=+t.valor||0;o[m].n++});
+      const v=typeof t.valor==='number'?t.valor:(typeof gxParseBRL==='function'?gxParseBRL(t.valor):+t.valor)||0;
+      if(typeof gxFinOperacional==='function'&&!gxFinOperacional(t))return;
+      if(t.tipo==='Receita')o[m].receita+=v;else if(t.tipo==='Despesa')o[m].despesa+=v;o[m].n++});
     return o;
   }
+  // MRR da carteira no mês (estimativa quando não há lançamento em Finanças)
+  function carteiraNoMes(m){
+    const ini=m+'-01',fim=m+'-31';let tot=0;
+    contratos().forEach(ct=>{
+      const st=String(ct.status||'').trim().toLowerCase();if(st==='pendente')return;
+      const i=String(ct.inicio||'').slice(0,10),v=String(ct.vencimento||'').slice(0,10);
+      if(i&&i>fim)return;
+      if(v&&v<ini&&!st.startsWith('renova'))return;
+      if(st==='encerrado'&&!v)return;
+      tot+=vCont(ct);
+    });
+    return tot;
+  }
+
+  // ── MRR vem do setor de CONTRATOS (mesma conta do "MRR Agência" da tela de Contratos) ──
+  const contratos=()=>(DB.get('contratos')||[]).filter(Boolean);
+  const vCont=ct=>{try{return typeof contratoValorNum==='function'?contratoValorNum(ct.valor):(parseFloat(ct.valor)||0)}catch(e){return 0}};
+  const sitCont=ct=>{try{return typeof contratoSituacao==='function'?contratoSituacao(ct):'ativo'}catch(e){return 'ativo'}};
+  // valor mensal de um cliente pelos contratos dele (o mais recente), para medir o MRR que saiu
+  function mrrDoCliente(c){
+    const cs=contratos().filter(ct=>String(ct.clienteId||'')===String(c.id)&&vCont(ct)>0).sort((a,b)=>String(b.inicio||'').localeCompare(String(a.inicio||'')));
+    return cs.length?vCont(cs[0]):valorCliente(c);
+  }
   function baseMrr(){
-    const cs=DB.get('clientes')||[];
-    const ativos=cs.filter(c=>c&&c.status==='Ativo').map(c=>({id:c.id,nome:c.nome||'Cliente',mrr:valorCliente(c),status:c.status}));
-    const saindo=cs.filter(c=>c&&c.status==='Pediu para sair'&&!/^\d{4}-\d{2}-\d{2}/.test(String(c.saidaEm||''))).map(c=>({id:c.id,nome:c.nome||'Cliente',mrr:valorCliente(c),status:c.status}));
-    const saidas=cs.filter(c=>c&&(c.status==='Inativo'||c.status==='Pediu para sair')&&/^\d{4}-\d{2}-\d{2}/.test(String(c.saidaEm||''))).map(c=>({id:c.id,nome:c.nome||'Cliente',mrr:valorCliente(c),saida:String(c.saidaEm).slice(0,10),status:c.status}));
-    const mrr=ativos.reduce((a,c)=>a+c.mrr,0)+saindo.reduce((a,c)=>a+c.mrr,0);
-    const n=ativos.length+saindo.length;
-    return {ativos,saindo,saidas,mrr,n,ticket:n?mrr/n:0};
+    const cls=DB.get('clientes')||[];const nome=id=>(cls.find(c=>String(c.id)===String(id))||{}).nome;
+    const vig=contratos().filter(ct=>['ativo','avencer','renovacao'].includes(sitCont(ct)));
+    const por={};
+    vig.forEach(ct=>{const k=ct.clienteId?String(ct.clienteId):'_'+ct.id;const v=vCont(ct);
+      por[k]=por[k]||{id:k,nome:nome(ct.clienteId)||ct.titulo||'Contrato',mrr:0,contratos:0,status:'Ativo',situacoes:new Set()};
+      por[k].mrr+=v;por[k].contratos++;por[k].situacoes.add(sitCont(ct))});
+    const ativos=Object.values(por).map(x=>({...x,status:x.situacoes.has('renovacao')?'Em renovação':x.situacoes.has('avencer')?'A vencer':'Ativo'}));
+    const saidas=cls.filter(c=>c&&(c.status==='Inativo'||c.status==='Pediu para sair')&&/^\d{4}-\d{2}-\d{2}/.test(String(c.saidaEm||''))).map(c=>({id:c.id,nome:c.nome||'Cliente',mrr:mrrDoCliente(c),saida:String(c.saidaEm).slice(0,10),status:c.status}));
+    const mrr=ativos.reduce((a,c)=>a+c.mrr,0),n=ativos.length;
+    const semValor=vig.filter(ct=>!vCont(ct)).length;
+    return {ativos,saindo:[],saidas,mrr,n,ticket:n?mrr/n:0,nContratos:vig.length,semValor};
   }
   // churn mensal automático: média dos últimos 6 meses fechados (MRR que saiu ÷ MRR da base no mês)
   function churnAuto(b){
@@ -31635,6 +31664,7 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
   // ── cálculo completo do ano ──
   function calcular(ano){
     const pr=premissas(ano),auto=funilAuto(),fin=financeiroReal(),b=baseMrr(),ch=churnAuto(b);
+    const fonteCfg=pr.fonteReal||'auto',hm=hojeMes();
     const meses=MESES.map((_,i)=>ano+'-'+String(i+1).padStart(2,'0'));
     const funil=meses.map(m=>funilMes(m,auto,pr));
     // taxas reais do funil (soma do ano até agora, como na planilha)
@@ -31653,16 +31683,25 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
       const c=ini*churn,ex=ini*pr.expansao,novo=pr.metaNovos*ticket,fim=ini-c+ex+novo;
       const inv=leadsNec*tx.cpl,desp=pr.despesaFixa+fim*pr.imposto+inv,adic=+((pr.vendasAdicionais||{})[m]||0);
       const fat=fim+adic,lucro=fat-desp;
-      const r=fin[m]||null,f=funil[i];
-      linhas.push({m,ini,churn:c,exp:ex,novo,fim,adic,fat,clientes:pr.metaNovos,leadsNec,inv,desp,lucro,margem:fat?lucro/fat:0,
-        real:r&&r.n?{fat:r.receita,desp:r.despesa,lucro:r.receita-r.despesa,margem:r.receita?(r.receita-r.despesa)/r.receita:0}:null,funil:f});
+      const f=funil[i];let real=null;
+      if(m<=hm){
+        const F=fin[m];
+        let rec=null,dsp=null,fonte='';
+        if((fonteCfg==='auto'||fonteCfg==='financas')&&F&&F.n){rec=F.receita;dsp=F.despesa;fonte='Finanças'}
+        else if(fonteCfg==='auto'||fonteCfg==='estimado'){
+          const cart=carteiraNoMes(m);
+          if(cart>0){rec=cart+adic;dsp=pr.despesaFixa+rec*pr.imposto+(f.investimento||0);fonte='Estimado'}
+        }
+        if(rec!=null)real={fat:rec,desp:dsp,lucro:rec-dsp,margem:rec?(rec-dsp)/rec:0,fonte};
+      }
+      linhas.push({m,ini,churn:c,exp:ex,novo,fim,adic,fat,clientes:pr.metaNovos,leadsNec,inv,desp,lucro,margem:fat?lucro/fat:0,real,funil:f});
       ini=fim;
     });
     const al=pr.alertas,falhas=[];
     if(tx.temDados){if(tx.resposta<al.resposta)falhas.push('Resposta abaixo do critério');if(tx.agendamento<al.agendamento)falhas.push('Agendamento abaixo do critério');
       if(tx.comparecimento<al.comparecimento)falhas.push('Comparecimento abaixo do critério');if(tx.fechamento<al.fechamento)falhas.push('Fechamento abaixo do critério')}
     if(churn>al.churnMax)falhas.push('Churn acima do critério');
-    return {pr,b,ch,churn,ticket,mrrIni,tx,conv,leadsNec,linhas,funil,meses,tot,falhas,cfg:config()};
+    return {pr,b,ch,churn,ticket,mrrIni,tx,conv,leadsNec,linhas,funil,meses,tot,falhas,cfg:config(),fonteCfg};
   }
 
   // ── telas ──
@@ -31692,8 +31731,8 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
     const taxa=(t,v,min,inv)=>{const ok=inv?v<=min:v>=min;return `<div class="pl-tx"><span>${t}</span><b>${P(v)}</b><em class="${ok?'ok':'er'}">${inv?'máx':'mín'} ${P(min,0)}</em></div>`};
     return `
       <div class="pl-kpis">
-        ${k('MRR atual',R(C.b.mrr),`${C.b.n} clientes ativos`,true)}
-        ${k('Ticket médio',R(C.ticket),C.pr.ticketManual?'definido nas premissas':'MRR ÷ clientes')}
+        ${k('MRR atual',R(C.b.mrr),`${C.b.n} clientes · ${C.b.nContratos} contratos vigentes`,true)}
+        ${k('Ticket médio',R(C.ticket),C.pr.ticketManual?'definido nas premissas':'MRR dos contratos ÷ clientes')}
         ${k('Churn mensal',P(C.churn),C.pr.churnManual!=null&&C.pr.churnManual!==''?'definido nas premissas':'automático · últimos 6 meses')}
         ${k('MRR projetado em dez',R(dez.fim),`${cresc>=0?'+':''}${P(cresc)} no ano`,true)}
         ${k('Faturamento projetado no ano',R(fatAno),realFat?`real até agora: ${R(realFat)}`:'')}
@@ -31703,7 +31742,7 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
       </div>
       ${C.falhas.length?`<div class="pl-alert wa" role="status"><span aria-hidden="true">⚠️</span><div><b>Corrigir funil</b>${E(C.falhas.join(' · '))}. Ataque primeiro o gargalo apontado antes de aumentar o investimento.</div></div>`
         :`<div class="pl-alert ok" role="status"><span aria-hidden="true">✅</span><div><b>Funil saudável</b>Todas as taxas estão dentro dos critérios. Dá para considerar aumento gradual de investimento.</div></div>`}
-      <div class="pl-card"><h3>Faturamento: projetado x real</h3><p class="sub">Linha = projeção (MRR final + vendas adicionais). Barras = receitas lançadas em Finanças.</p>${grafico(C)}</div>
+      <div class="pl-card"><h3>Faturamento: projetado x real</h3><p class="sub">Linha = projeção (MRR final + vendas adicionais). Barras = faturamento real (Finanças ou estimado pela carteira).</p>${grafico(C)}</div>
       <div class="pl-card"><h3>Saúde do funil</h3><p class="sub">${C.tx.temDados?`Taxas do ano (${N(C.tot.leads)} leads, ${N(C.tot.vendas)} vendas). Critérios editáveis em Premissas.`:'Ainda sem dados de funil no ano: usando as taxas padrão das Premissas.'}</p>
         <div class="pl-taxas">${taxa('Resposta',C.tx.resposta,al.resposta)}${taxa('Agendamento',C.tx.agendamento,al.agendamento)}${taxa('Comparecimento',C.tx.comparecimento,al.comparecimento)}${taxa('Fechamento',C.tx.fechamento,al.fechamento)}${taxa('Churn mensal',C.churn,al.churnMax,true)}</div></div>`;
   }
@@ -31722,7 +31761,7 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
       <polyline points="${pts}" fill="none" stroke="#7C3AED" stroke-width="2.5" stroke-linejoin="round"/>
       ${L.map((l,i)=>`<circle cx="${x(i)}" cy="${y(l.fat)}" r="${i===11?4.5:3}" fill="#7C3AED"><title>${MESES[i]}: projetado ${R(l.fat)}</title></circle>`).join('')}
       ${L.map((l,i)=>`<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="11" fill="currentColor" fill-opacity="${i===ia?1:.6}" font-weight="${i===ia?700:400}">${MESES[i]}</text>`).join('')}
-    </svg></div><div class="pl-leg"><span><i style="background:#7C3AED"></i>Projetado</span><span><i style="background:#10B981"></i>Real (Finanças)</span>${ia>=0&&ia<12?'<span><i style="background:rgba(124,58,237,.15)"></i>Mês atual</span>':''}</div>`;
+    </svg></div><div class="pl-leg"><span><i style="background:#7C3AED"></i>Projetado</span><span><i style="background:#10B981"></i>Real</span>${ia>=0&&ia<12?'<span><i style="background:rgba(124,58,237,.15)"></i>Mês atual</span>':''}</div>`;
   }
   function forecast(C){
     const L=C.linhas,ia=mesAtualIdx(S.ano);
@@ -31730,10 +31769,12 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
     const lin=(t,f,cls)=>`<tr><td>${t}</td>${L.map((l,i)=>{const v=f(l,i);const c=typeof cls==='function'?cls(l,i):cls||'';return `<td class="${c} ${i===ia?'atual':''}">${v}</td>`}).join('')}</tr>`;
     const grp=t=>`<tr class="grp"><td colspan="13">${t}</td></tr>`;
     const rv=(l,k,fmt)=>l.real?fmt(l.real[k]):'—';
-    return `<div class="pl-card"><h3>Forecast ${S.ano}</h3><p class="sub">Projeção mês a mês a partir do MRR ${C.pr.mrrBase?'definido nas premissas':'atual'} (${R(C.mrrIni)}), com churn de ${P(C.churn)}, expansão de ${P(C.pr.expansao)} e ${C.pr.metaNovos} clientes novos/mês. As linhas em verde são o real lançado em Finanças.</p>
+    return `<div class="pl-card"><h3>Forecast ${S.ano}</h3><p class="sub">Projeção mês a mês a partir do MRR ${C.pr.mrrBase?'definido nas premissas':'atual'} (${R(C.mrrIni)}), com churn de ${P(C.churn)}, expansão de ${P(C.pr.expansao)} e ${C.pr.metaNovos} clientes novos/mês. As linhas em verde são o real (fonte indicada em cada mês).</p>
       <div class="pl-tw"><table class="pl-t"><thead><tr><th>Métrica</th>${th}</tr></thead><tbody>
       ${grp('MRR')}
       ${lin('MRR inicial',l=>R(l.ini))}${lin('(−) Churn',l=>R(l.churn),'neg')}${lin('(+) Expansão',l=>R(l.exp))}${lin('(+) Novo MRR',l=>R(l.novo))}${lin('MRR final',l=>R(l.fim))}
+      ${grp('Real')}
+      <tr><td>Fonte do real</td>${L.map((l,i)=>`<td class="${i===ia?'atual':''}">${l.real?`<span class="pl-pill ${l.real.fonte==='Estimado'?'wa':'ok'}">${l.real.fonte}</span>`:'<span style="color:var(--pl-li)">—</span>'}</td>`).join('')}</tr>
       ${grp('Faturamento')}
       ${lin('Vendas adicionais',l=>l.adic?R(l.adic):'—',l=>l.adic?'':'mut')}${lin('Faturamento projetado',l=>R(l.fat))}${lin('Faturamento real',l=>rv(l,'fat',R),l=>l.real?'real':'mut')}
       ${grp('Aquisição')}
@@ -31745,7 +31786,8 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
       ${lin('Lucro real',l=>rv(l,'lucro',R),l=>l.real?(l.real.lucro<0?'neg':'real'):'mut')}
       ${lin('Margem projetada',l=>P(l.margem),l=>l.margem<0?'neg':'')}${lin('Margem real',l=>l.real?P(l.real.margem):'—',l=>l.real?'real':'mut')}
       </tbody></table></div>
-      <p class="pl-nota">Despesa projetada = despesa fixa (${R(C.pr.despesaFixa)}) + imposto/variável de ${P(C.pr.imposto)} sobre o MRR + investimento em tráfego. Real = lançamentos de Receita e Despesa em Finanças › Controle financeiro.</p></div>`;
+      <p class="pl-nota">Despesa projetada = despesa fixa (${R(C.pr.despesaFixa)}) + imposto/variável de ${P(C.pr.imposto)} sobre o MRR + investimento em tráfego.<br>
+      Real, mês a mês: <b>Finanças</b> (lançamentos de Receita e Despesa) → se o mês não tiver, <b>Estimado</b> (contratos vigentes no mês − despesa fixa, imposto e investimento real). Escolha outra fonte em Premissas.</p></div>`;
   }
   function telaFunil(C){
     const ia=mesAtualIdx(S.ano),pr=C.pr;
@@ -31762,7 +31804,7 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
       ${pct('% resposta','respostas','leads')}${pct('% agendamento','agendadas','respostas')}${pct('% comparecimento','realizadas','agendadas')}${pct('% fechamento','vendas','realizadas')}
       <tr><td>CPL</td>${C.funil.map((f,i)=>`<td class="${i===ia?'atual':''}">${f.leads&&f.investimento?R2(f.investimento/f.leads):'—'}</td>`).join('')}<td style="font-weight:800">${C.tot.leads&&C.tot.investimento?R2(C.tot.investimento/C.tot.leads):'—'}</td></tr>
       </tbody></table></div>
-      <p class="pl-nota"><i></i>ajustado na mão (vale por cima do automático). Leads = criados no mês · Vendas e receita = negócios ganhos no mês · Investimento = despesas da categoria "Ads / Tráfego Pago" em Finanças.</p></div>
+      <p class="pl-nota"><i></i>ajustado na mão (vale por cima do automático). Leads = criados no mês · Vendas e receita = negócios ganhos no mês · Investimento = saídas da categoria "Anúncios e publicidade" em Finanças.</p></div>
       <div class="pl-card"><h3>Quais etapas contam no funil</h3><p class="sub">Para cada funil da empresa, escolha a etapa que marca Resposta, Call agendada e Call realizada. Quem passou por ela ou por uma etapa depois conta naquele mês.</p>
         ${fs.length?`<div class="pl-fmap"><span class="hd">Funil</span><span class="hd">Resposta</span><span class="hd">Agendada</span><span class="hd">Realizada</span>
         ${fs.map(f=>{const e=etapasDoFunil(f);return `<label class="pl-chk"><input type="checkbox" ${cont.has(f.id)?'checked':''} onchange="plFunil('${E(f.id)}',this.checked)"> ${E(f.name||'Funil')}</label>
@@ -31774,7 +31816,7 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
     const lista=C.b.ativos.concat(C.b.saindo).sort((a,b)=>b.mrr-a.mrr);
     let liq=0,riscoTot=0,upTot=0;
     const linhas=lista.map(c=>{const r=rs[c.id]||{};const risco=+r.risco||0,up=+r.upsell||0;const l=c.mrr*(1-risco)+up;liq+=l;riscoTot+=c.mrr*risco;upTot+=up;
-      return `<tr><td>${E(c.nome)} ${c.status==='Pediu para sair'?'<span class="pl-pill wa">pediu para sair</span>':''}</td><td>${R2(c.mrr)}</td>
+      return `<tr><td>${E(c.nome)} ${c.status!=='Ativo'?`<span class="pl-pill wa">${E(c.status.toLowerCase())}</span>`:''}${c.contratos>1?` <span class="pl-pill">${c.contratos} contratos</span>`:''}</td><td>${R2(c.mrr)}</td>
         <td><span class="pl-f suf" style="display:inline-block"><input class="pl-in-mini" type="number" min="0" max="100" step="5" value="${risco?Math.round(risco*100):''}" placeholder="0" aria-label="Risco de churn de ${E(c.nome)} em %" onchange="plRisco('${E(c.id)}','risco',this.value)"></span> %</td>
         <td><input class="pl-in-mini" type="number" min="0" step="50" value="${up||''}" placeholder="0" aria-label="Upsell previsto de ${E(c.nome)}" onchange="plRisco('${E(c.id)}','upsell',this.value)"></td>
         <td style="font-weight:700">${R2(l)}</td></tr>`}).join('');
@@ -31785,10 +31827,10 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
         <div class="pl-k"><span>Upsell previsto</span><b>${R(upTot)}</b></div>
         <div class="pl-k dest"><span>MRR líquido previsto</span><b>${R(liq)}</b><small>MRR × (1 − risco) + upsell</small></div>
         <div class="pl-k"><span>Churn em ${S.ano}</span><b>${R(saiuAno.reduce((a,c)=>a+c.mrr,0))}</b><small>${saiuAno.length} cliente${saiuAno.length!==1?'s':''} saíram</small></div></div>
-      <div class="pl-card"><h3>Base ativa</h3><p class="sub">Vem de Clientes (status Ativo e "Pediu para sair" ainda sem data de saída). MRR = LTV ÷ período do contrato. Marque o risco de churn e o upsell previsto de cada cliente.</p>
+      <div class="pl-card"><h3>Base ativa</h3><p class="sub">Vem do setor de <b>Contratos</b>: soma dos contratos vigentes (Ativo, A vencer e Em renovação) de cada cliente, igual ao "MRR Agência". Marque o risco de churn e o upsell previsto de cada cliente.${C.b.semValor?` <span class="pl-pill wa">${C.b.semValor} contrato(s) vigente(s) sem valor</span>`:''}</p>
         <div class="pl-tw"><table class="pl-t"><thead><tr><th>Cliente</th><th>MRR</th><th>Risco de churn</th><th>Upsell previsto</th><th>MRR líquido</th></tr></thead><tbody>${linhas||'<tr><td colspan="5" style="text-align:left;color:var(--pl-mu)">Nenhum cliente ativo.</td></tr>'}
         <tr class="tot"><td>Total</td><td>${R2(C.b.mrr)}</td><td>${R2(riscoTot)}</td><td>${R2(upTot)}</td><td>${R2(liq)}</td></tr></tbody></table></div></div>
-      <div class="pl-card"><h3>Saíram em ${S.ano}</h3><p class="sub">Clientes Inativos ou que pediram para sair, pela data de saída. É daqui que sai o churn automático.</p>
+      <div class="pl-card"><h3>Saíram em ${S.ano}</h3><p class="sub">Clientes Inativos ou que pediram para sair, pela data de saída (valor = último contrato do cliente). É daqui que sai o churn automático.</p>
         ${saiuAno.length?`<div class="pl-tw"><table class="pl-t"><thead><tr><th>Cliente</th><th>Saiu em</th><th>MRR perdido</th></tr></thead><tbody>${saiuAno.map(c=>`<tr><td>${E(c.nome)}</td><td>${c.saida.split('-').reverse().join('/')}</td><td class="neg">${R2(c.mrr)}</td></tr>`).join('')}</tbody></table></div>`:'<p class="sub" style="margin:0">Nenhuma saída registrada neste ano.</p>'}</div>`;
   }
   function telaPrem(C){
@@ -31803,6 +31845,9 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
         ${num('pl-churn','Churn mensal',pc(p.churnManual),`Deixe em branco para usar o automático (${P(C.ch.taxa)}).`,'%')}
         ${num('pl-mrr','MRR inicial do plano',p.mrrBase||'',`Em branco = MRR atual (${R(C.b.mrr)}).`,'R$')}
         ${num('pl-ticket','Ticket médio do cliente novo',p.ticketManual||'',`Em branco = ticket atual (${R(C.b.ticket)}).`,'R$')}
+        <div class="pl-f"><label for="pl-fonte">Fonte do faturamento e despesa reais</label><select id="pl-fonte">
+          ${[['auto','Automático: Finanças → Estimado'],['financas','Só Finanças (lançamentos)'],['estimado','Só estimado pela carteira']].map(([v,t])=>`<option value="${v}" ${((p.fonteReal==='asaas'?'auto':p.fonteReal)||'auto')===v?'selected':''}>${t}</option>`).join('')}</select>
+          <small>Estimado = contratos vigentes no mês − despesa fixa, imposto e investimento real.</small></div>
       </div></div>
       <div class="pl-card"><h3>Vendas adicionais por mês</h3><p class="sub">Receita pontual (projetos, setup). Entra no faturamento, não no MRR.</p>
         <div class="pl-mes">${C.meses.map((m,i)=>`<div class="pl-f"><label for="pl-va-${i}">${MESES[i]}/${String(S.ano).slice(2)}</label><input id="pl-va-${i}" data-m="${m}" class="pl-va" type="number" step="any" value="${(p.vendasAdicionais||{})[m]||''}" placeholder="0"></div>`).join('')}</div></div>
@@ -31822,7 +31867,7 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
     const va={};document.querySelectorAll('.pl-va').forEach(i=>{const v=Number(i.value);if(i.value!==''&&v)va[i.dataset.m]=v});
     const p=premissas(S.ano);
     salvarPrem(S.ano,{metaNovos:val('pl-meta')??0,expansao:pct('pl-exp')??0,despesaFixa:val('pl-desp')??0,imposto:pct('pl-imp')??0,
-      churnManual:pct('pl-churn'),mrrBase:val('pl-mrr'),ticketManual:val('pl-ticket'),vendasAdicionais:va,
+      churnManual:pct('pl-churn'),mrrBase:val('pl-mrr'),ticketManual:val('pl-ticket'),vendasAdicionais:va,fonteReal:document.getElementById('pl-fonte')?.value||'auto',
       alertas:{resposta:pct('pl-a-r')??p.alertas.resposta,agendamento:pct('pl-a-a')??p.alertas.agendamento,comparecimento:pct('pl-a-c')??p.alertas.comparecimento,fechamento:pct('pl-a-f')??p.alertas.fechamento,churnMax:pct('pl-a-ch')??p.alertas.churnMax},
       taxasPadrao:{resposta:pct('pl-t-r')??p.taxasPadrao.resposta,agendamento:pct('pl-t-a')??p.taxasPadrao.agendamento,comparecimento:pct('pl-t-c')??p.taxasPadrao.comparecimento,fechamento:pct('pl-t-f')??p.taxasPadrao.fechamento,cpl:val('pl-t-cpl')??p.taxasPadrao.cpl}});
     avisa('Premissas salvas ✓');renderPlanejamento();
@@ -31850,6 +31895,450 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
     salvarCfg({riscos:r});renderPlanejamento();
   };
   window.gxPlanejamentoCalc=calcular;
+})();
+</script>
+
+<style id="gx-fin-v2">
+/* ═══ CONTROLE FINANCEIRO v2 — plano de contas, fluxo mensal, DRE, painel, importação — 11/11/2026 ═══ */
+.fx-acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.fx-in{color:var(--pl-ok)!important}
+.fx-out{color:var(--pl-er)!important}
+.fx-fil{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.fx-fil input,.fx-fil select{height:36px;border:1px solid var(--pl-line);border-radius:10px;padding:0 10px;font:inherit;font-size:13px;background:var(--pl-card);color:var(--pl-tx)}
+.fx-fil input[type=search]{flex:1;min-width:180px}
+.fx-fil select{max-width:220px}
+.fx-t td{white-space:normal;text-align:left}
+.fx-t th{text-align:left}
+.fx-t th:nth-child(4){text-align:right}
+.fx-t td.d{white-space:nowrap;color:var(--pl-mu)}
+.fx-t td.v{white-space:nowrap;font-weight:700;text-align:right}
+.fx-t td:first-child{position:static}
+.fx-t th:first-child{position:sticky}
+.fx-desc{font-weight:600;color:var(--pl-tx);text-align:left}
+.fx-desc small{display:block;font-weight:400;font-size:11.5px;color:var(--pl-mu);margin-top:2px}
+.fx-cat{display:inline-flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left}
+.fx-cat b{font-weight:600;font-size:12.5px;color:var(--pl-tx)}
+.fx-cat span{font-size:10.5px;color:var(--pl-mu)}
+.fx-ib{width:30px;height:30px;border-radius:8px;border:1px solid var(--pl-line);background:var(--pl-card);color:var(--pl-mu);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.fx-ib:hover{color:var(--pl-p);border-color:var(--pl-p)}
+.fx-ib.del:hover{color:#DC2626;border-color:#FCA5A5}
+.fx-mais{display:flex;justify-content:center;margin-top:12px}
+.fx-t tr.cl td{cursor:pointer}
+.pl-t td.cel{cursor:pointer}
+.pl-t td.cel:hover{background:var(--pl-ps)}
+.pl-t tr.sub td:first-child{padding-left:26px;font-weight:500;color:var(--pl-mu)}
+.pl-t tr.res td{font-weight:800;background:var(--pl-soft)}
+.pl-t tr.res td:first-child{background:var(--pl-soft)}
+.pl-t td.pc{color:var(--pl-mu);font-weight:500}
+.fx-bar{display:flex;flex-direction:column;gap:9px}
+.fx-bar div{display:grid;grid-template-columns:minmax(120px,190px) 1fr 110px;gap:10px;align-items:center;font-size:12.5px}
+.fx-bar span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fx-bar i{display:block;height:10px;border-radius:999px;background:var(--pl-p);opacity:.85;min-width:2px}
+.fx-bar i.out{background:#EF4444}
+.fx-bar i.in{background:#10B981}
+.fx-bar b{text-align:right;font-variant-numeric:tabular-nums}
+.fx-2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:14px}
+.fx-ov{position:fixed;inset:0;z-index:99990;background:rgba(17,17,26,.48);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;padding:16px}
+.fx-md{width:100%;max-width:560px;max-height:min(90vh,820px);overflow:auto;background:var(--g-card,#fff);color:var(--g-tx,#17171F);border-radius:18px;box-shadow:0 24px 60px -12px rgba(0,0,0,.4);padding:20px 22px}
+.fx-md.lg{max-width:860px}
+.fx-md h3{margin:0 0 4px;font-size:17px}
+.fx-md .sub{margin:0 0 16px;font-size:12.5px;color:var(--g-mu,#6A6A7C)}
+.fx-tg{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--g-soft,#F4F4F8);padding:4px;border-radius:12px;margin-bottom:14px}
+.fx-tg button{height:36px;border:none;border-radius:9px;background:none;font:inherit;font-size:13px;font-weight:700;color:var(--g-mu,#6A6A7C);cursor:pointer}
+.fx-tg button.on.in{background:#fff;color:#0F7A43;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.fx-tg button.on.out{background:#fff;color:#B42318;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
+.fx-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fx-grid .full{grid-column:1/-1}
+.fx-md .pl-f textarea{width:100%;min-height:62px;border:1px solid var(--g-line,#E9E9F0);border-radius:10px;padding:9px 11px;font:inherit;font-size:13px;background:var(--g-card,#fff);color:inherit;resize:vertical}
+.fx-drop{border:2px dashed var(--g-line,#E9E9F0);border-radius:14px;padding:26px;text-align:center;cursor:pointer;color:var(--g-mu,#6A6A7C);font-size:13px}
+.fx-drop:hover,.fx-drop.on{border-color:var(--g-p,#7C3AED);color:var(--g-p,#7C3AED);background:var(--g-p-soft,#F3EEFF)}
+.fx-drop b{display:block;font-size:14px;color:var(--g-tx,#17171F);margin-bottom:4px}
+@media (max-width:640px){.fx-grid{grid-template-columns:1fr}.fx-bar div{grid-template-columns:110px 1fr 90px}}
+</style>
+<script id="gx-fin-js">
+(function(){
+  'use strict';
+  // ── PLANO DE CONTAS DA AGÊNCIA ──
+  // fora:true = não entra no resultado (é movimentação de caixa: saldo inicial, reserva, distribuição de lucro…)
+  const PLANO=[
+    {cat:'Mensalidades de clientes',tipo:'Receita',grupo:'Receitas'},
+    {cat:'Projetos e serviços avulsos',tipo:'Receita',grupo:'Receitas'},
+    {cat:'Cursos e treinamentos',tipo:'Receita',grupo:'Receitas'},
+    {cat:'Outras receitas',tipo:'Receita',grupo:'Receitas'},
+    {cat:'Saldo inicial',tipo:'Receita',grupo:'Fora do resultado',fora:true},
+    {cat:'Aportes e resgates',tipo:'Receita',grupo:'Fora do resultado',fora:true},
+    {cat:'Estornos e reembolsos recebidos',tipo:'Receita',grupo:'Fora do resultado',fora:true},
+    {cat:'Impostos e guias',tipo:'Despesa',grupo:'Impostos e taxas'},
+    {cat:'Taxas bancárias',tipo:'Despesa',grupo:'Impostos e taxas'},
+    {cat:'Salários da equipe',tipo:'Despesa',grupo:'Pessoal'},
+    {cat:'Pró-labore dos sócios',tipo:'Despesa',grupo:'Pessoal'},
+    {cat:'Transporte da equipe',tipo:'Despesa',grupo:'Pessoal'},
+    {cat:'Benefícios',tipo:'Despesa',grupo:'Pessoal'},
+    {cat:'Aluguel',tipo:'Despesa',grupo:'Estrutura'},
+    {cat:'Energia',tipo:'Despesa',grupo:'Estrutura'},
+    {cat:'Internet e telefone',tipo:'Despesa',grupo:'Estrutura'},
+    {cat:'Obra, móveis e equipamentos',tipo:'Despesa',grupo:'Estrutura'},
+    {cat:'Copa e materiais',tipo:'Despesa',grupo:'Estrutura'},
+    {cat:'Anúncios e publicidade',tipo:'Despesa',grupo:'Marketing'},
+    {cat:'Ferramentas e plataformas',tipo:'Despesa',grupo:'Ferramentas'},
+    {cat:'Terceiros e freelancers',tipo:'Despesa',grupo:'Operacional'},
+    {cat:'Eventos e relacionamento',tipo:'Despesa',grupo:'Operacional'},
+    {cat:'Deslocamento',tipo:'Despesa',grupo:'Operacional'},
+    {cat:'Devoluções a clientes',tipo:'Despesa',grupo:'Operacional'},
+    {cat:'Fatura do cartão',tipo:'Despesa',grupo:'Operacional'},
+    {cat:'Outras despesas',tipo:'Despesa',grupo:'Operacional'},
+    {cat:'Distribuição de lucro',tipo:'Despesa',grupo:'Fora do resultado',fora:true},
+    {cat:'Reserva / investimento',tipo:'Despesa',grupo:'Fora do resultado',fora:true},
+    {cat:'Ajustes de saldo',tipo:'Despesa',grupo:'Fora do resultado',fora:true}
+  ];
+  // categorias antigas do GexFlow
+  const LEGADO={'Mensalidade':'Mensalidades de clientes','Projeto':'Projetos e serviços avulsos','Software':'Ferramentas e plataformas','Pessoal':'Salários da equipe','Marketing':'Anúncios e publicidade','Ads / Tráfego Pago':'Anúncios e publicidade','Infraestrutura':'Obra, móveis e equipamentos','Manutenção e estrutura':'Obra, móveis e equipamentos'};
+  const GRUPOS_DESP=['Impostos e taxas','Pessoal','Estrutura','Marketing','Ferramentas','Operacional'];
+  const MEIOS=['Pix','Boleto','Cartão de crédito','Cartão de débito','Transferência','Dinheiro'];
+  const MESES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const MESES_LONGO=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  const E=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const R=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const R0=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0});
+  const P=v=>(Number(v||0)*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';
+  const avisa=(m,c)=>{try{toast(m,c||'#10B981')}catch(e){}};
+  const norm=s=>String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
+  const uidF=()=>(typeof uid==='function'?uid():'tx_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7));
+  const valorNum=t=>typeof t.valor==='number'?t.valor:((typeof gxParseBRL==='function'?gxParseBRL(t.valor):parseFloat(t.valor))||0);
+
+  function info(cat,tipo){
+    const c=LEGADO[cat]||cat;
+    const p=PLANO.find(x=>x.cat===c);
+    if(p)return {cat:c,grupo:p.grupo,fora:!!p.fora,tipo:p.tipo};
+    return {cat:c||(tipo==='Receita'?'Outras receitas':'Outras despesas'),grupo:tipo==='Receita'?'Receitas':'Operacional',fora:false,tipo};
+  }
+  window.gxFinInfo=info;
+  window.gxFinOperacional=t=>!!t&&!info(t.cat,t.tipo).fora;
+  window.gxFinPlano=PLANO;
+
+  // ── estado ──
+  const S={tab:'lanc',ano:new Date().getFullYear(),mes:'',tipo:'',cat:'',cli:'',q:'',lim:100,dreMes:''};
+  const txs=()=>(DB.get('transacoes')||[]).filter(t=>t&&/^\d{4}-\d{2}-\d{2}/.test(String(t.data||'')));
+  const doAno=a=>txs().filter(t=>String(t.data).slice(0,4)===String(a));
+  const pode=a=>{try{return typeof can!=='function'||can('financas',a)}catch(e){return true}};
+
+  // ── agregados ──
+  function porMes(ano){
+    const o={};for(let i=0;i<12;i++)o[i]={cats:{},rec:0,desp:0,recFora:0,despFora:0};
+    doAno(ano).forEach(t=>{const i=+String(t.data).slice(5,7)-1;const f=info(t.cat,t.tipo),v=valorNum(t),b=o[i];
+      b.cats[f.cat]=(b.cats[f.cat]||0)+v;
+      if(t.tipo==='Receita'){f.fora?b.recFora+=v:b.rec+=v}else{f.fora?b.despFora+=v:b.desp+=v}});
+    return o;
+  }
+
+  // ── tela ──
+  window.renderFinancas=function(){
+    const pg=document.getElementById('page-financas');if(!pg)return;
+    const tabs=[['lanc','Lançamentos'],['fluxo','Fluxo mensal'],['dre','DRE'],['painel','Painel']];
+    const body=({lanc:telaLanc,fluxo:telaFluxo,dre:telaDre,painel:telaPainel})[S.tab]();
+    pg.innerHTML=`<div class="pl">
+      <div class="pl-h"><div><h1>Controle financeiro</h1><p>Entradas e saídas da agência, com plano de contas, fluxo mensal e DRE.</p></div>
+        <div class="fx-acts">
+          <div class="pl-ano" aria-label="Ano"><button type="button" aria-label="Ano anterior" onclick="fxAno(-1)">‹</button><b>${S.ano}</b><button type="button" aria-label="Próximo ano" onclick="fxAno(1)">›</button></div>
+          ${pode('create')?`<button type="button" class="pl-btn" onclick="fxImportar()">Importar planilha</button>
+          <button type="button" class="pl-btn" style="color:#B42318" onclick="fxNovo('Despesa')">− Saída</button>
+          <button type="button" class="pl-btn pri" onclick="fxNovo('Receita')">+ Entrada</button>`:''}
+        </div></div>
+      <div class="pl-tabs" role="tablist">${tabs.map(([k,t])=>`<button type="button" role="tab" aria-selected="${S.tab===k}" class="${S.tab===k?'on':''}" onclick="fxTab('${k}')">${t}</button>`).join('')}</div>
+      ${body}</div>`;
+  };
+  window.fxTab=t=>{S.tab=t;renderFinancas()};
+  window.fxAno=d=>{S.ano+=d;S.lim=100;renderFinancas()};
+  window.fxFiltro=(k,v)=>{S[k]=v;S.lim=100;renderFinancas();if(k==='q'){const i=document.getElementById('fx-q');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}}};
+
+  function opcoesCat(tipo,sel,todas){
+    const grupos={};PLANO.filter(p=>!tipo||p.tipo===tipo).forEach(p=>{(grupos[(p.tipo==='Receita'&&!p.fora?'Entradas':p.fora?'Fora do resultado ('+(p.tipo==='Receita'?'entradas':'saídas')+')':p.grupo)]=grupos[(p.tipo==='Receita'&&!p.fora?'Entradas':p.fora?'Fora do resultado ('+(p.tipo==='Receita'?'entradas':'saídas')+')':p.grupo)]||[]).push(p.cat)});
+    return (todas?`<option value="">Todas as categorias</option>`:'')+Object.entries(grupos).map(([g,cs])=>`<optgroup label="${E(g)}">${cs.map(c=>`<option ${c===sel?'selected':''}>${E(c)}</option>`).join('')}</optgroup>`).join('');
+  }
+  function filtrados(){
+    const q=norm(S.q);
+    return doAno(S.ano).filter(t=>{
+      if(S.mes&&String(t.data).slice(5,7)!==S.mes)return false;
+      if(S.tipo&&t.tipo!==S.tipo)return false;
+      if(S.cat&&info(t.cat,t.tipo).cat!==S.cat)return false;
+      if(S.cli&&String(t.clienteId||'')!==S.cli&&norm(t.clienteNome)!==norm(S.cli))return false;
+      if(q&&!norm([t.desc,t.clienteNome,t.cat,t.obs,t.meio].join(' ')).includes(q))return false;
+      return true;
+    }).sort((a,b)=>String(b.data).localeCompare(String(a.data))||String(b.id).localeCompare(String(a.id)));
+  }
+  function telaLanc(){
+    const L=filtrados();
+    let rec=0,desp=0,fora=0;L.forEach(t=>{const f=info(t.cat,t.tipo),v=valorNum(t);if(f.fora)fora+=t.tipo==='Receita'?v:-v;else if(t.tipo==='Receita')rec+=v;else desp+=v});
+    const clientes=[...new Map(doAno(S.ano).filter(t=>t.clienteNome).map(t=>[t.clienteId||norm(t.clienteNome),t.clienteNome])).entries()].sort((a,b)=>a[1].localeCompare(b[1]));
+    const linhas=L.slice(0,S.lim).map(t=>{const f=info(t.cat,t.tipo),v=valorNum(t);
+      return `<tr><td class="d">${String(t.data).slice(8,10)}/${String(t.data).slice(5,7)}</td>
+        <td><div class="fx-desc">${E(t.desc||'—')}${t.clienteNome||t.meio||t.obs?`<small>${[t.clienteNome?'👤 '+E(t.clienteNome):'',t.meio?E(t.meio):'',t.qtd>1?E(t.qtd+' lançamentos agrupados'):'',t.obs?E(t.obs):''].filter(Boolean).join(' · ')}</small>`:''}</div></td>
+        <td><span class="fx-cat"><b>${E(f.cat)}</b><span>${f.fora?'<span class="pl-pill wa">fora do resultado</span>':E(f.grupo)}</span></span></td>
+        <td class="v ${t.tipo==='Receita'?'fx-in':'fx-out'}">${t.tipo==='Receita'?'+':'−'} ${R(v)}</td>
+        <td style="white-space:nowrap;text-align:right">${pode('edit')?`<button type="button" class="fx-ib" aria-label="Editar" onclick="fxEditar('${E(t.id)}')">✎</button>`:''} ${pode('delete')?`<button type="button" class="fx-ib del" aria-label="Excluir" onclick="fxExcluir('${E(t.id)}')">🗑</button>`:''}</td></tr>`}).join('');
+    return `<div class="pl-kpis">
+        <div class="pl-k"><span>Entradas</span><b class="fx-in">${R0(rec)}</b><small>receita operacional</small></div>
+        <div class="pl-k"><span>Saídas</span><b class="fx-out">${R0(desp)}</b><small>despesa operacional</small></div>
+        <div class="pl-k dest"><span>Resultado</span><b>${R0(rec-desp)}</b><small>margem ${P(rec?(rec-desp)/rec:0)}</small></div>
+        <div class="pl-k"><span>Fora do resultado</span><b>${R0(fora)}</b><small>reserva, retiradas, saldo inicial…</small></div></div>
+      <div class="pl-card">
+        <div class="fx-fil">
+          <input type="search" id="fx-q" placeholder="Buscar descrição, cliente…" value="${E(S.q)}" oninput="fxFiltro('q',this.value)" aria-label="Buscar">
+          <select aria-label="Mês" onchange="fxFiltro('mes',this.value)"><option value="">Ano inteiro</option>${MESES_LONGO.map((m,i)=>{const v=String(i+1).padStart(2,'0');return `<option value="${v}" ${S.mes===v?'selected':''}>${m[0].toUpperCase()+m.slice(1)}</option>`}).join('')}</select>
+          <select aria-label="Tipo" onchange="fxFiltro('tipo',this.value)"><option value="">Entradas e saídas</option><option value="Receita" ${S.tipo==='Receita'?'selected':''}>Só entradas</option><option value="Despesa" ${S.tipo==='Despesa'?'selected':''}>Só saídas</option></select>
+          <select aria-label="Categoria" onchange="fxFiltro('cat',this.value)">${opcoesCat('',S.cat,true)}</select>
+          ${clientes.length?`<select aria-label="Cliente" onchange="fxFiltro('cli',this.value)"><option value="">Todos os clientes</option>${clientes.map(([k,n])=>`<option value="${E(k)}" ${S.cli===k?'selected':''}>${E(n)}</option>`).join('')}</select>`:''}
+          ${S.q||S.mes||S.tipo||S.cat||S.cli?`<button type="button" class="pl-btn" onclick="fxLimpar()">Limpar</button>`:''}
+          <button type="button" class="pl-btn" onclick="gxExportFinancasXLSX&&gxExportFinancasXLSX()">Exportar</button>
+        </div>
+        <div class="pl-tw"><table class="pl-t fx-t"><thead><tr><th>Data</th><th style="text-align:left">Descrição</th><th style="text-align:left">Categoria</th><th>Valor</th><th></th></tr></thead>
+        <tbody>${linhas||`<tr><td colspan="5" style="text-align:center;color:var(--pl-mu);padding:26px">Nenhum lançamento ${S.q||S.mes||S.tipo||S.cat||S.cli?'com esses filtros':'em '+S.ano}.</td></tr>`}</tbody></table></div>
+        ${L.length>S.lim?`<div class="fx-mais"><button type="button" class="pl-btn" onclick="fxMais()">Mostrar mais (${L.length-S.lim} restantes)</button></div>`:''}
+        <p class="pl-nota">${L.length} lançamento${L.length!==1?'s':''}.</p></div>`;
+  }
+  window.fxMais=()=>{S.lim+=200;renderFinancas()};
+  window.fxLimpar=()=>{Object.assign(S,{q:'',mes:'',tipo:'',cat:'',cli:'',lim:100});renderFinancas()};
+  window.fxIr=(cat,mes)=>{Object.assign(S,{tab:'lanc',cat:cat||'',mes:mes||'',tipo:'',q:'',cli:'',lim:100});renderFinancas();window.scrollTo&&window.scrollTo(0,0)};
+
+  function telaFluxo(){
+    const M=porMes(S.ano);
+    const soma=(f)=>{let t=0;for(let i=0;i<12;i++)t+=f(M[i]);return t};
+    const col=(f,cls,cat)=>Array.from({length:12},(_,i)=>{const v=f(M[i]);return `<td class="${cls||''} ${cat?'cel':''}" ${cat?`onclick="fxIr('${E(cat)}','${String(i+1).padStart(2,'0')}')"`:''}>${v?R0(v):'<span style="color:var(--pl-li)">—</span>'}</td>`}).join('')+`<td style="font-weight:800">${R0(soma(f))}</td>`;
+    const usadas=new Set();for(let i=0;i<12;i++)Object.keys(M[i].cats).forEach(c=>usadas.add(c));
+    const linhaCat=c=>`<tr class="sub"><td>${E(c)}</td>${col(m=>m.cats[c]||0,'',c)}</tr>`;
+    const recCats=PLANO.filter(p=>p.tipo==='Receita'&&!p.fora&&usadas.has(p.cat)).map(p=>p.cat);
+    let html=`<tr class="grp"><td colspan="14">Entradas</td></tr>${recCats.map(linhaCat).join('')}<tr class="res"><td>Total de entradas</td>${col(m=>m.rec,'fx-in')}</tr>
+      <tr class="grp"><td colspan="14">Saídas</td></tr>`;
+    GRUPOS_DESP.forEach(g=>{const cs=PLANO.filter(p=>p.grupo===g&&usadas.has(p.cat)).map(p=>p.cat);if(!cs.length)return;
+      html+=`<tr><td style="font-weight:700">${E(g)}</td>${col(m=>cs.reduce((a,c)=>a+(m.cats[c]||0),0))}</tr>${cs.map(linhaCat).join('')}`});
+    html+=`<tr class="res"><td>Total de saídas</td>${col(m=>m.desp,'fx-out')}</tr>
+      <tr class="res"><td>Resultado operacional</td>${Array.from({length:12},(_,i)=>{const v=M[i].rec-M[i].desp;return `<td class="${v<0?'neg':'real'}">${M[i].rec||M[i].desp?R0(v):'—'}</td>`}).join('')}<td style="font-weight:800">${R0(soma(m=>m.rec-m.desp))}</td></tr>
+      <tr><td class="pc">Margem</td>${Array.from({length:12},(_,i)=>`<td class="pc">${M[i].rec?P((M[i].rec-M[i].desp)/M[i].rec):'—'}</td>`).join('')}<td class="pc">${soma(m=>m.rec)?P(soma(m=>m.rec-m.desp)/soma(m=>m.rec)):'—'}</td></tr>`;
+    const foraCats=PLANO.filter(p=>p.fora&&usadas.has(p.cat));
+    if(foraCats.length){html+=`<tr class="grp"><td colspan="14">Fora do resultado (movimentação de caixa)</td></tr>${foraCats.map(p=>`<tr class="sub"><td>${p.tipo==='Receita'?'(+) ':'(−) '}${E(p.cat)}</td>${col(m=>m.cats[p.cat]||0,'',p.cat)}</tr>`).join('')}`}
+    let acc=0;const saldo=Array.from({length:12},(_,i)=>{const m=M[i];const v=m.rec+m.recFora-m.desp-m.despFora;acc+=v;return {v,acc,tem:m.rec||m.desp||m.recFora||m.despFora}});
+    html+=`<tr class="res"><td>Saldo do mês (caixa)</td>${saldo.map(s=>`<td class="${s.v<0?'neg':''}">${s.tem?R0(s.v):'—'}</td>`).join('')}<td style="font-weight:800">${R0(saldo.reduce((a,s)=>a+s.v,0))}</td></tr>
+      <tr class="res"><td>Saldo acumulado</td>${saldo.map(s=>`<td class="${s.acc<0?'neg':''}">${s.tem?R0(s.acc):'—'}</td>`).join('')}<td></td></tr>`;
+    return `<div class="pl-card"><h3>Fluxo mensal ${S.ano}</h3><p class="sub">Clique num valor para ver os lançamentos daquele mês e categoria. O resultado operacional não inclui o que é "fora do resultado".</p>
+      <div class="pl-tw"><table class="pl-t"><thead><tr><th>Categoria</th>${MESES.map(m=>`<th>${m}</th>`).join('')}<th>Total</th></tr></thead><tbody>${html}</tbody></table></div></div>`;
+  }
+
+  function telaDre(){
+    const M=porMes(S.ano),idx=S.dreMes?[+S.dreMes-1]:[...Array(12).keys()];
+    const cat=c=>idx.reduce((a,i)=>a+(M[i].cats[c]||0),0);
+    const grupo=g=>PLANO.filter(p=>p.grupo===g&&!p.fora).reduce((a,p)=>a+cat(p.cat),0);
+    const recCats=PLANO.filter(p=>p.tipo==='Receita'&&!p.fora).map(p=>p.cat);
+    const bruta=recCats.reduce((a,c)=>a+cat(c),0);
+    const imp=grupo('Impostos e taxas'),liq=bruta-imp;
+    const pes=grupo('Pessoal'),est=grupo('Estrutura'),mkt=grupo('Marketing'),fer=grupo('Ferramentas'),ope=grupo('Operacional');
+    const res=liq-pes-est-mkt-fer-ope;
+    const dist=cat('Distribuição de lucro'),resv=cat('Reserva / investimento');
+    const pc=v=>bruta?P(v/bruta):'—';
+    const l=(t,v,o={})=>`<tr class="${o.res?'res':''} ${o.sub?'sub':''}"><td>${t}</td><td class="${o.cls||''}">${o.neg&&v?'− ':''}${R(v)}</td><td class="pc">${o.semPc?'':pc(v)}</td></tr>`;
+    const subs=g=>PLANO.filter(p=>p.grupo===g&&!p.fora).map(p=>{const v=cat(p.cat);return v?l(E(p.cat),v,{sub:1,neg:1}):''}).join('');
+    return `<div class="pl-card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h3>DRE ${S.dreMes?MESES_LONGO[+S.dreMes-1]+' de ':''}${S.ano}</h3><p class="sub">Demonstrativo de resultado: o que a operação gerou, sem contar reserva, retiradas e saldo inicial.</p></div>
+      <div class="fx-fil" style="margin:0"><select aria-label="Período" onchange="S_dre(this.value)"><option value="">Ano inteiro</option>${MESES_LONGO.map((m,i)=>{const v=String(i+1).padStart(2,'0');return `<option value="${v}" ${S.dreMes===v?'selected':''}>${m[0].toUpperCase()+m.slice(1)}</option>`}).join('')}</select></div></div>
+      <div class="pl-tw" style="max-width:720px"><table class="pl-t"><thead><tr><th>Conta</th><th>Valor</th><th>% receita</th></tr></thead><tbody>
+      ${l('Receita bruta',bruta,{res:1,cls:'real'})}${recCats.map(c=>{const v=cat(c);return v?l(E(c),v,{sub:1}):''}).join('')}
+      ${l('(−) Impostos e taxas',imp,{neg:1,cls:'neg'})}${subs('Impostos e taxas')}
+      ${l('Receita líquida',liq,{res:1})}
+      ${l('(−) Pessoal',pes,{neg:1,cls:'neg'})}${subs('Pessoal')}
+      ${l('(−) Estrutura',est,{neg:1,cls:'neg'})}${subs('Estrutura')}
+      ${l('(−) Marketing',mkt,{neg:1,cls:'neg'})}${subs('Marketing')}
+      ${l('(−) Ferramentas',fer,{neg:1,cls:'neg'})}
+      ${l('(−) Operacional',ope,{neg:1,cls:'neg'})}${subs('Operacional')}
+      ${l('Resultado operacional',res,{res:1,cls:res<0?'neg':'real'})}
+      ${dist||resv?`${dist?l('(−) Distribuição de lucro',dist,{neg:1}):''}${resv?l('(−) Reserva / investimento',resv,{neg:1}):''}${l('Sobra após retiradas e reserva',res-dist-resv,{res:1,cls:res-dist-resv<0?'neg':''})}`:''}
+      </tbody></table></div></div>`;
+  }
+  window.S_dre=v=>{S.dreMes=v;renderFinancas()};
+
+  function telaPainel(){
+    const M=porMes(S.ano);const A=doAno(S.ano);
+    const rec=Object.values(M).reduce((a,m)=>a+m.rec,0),desp=Object.values(M).reduce((a,m)=>a+m.desp,0);
+    const mesesCom=Object.values(M).filter(m=>m.rec||m.desp).length||1;
+    // gráfico
+    const W=760,H=240,pl=56,pr=12,pt=14,pb=28,iw=W-pl-pr,ih=H-pt-pb;
+    const max=Math.max(1,...Object.values(M).map(m=>Math.max(m.rec,m.desp)))*1.1;
+    const min=Math.min(0,...Object.values(M).map(m=>m.rec-m.desp))*1.15;
+    const x=i=>pl+iw*(i+.5)/12,y=v=>pt+ih-((v-min)/(max-min))*ih,bw=iw/12*.32;
+    const grid=[0,.25,.5,.75,1].map(f=>{const v=min+(max-min)*f;return `<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}" stroke="currentColor" stroke-opacity=".09"/><text x="${pl-8}" y="${y(v)+4}" text-anchor="end" font-size="10" fill="currentColor" fill-opacity=".55">${Math.abs(v)>=1000?Math.round(v/1000)+'k':Math.round(v)}</text>`}).join('');
+    const zero=y(0);
+    const bars=(min<0?`<line x1="${pl}" x2="${W-pr}" y1="${zero}" y2="${zero}" stroke="currentColor" stroke-opacity=".35"/>`:'')+Object.values(M).map((m,i)=>`<rect x="${x(i)-bw-1}" y="${y(m.rec)}" width="${bw}" height="${zero-y(m.rec)}" rx="3" fill="#10B981"><title>${MESES[i]}: entradas ${R0(m.rec)}</title></rect><rect x="${x(i)+1}" y="${y(m.desp)}" width="${bw}" height="${zero-y(m.desp)}" rx="3" fill="#EF4444" fill-opacity=".85"><title>${MESES[i]}: saídas ${R0(m.desp)}</title></rect><text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="11" fill="currentColor" fill-opacity=".6">${MESES[i]}</text>`).join('');
+    const pts=Object.values(M).map((m,i)=>m.rec||m.desp?`${x(i)},${y(m.rec-m.desp)}`:null).filter(Boolean).join(' ');
+    const dots=Object.values(M).map((m,i)=>m.rec||m.desp?`<circle cx="${x(i)}" cy="${y(m.rec-m.desp)}" r="3.5" fill="${m.rec-m.desp<0?'#DC2626':'#7C3AED'}"><title>${MESES[i]}: resultado ${R0(m.rec-m.desp)}</title></circle>`:'').join('');
+    // top despesas e clientes
+    const cats={};A.forEach(t=>{if(t.tipo!=='Despesa')return;const f=info(t.cat,t.tipo);if(f.fora)return;cats[f.cat]=(cats[f.cat]||0)+valorNum(t)});
+    const topD=Object.entries(cats).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    const cli={};A.forEach(t=>{if(t.tipo!=='Receita'||!t.clienteNome)return;const f=info(t.cat,t.tipo);if(f.fora)return;cli[t.clienteNome]=(cli[t.clienteNome]||0)+valorNum(t)});
+    const topC=Object.entries(cli).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    const barras=(arr,cls)=>{const mx=Math.max(1,...arr.map(x=>x[1]));return `<div class="fx-bar">${arr.map(([n,v])=>`<div><span title="${E(n)}">${E(n)}</span><i class="${cls}" style="width:${Math.max(1,v/mx*100)}%"></i><b>${R0(v)}</b></div>`).join('')||'<p class="sub">Sem dados.</p>'}</div>`};
+    return `<div class="pl-kpis">
+        <div class="pl-k"><span>Receita operacional</span><b class="fx-in">${R0(rec)}</b><small>média ${R0(rec/mesesCom)}/mês</small></div>
+        <div class="pl-k"><span>Despesa operacional</span><b class="fx-out">${R0(desp)}</b><small>média ${R0(desp/mesesCom)}/mês</small></div>
+        <div class="pl-k dest"><span>Resultado</span><b>${R0(rec-desp)}</b><small>margem ${P(rec?(rec-desp)/rec:0)}</small></div>
+        <div class="pl-k"><span>Folha (equipe + sócios)</span><b>${R0((cats['Salários da equipe']||0)+(cats['Pró-labore dos sócios']||0))}</b><small>${P(rec?((cats['Salários da equipe']||0)+(cats['Pró-labore dos sócios']||0))/rec:0)} da receita</small></div></div>
+      <div class="pl-card"><h3>Entradas x saídas por mês</h3><p class="sub">Só o operacional. A linha roxa é o resultado do mês (ponto vermelho = mês no prejuízo).</p>
+        <div class="pl-chart" style="color:var(--pl-tx)"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Entradas e saídas por mês">${grid}${bars}${pts?`<polyline points="${pts}" fill="none" stroke="#7C3AED" stroke-width="2.5" stroke-linejoin="round"/>`:''}${dots}</svg></div>
+        <div class="pl-leg"><span><i style="background:#10B981"></i>Entradas</span><span><i style="background:#EF4444"></i>Saídas</span><span><i style="background:#7C3AED"></i>Resultado</span></div></div>
+      <div class="fx-2"><div class="pl-card"><h3>Para onde vai o dinheiro</h3><p class="sub">Maiores despesas do ano</p>${barras(topD,'out')}</div>
+        <div class="pl-card"><h3>Quem mais paga</h3><p class="sub">Receita por cliente no ano</p>${barras(topC,'in')}</div></div>`;
+  }
+
+  // ── lançamento (novo / editar) ──
+  function fecharMd(){document.getElementById('fx-ov')?.remove();document.removeEventListener('keydown',escMd,true)}
+  function escMd(e){if(e.key==='Escape'&&!document.getElementById('gxd-ov')?.classList.contains('open')){e.preventDefault();e.stopImmediatePropagation();fecharMd()}}
+  function abrirMd(html,lg){fecharMd();const o=document.createElement('div');o.id='fx-ov';o.className='fx-ov';o.innerHTML=`<div class="fx-md pl${lg?' lg':''}" role="dialog" aria-modal="true">${html}</div>`;o.addEventListener('mousedown',e=>{if(e.target===o)fecharMd()});document.body.appendChild(o);document.addEventListener('keydown',escMd,true);return o}
+  function form(t){
+    const tipo=t.tipo||'Receita';const cs=(DB.get('clientes')||[]).filter(c=>c&&c.nome).sort((a,b)=>String(a.nome).localeCompare(String(b.nome)));
+    const o=abrirMd(`<h3>${t.id?'Editar lançamento':'Novo lançamento'}</h3><p class="sub">Lance o que já aconteceu: dinheiro que entrou ou saiu.</p>
+      <div class="fx-tg"><button type="button" class="in ${tipo==='Receita'?'on':''}" data-t="Receita">+ Entrada</button><button type="button" class="out ${tipo==='Despesa'?'on':''}" data-t="Despesa">− Saída</button></div>
+      <div class="fx-grid">
+        <div class="pl-f"><label for="fx-data">Data</label><input id="fx-data" type="date" value="${E(t.data||(typeof gxHojeLocal==='function'?gxHojeLocal():new Date().toISOString().slice(0,10)))}"></div>
+        <div class="pl-f"><label for="fx-valor">Valor</label><input id="fx-valor" inputmode="decimal" placeholder="R$ 0,00" value="${t.valor?E(R(valorNum(t))):''}"></div>
+        <div class="pl-f full"><label for="fx-desc">Descrição</label><input id="fx-desc" maxlength="200" value="${E(t.desc||'')}" placeholder="Ex.: Mensalidade novembro, Aluguel 11/2026"></div>
+        <div class="pl-f full"><label for="fx-cat">Categoria</label><select id="fx-cat">${opcoesCat(tipo,info(t.cat,tipo).cat)}</select></div>
+        <div class="pl-f"><label for="fx-cli">Cliente <span style="font-weight:400;color:var(--g-mu)">(opcional)</span></label><input id="fx-cli" list="fx-cli-l" value="${E(t.clienteNome||'')}" placeholder="Nome do cliente"><datalist id="fx-cli-l">${cs.map(c=>`<option value="${E(c.nome)}">`).join('')}</datalist></div>
+        <div class="pl-f"><label for="fx-meio">Meio de pagamento</label><select id="fx-meio"><option value="">—</option>${MEIOS.map(m=>`<option ${t.meio===m?'selected':''}>${m}</option>`).join('')}</select></div>
+        <div class="pl-f full"><label for="fx-obs">Observação</label><textarea id="fx-obs" maxlength="500">${E(t.obs||'')}</textarea></div>
+      </div>
+      <div class="pl-btns"><button type="button" class="pl-btn" data-x>Cancelar</button><button type="button" class="pl-btn pri" data-ok>${t.id?'Salvar':'Lançar'}</button></div>`);
+    let tp=tipo;
+    o.querySelectorAll('.fx-tg button').forEach(b=>b.onclick=()=>{tp=b.dataset.t;o.querySelectorAll('.fx-tg button').forEach(x=>x.classList.toggle('on',x===b));o.querySelector('#fx-cat').innerHTML=opcoesCat(tp,tp==='Receita'?'Mensalidades de clientes':'Outras despesas')});
+    const vi=o.querySelector('#fx-valor');vi.addEventListener('blur',()=>{const n=typeof gxParseBRL==='function'?gxParseBRL(vi.value):parseFloat(vi.value.replace(/\./g,'').replace(',','.'));if(n)vi.value=R(n)});
+    o.querySelector('[data-x]').onclick=fecharMd;
+    o.querySelector('[data-ok]').onclick=()=>{
+      const valor=typeof gxParseBRL==='function'?gxParseBRL(vi.value):parseFloat(vi.value.replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',','.'));
+      const desc=o.querySelector('#fx-desc').value.trim(),data=o.querySelector('#fx-data').value;
+      if(!data){avisa('Escolha a data','#EF4444');return}
+      if(!valor||valor<=0){avisa('Informe um valor maior que zero','#EF4444');return}
+      if(!desc){avisa('Escreva uma descrição','#EF4444');return}
+      const cliNome=o.querySelector('#fx-cli').value.trim();const cli=cs.find(c=>norm(c.nome)===norm(cliNome));
+      const obj={tipo:tp,data,valor:Math.round(valor*100)/100,desc,cat:o.querySelector('#fx-cat').value,meio:o.querySelector('#fx-meio').value,obs:o.querySelector('#fx-obs').value.trim(),clienteNome:cli?cli.nome:cliNome,clienteId:cli?cli.id:''};
+      if(t.id)DB.update('transacoes',t.id,obj);else DB.push('transacoes',{id:uidF(),criadoPor:(typeof sessionUser!=='undefined'&&sessionUser?.nome)||'',criadoEm:new Date().toISOString(),...obj});
+      fecharMd();if(String(data).slice(0,4)!==String(S.ano))S.ano=+String(data).slice(0,4);renderFinancas();avisa(t.id?'Lançamento atualizado ✓':(tp==='Receita'?'Entrada lançada ✓':'Saída lançada ✓'));
+    };
+    setTimeout(()=>o.querySelector(t.id?'#fx-desc':'#fx-valor')?.focus(),40);
+  }
+  window.fxNovo=tipo=>form({tipo});
+  window.fxEditar=id=>{const t=(DB.get('transacoes')||[]).find(x=>String(x.id)===String(id));if(t)form(t)};
+  window.fxExcluir=async id=>{const t=(DB.get('transacoes')||[]).find(x=>String(x.id)===String(id));if(!t)return;
+    if(!await gxConfirm({title:'Excluir lançamento',message:`"${t.desc||'Lançamento'}" de ${R(valorNum(t))}. Não tem como desfazer.`,okText:'Excluir',perigo:true}))return;
+    DB.remove('transacoes',id);renderFinancas();avisa('Lançamento excluído','#6B7280')};
+  // o botão antigo "Nova transação" (openModal('transacao')) abre o formulário novo
+  try{const _om=window.openModal;if(typeof _om==='function'){window.openModal=function(type,idOrData){if(type==='transacao'){if(idOrData&&typeof idOrData==='string')fxEditar(idOrData);else fxNovo('Receita');return}return _om.apply(this,arguments)};try{openModal=window.openModal}catch(e){}}}catch(e){}
+
+  // ── IMPORTAÇÃO DA PLANILHA (modelo "CONTROLE FINANCEIRO": abas RECEITA e DESPESA) ──
+  const MES_NOME={janeiro:1,fevereiro:2,marco:3,abril:4,maio:5,junho:6,julho:7,agosto:8,setembro:9,outubro:10,novembro:11,dezembro:12};
+  function classReceita(conta,desc){
+    const t=norm(desc);
+    if(/saldo anterior/.test(t))return 'Saldo inicial';
+    if(/fundo|dundo|aporte|resgate|diferenca de saldo|juros|cartao de credito gex|transferencia entre/.test(t))return 'Aportes e resgates';
+    if(/estorno|devolu|reembolso|plano de saude/.test(t))return 'Estornos e reembolsos recebidos';
+    if(/^cliente|antecipacao da fatura/.test(t))return 'Mensalidades de clientes';
+    if(/curso|aluna|aluno|aula|kiwify|eduzz|hotmart|mentoria|treinamento/.test(t))return 'Cursos e treinamentos';
+    if(/implementa|projeto|setup|site|landing|repasse|closer|consultoria|servico/.test(t))return 'Projetos e serviços avulsos';
+    return 'Outras receitas';
+  }
+  function classDespesa(conta,desc){
+    const t=norm(desc),c=norm(conta);
+    if(/distribui|^retirada/.test(t))return 'Distribuição de lucro';
+    if(/reserva|aplicacao|investimento/.test(t))return 'Reserva / investimento';
+    if(/diferenca do valor|diferenca de saldo|ajuste de saldo/.test(t))return 'Ajustes de saldo';
+    if(/^(estorno|devolu)|devolucao de valor|estorno para/.test(t))return 'Devoluções a clientes';
+    if(/taxa|tarifa|antecipa/.test(t))return 'Taxas bancárias';
+    if(/pgdas|\bdas\b|darf|inss|simples|guia|jucerja|\bgru\b|creci|\biss\b|irpj|csll|imposto/.test(t))return 'Impostos e guias';
+    if(/pro\s*-?\s*labore|prolabore|salario\s*(do\s*)?socio|vale (erik|everton)/.test(t))return 'Pró-labore dos sócios';
+    if(/plano de saude|beneficio|vale/.test(t))return 'Benefícios';
+    if(c==='funcionario'||/salario|freela|comissao|bonifica/.test(t))return 'Salários da equipe';
+    if(c==='meio de transporte'||/passagem|ajuda de custo/.test(t))return 'Transporte da equipe';
+    if(c==='aluguel'||/aluguel/.test(t))return 'Aluguel';
+    if(c==='energia'||/conta de luz|energia/.test(t))return 'Energia';
+    if(c==='internet'||c==='telefone / celular'||/internet|recarga|celular|chip/.test(t))return 'Internet e telefone';
+    if(c==='publicidade'||/publi|anuncio|\bmeta\b|facebook|midia|trafego/.test(t))return 'Anúncios e publicidade';
+    if(c==='mensalidade de plataformas online'||/ferrament|plataforma|lead flow|dashboard|template|assinatura|software|canva|google workspace|certificado digital/.test(t))return 'Ferramentas e plataformas';
+    if(/obra|gesso|reforma|manuten|conserto|adesivo|cadeira|movel|moveis|equipamento|\btv\b|lousa|microfone|lumin|computador|letreiro|uniforme|mesa|porta|mdf|material/.test(t)||c==='consertos / manutencao'||c==='equipamentos do dia a dia')return 'Obra, móveis e equipamentos';
+    if(/professor|\blp\b|landing|site|video|freela|designer|edicao|montagem|repasse|50% da empresa/.test(t))return 'Terceiros e freelancers';
+    if(/cartao|fatura/.test(t))return 'Fatura do cartão';
+    if(/almoco|jantar|hotel|ingresso|evento|pizza|confraterniza/.test(t))return 'Eventos e relacionamento';
+    if(/uber|combust|desloc|estacion|\b99\b|taxi|pedagio/.test(t))return 'Deslocamento';
+    if(/mercado|cafe|pao|refrigerante|copa|papel|limpeza|dinamica|lanche|agua mineral|decora/.test(t))return 'Copa e materiais';
+    if(c==='impostos')return 'Impostos e guias';
+    return 'Outras despesas';
+  }
+  const MEIO_CONTA=c=>{const t=norm(c);if(/pix/.test(t))return 'Pix';if(/boleto/.test(t))return 'Boleto';if(/debito/.test(t))return 'Cartão de débito';if(/credito|infinity/.test(t))return 'Cartão de crédito';if(/dinheiro/.test(t))return 'Dinheiro';return ''};
+  function acharCliente(nome,cs){
+    const n=norm(nome).replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();if(!n)return null;
+    let best=null,bs=0;const tok=n.split(' ').filter(w=>w.length>2);
+    cs.forEach(c=>{const m=norm(c.nome).replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();if(!m)return;
+      if(m===n){best=c;bs=99;return}
+      const mt=m.split(' ').filter(w=>w.length>2);const com=tok.filter(w=>mt.includes(w)).length;
+      const sc=com/Math.max(1,Math.min(tok.length,mt.length));if(com&&sc>bs){bs=sc;best=c}});
+    return bs>=.6?best:null;
+  }
+  function lerPlanilha(wb){
+    const pega=nome=>{const k=wb.SheetNames.find(s=>norm(s)===nome);return k?XLSX.utils.sheet_to_json(wb.Sheets[k],{header:1,raw:true,defval:''}):null};
+    const rec=pega('receita'),des=pega('despesa');
+    if(!rec&&!des)throw new Error('Não encontrei as abas RECEITA e DESPESA nessa planilha.');
+    const cs=DB.get('clientes')||[];
+    const linhas=[];const dataDe=(d,m,a)=>{const mm=typeof m==='number'?m:MES_NOME[norm(m)];const dd=+d,aa=+a;if(!mm||!dd||!aa)return '';return `${aa}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`};
+    (rec||[]).slice(1).forEach(r=>{const valor=+(r[7]!==''&&r[7]!=null?r[7]:r[5])||0;if(!valor)return;const data=dataDe(r[0],r[1],r[2]);if(!data)return;
+      const desc=String(r[4]||'').trim(),cat=classReceita(r[3],desc);
+      let cliNome='',cli=null;const m=desc.match(/^cliente\s*[-–:]\s*(.+)$/i);if(m){cliNome=m[1].replace(/\s*ref\s*[:.]?.*$/i,'').replace(/\s*\(\s*\d+\s*\/\s*\d+\s*\)\s*$/,'').trim();cli=acharCliente(cliNome,cs)}
+      linhas.push({tipo:'Receita',data,valor:Math.round(valor*100)/100,desc:desc||'Entrada',cat,meio:MEIO_CONTA(r[3]),clienteNome:cli?cli.nome:cliNome,clienteId:cli?cli.id:'',contaPlanilha:String(r[3]||'')})});
+    (des||[]).slice(1).forEach(r=>{const valor=+r[5]||0;if(!valor)return;const data=dataDe(r[0],r[1],r[2]);if(!data)return;
+      const desc=String(r[4]||'').trim();linhas.push({tipo:'Despesa',data,valor:Math.round(valor*100)/100,desc:desc||'Saída',cat:classDespesa(r[3],desc),contaPlanilha:String(r[3]||'')})});
+    // agrupa as taxas pequenas por mês
+    const out=[],taxas={};
+    linhas.forEach(l=>{if(l.tipo==='Despesa'&&l.cat==='Taxas bancárias'&&l.valor<10){const k=l.data.slice(0,7);(taxas[k]=taxas[k]||[]).push(l)}else out.push(l)});
+    Object.entries(taxas).forEach(([k,arr])=>{const tot=arr.reduce((a,x)=>a+x.valor,0);const ult=arr.map(x=>x.data).sort().pop();
+      out.push({tipo:'Despesa',data:ult,valor:Math.round(tot*100)/100,desc:`Taxas bancárias de ${MESES_LONGO[+k.slice(5,7)-1]} (${arr.length} tarifas de Pix, notificação e mensagem)`,cat:'Taxas bancárias',qtd:arr.length,chave:'taxas|'+k})});
+    // chave para não duplicar ao importar de novo
+    const vistos={};out.forEach(l=>{if(l.chave)return;const b=[l.tipo,l.data,l.valor.toFixed(2),norm(l.desc).slice(0,60)].join('|');vistos[b]=(vistos[b]||0)+1;l.chave=b+'|'+vistos[b]});
+    return out;
+  }
+  window.fxImportar=function(){
+    if(typeof XLSX==='undefined'){avisa('Leitor de planilha não carregou. Atualize a página.','#EF4444');return}
+    const o=abrirMd(`<h3>Importar planilha financeira</h3><p class="sub">Modelo "Controle financeiro" com as abas <b>RECEITA</b> e <b>DESPESA</b>. Cada lançamento já entra no plano de contas novo, e importar a mesma planilha de novo não duplica nada.</p>
+      <label class="fx-drop" id="fx-drop"><input type="file" accept=".xlsx,.xls" hidden id="fx-file"><b>Escolha ou arraste o arquivo .xlsx</b>Nada é gravado antes de você conferir o resumo.</label><div id="fx-prev"></div>`,true);
+    const inp=o.querySelector('#fx-file'),drop=o.querySelector('#fx-drop');
+    const ler=f=>{if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const wb=XLSX.read(rd.result,{type:'array'});previa(o,lerPlanilha(wb),f.name)}catch(e){o.querySelector('#fx-prev').innerHTML=`<p class="pl-alert wa" style="margin-top:12px">${E(e.message||'Não consegui ler a planilha.')}</p>`}};rd.readAsArrayBuffer(f)};
+    inp.onchange=()=>ler(inp.files[0]);
+    drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('on')});drop.addEventListener('dragleave',()=>drop.classList.remove('on'));
+    drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('on');ler(e.dataTransfer.files[0])});
+  };
+  function previa(o,linhas,nome){
+    const atuais=DB.get('transacoes')||[];const porChave=new Map(atuais.filter(t=>t.chave).map(t=>[t.chave,t]));
+    const novos=linhas.filter(l=>!porChave.has(l.chave)),atualiza=linhas.filter(l=>{const t=porChave.get(l.chave);return t&&l.chave.startsWith('taxas|')&&Math.abs(valorNum(t)-l.valor)>.009});
+    const resumo={};linhas.forEach(l=>{const k=l.cat;resumo[k]=resumo[k]||{tipo:l.tipo,n:0,v:0};resumo[k].n+=(l.qtd||1);resumo[k].v+=l.valor});
+    const ordem=PLANO.map(p=>p.cat).filter(c=>resumo[c]);
+    const rec=linhas.filter(l=>l.tipo==='Receita'&&!info(l.cat,'Receita').fora).reduce((a,l)=>a+l.valor,0),desp=linhas.filter(l=>l.tipo==='Despesa'&&!info(l.cat,'Despesa').fora).reduce((a,l)=>a+l.valor,0);
+    const semCli=linhas.filter(l=>l.cat==='Mensalidades de clientes'&&!l.clienteId).length,comCli=linhas.filter(l=>l.clienteId).length;
+    o.querySelector('#fx-drop').style.display='none';
+    o.querySelector('#fx-prev').innerHTML=`<div class="pl-kpis" style="margin-top:4px">
+        <div class="pl-k"><span>Arquivo</span><b style="font-size:14px">${E(nome)}</b><small>${linhas.length} lançamentos (taxas agrupadas por mês)</small></div>
+        <div class="pl-k"><span>Receita operacional</span><b class="fx-in">${R0(rec)}</b></div><div class="pl-k"><span>Despesa operacional</span><b class="fx-out">${R0(desp)}</b></div>
+        <div class="pl-k dest"><span>Resultado</span><b>${R0(rec-desp)}</b><small>margem ${P(rec?(rec-desp)/rec:0)}</small></div></div>
+      <div class="pl-tw" style="max-height:300px;overflow:auto"><table class="pl-t"><thead><tr><th>Categoria</th><th>Linhas</th><th>Valor</th></tr></thead><tbody>
+        ${ordem.map(c=>{const r=resumo[c],f=info(c,r.tipo);return `<tr><td>${r.tipo==='Receita'?'＋ ':'－ '}${E(c)} ${f.fora?'<span class="pl-pill wa">fora do resultado</span>':''}</td><td>${r.n}</td><td class="${r.tipo==='Receita'?'fx-in':'fx-out'}">${R(r.v)}</td></tr>`}).join('')}</tbody></table></div>
+      <p class="pl-nota">${comCli} lançamento(s) ligados a clientes cadastrados${semCli?` · ${semCli} mensalidade(s) com cliente que não achei no cadastro (fica só o nome)`:''}.<br>
+      <b>${novos.length}</b> novo(s) para importar${atualiza.length?` · ${atualiza.length} total(is) de taxas do mês para atualizar`:''} · ${linhas.length-novos.length-atualiza.length} já estavam no sistema.</p>
+      <div class="pl-btns"><button type="button" class="pl-btn" data-x>Cancelar</button><button type="button" class="pl-btn pri" data-ok ${novos.length||atualiza.length?'':'disabled'}>Importar ${novos.length} lançamento${novos.length!==1?'s':''}</button></div>`;
+    o.querySelector('[data-x]').onclick=fecharMd;
+    o.querySelector('[data-ok]').onclick=()=>{
+      const quem=(typeof sessionUser!=='undefined'&&sessionUser?.nome)||'';const agora=new Date().toISOString();
+      const lista=(DB.get('transacoes')||[]).map(t=>{const u=atualiza.find(a=>a.chave===t.chave);return u?{...t,valor:u.valor,desc:u.desc,qtd:u.qtd,data:u.data}:t});
+      novos.forEach(l=>lista.push({id:uidF(),...l,origem:'planilha',importadoEm:agora,criadoPor:quem}));
+      DB.set('transacoes',lista);
+      fecharMd();const anos=[...new Set(novos.map(l=>l.data.slice(0,4)))].sort();if(anos.length)S.ano=+anos[anos.length-1];
+      Object.assign(S,{tab:'painel',q:'',mes:'',tipo:'',cat:'',cli:''});renderFinancas();avisa(`${novos.length} lançamentos importados ✓`);
+    };
+  }
+  window.gxFinLerPlanilha=lerPlanilha;
+  // exportar usa os filtros desta tela
+  window.getFilteredTransacoesFinancas=()=>filtrados();
+  try{getFilteredTransacoesFinancas=window.getFilteredTransacoesFinancas}catch(e){}
 })();
 </script>
 
