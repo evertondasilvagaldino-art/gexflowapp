@@ -31942,7 +31942,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
 .fx-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .fx-grid .full{grid-column:1/-1}
 .fx-md .pl-f textarea{width:100%;min-height:62px;border:1px solid var(--g-line,#E9E9F0);border-radius:10px;padding:9px 11px;font:inherit;font-size:13px;background:var(--g-card,#fff);color:inherit;resize:vertical}
-.fx-drop{border:2px dashed var(--g-line,#E9E9F0);border-radius:14px;padding:26px;text-align:center;cursor:pointer;color:var(--g-mu,#6A6A7C);font-size:13px}
+.fx-drop{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:4px;width:100%;min-height:150px;box-sizing:border-box;border:2px dashed var(--g-line,#E9E9F0);border-radius:14px;padding:26px;text-align:center;cursor:pointer;color:var(--g-mu,#6A6A7C);font-size:13px;margin:0}
 .fx-drop:hover,.fx-drop.on{border-color:var(--g-p,#7C3AED);color:var(--g-p,#7C3AED);background:var(--g-p-soft,#F3EEFF)}
 .fx-drop b{display:block;font-size:14px;color:var(--g-tx,#17171F);margin-bottom:4px}
 .fx-ponte{display:grid;grid-template-columns:1fr auto 1.25fr auto 1.25fr auto 1fr;gap:10px;align-items:stretch;margin-top:12px}
@@ -32388,7 +32388,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
   window.fxImportar=function(){
     if(typeof XLSX==='undefined'){avisa('Leitor de planilha não carregou. Atualize a página.','#EF4444');return}
     const o=abrirMd(`<h3>Importar planilha financeira</h3><p class="sub">Modelo "Controle financeiro" com as abas <b>RECEITA</b> e <b>DESPESA</b>. Cada lançamento já entra no plano de contas novo, e importar a mesma planilha de novo não duplica nada.</p>
-      <label class="fx-drop" id="fx-drop"><input type="file" accept=".xlsx,.xls" hidden id="fx-file"><b>Escolha ou arraste o arquivo .xlsx</b>Nada é gravado antes de você conferir o resumo.</label><div id="fx-prev"></div>`,true);
+      <label class="fx-drop" id="fx-drop"><input type="file" accept=".xlsx,.xls" hidden id="fx-file"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><b>Escolha ou arraste o arquivo .xlsx</b><span>Nada é gravado antes de você conferir o resumo.</span></label><div id="fx-prev"></div>`,true);
     const inp=o.querySelector('#fx-file'),drop=o.querySelector('#fx-drop');
     const ler=f=>{if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const wb=XLSX.read(rd.result,{type:'array'});previa(o,lerPlanilha(wb),f.name)}catch(e){o.querySelector('#fx-prev').innerHTML=`<p class="pl-alert wa" style="margin-top:12px">${E(e.message||'Não consegui ler a planilha.')}</p>`}};rd.readAsArrayBuffer(f)};
     inp.onchange=()=>ler(inp.files[0]);
