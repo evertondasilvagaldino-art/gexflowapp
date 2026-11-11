@@ -29823,9 +29823,11 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   function txtCom(c){
     const t=String(c.comissaoTxt||'');
     if(gestor()||c.regraTipo!=='carteira')return t;
+    // colaborador nunca vê valor da carteira nem o total da comissão (só o que já acumulou)
     const pct=(t.match(/([\d.,]+)% da carteira/)||[])[1];
-    const faixa=(t.match(/ao bater ([\d.,]+)%/)||[])[1];
-    if(faixa)return `Ganha ${pct?pct+'% da carteira':'comissão'} ao bater ${faixa}% da meta`;
+    const faixa=(t.match(/ao (?:bater|chegar em) ([\d.,]+)%/)||[])[1];
+    if(/^Acumulando/.test(t))return `Comissão crescendo · ${pct?pct+'% da carteira do setor':'carteira do setor'} ao chegar em ${faixa||'100'}% da meta`;
+    if(faixa)return `Ganha ${pct?pct+'% da carteira do setor':'comissão'} ao bater ${faixa}% da meta`;
     return pct?`${pct}% da carteira do setor`:'Comissão sobre a carteira do setor';
   }
   function carteiraDetalhe(m,c){
