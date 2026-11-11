@@ -29265,6 +29265,7 @@ body:has(#page-whatsapp-chat.active) .gxc-fab.up{bottom:166px}
 .trf-ck{display:inline-flex;align-items:center;gap:6px}
 .trf-ck input{width:17px;height:17px;accent-color:#7C3AED}
 .trf-lk{border:none;background:none;color:#7C3AED;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer;padding:2px 4px;text-decoration:underline;text-underline-offset:2px}
+.trf-ori{display:block;font-size:10.5px;font-weight:500;color:var(--mt-mu,#6A6A7C);margin-top:2px}
 .trf-op{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.03em;text-transform:none;padding:1px 6px;border-radius:999px;background:var(--mt-soft,#F1F1F6);color:var(--mt-mu,#6A6A7C);margin-left:2px}
 .trf-av{display:block;color:#B45309;font-size:10.5px;font-weight:600}
 .trf-p{display:inline-block;font-size:11px;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--mt-soft,#F1F1F6);color:var(--mt-mu,#6A6A7C)}
@@ -29549,12 +29550,14 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
       const u=pessoa(m.userId)||{id:m.userId,nome:m.userNome,email:m.userEmail};
       const keys=[...chavesDe(u),norm(m.userId),norm(m.userEmail),norm(m.userNome)].filter(Boolean);
       const sqs=DB.get('squads')||[];
-      const listas={};(DB.get('op_listas')||[]).forEach(l=>{if(!l||l.arquivada)return;const temRel=(l.campos||[]).some(c=>/relacionamento/i.test(c.nome||''));const traf=(sqs.find(q=>q.id===l.squadId)||{}).tipo==='trafego';if(temRel||traf)listas[l.id]=l});
+      // só listas de squads de TRÁFEGO (tipo "trafego" ou nome com "tráfego")
+      const sqTraf=new Set(sqs.filter(q=>q&&(q.tipo==='trafego'||/tr[aá]fego/i.test(q.nome||''))).map(q=>q.id));
+      const listas={};(DB.get('op_listas')||[]).forEach(l=>{if(!l||l.arquivada||!sqTraf.has(l.squadId))return;listas[l.id]={...l,_sq:(sqs.find(q=>q.id===l.squadId)||{}).nome||''}});
       const ini=periodo(m).ini,out=[];
       (DB.get('op_tarefas')||[]).forEach(t=>{const l=listas[t.listaId];if(!l||!respBate(t,keys))return;
         const em=concluidaEm(t,l);if(em&&String(em).slice(0,10)<ini)return; // saiu da carteira antes do mês
         const cr=(l.campos||[]).find(c=>/relacionamento/i.test(c.nome||''));const op=cr?(cr.opcoes||[]).find(o=>o.id===(t.campos||{})[cr.id]):null;
-        out.push({id:t.id,nome:String(t.titulo||'Cliente').replace(/^cliente\s*[-–:]\s*/i,''),relac:op?op.nome:'',relacOk:!!op&&RELAC_OK.test(norm(op.nome))})});
+        out.push({id:t.id,nome:String(t.titulo||'Cliente').replace(/^cliente\s*[-–:]\s*/i,''),lista:l.nome||'',squad:l._sq||'',relac:op?op.nome:'',relacOk:!!op&&RELAC_OK.test(norm(op.nome))})});
       return out.sort((a,b)=>a.nome.localeCompare(b.nome));
     });
   }
@@ -29603,7 +29606,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const pct=alvo>0?(realizado/alvo)*100:0;
     const regra=regraDe(m);
     const com=comissao(regra,realizado,pct,INDICADORES[m.indicador]?.un,m);
-    const eficiencia=Math.round(Math.min(100,pct));
+    const eficiencia=Math.round(pct);
     return {realizado,alvo,pct,comissao:com.valor,comissaoTxt:com.txt,regraId:regra?.id||'',eficiencia,auto,fechado:false,carteiraBase:com.base,carteiraN:com.nCli,regraTipo:regra?.tipo||''};
   }
   function regraDe(m){
@@ -29693,10 +29696,10 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     return {valor:0,txt:'—'};
   }
   function selo(e){
-    // Faixas (04/11/2026): Laranja → Vermelha → Preta (meta batida)
+    // Faixas (12/11/2026): Laranja até 100% da meta → Vermelha acima de 100% até 130% → Preta a partir de 130%
     const fx='<i class="mt-fx" aria-hidden="true"></i>';
-    if(e>=100)return {k:'preta',n:'Faixa preta',i:fx};
-    if(e>=60)return {k:'vermelha',n:'Faixa vermelha',i:fx};
+    if(e>=130)return {k:'preta',n:'Faixa preta',i:fx};
+    if(e>100)return {k:'vermelha',n:'Faixa vermelha',i:fx};
     return {k:'laranja',n:'Faixa laranja',i:fx};
   }
   function status(m,c){
@@ -29863,12 +29866,12 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
 `}
   function trfTabela(m,c,pode,g){
     const cs=carteiraTrf(m);
-    if(!cs.length)return `<div class="mt-sec"><h4>Carteira do mês</h4><div class="mt-note">Nenhum cliente encontrado. Os clientes vêm das tarefas da lista <b>Carteira Clientes</b> (squad de Tráfego) em que ${E(m.userNome)} é responsável.</div></div>`;
+    if(!cs.length)return `<div class="mt-sec"><h4>Carteira do mês</h4><div class="mt-note">Nenhum cliente encontrado. Os clientes vêm das tarefas das listas do <b>squad de Tráfego</b> em que ${E(m.userNome)} está no campo <b>Responsáveis</b>.</div></div>`;
     const fech=!!m.fechamento;
     const linhas=cs.map(cli=>{const p=pontosCli(m,cli);const trava=p.val||fech||!pode;const dis=trava?'disabled':'';
       const pr=p.prints.length?`<button type="button" class="trf-lk" onclick="mtTrfVer('${m.id}','${cli.id}')">${p.prints.length} print${p.prints.length>1?'s':''}</button>`:'';
       return `<tr>
-        <td><b>${E(cli.nome)}</b></td>
+        <td><b>${E(cli.nome)}</b><small class="trf-ori">${E([cli.squad,cli.lista].filter(Boolean).join(' › '))}</small></td>
         <td class="c"><label class="trf-ck"><input type="checkbox" ${p.ck.vendeu?'checked':''} ${dis} onchange="mtTrf('${m.id}','${cli.id}','vendeu',this.checked)" aria-label="Vendeu"> ${pr}${!trava?`<button type="button" class="trf-lk" onclick="mtTrfPrint('${m.id}','${cli.id}')">${p.prints.length?'+':'Anexar print'}</button>`:''}</label>${p.vendeuSemPrint?'<small class="trf-av">falta o print</small>':''}</td>
         <td><input class="mt-in trf-in" ${dis} value="${p.fa!=null?moedaFmt(p.fa):''}" placeholder="R$ 0,00" oninput="mtMoeda(this)" onchange="mtTrf('${m.id}','${cli.id}','fatAnt',this.value)" aria-label="Faturamento do mês anterior de ${E(cli.nome)}"></td>
         <td><input class="mt-in trf-in" ${dis} value="${p.fm!=null?moedaFmt(p.fm):''}" placeholder="R$ 0,00" oninput="mtMoeda(this)" onchange="mtTrf('${m.id}','${cli.id}','fat',this.value)" aria-label="Faturamento do mês de ${E(cli.nome)}"></td>
@@ -29879,7 +29882,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const pend=cs.filter(cli=>!pontosCli(m,cli).val).length;
     return `<div class="mt-sec"><h4>Carteira do mês (${cs.length} cliente${cs.length!==1?'s':''} · meta ${cs.length*2} pontos)</h4>
       <div class="trf-w"><table class="trf"><thead><tr><th>Cliente</th><th>Vendeu?</th><th>Fatur. anterior <span class="trf-op">opcional</span></th><th>Fatur. do mês <span class="trf-op">opcional</span></th><th>Cresceu?</th><th>Relacion.</th><th>Pontos</th><th>Validação</th></tr></thead><tbody>${linhas}</tbody></table></div>
-      <div class="trf-f"><small>Cada cliente vale 2 pontos: <b>vendeu</b> (com print) e <b>relacionamento</b>. O faturamento é opcional e não vale ponto. Anexe o print e clique em <b>Validar</b>: só aí os pontos e a comissão entram. O relacionamento vem do campo da tarefa do cliente (Bom, Ótimo ou Excelente). Para corrigir um cliente validado, clique em <b>Validado</b>.</small>
+      <div class="trf-f"><small>Cada cliente vale 2 pontos: <b>vendeu</b> (com print) e <b>relacionamento</b>. O faturamento é opcional e não vale ponto. Anexe o print e clique em <b>Validar</b>: só aí os pontos e a comissão entram. Clientes = tarefas das listas do squad de Tráfego em que a pessoa está no campo <b>Responsáveis</b>. O relacionamento vem do campo da tarefa (Bom, Ótimo ou Excelente). Para corrigir um cliente validado, clique em <b>Validado</b>.</small>
       ${pode&&pend&&!fech?`<button type="button" class="mt-btn sm pri" onclick="mtTrfValTodos('${m.id}')">Validar todos (${pend})</button>`:''}</div></div>`;
   }
   function salvarCk(mid,tid,patch){const m=meta(mid);if(!m)return;const ck={...((m.checks||{})[tid]||{}),...patch,por:sessionUser?.nome||'',em:new Date().toISOString()};DB.update('metas',mid,{checks:{...(m.checks||{}),[tid]:ck}});desenharDetalhe();renderMetas()}
@@ -29970,13 +29973,13 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
         <div class="mt-big"><div class="pct">${Math.round(c.pct)}%</div><div class="qty"><b>${fmt(c.realizado)}</b> de ${fmt(c.alvo)}<br>${c.pct>=100?'Meta batida 🎉':`faltam ${fmt(falta)}`}</div><div class="mt-track"><div class="mt-fill ${barCls(c.pct)}" style="width:${Math.min(100,c.pct)}%"></div></div></div>
         <div class="mt-kv">
           <div><span>Comissão ${c.fechado?'fechada':'até agora'}</span><b style="color:#047857">${verCom?BRL(c.comissao):'—'}</b><small>${verCom?E(txtCom(c)):'Visível só para a pessoa e o gestor'}</small></div>
-          <div><span>Eficiência</span><b>${c.eficiencia}</b><small><span class="mt-selo ${sl.k}">${sl.i} ${sl.n}</span> · quantidade entregue em relação à meta</small></div>
+          <div><span>Eficiência</span><b>${c.eficiencia}</b><small><span class="mt-selo ${sl.k}">${sl.i} ${sl.n}</span> · ${sl.k==='laranja'?'até 100% da meta · vermelha acima de 100%':sl.k==='vermelha'?'acima de 100% · preta a partir de 130%':'130% da meta ou mais'}</small></div>
           <div><span>Status</span><b style="font-size:14px;margin-top:6px"><span class="mt-st ${st.k}">${st.n}</span></b><small>Esperado até hoje: ${Math.round(ritmoMeta(m))}% do período</small></div>
           <div><span>Como é contado</span><b style="font-size:13.5px">${ind.fixo?'Carteira de clientes':ind.auto&&m.contarAuto!==false?'Automático + itens':'Itens lançados'}</b><small>${ind.auto&&m.contarAuto!==false?E(ind.autoTxt):'Marque cada entrega na lista abaixo'}</small></div>
         </div>
         ${ind.fixo?trfTabela(m,c,pode,g):''}
         ${ind.fixo?'':secoesItens(m,c,pode,ind)}
-        ${c.regraTipo==='carteira'&&g?carteiraDetalhe(m,c):''}
+        ${c.regraTipo==='carteira'&&g&&!ind.fixo&&role(sessionUser)==='Fundador'?carteiraDetalhe(m,c):''}
         ${m.fechamento?`<div class="mt-note">Mês fechado em ${dataBR(m.fechamento.em)} por ${E(m.fechamento.por||'')}. Os valores acima ficaram congelados.</div>`:''}
       </div>
       ${g?`<div class="mt-dr-f">${m.fechamento?`<button class="mt-btn" onclick="mtReabrir('${m.id}')">Reabrir meta</button>`:`<button class="mt-btn dng" onclick="mtExcluir('${m.id}')">Excluir</button><button class="mt-btn" onclick="mtEditar('${m.id}')">Editar meta</button>`}</div>`:''}`);
