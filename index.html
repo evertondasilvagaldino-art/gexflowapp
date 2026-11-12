@@ -17319,6 +17319,7 @@ function renderFunnelSelector(){
     canEdit&&active&&(canManageAnyFunnel||!active.isDefault)?`<button class="gx-mi" onclick="openFunnelModal('edit','${active.id}')">Editar funil</button>`:'',
     canCreate&&active?`<button class="gx-mi" onclick="duplicateCommercialFunnel('${active.id}')">⧉ Duplicar</button>`:'',
     canEdit&&active&&!active.isDefault?`<button class="gx-mi danger" onclick="confirmArchiveFunnel('${active.id}')">Arquivar</button>`:'',
+    (typeof gxEspelhoAllowed==='function'&&gxEspelhoAllowed()&&active)?`<button class="gx-mi" onclick="gxTrocarResp()">Trocar responsável dos leads</button>`:'',
     canOpenArchived?`<button class="gx-mi" onclick="openArchivedFunnelsModal()">Arquivados${_arqN}</button>`:'',
     (()=>{try{return resolveRole(sessionUser?.permissao||sessionUser?.cargo||'')==='Fundador'}catch(e){return false}})()?`<button class="gx-mi danger" onclick="gxLimparFunisInativos()">Excluir inativos e arquivados</button>`:''
   ].filter(Boolean);
@@ -33075,5 +33076,74 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
 })();
 </script>
 
+
+<script id="gx-troca-resp">
+(function(){
+  const E=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const fechado=l=>{try{return isWonOpportunity(l)||isLostOpportunityLocal(l)}catch(e){return false}};
+  window.gxTrocarResp=function(){
+    if(!(typeof gxEspelhoAllowed==='function'&&gxEspelhoAllowed())){toast('Só Fundador e Adm Gerente podem trocar responsáveis','#EF4444');return}
+    const f=getActiveFunnel();if(!f){toast('Nenhum funil aberto','#F59E0B');return}
+    const doFunil=l=>l&&(String(l.funnelId)===String(f.id)||(f.isDefault&&!l.funnelId));
+    const leads=(DB.get('leads')||[]).filter(doFunil);
+    const grupos=new Map();
+    leads.forEach(l=>{const v=_ownerFilterValueFromLead(l)||'__unassigned';const g=grupos.get(v)||{v,nome:v==='__unassigned'?'Sem responsável':(getLeadOwnerName(l)||'Sem nome'),n:0,ab:0};g.n++;if(!fechado(l))g.ab++;grupos.set(v,g)});
+    const des=[...grupos.values()].sort((a,b)=>b.n-a.n);
+    if(!des.length){toast('Este funil não tem leads','#F59E0B');return}
+    const _vis=new Set(),paras=[];
+    [].concat(getCommercialTeamUsers()||[],(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios'))||[]).forEach(u=>{
+      if(!u||!u.id||String(u.status||'Ativo').toLowerCase()==='inativo')return;
+      const k=normalizeLoginEmail(u.email||'')||String(u.id);if(_vis.has(k))return;_vis.add(k);paras.push(u)});
+    paras.sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''),'pt-BR'));
+    document.getElementById('gx-tr-ov')?.remove();
+    const o=document.createElement('div');o.id='gx-tr-ov';o.className='fx-ov';
+    o.innerHTML=`<div class="fx-md pl" role="dialog" aria-modal="true" style="max-width:480px">
+      <h3>Trocar responsável dos leads</h3><p class="sub">${E(f.name||'Funil')}</p>
+      <label class="pl-lbl" style="display:block;margin:14px 0 6px;font-size:12px;font-weight:600">De</label>
+      <select id="gx-tr-de" class="pl-in" style="width:100%">${des.map(g=>`<option value="${E(g.v)}">${E(g.nome)} (${g.n} lead${g.n===1?'':'s'})</option>`).join('')}</select>
+      <label class="pl-lbl" style="display:block;margin:14px 0 6px;font-size:12px;font-weight:600">Para</label>
+      <select id="gx-tr-para" class="pl-in" style="width:100%">${paras.map(u=>`<option value="${E(u.id)}">${E(u.nome||u.email)}</option>`).join('')}</select>
+      <label class="pl-lbl" style="display:block;margin:14px 0 6px;font-size:12px;font-weight:600">Quais leads</label>
+      <select id="gx-tr-q" class="pl-in" style="width:100%"><option value="todos">Todos</option><option value="abertos">Só os em andamento (sem ganhos e perdidos)</option></select>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:14px;font-size:12.5px"><input type="checkbox" id="gx-tr-tk" checked> Passar também as tarefas abertas desses leads</label>
+      <div id="gx-tr-res" style="margin-top:14px;padding:10px 12px;border-radius:10px;background:var(--g-bg2,#F5F3FF);font-size:12.5px"></div>
+      <div class="pl-btns"><button type="button" class="pl-btn" data-x>Cancelar</button><button type="button" class="pl-btn pri" data-ok>Trocar</button></div></div>`;
+    document.body.appendChild(o);
+    const $=id=>o.querySelector('#'+id);
+    const alvo=()=>{const de=$('gx-tr-de').value,q=$('gx-tr-q').value;return leads.filter(l=>(de==='__unassigned'?!_ownerFilterValueFromLead(l):leadMatchesOwnerFilter(l,de))&&(q==='todos'||!fechado(l)))};
+    const user=()=>paras.find(u=>String(u.id)===$('gx-tr-para').value);
+    const resumo=()=>{const n=alvo().length,u=user();$('gx-tr-res').innerHTML=`<b>${n}</b> lead${n===1?'':'s'} vão para <b>${E(u?.nome||'—')}</b>.`};
+    ['gx-tr-de','gx-tr-para','gx-tr-q'].forEach(id=>$(id).addEventListener('change',resumo));
+    try{const bea=paras.find(u=>/beatriz/i.test(u.nome||''));const sel=$('gx-tr-de');const ev=des.find(g=>/everton/i.test(g.nome));if(ev)sel.value=ev.v;if(bea)$('gx-tr-para').value=String(bea.id)}catch(e){}
+    try{gxMelhorarSelects(o);o.querySelectorAll('.gxs-btn').forEach(b=>b.classList.add('full'))}catch(e){}
+    resumo();
+    const fechar=()=>{o.remove();document.removeEventListener('keydown',esc,true)};
+    const esc=e=>{if(e.key==='Escape'&&!document.getElementById('gxd-ov')?.classList.contains('open')){e.preventDefault();e.stopImmediatePropagation();fechar()}};
+    document.addEventListener('keydown',esc,true);o.addEventListener('mousedown',e=>{if(e.target===o)fechar()});
+    o.querySelector('[data-x]').onclick=fechar;
+    o.querySelector('[data-ok]').onclick=async()=>{
+      const u=user();const sel=alvo();
+      if(!u){toast('Escolha para quem vão os leads','#F59E0B');return}
+      if(!sel.length){toast('Nenhum lead nesse filtro','#F59E0B');return}
+      const deNome=des.find(g=>g.v===$('gx-tr-de').value)?.nome||'';
+      if(!await gxConfirm({title:'Trocar responsável',message:`${sel.length} lead${sel.length===1?'':'s'} de ${deNome} passam para ${u.nome}. Confirmar?`,okText:'Trocar'}))return;
+      const id=String(u.id),nome=u.nome||u.email||'',email=u.email||'';const ag=new Date().toISOString();
+      const campos={responsavelId:id,responsavelNome:nome,responsavelEmail:email,responsavel:nome,ownerId:id,ownerName:nome,ownerEmail:email,vendedorId:id,vendedorNome:nome,vendedorEmail:email,assignedToId:id,assignedTo:nome,assignedToEmail:email,responsavelTrocadoEm:ag};
+      const ids=new Set(sel.map(l=>String(l.id)));
+      const todos=DB.get('leads')||[];
+      todos.forEach(l=>{if(l&&ids.has(String(l.id))){Object.assign(l,campos);if('vendedor' in l)l.vendedor=nome;l.updatedAt=ag}});
+      DB.set('leads',todos);
+      let nt=0;
+      if($('gx-tr-tk').checked){
+        const tks=getCommercialTasks();
+        tks.forEach(t=>{if(t&&!t.completed&&ids.has(String(t.opportunityId))){t.assignedToId=id;t.assignedTo=nome;t.assignedToEmail=email;t.updatedAt=ag;nt++}});
+        if(nt)saveCommercialTasks(tks);
+      }
+      fechar();try{renderComercial()}catch(e){}
+      toast(`${sel.length} lead${sel.length===1?'':'s'} agora com ${nome}${nt?` · ${nt} tarefa(s)`:''} ✓`,'#10B981');
+    };
+  };
+})();
+</script>
 </body>
 </html>
