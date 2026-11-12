@@ -30072,13 +30072,30 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
       }
     });
   };
-  window.mtTrfVal=function(mid,tid,on){
+  window.mtTrfVal=async function(mid,tid,on){
     const m=meta(mid);if(!m||!podeLancar(m))return;const ck=(m.checks||{})[tid]||{};
     if(on&&ck.vendeu&&!(ck.prints||[]).length){toast('Anexe o print da venda antes de validar','#F59E0B');mtTrfPrint(mid,tid);return}
+    if(on){
+      const cli=carteiraTrf(m).find(x=>x.id===tid);
+      if(cli){
+        const p=pontosCli(m,cli);const falta=[];
+        if(!p.vendeu)falta.push('• Venda: marque "Vendeu" e anexe o print da venda');
+        if(!cli.relacOk)falta.push(cli.relac?`• Relacionamento está "${cli.relac}": precisa ser Bom, Ótimo ou Excelente na tarefa do cliente`:'• Relacionamento sem nota: preencha Bom, Ótimo ou Excelente na tarefa do cliente');
+        if(falta.length){
+          const vale=2-falta.length;
+          const ok=await gxConfirm({title:`${cli.nome} vale ${vale} de 2 pontos`,message:`O que falta para valer 2 pontos:\n\n${falta.join('\n')}\n\nDepois de validado, o cliente fica travado com ${vale} ponto${vale===1?'':'s'}. Validar mesmo assim?`,okText:`Validar com ${vale} ponto${vale===1?'':'s'}`,cancelText:'Voltar e completar'});
+          if(!ok)return;
+        }
+      }
+    }
     salvarCk(mid,tid,{val:!!on,valPor:on?(sessionUser?.nome||''):'',valEm:on?new Date().toISOString():''});
     if(on)toast('Cliente validado ✓','#10B981');
   };
-  window.mtTrfValTodos=function(mid){const m=meta(mid);if(!m||!podeLancar(m))return;const ck={...(m.checks||{})};const agora=new Date().toISOString();let semPrint=0,n=0;
+  window.mtTrfValTodos=async function(mid){const m0=meta(mid);if(!m0||!podeLancar(m0))return;
+    const inc=carteiraTrf(m0).filter(cli=>{const c=(m0.checks||{})[cli.id]||{};if(c.val||(c.vendeu&&!(c.prints||[]).length))return false;const p=pontosCli(m0,cli);return !p.vendeu||!cli.relacOk})
+      .map(cli=>{const p=pontosCli(m0,cli);const f=[];if(!p.vendeu)f.push('venda');if(!cli.relacOk)f.push(cli.relac?`relacionamento ${cli.relac}`:'relacionamento sem nota');return `• ${cli.nome}: falta ${f.join(' e ')}`});
+    if(inc.length){const ok=await gxConfirm({title:`${inc.length} cliente${inc.length===1?'':'s'} sem os 2 pontos`,message:`${inc.slice(0,12).join('\n')}${inc.length>12?`\n… e mais ${inc.length-12}`:''}\n\nEsses clientes ficam travados só com os pontos que já têm. Validar todos mesmo assim?`,okText:'Validar todos',cancelText:'Voltar e completar'});if(!ok)return}
+    const m=meta(mid);const ck={...(m.checks||{})};const agora=new Date().toISOString();let semPrint=0,n=0;
     carteiraTrf(m).forEach(cli=>{const c=ck[cli.id]||{};if(c.val)return;if(c.vendeu&&!(c.prints||[]).length){semPrint++;return}ck[cli.id]={...c,val:true,valPor:sessionUser?.nome||'',valEm:agora};n++});
     DB.update('metas',mid,{checks:ck});desenharDetalhe();listaDepois();toast(semPrint?`${n} validado(s) · ${semPrint} marcado(s) como "vendeu" sem print ficaram de fora`:'Carteira validada ✓',semPrint?'#F59E0B':'#10B981')};
 
