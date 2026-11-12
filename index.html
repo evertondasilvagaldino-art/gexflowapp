@@ -30940,6 +30940,27 @@ textarea.wg-in{height:auto;min-height:92px;padding:10px 12px;resize:vertical;lin
     if(f.size>16*1024*1024){toast('Arquivo maior que 16 MB','#EF4444');return}
     if(!/^image\/|^video\//.test(f.type)){toast('Envie uma imagem ou um vídeo','#EF4444');return}
     const p=W.ed.passos[i];p.__subindo=true;desenhar();
+    // Envio direto pro Storage (link assinado gerado pela função). Não passa o arquivo pela função — vídeos grandes estouravam a memória dela.
+    (async()=>{
+      try{
+        const r=await api('upload_url',{mime:f.type,size:f.size,nome:f.name});
+        if(!r.ok||!r.token){if(r.message&&!/desconhecid|unknown|inválid/i.test(r.message)){p.__subindo=false;desenhar();toast(r.message,'#EF4444');return}throw new Error('sem upload_url')}
+        let ok=false;
+        try{
+          const c=(typeof supabaseClient!=='undefined')?supabaseClient:null;
+          if(c){const {error}=await c.storage.from(r.bucket).uploadToSignedUrl(r.path,r.token,f,{contentType:f.type,upsert:false});ok=!error;if(error)console.warn(error)}
+        }catch(e){console.warn(e)}
+        if(!ok&&r.signedUrl){const rs=await fetch(r.signedUrl,{method:'PUT',headers:{'Content-Type':f.type,'x-upsert':'false'},body:f});ok=rs.ok}
+        p.__subindo=false;
+        if(!ok){toast('Não foi possível enviar o arquivo. Tente de novo.','#EF4444');desenhar();return}
+        p.media_url=r.url;p.media_type=r.type;p.media_nome=f.name;sujo();desenhar();toast('Mídia anexada ✓','#10B981');
+      }catch(e){
+        // Função ainda na versão antiga: só imagens pequenas pelo caminho antigo
+        if(f.size>4*1024*1024){p.__subindo=false;desenhar();toast('Atualize a função wa-groups no Supabase para enviar vídeos','#EF4444');return}
+        enviarAntigo();
+      }
+    })();
+    function enviarAntigo(){
     const rd=new FileReader();
     rd.onload=async()=>{
       const r=await api('upload',{data:rd.result});
@@ -30949,6 +30970,7 @@ textarea.wg-in{height:auto;min-height:92px;padding:10px 12px;resize:vertical;lin
     };
     rd.onerror=()=>{p.__subindo=false;desenhar();toast('Não foi possível ler o arquivo','#EF4444')};
     rd.readAsDataURL(f);
+    }
   };
   window.gxGruposVoltar=async function(){
     if(W.ed?.__sujo&&!await gxConfirm('Há alterações não salvas. Voltar sem salvar?'))return;
