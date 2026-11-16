@@ -22007,8 +22007,12 @@ window.gxiTrkFunnelChange=id=>{const f=mapFunnels().find(x=>String(x.id)===Strin
 .gl-public-logo{display:block;max-height:52px;max-width:220px;margin:0 auto 18px}
 .gl-logo-field-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .gl-logo-preview-thumb{height:32px;max-width:120px;border-radius:6px;object-fit:contain;background:#F8FAFC;border:1px solid var(--border)}
-.gl-quiz-progress{height:6px;background:#EEF2FF;border-radius:99px;overflow:hidden;margin-bottom:26px}
-.gl-quiz-progress-bar{height:100%;width:0%;background:linear-gradient(135deg,#2563EB,#4F46E5);border-radius:99px;transition:width .25s ease}
+.gl-quiz-progress{height:8px;background:#EEF2FF;border-radius:99px;overflow:hidden;margin-bottom:8px;transition:opacity .3s}
+.gl-quiz-progress.gl-oculta{opacity:0}
+.gl-quiz-progress-bar{height:100%;width:0%;background:var(--gl-cor,#4F46E5);border-radius:99px;transition:width .45s cubic-bezier(.22,1,.36,1)}
+.gl-quiz-msg{min-height:18px;margin-bottom:18px;text-align:center;font-size:12.5px;font-weight:700;color:var(--gl-cor,#4F46E5);opacity:0;transform:translateY(-3px);transition:opacity .3s,transform .3s}
+.gl-quiz-msg.on{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.gl-quiz-progress-bar,.gl-quiz-msg{transition:none}}
 .gl-quiz-step{display:none;flex-direction:column}
 .gl-quiz-step.gl-active{display:flex}
 .gl-quiz-eyebrow{display:block;font-size:10px;font-weight:850;color:#818CF8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;text-align:center}
@@ -22087,7 +22091,7 @@ window.gxiTrkFunnelChange=id=>{const f=mapFunnels().find(x=>String(x.id)===Strin
     const pct=Math.round(((glPreviewQuizStep+1)/total)*100);
     return `<div style="height:5px;background:#EEF2FF;border-radius:99px;overflow:hidden;margin-bottom:16px"><div style="height:100%;width:${pct}%;background:linear-gradient(135deg,#2563EB,#4F46E5);border-radius:99px"></div></div>
     ${brand}
-    <div style="text-align:center;font-size:9px;font-weight:850;color:#818CF8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Pergunta ${glPreviewQuizStep+1} de ${total}</div>
+    
     <div class="gl-pf"><label>${esc(f.label)}${f.required?' *':''}</label>${previewFieldHtml(f)}</div>
     <div style="display:flex;gap:8px;margin-top:10px">
       ${glPreviewQuizStep>0?`<button type="button" class="gl-submit" style="flex:0 0 auto;background:#F1F5F9;color:#475569;width:auto;padding:0 14px" onclick="gxlPreviewQuizNav(-1)">← Voltar</button>`:''}
@@ -22396,7 +22400,7 @@ ${gxlCloseScriptTag}`;
       // cada campo do formulário vira uma etapa própria; a última tem o botão
       // de Enviar (que é o único <button type="submit"> do form), com o texto
       // personalizado em "Texto do botão de envio".
-      root.innerHTML=`${closeBtn}<div class="gl-public-card"><div class="gl-quiz-progress"><div class="gl-quiz-progress-bar" id="gl-quiz-bar"></div></div><form id="gl-public-form">${utmHidden}<div class="gl-quiz-step gl-quiz-intro gl-active" data-qstep="0">${brandHtml}<h1>${esc(f.title||f.name)}</h1><div class="gl-public-desc">${esc(f.description||'')}</div><button type="button" class="gl-public-submit gl-quiz-start"${btnColorAttr}>Começar</button></div>${fields.map((x,i)=>`<div class="gl-quiz-step" data-qstep="${i+1}"><span class="gl-quiz-eyebrow">Pergunta ${i+1} de ${fields.length}</span><label class="gl-field"><span>${esc(x.label)}${x.required?' *':''}</span>${publicField(x)}</label><div class="gl-quiz-nav">${i>0?'<button type="button" class="gl-quiz-back">← Voltar</button>':''}${i===fields.length-1?`<button class="gl-public-submit" type="submit"${btnColorAttr}>${esc(submitText)}</button>`:`<button type="button" class="gl-public-submit gl-quiz-next"${btnColorAttr}>Próxima →</button>`}</div></div>`).join('')}</form></div>`;
+      root.innerHTML=`${closeBtn}<div class="gl-public-card" style="--gl-cor:${esc((f.buttonColor||'').trim()||'#4F46E5')}"><div class="gl-quiz-progress gl-oculta" role="progressbar" aria-label="Progresso do formulário" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="gl-quiz-progress-bar" id="gl-quiz-bar"></div></div><div class="gl-quiz-msg" id="gl-quiz-msg" aria-live="polite"></div><form id="gl-public-form">${utmHidden}<div class="gl-quiz-step gl-quiz-intro gl-active" data-qstep="0">${brandHtml}<h1>${esc(f.title||f.name)}</h1><div class="gl-public-desc">${esc(f.description||'')}</div><button type="button" class="gl-public-submit gl-quiz-start"${btnColorAttr}>Começar</button></div>${fields.map((x,i)=>`<div class="gl-quiz-step" data-qstep="${i+1}"><label class="gl-field"><span>${esc(x.label)}${x.required?' *':''}</span>${publicField(x)}</label><div class="gl-quiz-nav">${i>0?'<button type="button" class="gl-quiz-back">← Voltar</button>':''}${i===fields.length-1?`<button class="gl-public-submit" type="submit"${btnColorAttr}>${esc(submitText)}</button>`:`<button type="button" class="gl-public-submit gl-quiz-next"${btnColorAttr}>Próxima →</button>`}</div></div>`).join('')}</form></div>`;
     }
     document.body.appendChild(root);
     const qs=new URLSearchParams(location.search),form=root.querySelector('form');
@@ -22406,7 +22410,11 @@ ${gxlCloseScriptTag}`;
       const steps=[...root.querySelectorAll('.gl-quiz-step')];
       let qstep=0;
       function syncRequired(){steps.forEach((s,i)=>{const inp=s.querySelector('input,select,textarea');if(!inp)return;inp.required=(i===qstep)&&!!(fields[i-1]&&fields[i-1].required)})}
-      function goTo(n){steps[qstep].classList.remove('gl-active');qstep=n;steps[qstep].classList.add('gl-active');const bar=root.querySelector('#gl-quiz-bar');if(bar)bar.style.width=(qstep===0?0:Math.round(qstep/fields.length*100))+'%';syncRequired();const inp=steps[qstep].querySelector('input,select,textarea');if(inp)setTimeout(()=>{try{inp.focus()}catch(e){}},60)}
+      function goTo(n){steps[qstep].classList.remove('gl-active');qstep=n;steps[qstep].classList.add('gl-active');const bar=root.querySelector('#gl-quiz-bar'),pg=root.querySelector('.gl-quiz-progress'),msg=root.querySelector('#gl-quiz-msg');
+        // Barra sem números: começa já preenchida um pouco e anda mais rápido no início, pra sensação de "está acabando"
+        const tot=fields.length||1,fr=qstep===0?0:qstep/tot,pct=qstep===0?0:Math.round(12+80*Math.pow(fr,0.75)); // vai até ~92%; completa ao enviar
+        if(bar)bar.style.width=pct+'%';if(pg){pg.classList.toggle('gl-oculta',qstep===0);pg.setAttribute('aria-valuenow',String(pct))}
+        if(msg){const t=qstep===0?'':qstep===tot?'Última pergunta!':(tot>=3&&qstep>=tot-1)?'Falta só mais uma!':fr>=0.6?'Quase lá!':fr>=0.35&&tot>=4?'Você está indo bem!':'';msg.textContent=t;msg.classList.toggle('on',!!t)}syncRequired();const inp=steps[qstep].querySelector('input,select,textarea');if(inp)setTimeout(()=>{try{inp.focus()}catch(e){}},60)}
       syncRequired();
       root.querySelector('.gl-quiz-start')?.addEventListener('click',()=>goTo(1));
       root.querySelectorAll('.gl-quiz-back').forEach(b=>b.addEventListener('click',()=>goTo(qstep-1)));
