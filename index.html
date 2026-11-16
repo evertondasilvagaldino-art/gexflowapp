@@ -31823,6 +31823,13 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
 .pl-tabs button:hover{color:var(--pl-tx)}
 .pl-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:14px}
 .pl-kpis.fx-kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+html body span.gx-mc{display:inline;font:inherit;letter-spacing:inherit;text-transform:none;color:inherit;margin:0}
+html body span.gx-aj{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;margin-left:6px;border-radius:50%;border:1px solid currentColor;font-size:10px;font-weight:700;line-height:1;color:var(--pl-li,#9CA3AF);cursor:help;vertical-align:1px;text-transform:none;letter-spacing:0;flex-shrink:0}
+html body span.gx-aj::before{content:'?';font-family:inherit}
+html body span.gx-aj:hover,html body span.gx-aj:focus-visible{color:#7C3AED;outline:none;background:rgba(124,58,237,.08)}
+.gx-aj-tip{position:fixed;z-index:100000;max-width:300px;padding:10px 12px;border-radius:10px;background:#1F1B2E;color:#F4F2FA;font-size:12px;line-height:1.5;box-shadow:0 8px 24px rgba(0,0,0,.25);pointer-events:none;white-space:pre-line}
+.gx-aj-tip b{display:block;margin-bottom:3px;font-size:12.5px;color:#fff}
+
 .pl-seg{display:inline-flex;border:1px solid var(--pl-bd,#E5E7EB);border-radius:10px;padding:3px;gap:2px;background:var(--pl-bg2,#F9FAFB)}
 .pl-seg button{border:0;background:transparent;padding:6px 12px;border-radius:7px;font:inherit;font-size:12.5px;font-weight:600;color:var(--pl-mu,#6B7280);cursor:pointer}
 .pl-seg button.on{background:var(--pl-card,#fff);color:var(--pl-tx,#111);box-shadow:0 1px 2px rgba(0,0,0,.08)}
@@ -32103,7 +32110,7 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
     const el=pg();if(!el)return;
     if(!pode()){el.innerHTML='<div class="pl"><div class="pl-card">Só o Fundador e o Adm Gerente acessam o Planejamento do negócio.</div></div>';return}
     const C=calcular(S.ano);
-    const tabs=[['painel','Painel'],['forecast','Forecast 12 meses'],['funil','Funil mês a mês'],['base','Base MRR'],['premissas','Premissas']];
+    const tabs=[['painel','Painel'],['forecast','Forecast 12 meses'],['funil','Funil mês a mês'],['base','Base MRR'],['premissas','Metas']];
     el.innerHTML=`<div class="pl">
       <div class="pl-h"><div><h1>Planejamento do negócio</h1><p>Forecast, margem e saúde do funil. Base de clientes, vendas e despesas vêm do próprio GexFlow.</p></div>
         <div class="pl-ano" aria-label="Ano"><button type="button" aria-label="Ano anterior" onclick="plAno(-1)">‹</button><b>${S.ano}</b><button type="button" aria-label="Próximo ano" onclick="plAno(1)">›</button></div></div>
@@ -32112,6 +32119,7 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
     </div>`;
     try{gxMelhorarSelects(el)}catch(e){}
     try{if(S.tab==='forecast'&&!S.completo)gxResumoTabela(el.querySelector('.pl-t'),PL_RESUMO)}catch(e){}
+    try{gxAplicarAjuda(el)}catch(e){}
     try{const g=document.getElementById('pl-graf');if(g&&typeof gxGrafico==='function'){const ia=mesAtualIdx(S.ano);
       gxGrafico(g,{titulo:'Faturamento projetado x real',altura:230,labels:MESES,labelsLongos:MESES.map(m=>m+'/'+S.ano),destaque:ia>=0&&ia<12?ia:null,
         barras:[{nome:'Realizado',cor:'#10B981',valores:C.linhas.map(l=>l.real?l.real.fat:null)}],
@@ -32133,8 +32141,8 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
     return `
       <div class="pl-kpis">
         ${k('MRR atual',R(C.b.mrr),`${C.b.n} clientes · ${C.b.nContratos} contratos vigentes`,true)}
-        ${k('Ticket médio',R(C.ticket),C.pr.ticketManual?'definido nas premissas':'MRR dos contratos ÷ clientes')}
-        ${k('Churn mensal',P(C.churn),C.pr.churnManual!=null&&C.pr.churnManual!==''?'definido nas premissas':'automático · últimos 6 meses')}
+        ${k('Ticket médio',R(C.ticket),C.pr.ticketManual?'definido nas metas':'MRR dos contratos ÷ clientes')}
+        ${k('Churn mensal',P(C.churn),C.pr.churnManual!=null&&C.pr.churnManual!==''?'definido nas metas':'automático · últimos 6 meses')}
         ${k('MRR projetado em dez',R(dez.fim),`${cresc>=0?'+':''}${P(cresc)} no ano`,true)}
         ${k('Faturamento previsto no ano',R(fatAno),realFat?`realizado até agora: ${R(realFat)}`:'')}
         ${k('Lucro bruto previsto no ano',R(brutoAno),`margem bruta ${P(fatAno?brutoAno/fatAno:0)}${realFat?` · realizada ${P(realBruto/realFat)}`:''}`)}
@@ -32145,7 +32153,7 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
       ${C.falhas.length?`<div class="pl-alert wa" role="status"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg><div><b>Corrigir funil</b>${E(C.falhas.join(' · '))}. Ataque primeiro o gargalo apontado antes de aumentar o investimento.</div></div>`
         :`<div class="pl-alert ok" role="status"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></svg><div><b>Funil saudável</b>Todas as taxas estão dentro dos critérios. Dá para considerar aumento gradual de investimento.</div></div>`}
       <div class="pl-card"><h3>Faturamento: projetado x real</h3><p class="sub">Linha = projeção (MRR final + vendas adicionais). Barras = faturamento real (Finanças ou estimado pela carteira).</p>${grafico(C)}</div>
-      <div class="pl-card"><h3>Saúde do funil</h3><p class="sub">${C.tx.temDados?`Taxas do ano (${N(C.tot.leads)} leads, ${N(C.tot.vendas)} vendas). Critérios editáveis em Premissas.`:'Ainda sem dados de funil no ano: usando as taxas padrão das Premissas.'}</p>
+      <div class="pl-card"><h3>Saúde do funil</h3><p class="sub">${C.tx.temDados?`Taxas do ano (${N(C.tot.leads)} leads, ${N(C.tot.vendas)} vendas). Critérios editáveis em Metas.`:'Ainda sem dados de funil no ano: usando as taxas padrão das Metas.'}</p>
         <div class="pl-taxas">${taxa('Resposta',C.tx.resposta,al.resposta)}${taxa('Agendamento',C.tx.agendamento,al.agendamento)}${taxa('Comparecimento',C.tx.comparecimento,al.comparecimento)}${taxa('Fechamento',C.tx.fechamento,al.fechamento)}${taxa('Churn mensal',C.churn,al.churnMax,true)}</div></div>`;
   }
   function grafico(C){
@@ -32158,7 +32166,7 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
     const lin=(t,f,cls)=>`<tr><td>${t}</td>${L.map((l,i)=>{const v=f(l,i);const c=typeof cls==='function'?cls(l,i):cls||'';return `<td class="${c} ${i===ia?'atual':''}">${v}</td>`}).join('')}</tr>`;
     const grp=t=>`<tr class="grp"><td colspan="13">${t}</td></tr>`;
     const rv=(l,k,fmt)=>l.real?fmt(l.real[k]):'—';
-    return `<div class="pl-card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><h3>Forecast ${S.ano}</h3>${chaveResumo('plCompleto',S.completo)}</div><p class="sub">Projeção mês a mês a partir do MRR ${C.pr.mrrBase?'definido nas premissas':'atual'} (${R(C.mrrIni)}), com churn de ${P(C.churn)}, expansão de ${P(C.pr.expansao)} e ${C.pr.metaNovos} clientes novos/mês. As linhas em verde são o real (fonte indicada em cada mês).</p>
+    return `<div class="pl-card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><h3>Forecast ${S.ano}</h3>${chaveResumo('plCompleto',S.completo)}</div><p class="sub">Projeção mês a mês a partir do MRR ${C.pr.mrrBase?'definido nas metas':'atual'} (${R(C.mrrIni)}), com churn de ${P(C.churn)}, expansão de ${P(C.pr.expansao)} e ${C.pr.metaNovos} clientes novos/mês. As linhas em verde são o real (fonte indicada em cada mês).</p>
       <div class="pl-tw"><table class="pl-t"><thead><tr><th>Métrica</th>${th}</tr></thead><tbody>
       ${grp('MRR')}
       ${lin('MRR inicial',l=>R(l.ini))}${lin('(−) Churn',l=>R(l.churn),'neg')}${lin('(+) Expansão',l=>R(l.exp))}${lin('(+) Novo MRR',l=>R(l.novo))}${lin('MRR final',l=>R(l.fim))}
@@ -32181,9 +32189,7 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
       ${lin('Lucro líquido · realizado',l=>rv(l,'lucro',R),l=>l.real?(l.real.lucro<0?'neg':'real'):'mut')}
       ${lin('Margem líquida · prevista',l=>P(l.margem),l=>l.margem<0?'neg':'')}${lin('Margem líquida · realizada',l=>l.real?P(l.real.margem):'—',l=>l.real?(l.real.margem<0?'neg':'real'):'mut')}
       </tbody></table></div>
-      <p class="pl-nota"><b>Lucro bruto</b> = faturamento − impostos e custos diretos (no previsto: ${P(C.pr.imposto)} de imposto/variável sobre o MRR; no realizado: grupo Impostos e taxas + Terceiros e freelancers + Devoluções, do plano de contas).<br>
-      <b>Lucro líquido</b> = lucro bruto − despesas fixas e operacionais (no previsto: despesa fixa de ${R(C.pr.despesaFixa)} + investimento em tráfego; no realizado: todas as outras despesas lançadas). Margem = lucro ÷ faturamento.<br>
-      Realizado, mês a mês: <b>Finanças</b> (lançamentos) → se o mês não tiver, <b>Estimado</b> (contratos vigentes no mês). Escolha outra fonte em Premissas.</p></div>`;
+      <p class="pl-nota">Passe o mouse no <b>?</b> de cada linha para ver o que é e como é calculado. Realizado: <b>Finanças</b> (lançamentos) ou, se o mês não tiver, <b>Estimado</b> (contratos vigentes). A fonte pode ser trocada em Metas.</p></div>`;
   }
   function telaFunil(C){
     const ia=mesAtualIdx(S.ano),pr=C.pr;
@@ -32253,7 +32259,7 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
       <div class="pl-card"><h3>Taxas padrão</h3><p class="sub">Usadas só enquanto o ano ainda não tem dados de funil.</p><div class="pl-form">
         ${num('pl-t-r','Resposta',pc(t.resposta),'','%')}${num('pl-t-a','Agendamento',pc(t.agendamento),'','%')}${num('pl-t-c','Comparecimento',pc(t.comparecimento),'','%')}${num('pl-t-f','Fechamento',pc(t.fechamento),'','%')}${num('pl-t-cpl','Custo por lead (CPL)',t.cpl,'','R$')}
       </div>
-      <div class="pl-btns"><button type="button" class="pl-btn pri" onclick="plSalvarPrem()">Salvar premissas</button></div></div>`;
+      <div class="pl-btns"><button type="button" class="pl-btn pri" onclick="plSalvarPrem()">Salvar metas</button></div></div>`;
   }
 
   // ── ações ──
@@ -32266,7 +32272,7 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
       churnManual:pct('pl-churn'),mrrBase:val('pl-mrr'),ticketManual:val('pl-ticket'),vendasAdicionais:va,fonteReal:document.getElementById('pl-fonte')?.value||'auto',
       alertas:{resposta:pct('pl-a-r')??p.alertas.resposta,agendamento:pct('pl-a-a')??p.alertas.agendamento,comparecimento:pct('pl-a-c')??p.alertas.comparecimento,fechamento:pct('pl-a-f')??p.alertas.fechamento,churnMax:pct('pl-a-ch')??p.alertas.churnMax},
       taxasPadrao:{resposta:pct('pl-t-r')??p.taxasPadrao.resposta,agendamento:pct('pl-t-a')??p.taxasPadrao.agendamento,comparecimento:pct('pl-t-c')??p.taxasPadrao.comparecimento,fechamento:pct('pl-t-f')??p.taxasPadrao.fechamento,cpl:val('pl-t-cpl')??p.taxasPadrao.cpl}});
-    avisa('Premissas salvas ✓');renderPlanejamento();
+    avisa('Metas salvas ✓');renderPlanejamento();
   };
   window.plAjuste=async function(m,k){
     const p=premissas(S.ano);const aj=JSON.parse(JSON.stringify(p.ajustes||{}));const atual=(aj[m]||{})[k];
@@ -32537,6 +32543,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
       if(S.tab==='dre')gxResumoTabela(pg.querySelector('.pl-t'),['Receita bruta','(−) Impostos e taxas','(−) Custos diretos da entrega','Lucro bruto','Margem bruta','(−) Pessoal','(−) Estrutura','(−) Marketing','(−) Ferramentas','(−) Outras despesas operacionais','Lucro líquido','Margem líquida','EBITDA','Margem EBITDA','(−) Retiradas dos sócios','(−) Guardado / investido','Sobra após retiradas e reserva']);
     }}catch(e){}
     try{desenharGraficosFin()}catch(e){console.warn(e)}
+    try{gxAplicarAjuda(pg)}catch(e){}
     }finally{RC=null}
   };
   window.fxTab=t=>{S.tab=t;renderFinancas()};
@@ -32669,7 +32676,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     let acc=0;const saldo=Array.from({length:12},(_,i)=>{const m=M[i];const v=m.rec+m.recFora-m.desp-m.despFora;acc+=v;return {v,acc,tem:m.rec||m.desp||m.recFora||m.despFora}});
     html+=`<tr class="res"><td>Saldo do mês (caixa)</td>${saldo.map(s=>`<td class="${s.v<0?'neg':''}">${s.tem?R0(s.v):'—'}</td>`).join('')}<td style="font-weight:800">${R0(saldo.reduce((a,s)=>a+s.v,0))}</td></tr>
       <tr class="res"><td>Saldo acumulado</td>${saldo.map(s=>`<td class="${s.acc<0?'neg':''}">${s.tem?R0(s.acc):'—'}</td>`).join('')}<td></td></tr>`;
-    return `<div class="pl-card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><h3>Fluxo mensal ${S.ano}</h3>${chaveResumoFx()}</div><p class="sub">Clique num valor para ver os lançamentos daquele mês e categoria. Lucro bruto = faturamento − impostos e custos diretos (terceiros e devoluções). Lucro líquido = faturamento − todas as despesas. EBITDA = lucro líquido + taxas bancárias + compra de obra, móveis e equipamentos. Ponto de equilíbrio = despesas fixas do mês ÷ margem de contribuição (margem bruta). Retiradas, reserva, saldo inicial e estornos não entram no lucro e aparecem no fim.</p>
+    return `<div class="pl-card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><h3>Fluxo mensal ${S.ano}</h3>${chaveResumoFx()}</div><p class="sub">Clique num valor para ver os lançamentos daquele mês e categoria. Passe o mouse no <b>?</b> para entender cada indicador.</p>
       <div class="pl-tw"><table class="pl-t fx-fluxo"><thead><tr><th>Categoria</th>${MESES.map(m=>`<th>${m}</th>`).join('')}<th>Total</th></tr></thead><tbody>${html}</tbody></table></div></div>`;
   }
 
@@ -33315,7 +33322,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     else{const x=a/1e6;t='R$ '+x.toLocaleString('pt-BR',{maximumFractionDigits:2})+' mi'}
     return neg+t;
   }
-  window.gxMoedaCurta=function(v,semTitulo){const t=curto(v);return semTitulo?t:`<span title="${cheio(v).replace('-','− ')}">${t}</span>`};
+  window.gxMoedaCurta=function(v,semTitulo){const t=curto(v);return semTitulo?t:`<span class="gx-mc" title="${cheio(v).replace('-','− ')}">${t}</span>`};
   window.gxMoedaCurtaTxt=curto;
   // Modo resumo: esconde as linhas de detalhe de uma tabela (mantém as da lista) e os títulos de grupo que ficarem vazios
   window.gxResumoTabela=function(tb,manter){
@@ -33324,6 +33331,41 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     trs.forEach(tr=>{if(tr.classList.contains('grp'))return;const n=(tr.children[0]?.textContent||'').trim().toLowerCase();if(!set.has(n))tr.style.display='none'});
     trs.forEach((tr,i)=>{if(!tr.classList.contains('grp'))return;let vis=false;for(let j=i+1;j<trs.length&&!trs[j].classList.contains('grp');j++)if(trs[j].style.display!=='none'){vis=true;break}if(!vis)tr.style.display='none'});
   };
+})();
+</script>
+
+<script id="gx-ajuda">
+// "?" com explicação ao passar o mouse (ou focar com o teclado) nos indicadores do Planejamento e do Controle financeiro
+(function(){
+  const AJ={"Faturamento": "Tudo que a agência vendeu e recebeu da operação (mensalidades, projetos, cursos).\nNão entra: saldo inicial, aportes, resgates e estornos.", "Despesas": "Todos os gastos da operação: impostos, equipe, estrutura, marketing, ferramentas e terceiros.\nNão entra: retiradas dos sócios e dinheiro guardado/investido.", "Lucro bruto": "Quanto sobra do faturamento depois de pagar impostos e quem entrega o serviço.\nCálculo: faturamento − impostos e taxas − terceiros/freelancers − devoluções.", "Margem bruta": "Lucro bruto em percentual do faturamento.\nCálculo: lucro bruto ÷ faturamento × 100.", "Lucro líquido": "O que realmente sobra depois de TODAS as despesas da operação.\nCálculo: faturamento − todas as despesas.", "Margem líquida": "Lucro líquido em percentual do faturamento. Mostra quantos reais sobram de cada R$ 100 vendidos.\nCálculo: lucro líquido ÷ faturamento × 100.", "Sobrou no caixa": "Dinheiro que ficou na conta no período, depois de retiradas dos sócios e reservas.\nCálculo: tudo que entrou − tudo que saiu do caixa.", "Folha (equipe + sócios)": "Quanto custa a equipe: salários + pró-labore dos sócios.\nO ideal é ficar abaixo de 40–50% do faturamento.", "EBITDA": "Lucro da operação “limpo”: sem despesas financeiras e sem compras de equipamento. Mostra se o negócio em si dá dinheiro.\nCálculo: lucro líquido + taxas bancárias + obra, móveis e equipamentos.", "Margem EBITDA": "EBITDA em percentual do faturamento.\nCálculo: EBITDA ÷ faturamento × 100.", "Margem de contribuição": "De cada R$ 100 vendidos, quanto sobra para pagar as despesas fixas (equipe, aluguel, ferramentas…).\nCálculo: lucro bruto ÷ faturamento.", "Ponto de equilíbrio": "Faturamento mínimo por mês para empatar (nem lucro, nem prejuízo).\nCálculo: despesas fixas do mês ÷ margem de contribuição.", "Acima do equilíbrio": "Quanto o faturamento do mês ficou acima (ou abaixo) do ponto de equilíbrio.\nCálculo: faturamento − ponto de equilíbrio.", "Margem de segurança": "Quanto o faturamento pode cair antes de dar prejuízo.\nCálculo: (faturamento médio − ponto de equilíbrio) ÷ faturamento médio.\nAcima de 20% = saudável.", "Receita bruta": "Tudo que foi faturado na operação, antes de qualquer desconto.", "(−) Impostos e taxas": "Impostos (DAS, guias) e taxas bancárias/de cobrança.", "Receita líquida": "Faturamento depois dos impostos e taxas.\nCálculo: receita bruta − impostos e taxas.", "(−) Custos diretos da entrega": "Gastos ligados diretamente à entrega do serviço: terceiros/freelancers e devoluções a clientes.", "Sobra após retiradas e reserva": "O que ficou depois de pagar os sócios e guardar dinheiro.\nCálculo: lucro líquido − retiradas − reserva/investimento.", "Saldo do mês (caixa)": "Tudo que entrou no caixa no mês − tudo que saiu, incluindo retiradas, reservas e saldo inicial.", "Saldo acumulado": "Soma dos saldos do caixa desde janeiro.", "MRR atual": "Receita recorrente mensal: soma das mensalidades dos contratos vigentes hoje.", "Ticket médio": "Quanto cada cliente paga por mês, em média.\nCálculo: MRR ÷ número de clientes.", "Churn mensal": "Percentual da receita recorrente perdida por mês com clientes que saíram.\nCálculo automático: média dos últimos 6 meses (MRR que saiu ÷ MRR da base).", "MRR projetado em dez": "Receita recorrente prevista para dezembro, somando clientes novos e expansão e tirando o churn mês a mês.", "Faturamento previsto no ano": "Soma do faturamento previsto dos 12 meses (MRR final de cada mês + vendas avulsas).", "Lucro bruto previsto no ano": "Faturamento previsto − impostos/custos variáveis (percentual definido em Metas), somado nos 12 meses.", "Lucro líquido previsto no ano": "Faturamento previsto − todas as despesas previstas (fixa + impostos + tráfego), somado nos 12 meses.", "Leads necessários/mês": "Quantos leads entram por mês para bater a meta de clientes novos, usando as taxas de conversão do funil.\nCálculo: meta de clientes ÷ (resposta × agendamento × comparecimento × fechamento).", "Investimento em tráfego/mês": "Quanto investir em anúncios por mês para gerar os leads necessários.\nCálculo: leads necessários × custo por lead (CPL).", "MRR inicial": "Receita recorrente no começo do mês (é o MRR final do mês anterior).", "(−) Churn": "Receita recorrente perdida no mês com clientes que saem.\nCálculo: MRR inicial × churn mensal.", "(+) Expansão": "Aumento de mensalidade de clientes que já são da base (upsell).\nCálculo: MRR inicial × % de expansão.", "(+) Novo MRR": "Receita recorrente dos clientes novos do mês.\nCálculo: meta de clientes novos × ticket médio.", "MRR final": "Receita recorrente no fim do mês.\nCálculo: MRR inicial − churn + expansão + novo MRR.", "Faturamento previsto": "MRR final do mês + vendas avulsas previstas.", "Faturamento realizado": "O que entrou de fato: lançamentos de Finanças ou, se o mês não tiver, a soma dos contratos vigentes.", "Vendas avulsas (fora do MRR)": "Projetos e vendas pontuais, que não viram mensalidade.", "Leads · necessários": "Leads que precisam entrar no mês para bater a meta de clientes novos.", "Investimento em tráfego · previsto": "Leads necessários × custo por lead (CPL).", "(−) Impostos e custos diretos · previsto": "Percentual de imposto/variável (definido em Metas) sobre o MRR.", "Lucro bruto · previsto": "Faturamento previsto − impostos e custos diretos previstos.", "Lucro bruto · realizado": "Faturamento realizado − impostos, taxas, terceiros e devoluções lançados.", "Margem bruta · prevista": "Lucro bruto previsto ÷ faturamento previsto.", "Margem bruta · realizada": "Lucro bruto realizado ÷ faturamento realizado.", "(−) Despesas fixas e operacionais · previsto": "Despesa fixa (definida em Metas) + investimento em tráfego.", "Lucro líquido · previsto": "Faturamento previsto − todas as despesas previstas.", "Lucro líquido · realizado": "Faturamento realizado − todas as despesas lançadas.", "Margem líquida · prevista": "Lucro líquido previsto ÷ faturamento previsto.", "Margem líquida · realizada": "Lucro líquido realizado ÷ faturamento realizado."};
+  window.GX_AJUDA=AJ;
+  const norm=t=>String(t||'').replace(/\s+/g,' ').trim();
+  window.gxAplicarAjuda=function(root){
+    if(!root)return;
+    root.querySelectorAll('.pl-k > span:first-child, .pl-t tbody tr > td:first-child').forEach(el=>{
+      if(el.querySelector('.gx-aj'))return;
+      const t=norm(el.textContent);const txt=AJ[t];if(!txt)return;
+      const i=document.createElement('span');i.className='gx-aj';i.tabIndex=0;i.setAttribute('role','img');i.setAttribute('aria-label','O que é '+t+': '+txt.replace(/\n/g,' '));i.dataset.ajuda=txt;i.dataset.tit=t;
+      el.appendChild(i);
+    });
+  };
+  let tip=null;
+  function mostrar(el){
+    esconder();tip=document.createElement('div');tip.className='gx-aj-tip';tip.setAttribute('role','tooltip');
+    tip.innerHTML='<b></b><div></div>';tip.querySelector('b').textContent=el.dataset.tit;tip.querySelector('div').textContent=el.dataset.ajuda;
+    document.body.appendChild(tip);
+    const r=el.getBoundingClientRect(),w=tip.offsetWidth,h=tip.offsetHeight;
+    let x=r.left+r.width/2-w/2;x=Math.max(8,Math.min(x,innerWidth-w-8));
+    let y=r.top-h-8;if(y<8)y=r.bottom+8;
+    tip.style.left=x+'px';tip.style.top=y+'px';
+  }
+  function esconder(){if(tip){tip.remove();tip=null}}
+  document.addEventListener('mouseover',e=>{const el=e.target.closest&&e.target.closest('.gx-aj');if(el)mostrar(el)});
+  document.addEventListener('mouseout',e=>{if(e.target.closest&&e.target.closest('.gx-aj'))esconder()});
+  document.addEventListener('focusin',e=>{const el=e.target.closest&&e.target.closest('.gx-aj');if(el)mostrar(el)});
+  document.addEventListener('focusout',e=>{if(e.target.closest&&e.target.closest('.gx-aj'))esconder()});
+  document.addEventListener('scroll',esconder,true);
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')esconder()});
 })();
 </script>
 </body>
