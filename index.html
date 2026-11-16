@@ -31823,6 +31823,10 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
 .pl-tabs button:hover{color:var(--pl-tx)}
 .pl-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:14px}
 .pl-kpis.fx-kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.pl-seg{display:inline-flex;border:1px solid var(--pl-bd,#E5E7EB);border-radius:10px;padding:3px;gap:2px;background:var(--pl-bg2,#F9FAFB)}
+.pl-seg button{border:0;background:transparent;padding:6px 12px;border-radius:7px;font:inherit;font-size:12.5px;font-weight:600;color:var(--pl-mu,#6B7280);cursor:pointer}
+.pl-seg button.on{background:var(--pl-card,#fff);color:var(--pl-tx,#111);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.pl-seg button:focus-visible{outline:2px solid #7C3AED;outline-offset:1px}
 .pl-k{background:var(--pl-card);border:1px solid var(--pl-line);border-radius:14px;padding:14px 16px;min-width:0}
 .pl-k span{display:block;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--pl-mu)}
 .pl-k b{display:block;font-size:22px;font-weight:800;letter-spacing:-.02em;margin-top:6px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -31904,7 +31908,8 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
   const pode=()=>{try{return typeof gxEspelhoAllowed==='function'&&gxEspelhoAllowed()}catch(e){return false}};
   const hojeMes=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')};
   const mesDe=v=>{const s=String(v||'');return /^\d{4}-\d{2}/.test(s)?s.slice(0,7):''};
-  const S={ano:new Date().getFullYear(),tab:'painel'};
+  const S={ano:new Date().getFullYear(),tab:'painel',completo:false};
+  window.plCompleto=v=>{S.completo=!!v;renderPlanejamento()};
 
   // ── premissas (por ano) e configuração geral ──
   const PADRAO={metaNovos:5,expansao:0.02,despesaFixa:0,imposto:0.06,churnManual:null,mrrBase:null,ticketManual:null,
@@ -32092,6 +32097,8 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
 
   // ── telas ──
   function pg(){return document.getElementById('page-planejamento')}
+  function chaveResumo(fn,completo){return `<div class="pl-seg" role="group" aria-label="Detalhe da tabela"><button type="button" class="${completo?'':'on'}" aria-pressed="${!completo}" onclick="${fn}(false)">Resumo</button><button type="button" class="${completo?'on':''}" aria-pressed="${completo}" onclick="${fn}(true)">Completo</button></div>`}
+  const PL_RESUMO=['Faturamento previsto','Faturamento realizado','Clientes novos · meta','Clientes novos · realizado','Lucro bruto · previsto','Lucro bruto · realizado','Lucro líquido · previsto','Lucro líquido · realizado','Margem líquida · prevista','Margem líquida · realizada','MRR final'];
   window.renderPlanejamento=function(){
     const el=pg();if(!el)return;
     if(!pode()){el.innerHTML='<div class="pl"><div class="pl-card">Só o Fundador e o Adm Gerente acessam o Planejamento do negócio.</div></div>';return}
@@ -32104,6 +32111,7 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
       ${({painel,forecast,funil:telaFunil,base:telaBase,premissas:telaPrem})[S.tab](C)}
     </div>`;
     try{gxMelhorarSelects(el)}catch(e){}
+    try{if(S.tab==='forecast'&&!S.completo)gxResumoTabela(el.querySelector('.pl-t'),PL_RESUMO)}catch(e){}
     try{const g=document.getElementById('pl-graf');if(g&&typeof gxGrafico==='function'){const ia=mesAtualIdx(S.ano);
       gxGrafico(g,{titulo:'Faturamento projetado x real',altura:230,labels:MESES,labelsLongos:MESES.map(m=>m+'/'+S.ano),destaque:ia>=0&&ia<12?ia:null,
         barras:[{nome:'Realizado',cor:'#10B981',valores:C.linhas.map(l=>l.real?l.real.fat:null)}],
@@ -32119,6 +32127,7 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
     const brutoAno=L.reduce((a,l)=>a+l.bruto,0),realBruto=L.reduce((a,l)=>a+(l.real?l.real.bruto:0),0);
     const cresc=C.mrrIni?(dez.fim-C.mrrIni)/C.mrrIni:0;
     const k=(t,v,s,d)=>`<div class="pl-k${d?' dest':''}"><span>${t}</span><b>${v}</b>${s?`<small>${s}</small>`:''}</div>`;
+    const R=v=>gxMoedaCurta(v);
     const al=C.pr.alertas;
     const taxa=(t,v,min,inv)=>{const ok=inv?v<=min:v>=min;return `<div class="pl-tx"><span>${t}</span><b>${P(v)}</b><em class="${ok?'ok':'er'}">${inv?'máx':'mín'} ${P(min,0)}</em></div>`};
     return `
@@ -32143,12 +32152,13 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
     return `<div id="pl-graf" style="color:var(--pl-tx)"></div><div class="pl-leg"><span><i style="background:#7C3AED"></i>Previsto</span><span><i style="background:#10B981"></i>Realizado</span><span><i style="background:#F59E0B"></i>Lucro líquido previsto</span></div>`;
   }
   function forecast(C){
+    const R=v=>gxMoedaCurta(v);
     const L=C.linhas,ia=mesAtualIdx(S.ano);
     const th=L.map((l,i)=>`<th class="${i===ia?'atual':''}">${MESES[i]}/${String(S.ano).slice(2)}</th>`).join('');
     const lin=(t,f,cls)=>`<tr><td>${t}</td>${L.map((l,i)=>{const v=f(l,i);const c=typeof cls==='function'?cls(l,i):cls||'';return `<td class="${c} ${i===ia?'atual':''}">${v}</td>`}).join('')}</tr>`;
     const grp=t=>`<tr class="grp"><td colspan="13">${t}</td></tr>`;
     const rv=(l,k,fmt)=>l.real?fmt(l.real[k]):'—';
-    return `<div class="pl-card"><h3>Forecast ${S.ano}</h3><p class="sub">Projeção mês a mês a partir do MRR ${C.pr.mrrBase?'definido nas premissas':'atual'} (${R(C.mrrIni)}), com churn de ${P(C.churn)}, expansão de ${P(C.pr.expansao)} e ${C.pr.metaNovos} clientes novos/mês. As linhas em verde são o real (fonte indicada em cada mês).</p>
+    return `<div class="pl-card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><h3>Forecast ${S.ano}</h3>${chaveResumo('plCompleto',S.completo)}</div><p class="sub">Projeção mês a mês a partir do MRR ${C.pr.mrrBase?'definido nas premissas':'atual'} (${R(C.mrrIni)}), com churn de ${P(C.churn)}, expansão de ${P(C.pr.expansao)} e ${C.pr.metaNovos} clientes novos/mês. As linhas em verde são o real (fonte indicada em cada mês).</p>
       <div class="pl-tw"><table class="pl-t"><thead><tr><th>Métrica</th>${th}</tr></thead><tbody>
       ${grp('MRR')}
       ${lin('MRR inicial',l=>R(l.ini))}${lin('(−) Churn',l=>R(l.churn),'neg')}${lin('(+) Expansão',l=>R(l.exp))}${lin('(+) Novo MRR',l=>R(l.novo))}${lin('MRR final',l=>R(l.fim))}
@@ -32431,9 +32441,21 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
   const GRUPOS_DESP=['Impostos e taxas','Pessoal','Estrutura','Marketing','Ferramentas','Operacional'];
   // Mesma regra do Planejamento: lucro bruto = faturamento − impostos/taxas − custos diretos da entrega; lucro líquido = faturamento − todas as despesas
   const CUSTO_DIRETO=['Terceiros e freelancers','Devoluções a clientes'];
-  function somaResultado(L){let rec=0,desp=0,imp=0,dir=0,recC=0,despC=0;
-    L.forEach(t=>{const f=info(t.cat,t.tipo),v=valorNum(t);if(t.tipo==='Receita'){recC+=v;if(!f.fora)rec+=v}else{despC+=v;if(!f.fora){desp+=v;if(f.grupo==='Impostos e taxas')imp+=v;else if(CUSTO_DIRETO.includes(f.cat))dir+=v}}});
-    const bruto=rec-imp-dir,liq=rec-desp;return {rec,desp,imp,dir,bruto,liq,mb:rec?bruto/rec:0,ml:rec?liq/rec:0,recC,despC,caixa:recC-despC}}
+  // EBITDA: devolve ao lucro líquido o que é financeiro (taxas bancárias/juros) e investimento em bens (obra, móveis, equipamentos)
+  const CUSTO_FIN=['Taxas bancárias'],CAPEX=['Obra, móveis e equipamentos'];
+  // Indicadores: margem de contribuição = margem bruta; ponto de equilíbrio = despesas fixas ÷ margem de contribuição
+  function indicadores(o,meses){
+    o.ebitda=o.liq+o.fin+o.capex;o.me=o.rec?o.ebitda/o.rec:0;
+    o.mc=o.rec?o.bruto/o.rec:0;
+    const fixasMes=o.oper/(meses||1);o.fixasMes=fixasMes;
+    o.peMes=o.mc>0?fixasMes/o.mc:null;
+    o.fatMes=o.rec/(meses||1);
+    o.seg=o.peMes!=null&&o.fatMes?(o.fatMes-o.peMes)/o.fatMes:null;
+    return o;
+  }
+  function somaResultado(L,meses){let rec=0,desp=0,imp=0,dir=0,fin=0,capex=0,recC=0,despC=0;const ms=new Set();
+    L.forEach(t=>{const f=info(t.cat,t.tipo),v=valorNum(t);if(!f.fora)ms.add(String(t.data).slice(0,7));if(t.tipo==='Receita'){recC+=v;if(!f.fora)rec+=v}else{despC+=v;if(!f.fora){desp+=v;if(f.grupo==='Impostos e taxas')imp+=v;else if(CUSTO_DIRETO.includes(f.cat))dir+=v;if(CUSTO_FIN.includes(f.cat))fin+=v;if(CAPEX.includes(f.cat))capex+=v}}});
+    const bruto=rec-imp-dir,liq=rec-desp;return indicadores({rec,desp,imp,dir,fin,capex,bruto,liq,oper:desp-imp-dir,mb:rec?bruto/rec:0,ml:rec?liq/rec:0,recC,despC,caixa:recC-despC},meses||ms.size||1)}
   const sinal=v=>(v<0?'− ':'')+R0(Math.abs(v));
   const MEIOS=['Pix','Boleto','Cartão de crédito','Cartão de débito','Transferência','Dinheiro'];
   const MESES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -32471,7 +32493,9 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
   window.gxFinPlano=plano;
 
   // ── estado ──
-  const S={tab:'lanc',ano:new Date().getFullYear(),mes:'',tipo:'',cat:'',cli:'',q:'',lim:100,dreMes:''};
+  const S={tab:'lanc',ano:new Date().getFullYear(),mes:'',tipo:'',cat:'',cli:'',q:'',lim:100,dreMes:'',completo:false};
+  window.fxCompleto=v=>{S.completo=!!v;renderFinancas()};
+  const chaveResumoFx=()=>`<div class="pl-seg" role="group" aria-label="Detalhe da tabela"><button type="button" class="${S.completo?'':'on'}" aria-pressed="${!S.completo}" onclick="fxCompleto(false)">Resumo</button><button type="button" class="${S.completo?'on':''}" aria-pressed="${S.completo}" onclick="fxCompleto(true)">Completo</button></div>`;
   let RC=null; // cache válido só enquanto a tela está sendo desenhada (lê o banco local 1 vez)
   const txs=()=>{if(RC&&RC.tx)return RC.tx;const v=(DB.get('transacoes')||[]).filter(t=>t&&/^\d{4}-\d{2}-\d{2}/.test(String(t.data||'')));if(RC)RC.tx=v;return v};
   const doAno=a=>{const k='ano'+a;if(RC&&RC[k])return RC[k];const v=txs().filter(t=>String(t.data).slice(0,4)===String(a));if(RC)RC[k]=v;return v};
@@ -32480,11 +32504,11 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
   // ── agregados ──
   function porMes(ano){
     if(RC&&RC['pm'+ano])return RC['pm'+ano];
-    const o={};for(let i=0;i<12;i++)o[i]={cats:{},rec:0,desp:0,recFora:0,despFora:0,imp:0,dir:0};
+    const o={};for(let i=0;i<12;i++)o[i]={cats:{},rec:0,desp:0,recFora:0,despFora:0,imp:0,dir:0,fin:0,capex:0};
     doAno(ano).forEach(t=>{const i=+String(t.data).slice(5,7)-1;const f=info(t.cat,t.tipo),v=valorNum(t),b=o[i];
       b.cats[f.cat]=(b.cats[f.cat]||0)+v;
-      if(t.tipo==='Receita'){f.fora?b.recFora+=v:b.rec+=v}else{if(f.fora)b.despFora+=v;else{b.desp+=v;if(f.grupo==='Impostos e taxas')b.imp+=v;else if(CUSTO_DIRETO.includes(f.cat))b.dir+=v}}});
-    for(let i=0;i<12;i++){const b=o[i];b.bruto=b.rec-b.imp-b.dir;b.liq=b.rec-b.desp;b.oper=b.desp-b.imp-b.dir}
+      if(t.tipo==='Receita'){f.fora?b.recFora+=v:b.rec+=v}else{if(f.fora)b.despFora+=v;else{b.desp+=v;if(f.grupo==='Impostos e taxas')b.imp+=v;else if(CUSTO_DIRETO.includes(f.cat))b.dir+=v;if(CUSTO_FIN.includes(f.cat))b.fin+=v;if(CAPEX.includes(f.cat))b.capex+=v}}});
+    for(let i=0;i<12;i++){const b=o[i];b.bruto=b.rec-b.imp-b.dir;b.liq=b.rec-b.desp;b.oper=b.desp-b.imp-b.dir;indicadores(b,1)}
     if(RC)RC['pm'+ano]=o;
     return o;
   }
@@ -32508,6 +32532,10 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
       <div class="pl-tabs" role="tablist">${tabs.map(([k,t])=>`<button type="button" role="tab" aria-selected="${S.tab===k}" class="${S.tab===k?'on':''}" onclick="fxTab('${k}')">${t}</button>`).join('')}</div>
       ${body}</div>`;
     try{gxMelhorarSelects(pg)}catch(e){}
+    try{if(!S.completo){
+      if(S.tab==='fluxo')gxResumoTabela(pg.querySelector('.fx-fluxo'),['Faturamento','Despesas','Lucro bruto','Lucro líquido','Margem líquida','EBITDA','Ponto de equilíbrio','Saldo do mês (caixa)','Saldo acumulado']);
+      if(S.tab==='dre')gxResumoTabela(pg.querySelector('.pl-t'),['Receita bruta','(−) Impostos e taxas','(−) Custos diretos da entrega','Lucro bruto','Margem bruta','(−) Pessoal','(−) Estrutura','(−) Marketing','(−) Ferramentas','(−) Outras despesas operacionais','Lucro líquido','Margem líquida','EBITDA','Margem EBITDA','(−) Retiradas dos sócios','(−) Guardado / investido','Sobra após retiradas e reserva']);
+    }}catch(e){}
     try{desenharGraficosFin()}catch(e){console.warn(e)}
     }finally{RC=null}
   };
@@ -32539,6 +32567,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     {cat:'Aportes e resgates',tit:'Aportes e resgates',dica:'dinheiro que voltou de reserva/fundo',sinal:1,ic:IC.resgate},
     {cat:'Estornos e reembolsos recebidos',tit:'Estornos recebidos',dica:'devoluções que voltaram',sinal:1,ic:IC.estorno}];
   function ponteHtml(L,titulo){
+    const R0=v=>gxMoedaCurta(v),R=v=>gxMoedaCurta(v);
     let rec=0,desp=0,recC=0,despC=0;const c={};
     L.forEach(t=>{const f=info(t.cat,t.tipo),v=valorNum(t);if(t.tipo==='Receita'){recC+=v;if(!f.fora)rec+=v}else{despC+=v;if(!f.fora)desp+=v}if(f.fora)c[f.cat]=(c[f.cat]||0)+v});
     const res=rec-desp,itens=PONTE.filter(p=>c[p.cat]);
@@ -32572,6 +32601,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
         <td style="white-space:nowrap;text-align:right">${pode('edit')?`<button type="button" class="fx-ib" aria-label="Editar" onclick="fxEditar('${E(t.id)}')">${IC.editar}</button>`:''} ${pode('delete')?`<button type="button" class="fx-ib del" aria-label="Excluir" onclick="fxExcluir('${E(t.id)}')">${IC.lixo}</button>`:''}</td></tr>`}).join('');
     const Rz=somaResultado(L);
     return `${kpisResultado(Rz)}
+      ${!S.cat&&!S.tipo&&!S.q&&!S.cli?saudeHtml(Rz,S.mes?'Saúde financeira em '+MESES_LONGO[+S.mes-1]:'Saúde financeira em '+S.ano):''}
       ${!S.cat&&!S.tipo&&!S.q&&!S.cli?ponteHtml(L,S.mes?'Para onde foi o dinheiro em '+MESES_LONGO[+S.mes-1]:'Para onde foi o dinheiro em '+S.ano):''}
       <div class="pl-card">
         <div class="fx-fil">
@@ -32588,6 +32618,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
         <p class="pl-nota">${L.length} lançamento${L.length!==1?'s':''}.</p></div>`;
   }
   function kpisResultado(Rz,extra){
+    const R0=v=>gxMoedaCurta(v),sinal=v=>gxMoedaCurta(v);
     const mais=extra?`<div class="pl-k"><span>${extra.t}</span><b>${extra.v}</b><small>${extra.s}</small></div>`:'';
     return `<div class="pl-kpis fx-kpis">
         <div class="pl-k"><span>Faturamento</span><b class="fx-in">${R0(Rz.rec)}</b><small>vendas e receitas da operação</small></div>
@@ -32596,11 +32627,25 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
         <div class="pl-k dest"><span>Lucro líquido</span><b class="${Rz.liq<0?'fx-out':''}">${sinal(Rz.liq)}</b><small>margem líquida ${P(Rz.ml)} · após todas as despesas</small></div>
         <div class="pl-k"><span>Sobrou no caixa</span><b class="${Rz.caixa<0?'fx-out':''}">${sinal(Rz.caixa)}</b><small>depois de retiradas e reserva</small></div>${mais}</div>`;
   }
+  function saudeHtml(Rz,titulo){
+    const R0=v=>gxMoedaCurta(v),sinal=v=>gxMoedaCurta(v);
+    if(!Rz.rec&&!Rz.desp)return '';
+    const pe=Rz.peMes,seg=Rz.seg;
+    const st=seg==null?'':seg>=0.2?'ok':seg>=0?'wa':'er';
+    return `<div class="pl-card"><h3>${titulo||'Saúde financeira'}</h3>
+      <div class="pl-kpis fx-kpis" style="margin:10px 0 0">
+        <div class="pl-k"><span>EBITDA</span><b class="${Rz.ebitda<0?'fx-out':''}">${sinal(Rz.ebitda)}</b><small>margem EBITDA ${P(Rz.me)} · lucro da operação antes de taxas bancárias e compra de equipamentos</small></div>
+        <div class="pl-k"><span>Margem de contribuição</span><b>${P(Rz.mc)}</b><small>de cada R$ 100 faturados, sobram ${R0(Rz.mc*100)} para pagar as despesas fixas</small></div>
+        <div class="pl-k dest"><span>Ponto de equilíbrio</span><b>${pe==null?'—':R0(pe)+'/mês'}</b><small>${pe==null?'margem de contribuição negativa: toda venda dá prejuízo':`faturamento mínimo por mês para não ter prejuízo (despesas fixas de ${R0(Rz.fixasMes)}/mês)`}</small></div>
+        <div class="pl-k"><span>Margem de segurança</span><b class="${seg!=null&&seg<0?'fx-out':''}">${seg==null?'—':P(seg)}</b><small>${seg==null?'':seg>=0?`o faturamento médio (${R0(Rz.fatMes)}/mês) pode cair até ${P(seg)} antes de dar prejuízo`:`faltam ${R0(pe-Rz.fatMes)}/mês de faturamento para empatar`} ${st?`<span class="pl-pill ${st}">${st==='ok'?'saudável':st==='wa'?'apertado':'abaixo do equilíbrio'}</span>`:''}</small></div>
+      </div></div>`;
+  }
   window.fxMais=()=>{S.lim+=200;renderFinancas()};
   window.fxLimpar=()=>{Object.assign(S,{q:'',mes:'',tipo:'',cat:'',cli:'',lim:100});renderFinancas()};
   window.fxIr=(cat,mes)=>{Object.assign(S,{tab:'lanc',cat:cat||'',mes:mes||'',tipo:'',q:'',cli:'',lim:100});renderFinancas();window.scrollTo&&window.scrollTo(0,0)};
 
   function telaFluxo(){
+    const R0=v=>gxMoedaCurta(v),sinal=v=>gxMoedaCurta(v);
     const M=porMes(S.ano);
     const soma=(f)=>{let t=0;for(let i=0;i<12;i++)t+=f(M[i]);return t};
     const col=(f,cls,cat)=>Array.from({length:12},(_,i)=>{const v=f(M[i]);return `<td class="${cls||''} ${cat?'cel':''}" ${cat?`onclick="fxIr('${E(cat)}','${String(i+1).padStart(2,'0')}')"`:''}>${v?R0(v):'<span style="color:var(--pl-li)">—</span>'}</td>`}).join('')+`<td style="font-weight:800">${R0(soma(f))}</td>`;
@@ -32615,17 +32660,21 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
       <tr><td class="pc">${mk}</td>${Array.from({length:12},(_,i)=>`<td class="pc">${M[i].rec?P(M[i][k]/M[i].rec):'—'}</td>`).join('')}<td class="pc">${soma(m=>m.rec)?P(soma(m=>m[k])/soma(m=>m.rec)):'—'}</td></tr>`;
     html+=`<tr class="res"><td>Despesas</td>${col(m=>m.desp,'fx-out')}</tr>
       ${linRes('Lucro bruto','bruto','Margem bruta')}
-      ${linRes('Lucro líquido','liq','Margem líquida')}`;
+      ${linRes('Lucro líquido','liq','Margem líquida')}
+      ${linRes('EBITDA','ebitda','Margem EBITDA')}
+      <tr><td>Ponto de equilíbrio</td>${Array.from({length:12},(_,i)=>{const b=M[i];return `<td class="pc">${b.rec||b.desp?(b.peMes==null?'—':R0(b.peMes)):'—'}</td>`}).join('')}<td class="pc">${(()=>{const mc=soma(m=>m.rec)?soma(m=>m.bruto)/soma(m=>m.rec):0;const n=Object.values(M).filter(m=>m.rec||m.desp).length||1;return mc>0?R0(soma(m=>m.oper)/n/mc)+'/mês':'—'})()}</td></tr>
+      <tr><td class="pc">Acima do equilíbrio</td>${Array.from({length:12},(_,i)=>{const b=M[i];if(!(b.rec||b.desp)||b.peMes==null)return '<td class="pc">—</td>';const d=b.rec-b.peMes;return `<td class="pc ${d<0?'neg':'real'}">${sinal(d)}</td>`}).join('')}<td></td></tr>`;
     const foraCats=plano().filter(p=>p.fora&&usadas.has(p.cat));
     if(foraCats.length){html+=`<tr class="grp"><td colspan="14">Retiradas, reserva e outros movimentos de caixa (não são venda nem custo)</td></tr>${foraCats.map(p=>`<tr class="sub"><td>${p.tipo==='Receita'?'(+) ':'(−) '}${E(p.cat)}</td>${col(m=>m.cats[p.cat]||0,'',p.cat)}</tr>`).join('')}`}
     let acc=0;const saldo=Array.from({length:12},(_,i)=>{const m=M[i];const v=m.rec+m.recFora-m.desp-m.despFora;acc+=v;return {v,acc,tem:m.rec||m.desp||m.recFora||m.despFora}});
     html+=`<tr class="res"><td>Saldo do mês (caixa)</td>${saldo.map(s=>`<td class="${s.v<0?'neg':''}">${s.tem?R0(s.v):'—'}</td>`).join('')}<td style="font-weight:800">${R0(saldo.reduce((a,s)=>a+s.v,0))}</td></tr>
       <tr class="res"><td>Saldo acumulado</td>${saldo.map(s=>`<td class="${s.acc<0?'neg':''}">${s.tem?R0(s.acc):'—'}</td>`).join('')}<td></td></tr>`;
-    return `<div class="pl-card"><h3>Fluxo mensal ${S.ano}</h3><p class="sub">Clique num valor para ver os lançamentos daquele mês e categoria. Lucro bruto = faturamento − impostos e custos diretos (terceiros e devoluções). Lucro líquido = faturamento − todas as despesas. Retiradas, reserva, saldo inicial e estornos não entram no lucro e aparecem no fim.</p>
+    return `<div class="pl-card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><h3>Fluxo mensal ${S.ano}</h3>${chaveResumoFx()}</div><p class="sub">Clique num valor para ver os lançamentos daquele mês e categoria. Lucro bruto = faturamento − impostos e custos diretos (terceiros e devoluções). Lucro líquido = faturamento − todas as despesas. EBITDA = lucro líquido + taxas bancárias + compra de obra, móveis e equipamentos. Ponto de equilíbrio = despesas fixas do mês ÷ margem de contribuição (margem bruta). Retiradas, reserva, saldo inicial e estornos não entram no lucro e aparecem no fim.</p>
       <div class="pl-tw"><table class="pl-t fx-fluxo"><thead><tr><th>Categoria</th>${MESES.map(m=>`<th>${m}</th>`).join('')}<th>Total</th></tr></thead><tbody>${html}</tbody></table></div></div>`;
   }
 
   function telaDre(){
+    const R0=v=>gxMoedaCurta(v),sinal=v=>gxMoedaCurta(v);
     const M=porMes(S.ano),idx=S.dreMes?[+S.dreMes-1]:[...Array(12).keys()];
     const cat=c=>idx.reduce((a,i)=>a+(M[i].cats[c]||0),0);
     const grupo=g=>plano().filter(p=>p.grupo===g&&!p.fora).reduce((a,p)=>a+cat(p.cat),0);
@@ -32640,7 +32689,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     const l=(t,v,o={})=>(!v&&o.neg&&!o.res)?'':`<tr class="${o.res?'res':''} ${o.sub?'sub':''}"><td>${t}</td><td class="${o.cls||''}">${o.neg&&v?'− ':''}${o.res&&v<0?sinal(v):R0(v)}</td><td class="pc">${o.semPc?'':pc(v)}</td></tr>`;
     const subs=g=>plano().filter(p=>p.grupo===g&&!p.fora&&!CUSTO_DIRETO.includes(p.cat)).map(p=>{const v=cat(p.cat);return v?l(E(p.cat),v,{sub:1,neg:1}):''}).join('');
     return `<div class="pl-card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h3>DRE ${S.dreMes?MESES_LONGO[+S.dreMes-1]+' de ':''}${S.ano}</h3><p class="sub">Do faturamento até o lucro líquido. Reserva, retiradas e saldo inicial não entram no lucro.</p></div>
-      <div class="fx-fil" style="margin:0"><select aria-label="Período" onchange="S_dre(this.value)"><option value="">Ano inteiro</option>${MESES_LONGO.map((m,i)=>{const v=String(i+1).padStart(2,'0');return `<option value="${v}" ${S.dreMes===v?'selected':''}>${m[0].toUpperCase()+m.slice(1)}</option>`}).join('')}</select></div></div>
+      <div class="fx-fil" style="margin:0;align-items:center">${chaveResumoFx()}<select aria-label="Período" onchange="S_dre(this.value)"><option value="">Ano inteiro</option>${MESES_LONGO.map((m,i)=>{const v=String(i+1).padStart(2,'0');return `<option value="${v}" ${S.dreMes===v?'selected':''}>${m[0].toUpperCase()+m.slice(1)}</option>`}).join('')}</select></div></div>
       <div class="pl-tw" style="max-width:720px"><table class="pl-t"><thead><tr><th>Conta</th><th>Valor</th><th>% receita</th></tr></thead><tbody>
       ${l('Receita bruta',bruta,{res:1,cls:'real'})}${recCats.map(c=>{const v=cat(c);return v?l(E(c),v,{sub:1}):''}).join('')}
       ${l('(−) Impostos e taxas',imp,{neg:1,cls:'neg'})}${subs('Impostos e taxas')}
@@ -32655,8 +32704,11 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
       ${l('(−) Outras despesas operacionais',ope,{neg:1,cls:'neg'})}${subs('Operacional')}
       ${l('Lucro líquido',res,{res:1,cls:res<0?'neg':'real'})}
       <tr class="sub"><td>Margem líquida</td><td></td><td class="pc"><b>${pc(res)}</b></td></tr>
+      ${(()=>{const fin=CUSTO_FIN.reduce((a,c)=>a+cat(c),0),cx=CAPEX.reduce((a,c)=>a+cat(c),0),eb=res+fin+cx;
+        return `${fin?l('(+) Taxas bancárias',fin,{sub:1}):''}${cx?l('(+) Obra, móveis e equipamentos',cx,{sub:1}):''}${l('EBITDA',eb,{res:1,cls:eb<0?'neg':'real'})}<tr class="sub"><td>Margem EBITDA</td><td></td><td class="pc"><b>${pc(eb)}</b></td></tr>`})()}
       ${dist||resv?`${dist?l('(−) Retiradas dos sócios',dist,{neg:1}):''}${resv?l('(−) Guardado / investido',resv,{neg:1}):''}${l('Sobra após retiradas e reserva',res-dist-resv,{res:1,cls:res-dist-resv<0?'neg':''})}`:''}
-      </tbody></table></div></div>`;
+      </tbody></table></div></div>
+      ${saudeHtml(somaResultado(doAno(S.ano).filter(t=>!S.dreMes||String(t.data).slice(5,7)===S.dreMes)),'Indicadores '+(S.dreMes?'de '+MESES_LONGO[+S.dreMes-1]:'de '+S.ano))}`;
   }
   window.S_dre=v=>{S.dreMes=v;renderFinancas()};
   function desenharGraficosFin(){
@@ -32679,7 +32731,8 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     const topC=Object.entries(cli).sort((a,b)=>b[1]-a[1]).slice(0,10);
     const barras=(arr,cls)=>{const mx=Math.max(1,...arr.map(x=>x[1]));return `<div class="fx-bar">${arr.map(([n,v])=>`<div><span title="${E(n)}">${E(n)}</span><i class="${cls}" style="width:${Math.max(1,v/mx*100)}%"></i><b>${R0(v)}</b></div>`).join('')||'<p class="sub">Sem dados.</p>'}</div>`};
     const folha=((cats['Salários da equipe']||0)+(cats['Pró-labore dos sócios']||0));
-    return `${kpisResultado(Rz,{t:'Folha (equipe + sócios)',v:R0(folha),s:`${P(rec?folha/rec:0)} do faturamento · lucro líquido médio ${sinal(Rz.liq/mesesCom)}/mês`})}
+    return `${kpisResultado(Rz,{t:'Folha (equipe + sócios)',v:gxMoedaCurta(folha),s:`${P(rec?folha/rec:0)} do faturamento · lucro líquido médio ${gxMoedaCurta(Rz.liq/mesesCom)}/mês`})}
+      ${saudeHtml(Rz,'Saúde financeira em '+S.ano)}
       <div class="pl-card"><h3>Faturamento x despesas por mês</h3><p class="sub">A linha roxa é o lucro líquido do mês (ponto vermelho = mês no prejuízo).</p>
         <div id="fx-graf" style="color:var(--pl-tx)"></div>
         <div class="pl-leg"><span><i style="background:#10B981"></i>Faturamento</span><span><i style="background:#EF4444"></i>Despesas</span><span><i style="background:#7C3AED"></i>Lucro líquido</span></div></div>
@@ -33246,6 +33299,30 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
       fechar();try{renderComercial()}catch(e){}
       toast(`${sel.length} lead${sel.length===1?'':'s'} agora com ${nome}${nt?` · ${nt} tarefa(s)`:''} ✓`,'#10B981');
     };
+  };
+})();
+</script>
+
+<script id="gx-num-simples">
+// Números fáceis de ler: R$ 60,3 mil / R$ 1,25 mi (valor exato aparece ao passar o mouse)
+(function(){
+  const cheio=v=>Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0});
+  function curto(v){
+    const n=Number(v||0),a=Math.abs(n),neg=n<0?'− ':'';
+    let t;
+    if(a<1000)t='R$ '+Math.round(a).toLocaleString('pt-BR');
+    else if(a<1e6){const x=a/1000;t='R$ '+x.toLocaleString('pt-BR',{maximumFractionDigits:x<100?1:0})+' mil'}
+    else{const x=a/1e6;t='R$ '+x.toLocaleString('pt-BR',{maximumFractionDigits:2})+' mi'}
+    return neg+t;
+  }
+  window.gxMoedaCurta=function(v,semTitulo){const t=curto(v);return semTitulo?t:`<span title="${cheio(v).replace('-','− ')}">${t}</span>`};
+  window.gxMoedaCurtaTxt=curto;
+  // Modo resumo: esconde as linhas de detalhe de uma tabela (mantém as da lista) e os títulos de grupo que ficarem vazios
+  window.gxResumoTabela=function(tb,manter){
+    if(!tb)return;const set=new Set(manter.map(x=>x.toLowerCase()));
+    const trs=[...tb.querySelectorAll('tbody tr')];
+    trs.forEach(tr=>{if(tr.classList.contains('grp'))return;const n=(tr.children[0]?.textContent||'').trim().toLowerCase();if(!set.has(n))tr.style.display='none'});
+    trs.forEach((tr,i)=>{if(!tr.classList.contains('grp'))return;let vis=false;for(let j=i+1;j<trs.length&&!trs[j].classList.contains('grp');j++)if(trs[j].style.display!=='none'){vis=true;break}if(!vis)tr.style.display='none'});
   };
 })();
 </script>
