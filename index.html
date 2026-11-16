@@ -31822,6 +31822,7 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
 .pl-tabs button.on{color:var(--pl-p);border-bottom-color:var(--pl-p)}
 .pl-tabs button:hover{color:var(--pl-tx)}
 .pl-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:14px}
+.pl-kpis.fx-kpis{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
 .pl-k{background:var(--pl-card);border:1px solid var(--pl-line);border-radius:14px;padding:14px 16px;min-width:0}
 .pl-k span{display:block;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--pl-mu)}
 .pl-k b{display:block;font-size:22px;font-weight:800;letter-spacing:-.02em;margin-top:6px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -31993,8 +31994,13 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
     const o={};(DB.get('transacoes')||[]).forEach(t=>{if(!t)return;const m=mesDe(t.data);if(!m)return;o[m]=o[m]||{receita:0,despesa:0,n:0};
       const v=typeof t.valor==='number'?t.valor:(typeof gxParseBRL==='function'?gxParseBRL(t.valor):+t.valor)||0;
       if(typeof gxFinOperacional==='function'&&!gxFinOperacional(t))return;
-      if(t.tipo==='Receita')o[m].receita+=v;else if(t.tipo==='Despesa')o[m].despesa+=v;o[m].n++});
+      if(t.tipo==='Receita')o[m].receita+=v;else if(t.tipo==='Despesa'){o[m].despesa+=v;if(custoDireto(t))o[m].variavel=(o[m].variavel||0)+v}o[m].n++});
     return o;
+  }
+  // Custos que andam junto com a receita (entram antes do lucro bruto): impostos/taxas e terceiros que entregam o serviço
+  const CUSTO_DIRETO=['Terceiros e freelancers','Devoluções a clientes'];
+  function custoDireto(t){
+    try{const i=typeof gxFinInfo==='function'?gxFinInfo(t.cat,t.tipo):{cat:t.cat,grupo:''};return i.grupo==='Impostos e taxas'||CUSTO_DIRETO.includes(i.cat)}catch(e){return false}
   }
   // MRR da carteira no mês (estimativa quando não há lançamento em Finanças)
   function carteiraNoMes(m){
@@ -32065,14 +32071,16 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
       if(m<=hm){
         const F=fin[m];
         let rec=null,dsp=null,fonte='';
-        if((fonteCfg==='auto'||fonteCfg==='financas')&&F&&F.n){rec=F.receita;dsp=F.despesa;fonte='Finanças'}
+        let vari=0;
+        if((fonteCfg==='auto'||fonteCfg==='financas')&&F&&F.n){rec=F.receita;dsp=F.despesa;vari=F.variavel||0;fonte='Finanças'}
         else if(fonteCfg==='auto'||fonteCfg==='estimado'){
           const cart=carteiraNoMes(m);
-          if(cart>0){rec=cart+adic;dsp=pr.despesaFixa+rec*pr.imposto+(f.investimento||0);fonte='Estimado'}
+          if(cart>0){rec=cart+adic;vari=rec*pr.imposto;dsp=pr.despesaFixa+vari+(f.investimento||0);fonte='Estimado'}
         }
-        if(rec!=null)real={fat:rec,desp:dsp,lucro:rec-dsp,margem:rec?(rec-dsp)/rec:0,fonte};
+        if(rec!=null){const bruto=rec-vari;real={fat:rec,desp:dsp,vari,oper:dsp-vari,bruto,margemBruta:rec?bruto/rec:0,lucro:rec-dsp,margem:rec?(rec-dsp)/rec:0,fonte}}
       }
-      linhas.push({m,ini,churn:c,exp:ex,novo,fim,adic,fat,clientes:pr.metaNovos,leadsNec,inv,desp,lucro,margem:fat?lucro/fat:0,real,funil:f});
+      const vari=fim*pr.imposto,bruto=fat-vari;
+      linhas.push({m,ini,churn:c,exp:ex,novo,fim,adic,fat,clientes:pr.metaNovos,leadsNec,inv,desp,vari,oper:desp-vari,bruto,margemBruta:fat?bruto/fat:0,lucro,margem:fat?lucro/fat:0,real,funil:f});
       ini=fim;
     });
     const al=pr.alertas,falhas=[];
@@ -32098,8 +32106,8 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
     try{gxMelhorarSelects(el)}catch(e){}
     try{const g=document.getElementById('pl-graf');if(g&&typeof gxGrafico==='function'){const ia=mesAtualIdx(S.ano);
       gxGrafico(g,{titulo:'Faturamento projetado x real',altura:230,labels:MESES,labelsLongos:MESES.map(m=>m+'/'+S.ano),destaque:ia>=0&&ia<12?ia:null,
-        barras:[{nome:'Real',cor:'#10B981',valores:C.linhas.map(l=>l.real?l.real.fat:null)}],
-        linhas:[{nome:'Projetado',cor:'#7C3AED',valores:C.linhas.map(l=>l.fat),area:true},{nome:'Lucro projetado',cor:'#F59E0B',valores:C.linhas.map(l=>l.lucro),tracejada:true}]})}}catch(e){console.warn(e)}
+        barras:[{nome:'Realizado',cor:'#10B981',valores:C.linhas.map(l=>l.real?l.real.fat:null)}],
+        linhas:[{nome:'Previsto',cor:'#7C3AED',valores:C.linhas.map(l=>l.fat),area:true},{nome:'Lucro líquido previsto',cor:'#F59E0B',valores:C.linhas.map(l=>l.lucro),tracejada:true}]})}}catch(e){console.warn(e)}
   };
   window.plTab=t=>{S.tab=t;renderPlanejamento()};
   window.plAno=d=>{S.ano+=d;renderPlanejamento()};
@@ -32108,6 +32116,7 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
   function painel(C){
     const L=C.linhas,dez=L[11],lucroAno=L.reduce((a,l)=>a+l.lucro,0),fatAno=L.reduce((a,l)=>a+l.fat,0);
     const realFat=L.reduce((a,l)=>a+(l.real?l.real.fat:0),0),realLucro=L.reduce((a,l)=>a+(l.real?l.real.lucro:0),0);
+    const brutoAno=L.reduce((a,l)=>a+l.bruto,0),realBruto=L.reduce((a,l)=>a+(l.real?l.real.bruto:0),0);
     const cresc=C.mrrIni?(dez.fim-C.mrrIni)/C.mrrIni:0;
     const k=(t,v,s,d)=>`<div class="pl-k${d?' dest':''}"><span>${t}</span><b>${v}</b>${s?`<small>${s}</small>`:''}</div>`;
     const al=C.pr.alertas;
@@ -32118,8 +32127,9 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
         ${k('Ticket médio',R(C.ticket),C.pr.ticketManual?'definido nas premissas':'MRR dos contratos ÷ clientes')}
         ${k('Churn mensal',P(C.churn),C.pr.churnManual!=null&&C.pr.churnManual!==''?'definido nas premissas':'automático · últimos 6 meses')}
         ${k('MRR projetado em dez',R(dez.fim),`${cresc>=0?'+':''}${P(cresc)} no ano`,true)}
-        ${k('Faturamento projetado no ano',R(fatAno),realFat?`real até agora: ${R(realFat)}`:'')}
-        ${k('Lucro projetado no ano',R(lucroAno),realFat?`real até agora: ${R(realLucro)}`:`margem média ${P(fatAno?lucroAno/fatAno:0)}`)}
+        ${k('Faturamento previsto no ano',R(fatAno),realFat?`realizado até agora: ${R(realFat)}`:'')}
+        ${k('Lucro bruto previsto no ano',R(brutoAno),`margem bruta ${P(fatAno?brutoAno/fatAno:0)}${realFat?` · realizada ${P(realBruto/realFat)}`:''}`)}
+        ${k('Lucro líquido previsto no ano',R(lucroAno),`margem líquida ${P(fatAno?lucroAno/fatAno:0)}${realFat?` · realizada ${P(realLucro/realFat)}`:''}`)}
         ${k('Leads necessários/mês',N(C.leadsNec),`para ${C.pr.metaNovos} clientes novos/mês`)}
         ${k('Investimento em tráfego/mês',R(C.leadsNec*C.tx.cpl),`CPL ${R2(C.tx.cpl)}`)}
       </div>
@@ -32130,7 +32140,7 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
         <div class="pl-taxas">${taxa('Resposta',C.tx.resposta,al.resposta)}${taxa('Agendamento',C.tx.agendamento,al.agendamento)}${taxa('Comparecimento',C.tx.comparecimento,al.comparecimento)}${taxa('Fechamento',C.tx.fechamento,al.fechamento)}${taxa('Churn mensal',C.churn,al.churnMax,true)}</div></div>`;
   }
   function grafico(C){
-    return `<div id="pl-graf" style="color:var(--pl-tx)"></div><div class="pl-leg"><span><i style="background:#7C3AED"></i>Projetado</span><span><i style="background:#10B981"></i>Real</span><span><i style="background:#F59E0B"></i>Lucro projetado</span></div>`;
+    return `<div id="pl-graf" style="color:var(--pl-tx)"></div><div class="pl-leg"><span><i style="background:#7C3AED"></i>Previsto</span><span><i style="background:#10B981"></i>Realizado</span><span><i style="background:#F59E0B"></i>Lucro líquido previsto</span></div>`;
   }
   function forecast(C){
     const L=C.linhas,ia=mesAtualIdx(S.ano);
@@ -32142,21 +32152,28 @@ html[data-theme="dark"] .pl{--pl-okbg:rgba(16,185,129,.14);--pl-ok:#4ADE80;--pl-
       <div class="pl-tw"><table class="pl-t"><thead><tr><th>Métrica</th>${th}</tr></thead><tbody>
       ${grp('MRR')}
       ${lin('MRR inicial',l=>R(l.ini))}${lin('(−) Churn',l=>R(l.churn),'neg')}${lin('(+) Expansão',l=>R(l.exp))}${lin('(+) Novo MRR',l=>R(l.novo))}${lin('MRR final',l=>R(l.fim))}
-      ${grp('Real')}
-      <tr><td>Fonte do real</td>${L.map((l,i)=>`<td class="${i===ia?'atual':''}">${l.real?`<span class="pl-pill ${l.real.fonte==='Estimado'?'wa':'ok'}">${l.real.fonte}</span>`:'<span style="color:var(--pl-li)">—</span>'}</td>`).join('')}</tr>
+      ${grp('Realizado')}
+      <tr><td>Fonte do realizado</td>${L.map((l,i)=>`<td class="${i===ia?'atual':''}">${l.real?`<span class="pl-pill ${l.real.fonte==='Estimado'?'wa':'ok'}">${l.real.fonte}</span>`:'<span style="color:var(--pl-li)">—</span>'}</td>`).join('')}</tr>
       ${grp('Faturamento')}
-      ${lin('Vendas adicionais',l=>l.adic?R(l.adic):'—',l=>l.adic?'':'mut')}${lin('Faturamento projetado',l=>R(l.fat))}${lin('Faturamento real',l=>rv(l,'fat',R),l=>l.real?'real':'mut')}
+      ${lin('Vendas avulsas (fora do MRR)',l=>l.adic?R(l.adic):'—',l=>l.adic?'':'mut')}${lin('Faturamento previsto',l=>R(l.fat))}${lin('Faturamento realizado',l=>rv(l,'fat',R),l=>l.real?'real':'mut')}
       ${grp('Aquisição')}
-      ${lin('Clientes novos (meta)',l=>N(l.clientes))}${lin('Vendas reais',l=>N(l.funil.vendas),l=>l.funil.vendas?'real':'mut')}${lin('Leads necessários',l=>N(l.leadsNec))}${lin('Leads reais',l=>N(l.funil.leads),l=>l.funil.leads?'real':'mut')}
-      ${lin('Investimento projetado',l=>R(l.inv))}${lin('Investimento real',l=>l.funil.investimento?R(l.funil.investimento):'—',l=>l.funil.investimento?'real':'mut')}
-      ${grp('Resultado')}
-      ${lin('Despesa total projetada',l=>R(l.desp),'neg')}${lin('Despesa real',l=>rv(l,'desp',R),l=>l.real?'real':'mut')}
-      <tr class="tot"><td>Lucro projetado</td>${L.map((l,i)=>`<td class="${l.lucro<0?'neg':''} ${i===ia?'atual':''}">${R(l.lucro)}</td>`).join('')}</tr>
-      ${lin('Lucro real',l=>rv(l,'lucro',R),l=>l.real?(l.real.lucro<0?'neg':'real'):'mut')}
-      ${lin('Margem projetada',l=>P(l.margem),l=>l.margem<0?'neg':'')}${lin('Margem real',l=>l.real?P(l.real.margem):'—',l=>l.real?'real':'mut')}
+      ${lin('Clientes novos · meta',l=>N(l.clientes))}${lin('Clientes novos · realizado',l=>N(l.funil.vendas),l=>l.funil.vendas?'real':'mut')}${lin('Leads · necessários',l=>N(l.leadsNec))}${lin('Leads · realizados',l=>N(l.funil.leads),l=>l.funil.leads?'real':'mut')}
+      ${lin('Investimento em tráfego · previsto',l=>R(l.inv))}${lin('Investimento em tráfego · realizado',l=>l.funil.investimento?R(l.funil.investimento):'—',l=>l.funil.investimento?'real':'mut')}
+      ${grp('Lucro bruto')}
+      ${lin('(−) Impostos e custos diretos · previsto',l=>R(l.vari),'neg')}${lin('(−) Impostos e custos diretos · realizado',l=>rv(l,'vari',R),l=>l.real?'real':'mut')}
+      <tr class="tot"><td>Lucro bruto · previsto</td>${L.map((l,i)=>`<td class="${l.bruto<0?'neg':''} ${i===ia?'atual':''}">${R(l.bruto)}</td>`).join('')}</tr>
+      ${lin('Lucro bruto · realizado',l=>rv(l,'bruto',R),l=>l.real?(l.real.bruto<0?'neg':'real'):'mut')}
+      ${lin('Margem bruta · prevista',l=>P(l.margemBruta),l=>l.margemBruta<0?'neg':'')}${lin('Margem bruta · realizada',l=>l.real?P(l.real.margemBruta):'—',l=>l.real?(l.real.margemBruta<0?'neg':'real'):'mut')}
+      ${grp('Lucro líquido')}
+      ${lin('(−) Despesas fixas e operacionais · previsto',l=>R(l.oper),'neg')}${lin('(−) Despesas fixas e operacionais · realizado',l=>rv(l,'oper',R),l=>l.real?'real':'mut')}
+      ${lin('Despesa total · prevista',l=>R(l.desp),'neg')}${lin('Despesa total · realizada',l=>rv(l,'desp',R),l=>l.real?'real':'mut')}
+      <tr class="tot"><td>Lucro líquido · previsto</td>${L.map((l,i)=>`<td class="${l.lucro<0?'neg':''} ${i===ia?'atual':''}">${R(l.lucro)}</td>`).join('')}</tr>
+      ${lin('Lucro líquido · realizado',l=>rv(l,'lucro',R),l=>l.real?(l.real.lucro<0?'neg':'real'):'mut')}
+      ${lin('Margem líquida · prevista',l=>P(l.margem),l=>l.margem<0?'neg':'')}${lin('Margem líquida · realizada',l=>l.real?P(l.real.margem):'—',l=>l.real?(l.real.margem<0?'neg':'real'):'mut')}
       </tbody></table></div>
-      <p class="pl-nota">Despesa projetada = despesa fixa (${R(C.pr.despesaFixa)}) + imposto/variável de ${P(C.pr.imposto)} sobre o MRR + investimento em tráfego.<br>
-      Real, mês a mês: <b>Finanças</b> (lançamentos de Receita e Despesa) → se o mês não tiver, <b>Estimado</b> (contratos vigentes no mês − despesa fixa, imposto e investimento real). Escolha outra fonte em Premissas.</p></div>`;
+      <p class="pl-nota"><b>Lucro bruto</b> = faturamento − impostos e custos diretos (no previsto: ${P(C.pr.imposto)} de imposto/variável sobre o MRR; no realizado: grupo Impostos e taxas + Terceiros e freelancers + Devoluções, do plano de contas).<br>
+      <b>Lucro líquido</b> = lucro bruto − despesas fixas e operacionais (no previsto: despesa fixa de ${R(C.pr.despesaFixa)} + investimento em tráfego; no realizado: todas as outras despesas lançadas). Margem = lucro ÷ faturamento.<br>
+      Realizado, mês a mês: <b>Finanças</b> (lançamentos) → se o mês não tiver, <b>Estimado</b> (contratos vigentes no mês). Escolha outra fonte em Premissas.</p></div>`;
   }
   function telaFunil(C){
     const ia=mesAtualIdx(S.ano),pr=C.pr;
@@ -32412,6 +32429,12 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
   // categorias antigas do GexFlow
   const LEGADO={'Mensalidade':'Mensalidades de clientes','Projeto':'Projetos e serviços avulsos','Software':'Ferramentas e plataformas','Pessoal':'Salários da equipe','Marketing':'Anúncios e publicidade','Ads / Tráfego Pago':'Anúncios e publicidade','Infraestrutura':'Obra, móveis e equipamentos','Manutenção e estrutura':'Obra, móveis e equipamentos'};
   const GRUPOS_DESP=['Impostos e taxas','Pessoal','Estrutura','Marketing','Ferramentas','Operacional'];
+  // Mesma regra do Planejamento: lucro bruto = faturamento − impostos/taxas − custos diretos da entrega; lucro líquido = faturamento − todas as despesas
+  const CUSTO_DIRETO=['Terceiros e freelancers','Devoluções a clientes'];
+  function somaResultado(L){let rec=0,desp=0,imp=0,dir=0,recC=0,despC=0;
+    L.forEach(t=>{const f=info(t.cat,t.tipo),v=valorNum(t);if(t.tipo==='Receita'){recC+=v;if(!f.fora)rec+=v}else{despC+=v;if(!f.fora){desp+=v;if(f.grupo==='Impostos e taxas')imp+=v;else if(CUSTO_DIRETO.includes(f.cat))dir+=v}}});
+    const bruto=rec-imp-dir,liq=rec-desp;return {rec,desp,imp,dir,bruto,liq,mb:rec?bruto/rec:0,ml:rec?liq/rec:0,recC,despC,caixa:recC-despC}}
+  const sinal=v=>(v<0?'− ':'')+R0(Math.abs(v));
   const MEIOS=['Pix','Boleto','Cartão de crédito','Cartão de débito','Transferência','Dinheiro'];
   const MESES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
   const MESES_LONGO=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
@@ -32457,10 +32480,11 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
   // ── agregados ──
   function porMes(ano){
     if(RC&&RC['pm'+ano])return RC['pm'+ano];
-    const o={};for(let i=0;i<12;i++)o[i]={cats:{},rec:0,desp:0,recFora:0,despFora:0};
+    const o={};for(let i=0;i<12;i++)o[i]={cats:{},rec:0,desp:0,recFora:0,despFora:0,imp:0,dir:0};
     doAno(ano).forEach(t=>{const i=+String(t.data).slice(5,7)-1;const f=info(t.cat,t.tipo),v=valorNum(t),b=o[i];
       b.cats[f.cat]=(b.cats[f.cat]||0)+v;
-      if(t.tipo==='Receita'){f.fora?b.recFora+=v:b.rec+=v}else{f.fora?b.despFora+=v:b.desp+=v}});
+      if(t.tipo==='Receita'){f.fora?b.recFora+=v:b.rec+=v}else{if(f.fora)b.despFora+=v;else{b.desp+=v;if(f.grupo==='Impostos e taxas')b.imp+=v;else if(CUSTO_DIRETO.includes(f.cat))b.dir+=v}}});
+    for(let i=0;i<12;i++){const b=o[i];b.bruto=b.rec-b.imp-b.dir;b.liq=b.rec-b.desp;b.oper=b.desp-b.imp-b.dir}
     if(RC)RC['pm'+ano]=o;
     return o;
   }
@@ -32526,7 +32550,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     const op=t=>`<div class="fx-op" aria-hidden="true">${t}</div>`;
     return `<div class="pl-card"><h3>${titulo||'Para onde foi o dinheiro'}</h3>
       <div class="fx-ponte">
-        <div class="fx-pc ini"><span>Resultado da operação</span><b>${res<0?'− ':''}${R0(Math.abs(res))}</b><small>vendas ${R0(rec)}<br>− custos ${R0(desp)}<br>margem ${P(rec?res/rec:0)}</small></div>
+        <div class="fx-pc ini"><span>Lucro líquido</span><b>${res<0?'− ':''}${R0(Math.abs(res))}</b><small>faturamento ${R0(rec)}<br>− despesas ${R0(desp)}<br>margem líquida ${P(rec?res/rec:0)}</small></div>
         ${op('−')}
         <div class="fx-pc menos"><span>Saiu do caixa</span><b>${R0(tot(saiu))}</b>${lista(saiu)||'<small>nada no período</small>'}</div>
         ${op('+')}
@@ -32546,11 +32570,8 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
         <td><span class="fx-cat"><b>${E(f.cat)}</b><span>${f.fora?`<span class="pl-pill wa">${t.tipo==='Receita'?'entrada de caixa · não é venda':'saída de caixa · não é custo'}</span>`:E(f.grupo)}</span></span></td>
         <td class="v ${t.tipo==='Receita'?'fx-in':'fx-out'}">${t.tipo==='Receita'?'+':'−'} ${R(v)}</td>
         <td style="white-space:nowrap;text-align:right">${pode('edit')?`<button type="button" class="fx-ib" aria-label="Editar" onclick="fxEditar('${E(t.id)}')">${IC.editar}</button>`:''} ${pode('delete')?`<button type="button" class="fx-ib del" aria-label="Excluir" onclick="fxExcluir('${E(t.id)}')">${IC.lixo}</button>`:''}</td></tr>`}).join('');
-    return `<div class="pl-kpis">
-        <div class="pl-k"><span>Vendas e receitas</span><b class="fx-in">${R0(rec)}</b><small>no caixa entrou ${R0(recC)}</small></div>
-        <div class="pl-k"><span>Custos da agência</span><b class="fx-out">${R0(desp)}</b><small>do caixa saiu ${R0(despC)}</small></div>
-        <div class="pl-k dest"><span>Resultado da operação</span><b>${R0(rec-desp)}</b><small>margem ${P(rec?(rec-desp)/rec:0)}</small></div>
-        <div class="pl-k"><span>Sobrou no caixa</span><b>${R0(recC-despC)}</b><small>depois de retiradas e reserva</small></div></div>
+    const Rz=somaResultado(L);
+    return `${kpisResultado(Rz)}
       ${!S.cat&&!S.tipo&&!S.q&&!S.cli?ponteHtml(L,S.mes?'Para onde foi o dinheiro em '+MESES_LONGO[+S.mes-1]:'Para onde foi o dinheiro em '+S.ano):''}
       <div class="pl-card">
         <div class="fx-fil">
@@ -32566,6 +32587,15 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
         ${L.length>S.lim?`<div class="fx-mais"><button type="button" class="pl-btn" onclick="fxMais()">Mostrar mais (${L.length-S.lim} restantes)</button></div>`:''}
         <p class="pl-nota">${L.length} lançamento${L.length!==1?'s':''}.</p></div>`;
   }
+  function kpisResultado(Rz,extra){
+    const mais=extra?`<div class="pl-k"><span>${extra.t}</span><b>${extra.v}</b><small>${extra.s}</small></div>`:'';
+    return `<div class="pl-kpis fx-kpis">
+        <div class="pl-k"><span>Faturamento</span><b class="fx-in">${R0(Rz.rec)}</b><small>vendas e receitas da operação</small></div>
+        <div class="pl-k"><span>Despesas</span><b class="fx-out">${R0(Rz.desp)}</b><small>${Rz.rec?P(Rz.desp/Rz.rec)+' do faturamento':'custos da operação'}</small></div>
+        <div class="pl-k"><span>Lucro bruto</span><b class="${Rz.bruto<0?'fx-out':''}">${sinal(Rz.bruto)}</b><small>margem bruta ${P(Rz.mb)} · após impostos e custos diretos</small></div>
+        <div class="pl-k dest"><span>Lucro líquido</span><b class="${Rz.liq<0?'fx-out':''}">${sinal(Rz.liq)}</b><small>margem líquida ${P(Rz.ml)} · após todas as despesas</small></div>
+        <div class="pl-k"><span>Sobrou no caixa</span><b class="${Rz.caixa<0?'fx-out':''}">${sinal(Rz.caixa)}</b><small>depois de retiradas e reserva</small></div>${mais}</div>`;
+  }
   window.fxMais=()=>{S.lim+=200;renderFinancas()};
   window.fxLimpar=()=>{Object.assign(S,{q:'',mes:'',tipo:'',cat:'',cli:'',lim:100});renderFinancas()};
   window.fxIr=(cat,mes)=>{Object.assign(S,{tab:'lanc',cat:cat||'',mes:mes||'',tipo:'',q:'',cli:'',lim:100});renderFinancas();window.scrollTo&&window.scrollTo(0,0)};
@@ -32577,19 +32607,21 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     const usadas=new Set();for(let i=0;i<12;i++)Object.keys(M[i].cats).forEach(c=>usadas.add(c));
     const linhaCat=c=>`<tr class="sub"><td>${E(c)}</td>${col(m=>m.cats[c]||0,'',c)}</tr>`;
     const recCats=plano().filter(p=>p.tipo==='Receita'&&!p.fora&&usadas.has(p.cat)).map(p=>p.cat);
-    let html=`<tr class="grp"><td colspan="14">Entradas</td></tr>${recCats.map(linhaCat).join('')}<tr class="res"><td>Total de entradas</td>${col(m=>m.rec,'fx-in')}</tr>
+    let html=`<tr class="grp"><td colspan="14">Entradas</td></tr>${recCats.map(linhaCat).join('')}<tr class="res"><td>Faturamento</td>${col(m=>m.rec,'fx-in')}</tr>
       <tr class="grp"><td colspan="14">Saídas</td></tr>`;
     GRUPOS_DESP.forEach(g=>{const cs=plano().filter(p=>p.grupo===g&&usadas.has(p.cat)).map(p=>p.cat);if(!cs.length)return;
       html+=`<tr><td style="font-weight:700">${E(g)}</td>${col(m=>cs.reduce((a,c)=>a+(m.cats[c]||0),0))}</tr>${cs.map(linhaCat).join('')}`});
-    html+=`<tr class="res"><td>Total de saídas</td>${col(m=>m.desp,'fx-out')}</tr>
-      <tr class="res"><td>Resultado operacional</td>${Array.from({length:12},(_,i)=>{const v=M[i].rec-M[i].desp;return `<td class="${v<0?'neg':'real'}">${M[i].rec||M[i].desp?R0(v):'—'}</td>`}).join('')}<td style="font-weight:800">${R0(soma(m=>m.rec-m.desp))}</td></tr>
-      <tr><td class="pc">Margem</td>${Array.from({length:12},(_,i)=>`<td class="pc">${M[i].rec?P((M[i].rec-M[i].desp)/M[i].rec):'—'}</td>`).join('')}<td class="pc">${soma(m=>m.rec)?P(soma(m=>m.rec-m.desp)/soma(m=>m.rec)):'—'}</td></tr>`;
+    const linRes=(t,k,mk)=>`<tr class="res"><td>${t}</td>${Array.from({length:12},(_,i)=>{const v=M[i][k];return `<td class="${v<0?'neg':'real'}">${M[i].rec||M[i].desp?sinal(v):'—'}</td>`}).join('')}<td style="font-weight:800">${sinal(soma(m=>m[k]))}</td></tr>
+      <tr><td class="pc">${mk}</td>${Array.from({length:12},(_,i)=>`<td class="pc">${M[i].rec?P(M[i][k]/M[i].rec):'—'}</td>`).join('')}<td class="pc">${soma(m=>m.rec)?P(soma(m=>m[k])/soma(m=>m.rec)):'—'}</td></tr>`;
+    html+=`<tr class="res"><td>Despesas</td>${col(m=>m.desp,'fx-out')}</tr>
+      ${linRes('Lucro bruto','bruto','Margem bruta')}
+      ${linRes('Lucro líquido','liq','Margem líquida')}`;
     const foraCats=plano().filter(p=>p.fora&&usadas.has(p.cat));
     if(foraCats.length){html+=`<tr class="grp"><td colspan="14">Retiradas, reserva e outros movimentos de caixa (não são venda nem custo)</td></tr>${foraCats.map(p=>`<tr class="sub"><td>${p.tipo==='Receita'?'(+) ':'(−) '}${E(p.cat)}</td>${col(m=>m.cats[p.cat]||0,'',p.cat)}</tr>`).join('')}`}
     let acc=0;const saldo=Array.from({length:12},(_,i)=>{const m=M[i];const v=m.rec+m.recFora-m.desp-m.despFora;acc+=v;return {v,acc,tem:m.rec||m.desp||m.recFora||m.despFora}});
     html+=`<tr class="res"><td>Saldo do mês (caixa)</td>${saldo.map(s=>`<td class="${s.v<0?'neg':''}">${s.tem?R0(s.v):'—'}</td>`).join('')}<td style="font-weight:800">${R0(saldo.reduce((a,s)=>a+s.v,0))}</td></tr>
       <tr class="res"><td>Saldo acumulado</td>${saldo.map(s=>`<td class="${s.acc<0?'neg':''}">${s.tem?R0(s.acc):'—'}</td>`).join('')}<td></td></tr>`;
-    return `<div class="pl-card"><h3>Fluxo mensal ${S.ano}</h3><p class="sub">Clique num valor para ver os lançamentos daquele mês e categoria. O resultado operacional não inclui retiradas, reserva, saldo inicial e estornos, que aparecem no fim.</p>
+    return `<div class="pl-card"><h3>Fluxo mensal ${S.ano}</h3><p class="sub">Clique num valor para ver os lançamentos daquele mês e categoria. Lucro bruto = faturamento − impostos e custos diretos (terceiros e devoluções). Lucro líquido = faturamento − todas as despesas. Retiradas, reserva, saldo inicial e estornos não entram no lucro e aparecem no fim.</p>
       <div class="pl-tw"><table class="pl-t fx-fluxo"><thead><tr><th>Categoria</th>${MESES.map(m=>`<th>${m}</th>`).join('')}<th>Total</th></tr></thead><tbody>${html}</tbody></table></div></div>`;
   }
 
@@ -32600,40 +32632,45 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     const recCats=plano().filter(p=>p.tipo==='Receita'&&!p.fora).map(p=>p.cat);
     const bruta=recCats.reduce((a,c)=>a+cat(c),0);
     const imp=grupo('Impostos e taxas'),liq=bruta-imp;
-    const pes=grupo('Pessoal'),est=grupo('Estrutura'),mkt=grupo('Marketing'),fer=grupo('Ferramentas'),ope=grupo('Operacional');
-    const res=liq-pes-est-mkt-fer-ope;
+    const dir=CUSTO_DIRETO.reduce((a,c)=>a+cat(c),0),lb=liq-dir;
+    const pes=grupo('Pessoal'),est=grupo('Estrutura'),mkt=grupo('Marketing'),fer=grupo('Ferramentas'),ope=grupo('Operacional')-dir;
+    const res=lb-pes-est-mkt-fer-ope;
     const dist=cat('Distribuição de lucro'),resv=cat('Reserva / investimento');
     const pc=v=>bruta?P(v/bruta):'—';
-    const l=(t,v,o={})=>`<tr class="${o.res?'res':''} ${o.sub?'sub':''}"><td>${t}</td><td class="${o.cls||''}">${o.neg&&v?'− ':''}${R(v)}</td><td class="pc">${o.semPc?'':pc(v)}</td></tr>`;
-    const subs=g=>plano().filter(p=>p.grupo===g&&!p.fora).map(p=>{const v=cat(p.cat);return v?l(E(p.cat),v,{sub:1,neg:1}):''}).join('');
-    return `<div class="pl-card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h3>DRE ${S.dreMes?MESES_LONGO[+S.dreMes-1]+' de ':''}${S.ano}</h3><p class="sub">Demonstrativo de resultado: o que a operação gerou, sem contar reserva, retiradas e saldo inicial.</p></div>
+    const l=(t,v,o={})=>(!v&&o.neg&&!o.res)?'':`<tr class="${o.res?'res':''} ${o.sub?'sub':''}"><td>${t}</td><td class="${o.cls||''}">${o.neg&&v?'− ':''}${o.res&&v<0?sinal(v):R0(v)}</td><td class="pc">${o.semPc?'':pc(v)}</td></tr>`;
+    const subs=g=>plano().filter(p=>p.grupo===g&&!p.fora&&!CUSTO_DIRETO.includes(p.cat)).map(p=>{const v=cat(p.cat);return v?l(E(p.cat),v,{sub:1,neg:1}):''}).join('');
+    return `<div class="pl-card"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap"><div><h3>DRE ${S.dreMes?MESES_LONGO[+S.dreMes-1]+' de ':''}${S.ano}</h3><p class="sub">Do faturamento até o lucro líquido. Reserva, retiradas e saldo inicial não entram no lucro.</p></div>
       <div class="fx-fil" style="margin:0"><select aria-label="Período" onchange="S_dre(this.value)"><option value="">Ano inteiro</option>${MESES_LONGO.map((m,i)=>{const v=String(i+1).padStart(2,'0');return `<option value="${v}" ${S.dreMes===v?'selected':''}>${m[0].toUpperCase()+m.slice(1)}</option>`}).join('')}</select></div></div>
       <div class="pl-tw" style="max-width:720px"><table class="pl-t"><thead><tr><th>Conta</th><th>Valor</th><th>% receita</th></tr></thead><tbody>
       ${l('Receita bruta',bruta,{res:1,cls:'real'})}${recCats.map(c=>{const v=cat(c);return v?l(E(c),v,{sub:1}):''}).join('')}
       ${l('(−) Impostos e taxas',imp,{neg:1,cls:'neg'})}${subs('Impostos e taxas')}
       ${l('Receita líquida',liq,{res:1})}
+      ${l('(−) Custos diretos da entrega',dir,{neg:1,cls:'neg'})}${CUSTO_DIRETO.map(c=>{const v=cat(c);return v?l(E(c),v,{sub:1,neg:1}):''}).join('')}
+      ${l('Lucro bruto',lb,{res:1,cls:lb<0?'neg':'real'})}
+      <tr class="sub"><td>Margem bruta</td><td></td><td class="pc"><b>${pc(lb)}</b></td></tr>
       ${l('(−) Pessoal',pes,{neg:1,cls:'neg'})}${subs('Pessoal')}
       ${l('(−) Estrutura',est,{neg:1,cls:'neg'})}${subs('Estrutura')}
       ${l('(−) Marketing',mkt,{neg:1,cls:'neg'})}${subs('Marketing')}
-      ${l('(−) Ferramentas',fer,{neg:1,cls:'neg'})}
-      ${l('(−) Operacional',ope,{neg:1,cls:'neg'})}${subs('Operacional')}
-      ${l('Resultado operacional',res,{res:1,cls:res<0?'neg':'real'})}
-      ${dist||resv?`${dist?l('(−) Distribuição de lucro',dist,{neg:1}):''}${resv?l('(−) Reserva / investimento',resv,{neg:1}):''}${l('Sobra após retiradas e reserva',res-dist-resv,{res:1,cls:res-dist-resv<0?'neg':''})}`:''}
+      ${l('(−) Ferramentas',fer,{neg:1,cls:'neg'})}${subs('Ferramentas')}
+      ${l('(−) Outras despesas operacionais',ope,{neg:1,cls:'neg'})}${subs('Operacional')}
+      ${l('Lucro líquido',res,{res:1,cls:res<0?'neg':'real'})}
+      <tr class="sub"><td>Margem líquida</td><td></td><td class="pc"><b>${pc(res)}</b></td></tr>
+      ${dist||resv?`${dist?l('(−) Retiradas dos sócios',dist,{neg:1}):''}${resv?l('(−) Guardado / investido',resv,{neg:1}):''}${l('Sobra após retiradas e reserva',res-dist-resv,{res:1,cls:res-dist-resv<0?'neg':''})}`:''}
       </tbody></table></div></div>`;
   }
   window.S_dre=v=>{S.dreMes=v;renderFinancas()};
   function desenharGraficosFin(){
     const el=document.getElementById('fx-graf');if(!el||typeof gxGrafico!=='function')return;
     const M=porMes(S.ano),v=Object.values(M);const h=new Date();
-    gxGrafico(el,{titulo:'Entradas e saídas por mês',altura:230,labels:MESES,labelsLongos:MESES_LONGO.map(m=>m+' '+S.ano),
+    gxGrafico(el,{titulo:'Faturamento e despesas por mês',altura:230,labels:MESES,labelsLongos:MESES_LONGO.map(m=>m+' '+S.ano),
       destaque:h.getFullYear()===S.ano?h.getMonth():null,
-      barras:[{nome:'Entradas',cor:'#10B981',valores:v.map(m=>m.rec)},{nome:'Saídas',cor:'#F87171',valores:v.map(m=>m.desp)}],
-      linhas:[{nome:'Resultado',cor:'#7C3AED',valores:v.map(m=>m.rec||m.desp?m.rec-m.desp:null),corPonto:x=>x<0?'#DC2626':'#7C3AED'}]});
+      barras:[{nome:'Faturamento',cor:'#10B981',valores:v.map(m=>m.rec)},{nome:'Despesas',cor:'#F87171',valores:v.map(m=>m.desp)}],
+      linhas:[{nome:'Lucro líquido',cor:'#7C3AED',valores:v.map(m=>m.rec||m.desp?m.rec-m.desp:null),corPonto:x=>x<0?'#DC2626':'#7C3AED'}]});
   }
 
   function telaPainel(){
     const M=porMes(S.ano);const A=doAno(S.ano);
-    const rec=Object.values(M).reduce((a,m)=>a+m.rec,0),desp=Object.values(M).reduce((a,m)=>a+m.desp,0);
+    const Rz=somaResultado(A),rec=Rz.rec;
     const mesesCom=Object.values(M).filter(m=>m.rec||m.desp).length||1;
     // top despesas e clientes
     const cats={};A.forEach(t=>{if(t.tipo!=='Despesa')return;const f=info(t.cat,t.tipo);if(f.fora)return;cats[f.cat]=(cats[f.cat]||0)+valorNum(t)});
@@ -32641,17 +32678,14 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     const cli={};A.forEach(t=>{if(t.tipo!=='Receita'||!t.clienteNome)return;const f=info(t.cat,t.tipo);if(f.fora)return;cli[t.clienteNome]=(cli[t.clienteNome]||0)+valorNum(t)});
     const topC=Object.entries(cli).sort((a,b)=>b[1]-a[1]).slice(0,10);
     const barras=(arr,cls)=>{const mx=Math.max(1,...arr.map(x=>x[1]));return `<div class="fx-bar">${arr.map(([n,v])=>`<div><span title="${E(n)}">${E(n)}</span><i class="${cls}" style="width:${Math.max(1,v/mx*100)}%"></i><b>${R0(v)}</b></div>`).join('')||'<p class="sub">Sem dados.</p>'}</div>`};
-    return `<div class="pl-kpis">
-        <div class="pl-k"><span>Receita operacional</span><b class="fx-in">${R0(rec)}</b><small>média ${R0(rec/mesesCom)}/mês</small></div>
-        <div class="pl-k"><span>Despesa operacional</span><b class="fx-out">${R0(desp)}</b><small>média ${R0(desp/mesesCom)}/mês</small></div>
-        <div class="pl-k dest"><span>Resultado</span><b>${R0(rec-desp)}</b><small>margem ${P(rec?(rec-desp)/rec:0)}</small></div>
-        <div class="pl-k"><span>Folha (equipe + sócios)</span><b>${R0((cats['Salários da equipe']||0)+(cats['Pró-labore dos sócios']||0))}</b><small>${P(rec?((cats['Salários da equipe']||0)+(cats['Pró-labore dos sócios']||0))/rec:0)} da receita</small></div></div>
-      <div class="pl-card"><h3>Entradas x saídas por mês</h3><p class="sub">Só o operacional. A linha roxa é o resultado do mês (ponto vermelho = mês no prejuízo).</p>
+    const folha=((cats['Salários da equipe']||0)+(cats['Pró-labore dos sócios']||0));
+    return `${kpisResultado(Rz,{t:'Folha (equipe + sócios)',v:R0(folha),s:`${P(rec?folha/rec:0)} do faturamento · lucro líquido médio ${sinal(Rz.liq/mesesCom)}/mês`})}
+      <div class="pl-card"><h3>Faturamento x despesas por mês</h3><p class="sub">A linha roxa é o lucro líquido do mês (ponto vermelho = mês no prejuízo).</p>
         <div id="fx-graf" style="color:var(--pl-tx)"></div>
-        <div class="pl-leg"><span><i style="background:#10B981"></i>Entradas</span><span><i style="background:#EF4444"></i>Saídas</span><span><i style="background:#7C3AED"></i>Resultado</span></div></div>
+        <div class="pl-leg"><span><i style="background:#10B981"></i>Faturamento</span><span><i style="background:#EF4444"></i>Despesas</span><span><i style="background:#7C3AED"></i>Lucro líquido</span></div></div>
       ${ponteHtml(A,'Para onde foi o dinheiro em '+S.ano)}
-      <div class="fx-2"><div class="pl-card"><h3>Maiores custos</h3><p class="sub">Despesas da operação no ano</p>${barras(topD,'out')}</div>
-        <div class="pl-card"><h3>Quem mais paga</h3><p class="sub">Receita por cliente no ano</p>${barras(topC,'in')}</div></div>`;
+      <div class="fx-2"><div class="pl-card"><h3>Maiores despesas</h3><p class="sub">Onde mais saiu dinheiro na operação em ${S.ano}</p>${barras(topD,'out')}</div>
+        <div class="pl-card"><h3>Clientes que mais faturam</h3><p class="sub">Faturamento por cliente em ${S.ano}</p>${barras(topC,'in')}</div></div>`;
   }
 
   // ── lançamento (novo / editar) ──
