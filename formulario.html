@@ -6,27 +6,30 @@
   <meta name="robots" content="noindex,nofollow">
   <title>Formulário | GEX Flow</title>
   <style>
-    *{box-sizing:border-box}body{margin:0;min-height:100vh;padding:42px 16px;background:linear-gradient(145deg,#eef2ff,#f8fafc);font-family:Inter,Arial,sans-serif;color:#0f172a}.card{width:100%;max-width:620px;margin:auto;padding:32px;background:#fff;border:1px solid #e2e8f0;border-radius:22px;box-shadow:0 24px 70px #1e293b1f}.brand{text-align:center;color:#4f46e5;font-size:12px;font-weight:900;letter-spacing:.12em;margin-bottom:22px}.logo-img{display:block;max-height:52px;max-width:220px;margin:0 auto 20px}h1{text-align:center;font-size:28px;margin:0}.description{text-align:center;color:#64748b;font-size:14px;line-height:1.55;margin:9px 0 26px}.field{display:block;margin-bottom:15px}.field span{display:block;margin-bottom:6px;color:#475569;font-size:12px;font-weight:800}input,select,textarea{width:100%;height:46px;padding:0 13px;border:1px solid #dbe2ea;border-radius:10px;outline:none;background:#f8fafc;color:#0f172a;font-size:14px}textarea{height:90px;padding-top:12px;resize:vertical}input:focus,select:focus,textarea:focus{border-color:#6366f1;background:#fff;box-shadow:0 0 0 3px #6366f119}button{width:100%;height:48px;border:0;border-radius:11px;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;font-size:14px;font-weight:900;cursor:pointer}button:disabled{opacity:.65;cursor:wait}.hidden{display:none!important}.hp{position:absolute;left:-10000px;opacity:0}.state{text-align:center;padding:30px 10px}.state-icon{width:58px;height:58px;margin:0 auto 14px;display:grid;place-items:center;border-radius:50%;background:#eef2ff;color:#4f46e5;font-size:27px;font-weight:900}.state.error .state-icon{background:#fee2e2;color:#dc2626}.state.success .state-icon{background:#dcfce7;color:#059669}.state h2{margin:0 0 8px}.state p{margin:0;color:#64748b;line-height:1.55}.loader{width:34px;height:34px;margin:0 auto 15px;border:3px solid #e2e8f0;border-top-color:#4f46e5;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:600px){body{padding:18px 10px}.card{padding:24px 18px}h1{font-size:23px}}
-    /* Modo Quiz: barra de progresso + uma pergunta por vez */
-    .progress{height:6px;background:#eef2ff;border-radius:99px;overflow:hidden;margin-bottom:24px}
-    .progress-bar{height:100%;width:0%;background:linear-gradient(135deg,#2563eb,#4f46e5);border-radius:99px;transition:width .25s ease}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;padding:42px 16px;background:linear-gradient(145deg,#eef2ff,#f8fafc);font-family:Inter,Arial,sans-serif;color:#0f172a}.card{--cor:#4f46e5;width:100%;max-width:620px;margin:auto;padding:32px;background:#fff;border:1px solid #e2e8f0;border-radius:22px;box-shadow:0 24px 70px #1e293b1f}.brand{text-align:center;color:#4f46e5;font-size:12px;font-weight:900;letter-spacing:.12em;margin-bottom:22px}.logo-img{display:block;max-height:52px;max-width:220px;margin:0 auto 20px}h1{text-align:center;font-size:28px;margin:0}.description{text-align:center;color:#64748b;font-size:14px;line-height:1.55;margin:9px 0 26px}.field{display:block;margin-bottom:15px}.field span{display:block;margin-bottom:6px;color:#475569;font-size:12px;font-weight:800}input,select,textarea{width:100%;height:46px;padding:0 13px;border:1px solid #dbe2ea;border-radius:10px;outline:none;background:#f8fafc;color:#0f172a;font-size:14px}textarea{height:90px;padding-top:12px;resize:vertical}input:focus,select:focus,textarea:focus{border-color:#6366f1;background:#fff;box-shadow:0 0 0 3px #6366f119}button{width:100%;height:48px;border:0;border-radius:11px;background:linear-gradient(135deg,#2563eb,#4f46e5);color:#fff;font-size:14px;font-weight:900;cursor:pointer}button:disabled{opacity:.65;cursor:wait}.hidden{display:none!important}.hp{position:absolute;left:-10000px;opacity:0}.state{text-align:center;padding:30px 10px}.state-icon{width:58px;height:58px;margin:0 auto 14px;display:grid;place-items:center;border-radius:50%;background:#eef2ff;color:#4f46e5;font-size:27px;font-weight:900}.state.error .state-icon{background:#fee2e2;color:#dc2626}.state.success .state-icon{background:#dcfce7;color:#059669}.state h2{margin:0 0 8px}.state p{margin:0;color:#64748b;line-height:1.55}.loader{width:34px;height:34px;margin:0 auto 15px;border:3px solid #e2e8f0;border-top-color:#4f46e5;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:600px){body{padding:18px 10px}.card{padding:24px 18px}h1{font-size:23px}}
+    /* Modo Quiz: barra de progresso (sem números) + uma pergunta por vez */
+    .progress{height:8px;background:#eef2ff;border-radius:99px;overflow:hidden;margin-bottom:8px}
+    .progress-bar{height:100%;width:0%;background:var(--cor);border-radius:99px;transition:width .45s cubic-bezier(.22,1,.36,1)}
+    .quiz-msg{min-height:18px;margin-bottom:18px;text-align:center;font-size:13px;font-weight:800;color:var(--cor);opacity:0;transform:translateY(-3px);transition:opacity .3s,transform .3s}
+    .quiz-msg.on{opacity:1;transform:none}
     .quiz-step{display:none;flex-direction:column}
     .quiz-step.active{display:flex}
-    .quiz-eyebrow{display:block;text-align:center;font-size:10.5px;font-weight:800;color:#818cf8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
     .quiz-nav{display:flex;gap:10px;margin-top:2px;margin-bottom:15px}
     .quiz-nav button{margin:0}
     #quiz-back{flex:0 0 auto;background:#f1f5f9;color:#475569;width:auto;padding:0 18px;box-shadow:none}
     #quiz-next{flex:1}
+    .send-error{margin:10px 0 0;padding:10px 12px;border-radius:10px;background:#fee2e2;color:#b91c1c;font-size:13px;font-weight:600;text-align:center}
+    @media (prefers-reduced-motion:reduce){.progress-bar,.quiz-msg{transition:none}}
     /* Mobile: textos e campos maiores, fáceis de ler e de tocar (16px+ nos campos evita o zoom automático do iPhone) */
     @media(max-width:600px){
       body{padding:14px 12px 28px}
       .card{padding:26px 20px;border-radius:20px}
       .logo-img{max-height:60px;max-width:240px;margin-bottom:22px}
       .brand{font-size:14px}
-      .progress{height:8px;margin-bottom:26px}
+      .progress{height:9px;margin-bottom:10px}
+      .quiz-msg{font-size:15px;margin-bottom:22px}
       h1{font-size:28px;line-height:1.2;text-wrap:balance}
       .description{font-size:16.5px;line-height:1.5;margin:12px 0 28px}
-      .quiz-eyebrow{font-size:12.5px;margin-bottom:14px}
       .field{margin-bottom:20px}
       .field span{font-size:18px;line-height:1.35;font-weight:700;color:#1e293b;margin-bottom:12px}
       input,select,textarea{height:56px;font-size:17px;padding:0 16px;border-radius:12px;-webkit-appearance:none;appearance:none}
@@ -40,13 +43,14 @@
   </style>
 </head>
 <body>
-  <main class="card">
+  <main class="card" id="card">
     <div id="form-brand" class="brand">GEX FLOW</div>
     <section id="loading" class="state"><div class="loader"></div><p>Carregando formulário…</p></section>
     <section id="error" class="state error hidden"><div class="state-icon">!</div><h2>Formulário indisponível</h2><p id="error-message"></p></section>
     <section id="success" class="state success hidden"><div class="state-icon">✓</div><h2>Formulário enviado!</h2><p id="success-message"></p></section>
     <section id="form-area" class="hidden">
-      <div id="progress" class="progress hidden"><div id="progress-bar" class="progress-bar"></div></div>
+      <div id="progress" class="progress hidden" role="progressbar" aria-label="Progresso do formulário" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progress-bar" class="progress-bar"></div></div>
+      <div id="quiz-msg" class="quiz-msg hidden" aria-live="polite"></div>
       <h1 id="form-title"></h1>
       <div id="form-description" class="description"></div>
       <form id="lead-form">
@@ -57,6 +61,7 @@
           <button type="button" id="quiz-next" class="hidden">Próxima →</button>
         </div>
         <button id="submit-button" type="submit">Enviar informações</button>
+        <p id="send-error" class="send-error hidden" role="alert"></p>
       </form>
     </section>
   </main>
@@ -73,7 +78,7 @@
     // isQuiz: quando true, o campo NÃO leva o atributo "required" direto (pra não
     // travar o submit do navegador com campo obrigatório escondido em outra etapa) —
     // fica marcado em data-required e é ligado/desligado dinamicamente conforme o
-    // visitante avança (ver setActiveQuizField).
+    // visitante avança (ver setActiveQuizStep).
     function renderField(field,isQuiz){
       const req=(!isQuiz&&field.required)?'required':'',dataReq=field.required?'data-required="1"':'',name=esc(field.name||'campo'),ph=esc(field.placeholder||''),label=`${esc(field.label||'Campo')}${field.required?' *':''}`;
       let control=`<input name="${name}" type="text" ${req} ${dataReq} placeholder="${ph}">`;
@@ -93,14 +98,23 @@
       try{window.fbq('init',pixelId);window.fbq('track','PageView')}catch(e){}
     }
 
+    // Barra sem números: já começa um pouco preenchida e anda mais rápido no início,
+    // pra dar a sensação de que está acabando. Vai até ~92% na última pergunta e
+    // completa 100% quando o lead envia.
+    function atualizarProgresso(n,total){
+      const fr=total?n/total:0,pct=Math.round(12+80*Math.pow(fr,0.75));
+      $('progress-bar').style.width=pct+'%';$('progress').setAttribute('aria-valuenow',String(pct));
+      const msg=n===total?'Última pergunta!':(total>=3&&n>=total-1)?'Falta só mais uma!':fr>=0.6?'Quase lá!':(fr>=0.35&&total>=4)?'Você está indo bem!':'';
+      const el=$('quiz-msg');el.textContent=msg;el.classList.toggle('on',!!msg);
+    }
+
     function setActiveQuizStep(n){
       const steps=[...document.querySelectorAll('#fields .quiz-step')];
       if(!steps.length)return;
       steps[quizStep]?.classList.remove('active');
       quizStep=Math.max(0,Math.min(steps.length-1,n));
       steps[quizStep].classList.add('active');
-      const bar=$('progress-bar');
-      if(bar)bar.style.width=Math.round(((quizStep+1)/steps.length)*100)+'%';
+      atualizarProgresso(quizStep+1,steps.length);
       $('quiz-back').classList.toggle('hidden',quizStep===0);
       const isLast=quizStep===steps.length-1;
       $('quiz-next').classList.toggle('hidden',isLast);
@@ -122,24 +136,26 @@
       const submitText=String(form.submitButtonText||'').trim()||'Enviar informações';
       if(form.logoUrl){
         const img=document.createElement('img');
-        img.id='form-brand';img.className='logo-img';img.src=form.logoUrl;img.alt=esc(form.name||'');
+        img.id='form-brand';img.className='logo-img';img.src=form.logoUrl;img.alt=form.name||'';
         $('form-brand').replaceWith(img);
       }
       $('form-title').textContent=form.title||form.name||'Formulário';
       $('form-description').textContent=form.description||'';
       $('submit-button').textContent=submitText;
       const btnColor=String(form.buttonColor||'').trim();
-      if(btnColor){$('submit-button').style.background=btnColor;$('quiz-next').style.background=btnColor}
+      if(btnColor){$('submit-button').style.background=btnColor;$('quiz-next').style.background=btnColor;$('card').style.setProperty('--cor',btnColor)}
       const fieldsWrap=$('fields');
       if(!isQuiz||!fields.length){
         $('progress').classList.add('hidden');
+        $('quiz-msg').classList.add('hidden');
         $('quiz-nav').classList.add('hidden');
         $('submit-button').classList.remove('hidden');
         fieldsWrap.innerHTML=fields.map(f=>renderField(f,false)).join('');
       }else{
         $('progress').classList.remove('hidden');
+        $('quiz-msg').classList.remove('hidden');
         $('quiz-nav').classList.remove('hidden');
-        fieldsWrap.innerHTML=fields.map((f,i)=>`<div class="quiz-step" data-step="${i}"><span class="quiz-eyebrow">Pergunta ${i+1} de ${fields.length}</span>${renderField(f,true)}</div>`).join('');
+        fieldsWrap.innerHTML=fields.map((f,i)=>`<div class="quiz-step" data-step="${i}">${renderField(f,true)}</div>`).join('');
         quizStep=0;
         setActiveQuizStep(0);
         $('quiz-back').addEventListener('click',()=>setActiveQuizStep(quizStep-1));
@@ -173,17 +189,34 @@
       }catch(error){showError(error.message||'Não foi possível carregar o formulário.')}
     }
 
+    // UTMs: do link do formulário; se ele estiver embutido no site (iframe), tenta também o
+    // endereço da página que o abriu. Sem utm_source, deduz pela marca do anúncio (fbclid/gclid).
+    function lerUtms(){
+      const KEYS=['utm_source','utm_medium','utm_campaign','utm_content','utm_term'];
+      let pai=null;try{if(document.referrer)pai=new URL(document.referrer).searchParams}catch(e){}
+      const utm={};KEYS.forEach(k=>{utm[k]=query.get(k)||(pai&&pai.get(k))||''});
+      const tem=k=>query.get(k)||(pai&&pai.get(k));
+      if(!utm.utm_source){
+        if(tem('fbclid')){utm.utm_source='facebook';utm.utm_medium=utm.utm_medium||'paid'}
+        else if(tem('gclid')||tem('gbraid')||tem('wbraid')){utm.utm_source='google';utm.utm_medium=utm.utm_medium||'cpc'}
+        else{try{const h=document.referrer?new URL(document.referrer).hostname:'';
+          if(/instagram\./.test(h))utm.utm_source='instagram';else if(/facebook\.|fb\./.test(h))utm.utm_source='facebook';
+          else if(/google\./.test(h))utm.utm_source='google';else if(/whatsapp|wa\.me/.test(h))utm.utm_source='whatsapp'}catch(e){}}
+      }
+      return utm;
+    }
+
     $('lead-form').addEventListener('submit',async event=>{
       event.preventDefault();
       const button=$('submit-button'),originalText=button.textContent,data=new FormData(event.currentTarget),website=String(data.get('website')||''),answers={};
       data.delete('website');
       for(const [key,value] of data.entries())answers[key]=String(value);
-      const utm={};
-      for(const key of ['utm_source','utm_medium','utm_campaign','utm_content','utm_term'])utm[key]=query.get(key)||'';
-      button.disabled=true;button.textContent='Enviando…';
+      const utm=lerUtms();
+      button.disabled=true;button.textContent='Enviando…';$('send-error').classList.add('hidden');
       try{
         const response=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slug,website,answers,utm})}),result=await response.json();
         if(!response.ok||!result.ok)throw new Error(result.error||'Não foi possível enviar.');
+        $('progress-bar').style.width='100%';$('quiz-msg').classList.remove('on');
         if(currentForm&&currentForm.metaPixelId){try{window.fbq&&window.fbq('track','Lead')}catch(e){}}
         if(currentForm&&currentForm.redirectUrl){
           const dest=currentForm.redirectUrl;
@@ -198,7 +231,7 @@
         $('success').classList.remove('hidden');
       }catch(error){
         button.disabled=false;button.textContent=originalText;
-        alert(error.message||'Não foi possível enviar o formulário.');
+        const el=$('send-error');el.textContent=(error.message||'Não foi possível enviar o formulário.')+' Tente de novo.';el.classList.remove('hidden');
       }
     });
 
