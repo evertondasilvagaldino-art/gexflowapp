@@ -32071,7 +32071,10 @@ html body span.gx-aj:hover,html body span.gx-aj:focus-visible{color:#7C3AED;outl
     tx.temDados=tot.leads>0;
     const churn=pr.churnManual!=null&&pr.churnManual!==''?+pr.churnManual:ch.taxa;
     const ticket=pr.ticketManual?+pr.ticketManual:b.ticket;
-    const mrrIni=pr.mrrBase?+pr.mrrBase:b.mrr;
+    // Metas apagadas (tudo vazio/zero): o previsto fica zerado em vez de projetar sozinho a partir dos contratos
+    const vazio=v=>v==null||v===''||!(+v);
+    const semMetas=vazio(pr.metaNovos)&&vazio(pr.despesaFixa)&&vazio(pr.imposto)&&vazio(pr.expansao)&&vazio(pr.mrrBase)&&vazio(pr.ticketManual)&&!Object.values(pr.vendasAdicionais||{}).some(v=>+v);
+    const mrrIni=semMetas?0:(pr.mrrBase?+pr.mrrBase:b.mrr);
     const conv=tx.resposta*tx.agendamento*tx.comparecimento*tx.fechamento;
     const leadsNec=conv>0?Math.ceil(pr.metaNovos/conv):0;
     const linhas=[];let ini=mrrIni;
@@ -32099,7 +32102,7 @@ html body span.gx-aj:hover,html body span.gx-aj:focus-visible{color:#7C3AED;outl
     if(tx.temDados){if(tx.resposta<al.resposta)falhas.push('Resposta abaixo do critério');if(tx.agendamento<al.agendamento)falhas.push('Agendamento abaixo do critério');
       if(tx.comparecimento<al.comparecimento)falhas.push('Comparecimento abaixo do critério');if(tx.fechamento<al.fechamento)falhas.push('Fechamento abaixo do critério')}
     if(churn>al.churnMax)falhas.push('Churn acima do critério');
-    return {pr,b,ch,churn,ticket,mrrIni,tx,conv,leadsNec,linhas,funil,meses,tot,falhas,cfg:config(),fonteCfg};
+    return {pr,b,ch,churn,ticket,mrrIni,tx,conv,leadsNec,linhas,funil,meses,tot,falhas,cfg:config(),fonteCfg,semMetas};
   }
 
   // ── telas ──
@@ -32115,6 +32118,7 @@ html body span.gx-aj:hover,html body span.gx-aj:focus-visible{color:#7C3AED;outl
       <div class="pl-h"><div><h1>Planejamento do negócio</h1><p>Forecast, margem e saúde do funil. Base de clientes, vendas e despesas vêm do próprio GexFlow.</p></div>
         <div class="pl-ano" aria-label="Ano"><button type="button" aria-label="Ano anterior" onclick="plAno(-1)">‹</button><b>${S.ano}</b><button type="button" aria-label="Próximo ano" onclick="plAno(1)">›</button></div></div>
       <div class="pl-tabs" role="tablist">${tabs.map(([k,t])=>`<button type="button" role="tab" aria-selected="${S.tab===k}" class="${S.tab===k?'on':''}" onclick="plTab('${k}')">${t}</button>`).join('')}</div>
+      ${C.semMetas&&(S.tab==='painel'||S.tab==='forecast')?`<div class="pl-alert wa" role="status"><div><b>As metas estão vazias.</b> Por isso todo o previsto está zerado. O realizado continua aparecendo normalmente. <button type="button" class="pl-btn" style="margin-left:6px" onclick="plTab('premissas')">Preencher metas</button></div></div>`:''}
       ${({painel,forecast,funil:telaFunil,base:telaBase,premissas:telaPrem})[S.tab](C)}
     </div>`;
     try{gxMelhorarSelects(el)}catch(e){}
