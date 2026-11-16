@@ -12501,6 +12501,50 @@ function renderRelatorioComercial(){
       {lbl:'Ciclo médio de venda',val:ciclo!==null?ciclo+' dias':'Sem dados'},
     ].map(r=>`<div class="resumo-item"><span class="resumo-lbl">${r.lbl}</span><span class="resumo-val">${r.val}</span></div>`).join('');
   }
+  try{gxRelUtm(ops,resumoEl)}catch(e){console.warn('[Origem dos leads]',e)}
+}
+// ── ORIGEM DOS LEADS (UTM) — 16/11/2026 ──
+// O formulário público grava utm_source/medium/campaign/content/term no lead. Leads sem UTM entram pela "origem".
+let __gxRelUtmModo='source';
+function gxUtmNomeFonte(v){
+  const k=String(v||'').trim().toLowerCase();if(!k)return '';
+  const M={facebook:'Facebook',fb:'Facebook','facebook.com':'Facebook',meta:'Meta Ads',metaads:'Meta Ads','meta_ads':'Meta Ads',instagram:'Instagram',ig:'Instagram',google:'Google',googleads:'Google Ads','google_ads':'Google Ads',youtube:'YouTube',yt:'YouTube',tiktok:'TikTok',whatsapp:'WhatsApp',wa:'WhatsApp',linkedin:'LinkedIn',email:'E-mail',newsletter:'E-mail',site:'Site',organico:'Orgânico',organic:'Orgânico'};
+  return M[k]||(k.charAt(0).toUpperCase()+k.slice(1));
+}
+function gxUtmChave(o,modo){
+  if(modo==='campaign'){const c=String(o.utm_campaign||'').trim();return c?{k:'c:'+c.toLowerCase(),nome:c,sub:gxUtmNomeFonte(o.utm_source)||'sem source'}:{k:'c:_',nome:'Sem campanha',sub:'leads sem utm_campaign'}}
+  const f=gxUtmNomeFonte(o.utm_source);
+  if(f)return {k:'s:'+f,nome:f,sub:''};
+  let org=String(o.origem||'').trim();if(/^formul/i.test(org))org='Formulário';
+  return {k:'o:'+(org||'_'),nome:'Sem UTM',sub:org||'cadastro manual / sem origem'};
+}
+window.gxRelUtmModo=function(m){_gxRelUtmModo=m;try{renderRelatorioComercial()}catch(e){}};
+function gxRelUtm(ops,ancora){
+  if(!ancora)return;
+  let box=document.getElementById('rel-utm');
+  if(!box){const card=ancora.closest('.card');const pai=card&&card.parentElement;if(!pai)return;box=document.createElement('div');box.id='rel-utm';box.className='card';box.style.cssText='margin-top:16px;padding:18px 20px';pai.insertAdjacentElement('afterend',box)}
+  const g=new Map();
+  (ops||[]).forEach(o=>{const c=gxUtmChave(o,_gxRelUtmModo);const r=g.get(c.k)||{nome:c.nome,sub:c.sub,leads:0,vendas:0,valor:0,perd:0};r.leads++;
+    if(isWonOpportunity(o)){r.vendas++;r.valor+=getOpportunityValue(o)}else if(isLostOpportunity(o))r.perd++;g.set(c.k,r)});
+  const rows=[...g.values()].sort((a,b)=>b.valor-a.valor||b.vendas-a.vendas||b.leads-a.leads);
+  const tot=rows.reduce((a,r)=>a+r.leads,0)||1,comUtm=(ops||[]).filter(o=>String(o.utm_source||'').trim()).length;
+  const top=rows.filter(r=>r.nome!=='Sem UTM'&&r.nome!=='Sem campanha')[0];
+  const esc2=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const seg=(m,t)=>`<button type="button" onclick="gxRelUtmModo('${m}')" aria-pressed="${_gxRelUtmModo===m}" style="border:0;padding:6px 12px;border-radius:7px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;background:${_gxRelUtmModo===m?'var(--card,#fff)':'transparent'};color:${_gxRelUtmModo===m?'var(--text,#111)':'var(--muted,#6B7280)'};box-shadow:${_gxRelUtmModo===m?'0 1px 2px rgba(0,0,0,.08)':'none'}">${t}</button>`;
+  box.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+      <div><div class="rel-section-title" style="margin-bottom:4px">Origem dos leads</div>
+      <div style="font-size:12px;color:var(--muted)">${comUtm} de ${(ops||[]).length} leads do período chegaram com UTM${top?` · melhor ${_gxRelUtmModo==='campaign'?'campanha':'origem'}: <b>${esc2(top.nome)}</b>`:''}</div></div>
+      <div style="display:inline-flex;gap:2px;padding:3px;border:1px solid var(--border);border-radius:10px;background:var(--bg,#F9FAFB)">${seg('source','Por origem')}${seg('campaign','Por campanha')}</div></div>
+    ${rows.length?`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums">
+      <thead><tr style="text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em"><th style="padding:8px 10px">${_gxRelUtmModo==='campaign'?'Campanha':'Origem'}</th><th style="padding:8px 10px;text-align:right">Leads</th><th style="padding:8px 10px;text-align:right">Vendas</th><th style="padding:8px 10px;text-align:right">Conversão</th><th style="padding:8px 10px;text-align:right">Valor vendido</th><th style="padding:8px 10px;min-width:120px">% dos leads</th></tr></thead>
+      <tbody>${rows.slice(0,15).map(r=>{const pc=Math.round(r.leads/tot*100),cv=r.leads?Math.round(r.vendas/r.leads*100):0;return `<tr style="border-top:1px solid var(--border)">
+        <td style="padding:9px 10px"><b>${esc2(r.nome)}</b>${r.sub?`<div style="font-size:11px;color:var(--muted)">${esc2(r.sub)}</div>`:''}</td>
+        <td style="padding:9px 10px;text-align:right">${r.leads}</td><td style="padding:9px 10px;text-align:right">${r.vendas}</td>
+        <td style="padding:9px 10px;text-align:right;font-weight:700;color:${cv>=20?'var(--green,#059669)':cv?'inherit':'var(--muted)'}">${cv}%</td>
+        <td style="padding:9px 10px;text-align:right;font-weight:700">${r.valor?fmtBRL(r.valor):'—'}</td>
+        <td style="padding:9px 10px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:6px;border-radius:99px;background:var(--border);overflow:hidden"><div style="height:100%;width:${Math.max(2,pc)}%;background:#7C3AED;border-radius:99px"></div></div><span style="font-size:11px;color:var(--muted);min-width:30px;text-align:right">${pc}%</span></div></td></tr>`}).join('')}</tbody></table></div>
+      ${rows.length>15?`<div style="font-size:11px;color:var(--muted);margin-top:8px">Mostrando as 15 principais de ${rows.length}.</div>`:''}`:`<div style="font-size:13px;color:var(--muted);padding:10px 0">Nenhum lead no período.</div>`}
+    <div style="font-size:11px;color:var(--muted);margin-top:10px">UTMs vêm do link do formulário (utm_source, utm_campaign…). Sem utm_source, o formulário reconhece anúncio do Meta e do Google sozinho. Leads sem UTM aparecem pela origem do cadastro.</div>`;
 }
 
 function getFilteredTransacoesFinancas(){
