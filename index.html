@@ -22088,8 +22088,10 @@ window.gxiTrkFunnelChange=id=>{const f=mapFunnels().find(x=>String(x.id)===Strin
     if(glPreviewQuizStep>=glFields.length)glPreviewQuizStep=glFields.length-1;
     if(glPreviewQuizStep<0)glPreviewQuizStep=0;
     const total=glFields.length,f=glFields[glPreviewQuizStep],isLast=glPreviewQuizStep===total-1;
-    const pct=Math.round(((glPreviewQuizStep+1)/total)*100);
-    return `<div style="height:5px;background:#EEF2FF;border-radius:99px;overflow:hidden;margin-bottom:16px"><div style="height:100%;width:${pct}%;background:linear-gradient(135deg,#2563EB,#4F46E5);border-radius:99px"></div></div>
+    const qn=glPreviewQuizStep+1,fr=qn/total,pct=Math.round(12+80*Math.pow(fr,0.75));
+    const msgQ=qn===total?'Última pergunta!':(total>=3&&qn>=total-1)?'Falta só mais uma!':fr>=0.6?'Quase lá!':fr>=0.35&&total>=4?'Você está indo bem!':'';
+    return `<div style="height:7px;background:#EEF2FF;border-radius:99px;overflow:hidden;margin-bottom:6px"><div style="height:100%;width:${pct}%;background:${esc(btnColor)};border-radius:99px;transition:width .45s cubic-bezier(.22,1,.36,1)"></div></div>
+    <div style="min-height:14px;margin-bottom:12px;text-align:center;font-size:10px;font-weight:800;color:${esc(btnColor)}">${msgQ}</div>
     ${brand}
     
     <div class="gl-pf"><label>${esc(f.label)}${f.required?' *':''}</label>${previewFieldHtml(f)}</div>
