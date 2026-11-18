@@ -19950,6 +19950,15 @@ function gexHideAccessRevokedOverlay(){
 }
 // Chamado sempre que o sistema detecta (login, Realtime ou revalidação
 // periódica) que o usuário logado foi desativado no meio do uso.
+// Acesso EXCLUÍDO: sai e avisa (sem a tela de renovar plano, que é para quem foi só desativado/vencido)
+let _gexSaindoExcluido=false;
+async function gexLogoutExcluido(){
+  if(_gexSaindoExcluido)return;_gexSaindoExcluido=true;
+  try{await doLogout(false)}catch(e){}
+  try{await supabaseClient?.auth.signOut()}catch(e){}
+  try{gxAlert({title:'Acesso removido',message:'Seu acesso ao GexFlow foi removido. Se achar que é um engano, fale com o administrador da sua empresa.'})}catch(e){}
+  _gexSaindoExcluido=false;
+}
 async function forceLogoutDeactivated(){
   // Guarda o token só em memória para a tela de renovação funcionar; o app continua bloqueado (sessão local apagada).
   try{ _gexRenewToken=await getGexSupabaseToken(); }catch(e){ _gexRenewToken=''; }
@@ -20157,6 +20166,7 @@ if(supabaseClient){
 let gexStatusPollTimer=null;
 let gexLastStatusCheckAt=0;
 const GEX_STATUS_CHECK_MIN_GAP_MS=3000; // não checa de novo antes de 3s do último check
+let gexPerfilSumiuN=0;
 async function gexRevalidateOwnStatus(force){
   try{
     if(!supabaseClient||!sessionUser?.id)return;
@@ -20172,6 +20182,22 @@ async function gexRevalidateOwnStatus(force){
     if(data&&!isProfileActive(data)){
       console.warn('[GexFlow] Revalidação: usuário foi desativado, encerrando sessão.');
       forceLogoutDeactivated();
+      return;
+    }
+    if(data){gexPerfilSumiuN=0;return}
+    // Perfil EXCLUÍDO (não só inativado): antes a sessão aberta continuava funcionando.
+    // Confere no Auth: conta apagada → sai na hora; conta existe mas o perfil sumiu 3 checagens seguidas → sai também.
+    // Login local/demo (sem conta no Supabase) nunca é afetado.
+    let authUser=null,authApagado=false;
+    try{
+      const {data:au,error:ae}=await supabaseClient.auth.getUser();
+      if(ae){const m=String(ae.message||'')+' '+String(ae.code||'')+' '+String(ae.status||'');if(/does not exist|not.?found|user_not_found|\b40[34]\b/i.test(m))authApagado=true}
+      authUser=au?.user||null;
+    }catch(e){return}
+    if(authApagado){console.warn('[GexFlow] Revalidação: conta excluída, encerrando sessão.');gexLogoutExcluido();return}
+    if(authUser&&String(authUser.id)===String(sessionUser.id)){
+      gexPerfilSumiuN++;
+      if(gexPerfilSumiuN>=3){console.warn('[GexFlow] Revalidação: perfil excluído, encerrando sessão.');gexLogoutExcluido()}
     }
   }catch(e){/* silencioso — só reforço, não deve travar a UI */}
 }
