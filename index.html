@@ -27157,7 +27157,7 @@ window.renderInicio=function(){
 
 <script id="gex-trial-script">
 (function(){
-// Teste grátis de 3 dias do Gex Parceiro (pré-cadastro): durante o teste vale o plano Pro; ao acabar,
+// Teste grátis de 30 dias do Gex Parceiro (prazo definido na função gex-pre-cadastro) (pré-cadastro): durante o teste vale o plano Pro; ao acabar,
 // sem assinatura ativa, aparece um pop-up com os planos. Só atua para Gex Parceiro que tem registro em gex_trials.
 const BENEF={
   basic:['Calendário próprio','Comercial: pipeline, tarefas e relatório do seu funil','Gerar Leads: formulários e API','Integrações próprias (Meta Ads e outras)','Painel de início com os seus números','Meu perfil e configurações do seu webhook/API','Sem limite de usuários vendedores','Cancele quando quiser'],
@@ -30834,7 +30834,7 @@ textarea.wg-in{height:auto;min-height:92px;padding:10px 12px;resize:vertical;lin
 <script id="gx-wagrupos-js">
 /* ═══ DISPARO EM GRUPOS DO WHATSAPP (04/11/2026) ═══
    Tela da automação. Os dados ficam nas tabelas gex_wa_group_* e são lidos/gravados só pela função wa-groups.
-   Quem dispara é a wa-groups-cron (fila por número: 1 grupo por vez, 90–240 s, 8h–20h, limite diário próprio). */
+   Quem dispara é a wa-groups-cron (fila por número: 1 grupo por vez, 90–240 s, 7h–22h, limite diário próprio). */
 (function(){
   if(window.__GX_WAGRUPOS__)return;window.__GX_WAGRUPOS__=true;
   const E=v=>typeof escHtml==='function'?escHtml(v):String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -30907,7 +30907,7 @@ textarea.wg-in{height:auto;min-height:92px;padding:10px 12px;resize:vertical;lin
     const st=W.status||{};
     const prov={evolution:'Evolution',zapi:'Z-API',meta:'API Oficial (Meta)'}[st.provider]||'—';
     const camps=W.camps;
-    return `<div class="wg-h"><div><h2>Disparo em grupos do WhatsApp</h2><p>Sequências de mensagens para os grupos do seu número. Um grupo por vez, com pausa de 90 a 240 s entre envios, das 8h às 20h, respeitando o limite diário do número.</p></div><button class="wg-x" onclick="gxGruposFechar()" aria-label="Fechar">✕</button></div>
+    return `<div class="wg-h"><div><h2>Disparo em grupos do WhatsApp</h2><p>Sequências de mensagens para os grupos do seu número. Um grupo por vez, com pausa de 90 a 240 s entre envios, das 7h às 22h, respeitando o limite diário do número.</p></div><button class="wg-x" onclick="gxGruposFechar()" aria-label="Fechar">✕</button></div>
     <div class="wg-b">
       ${W.status?(!st.ok?`<div class="wg-warn">${E(st.message||'Não foi possível ler a sua conexão.')}</div>`:!st.suportaGrupos?`<div class="wg-warn">${st.provider==='meta'?'Sua conexão é a API Oficial da Meta, que não envia para grupos. Conecte pela Evolution (recomendado) ou Z-API em Integrações.':'Seu WhatsApp não está conectado. Conecte em Integrações para disparar em grupos.'}</div>`:''):''}
       <div class="wg-stats">
@@ -31004,7 +31004,7 @@ textarea.wg-in{height:auto;min-height:92px;padding:10px 12px;resize:vertical;lin
   function quandoPasso(p){
     const ini=W.ed?.inicio||hojeSP();const d=new Date((p.data||ini)+'T12:00:00');if(!p.data)d.setDate(d.getDate()+(+p.dia||0));
     const h=+String(p.hora||'09:00').slice(0,2);
-    return `= ${d.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'})}${h<8||h>=20?' · fora das 8h–20h: sai às 8h do dia seguinte':''}`;
+    return `= ${d.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'2-digit'})}${h<7?' · antes das 7h: sai às 7h':h>=22?' · depois das 22h: sai às 7h do dia seguinte':''}`;
   }
   const sujo=()=>{W.ed.__sujo=true};
   window.gxWgSet=(k,v)=>{W.ed[k]=v;sujo();if(k==='inicio')desenhar()};
