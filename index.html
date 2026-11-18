@@ -4312,7 +4312,7 @@ const GEX_DB_COLLECTIONS = [
   'tracking_links','integration_events','integration_connections','manual_trackings','tracking_events',
   'conversion_settings','conversion_events','lead_forms','lead_form_submissions','leadgen_settings',
   'whatsapp_widgets','automacoes','automacao_tasks','automacao_log','email_smtp_settings','zapi_settings',
-  'op_listas','op_tarefas','op_acessos','notificacoes','op_automacoes','metas','metas_regras','roleta_leads','metas_anuais','docs','planejamento','fin_categorias'
+  'op_listas','op_tarefas','op_acessos','notificacoes','op_automacoes','metas','metas_regras','roleta_leads','metas_anuais','docs','planejamento','fin_categorias','webhook_links'
 ];
 const GEX_KV_EXCLUDED = new Set([
   // gx2_usuarios: mesmo "usuarios" já sendo excluído da sincronização por
@@ -6845,6 +6845,46 @@ window.cfgWebhookToggleActive=function(checked){
   cfgWebhookKeyUpdate({active:!!checked},checked?'Webhook ativado ✓':'Webhook desativado');
 };
 
+// ── URLs por integração (18/11/2026) ──
+// Uma URL por plataforma (Eduzz, Masterclass...), todas com a mesma chave, cada uma com o próprio funil/etapa.
+// A edge gex-webhook lê &funil= e &etapa= da URL; sem eles vale o "Destino dos leads" acima (URLs antigas não mudam).
+function cfgWhkLinks(){try{const me=String(sessionUser?.id||'');return (DB.get('webhook_links')||[]).filter(l=>l&&String(l.createdBy||'')===me).sort((a,b)=>String(a.createdAt||'').localeCompare(String(b.createdAt||'')))}catch(e){return []}}
+function cfgWhkSlug(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40)}
+function cfgWhkLinkUrl(l,key){const u=new URL(cfgWebhookUrl());u.searchParams.set('key',key||'');u.searchParams.set('funil',l.funnelId||'');if(l.stageId)u.searchParams.set('etapa',l.stageId);const src=cfgWhkSlug(l.nome);if(src)u.searchParams.set('utm_source',src);return u.toString()}
+function cfgWhkDestinoTxt(l){try{const f=getCommercialFunnels().find(x=>x.id===l.funnelId);if(!f)return '⚠ funil não encontrado (excluído?) — os leads caem no destino padrão';const st=(f.stages||[]).find(x=>x.id===l.stageId);return `${f.name||'Funil'} › ${st?.name||(f.stages||[])[0]?.name||'1ª etapa'}`}catch(e){return ''}}
+function cfgWhkLinksHtml(key){
+  const ls=cfgWhkLinks(),fid=cfgWebhookResolveFunnelId('');
+  return `<div class="cfg-panel">
+    <div class="cfg-panel-head"><div><div class="cfg-panel-title">URLs por integração</div><div class="cfg-panel-sub">Uma URL para cada plataforma (ex.: Eduzz, Masterclass), cada uma levando o lead para o seu funil e etapa. Todas usam a chave acima. A URL de cima continua valendo e usa o "Destino dos leads".</div></div></div>
+    ${ls.length?`<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">${ls.map(l=>{const u=cfgWhkLinkUrl(l,key);return `<div style="border:1px solid var(--border,#E5E7EB);border-radius:12px;padding:12px 14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px"><div><b style="font-size:13.5px">${escHtml(l.nome||'Integração')}</b><div style="font-size:11.5px;color:var(--muted,#64748B);margin-top:2px">Cai em: ${escHtml(cfgWhkDestinoTxt(l))}</div></div>
+      <button class="cfg-btn" style="color:#B42318" onclick="cfgWhkLinkDel('${escAttr(l.id)}')">Excluir</button></div>
+      <div class="cfg-copy-row" style="margin:0"><code style="word-break:break-all">${escHtml(u)}</code><button class="cfg-btn primary" onclick="copyTextSafe('${escAttr(u)}','URL da ${escAttr(l.nome||'integração')}')">Copiar URL</button></div></div>`}).join('')}</div>`:''}
+    <div style="font-size:12px;font-weight:700;color:#475569;margin-bottom:6px">Nova URL</div>
+    <div class="cfg-form-grid" style="grid-template-columns:minmax(160px,1fr) minmax(180px,1.2fr) minmax(180px,1.2fr)">
+      <input class="form-input" id="cfg-whl-nome" maxlength="40" placeholder="Nome da integração (ex.: Eduzz)">
+      <select class="form-input" id="cfg-whl-funnel" onchange="cfgWhkLinkFunnel(this.value)">${cfgWebhookFunnelOptions(fid)}</select>
+      <select class="form-input" id="cfg-whl-stage">${cfgWebhookStageOptions(fid,'')}</select>
+    </div>
+    <div class="cfg-actions" style="margin-top:12px"><button class="cfg-btn primary" onclick="cfgWhkLinkAdd()">Criar URL</button></div>
+    <div class="cfg-note" style="margin-top:10px">Se usar "Gerar nova chave", todas as URLs (a de cima e estas) mudam juntas e precisam ser atualizadas nas plataformas.</div>
+  </div>`;
+}
+function cfgWhkRedesenhar(){const root=document.getElementById('cfg-webhook-root');if(root)root.innerHTML=cfgWebhookPanelHtml()}
+window.cfgWhkLinkFunnel=function(fid){const sel=document.getElementById('cfg-whl-stage');if(sel)sel.innerHTML=cfgWebhookStageOptions(fid,'')};
+window.cfgWhkLinkAdd=function(){
+  const nome=String(document.getElementById('cfg-whl-nome')?.value||'').trim(),funnelId=document.getElementById('cfg-whl-funnel')?.value||'',stageId=document.getElementById('cfg-whl-stage')?.value||'';
+  if(!nome){toast('Dê um nome para a integração (ex.: Eduzz)','#F59E0B');document.getElementById('cfg-whl-nome')?.focus();return}
+  if(!funnelId){toast('Escolha o funil de destino','#F59E0B');return}
+  if(cfgWhkLinks().some(l=>cfgWhkSlug(l.nome)===cfgWhkSlug(nome))){toast('Já existe uma URL com esse nome','#F59E0B');return}
+  DB.push('webhook_links',{id:uid(),nome,funnelId,stageId,createdBy:String(sessionUser?.id||''),createdAt:new Date().toISOString()});
+  cfgWhkRedesenhar();toast(`URL da ${nome} criada ✓ Copie e cole na plataforma`,'#10B981');
+};
+window.cfgWhkLinkDel=async function(id){
+  const l=cfgWhkLinks().find(x=>x.id===id);if(!l)return;
+  if(!await gxConfirm({title:'Excluir URL',message:`A URL da "${l.nome}" sai desta lista. Se ela já estiver colada na plataforma, os leads continuam chegando no mesmo funil enquanto a chave for a mesma. Para parar de vez, apague a URL lá na plataforma.`,okText:'Excluir'}))return;
+  DB.remove('webhook_links',id);cfgWhkRedesenhar();toast('URL excluída','#6B7280');
+};
 function cfgWebhookPanelHtml(){
   const url=cfgWebhookUrl();
   if(cfgWhkState.loading&&!cfgWhkState.key){
@@ -6879,6 +6919,7 @@ function cfgWebhookPanelHtml(){
         <button class="cfg-btn primary" onclick="cfgWebhookSaveDestino()">Salvar destino</button>
       </div>
     </div>
+    ${cfgWhkLinksHtml(key)}
     <div class="cfg-panel">
       <div class="cfg-panel-head"><div><div class="cfg-panel-title">Payload recomendado</div><div class="cfg-panel-sub">Modelo simples para criar lead no CRM.</div></div></div>
       <pre style="white-space:pre-wrap;background:#12112A;color:#EDE9FE;border-radius:12px;padding:14px;font-size:12px;overflow:auto">{
