@@ -21654,7 +21654,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     const activeFunnel=typeof getActiveFunnel==='function'?getActiveFunnel():null;
     const selectedFunnelId=s.funnelId&&allFunnels.some(f=>String(f.id)===String(s.funnelId))?s.funnelId:(activeFunnel?.id||(allFunnels[0]&&allFunnels[0].id)||'');
     const ss=stagesForFunnel(selectedFunnelId);
-    const receivedLeads=(function(){try{return (DB.get('leads')||[]).filter(l=>l.origem==='Meta Ads (Formulário Instantâneo)')}catch(e){return[]}})();
+    const receivedLeads=(function(){try{const L=(DB.get('leads')||[]).filter(l=>l.origem==='Meta Ads (Formulário Instantâneo)');return typeof getVisibleCommercialLeads==='function'?getVisibleCommercialLeads(L):L}catch(e){return[]}})();
     const lastReceived=receivedLeads.length?receivedLeads.slice().sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0))[0]:null;
     return `<div class="gxi-conv-grid" style="grid-template-columns:1fr">
       <div class="gxi-conv-card">
@@ -22574,7 +22574,8 @@ ${gxlCloseScriptTag}`;
     el.innerHTML=gxwPreviewMarkup(gxwCollectForm());
   };
   function gxwListHtml(){
-    const ws=widgets(),leads=DB.get('leads')||[];
+    // Só os leads dos botões que a pessoa enxerga (parceiro: os dele; Fundador/Adm: todos da empresa)
+    const ws=widgets(),_meus=new Set(ws.map(w=>String(w.id))),leads=(DB.get('leads')||[]).filter(l=>l&&l.widgetId&&_meus.has(String(l.widgetId)));
     const countFor=id=>leads.filter(l=>l.widgetId===id).length;
     const totalLeads=leads.filter(l=>l.widgetId).length;
     const ultimo=leads.filter(l=>l.widgetId).sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0))[0];
