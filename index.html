@@ -6835,6 +6835,7 @@ window.cfgWebhookSaveDestino=function(){
   const funnelId=funnelSel?.value||'',funnelName=funnelSel?.selectedOptions[0]?.textContent||'';
   const stageId=stageSel?.value||'',stageName=stageSel?.selectedOptions[0]?.dataset.name||stageSel?.selectedOptions[0]?.textContent||'';
   if(!funnelId||!stageId){toast('Escolha o funil e a etapa de destino.','#F59E0B');return}
+  cfgWhkUi.edit=null;
   cfgWebhookKeyUpdate({defaultFunnelId:funnelId,defaultFunnelName:funnelName,defaultStageId:stageId,defaultStageName:stageName},'Destino salvo ✓');
 };
 window.cfgWebhookRegenerate=async function(){
@@ -6870,6 +6871,12 @@ function cfgWhkLinksHtml(key){
     <div class="cfg-note" style="margin-top:10px">Se usar "Gerar nova chave", todas as URLs (a de cima e estas) mudam juntas e precisam ser atualizadas nas plataformas.</div>
   </div>`;
 }
+let cfgWhkUi={edit:null,novo:false};
+window.cfgWhkEdit=function(id){cfgWhkUi.edit=id;cfgWhkUi.novo=false;cfgWhkRedesenhar()};
+window.cfgWhkNovo=function(v){cfgWhkUi.novo=!!v;cfgWhkUi.edit=null;cfgWhkRedesenhar();if(v)setTimeout(()=>document.getElementById('cfg-whl-nome')?.focus(),30)};
+window.cfgWhkLinkEditFunnel=function(fid){const sel=document.getElementById('cfg-whl-es');if(sel)sel.innerHTML=cfgWebhookStageOptions(fid,'')};
+window.cfgWhkLinkSave=function(id){const f=document.getElementById('cfg-whl-ef')?.value||'',st=document.getElementById('cfg-whl-es')?.value||'';if(!f){toast('Escolha o funil','#F59E0B');return}
+  DB.update('webhook_links',id,{funnelId:f,stageId:st,updatedAt:new Date().toISOString()});cfgWhkUi.edit=null;cfgWhkRedesenhar();toast('Destino salvo ✓ A URL mudou: copie de novo e atualize na plataforma','#10B981')};
 function cfgWhkRedesenhar(){const root=document.getElementById('cfg-webhook-root');if(root)root.innerHTML=cfgWebhookPanelHtml()}
 window.cfgWhkLinkFunnel=function(fid){const sel=document.getElementById('cfg-whl-stage');if(sel)sel.innerHTML=cfgWebhookStageOptions(fid,'')};
 window.cfgWhkLinkAdd=function(){
@@ -6878,7 +6885,7 @@ window.cfgWhkLinkAdd=function(){
   if(!funnelId){toast('Escolha o funil de destino','#F59E0B');return}
   if(cfgWhkLinks().some(l=>cfgWhkSlug(l.nome)===cfgWhkSlug(nome))){toast('Já existe uma URL com esse nome','#F59E0B');return}
   DB.push('webhook_links',{id:uid(),nome,funnelId,stageId,createdBy:String(sessionUser?.id||''),createdAt:new Date().toISOString()});
-  cfgWhkRedesenhar();toast(`URL da ${nome} criada ✓ Copie e cole na plataforma`,'#10B981');
+  cfgWhkUi.novo=false;cfgWhkRedesenhar();toast(`URL da ${nome} criada ✓ Copie e cole na plataforma`,'#10B981');
 };
 window.cfgWhkLinkDel=async function(id){
   const l=cfgWhkLinks().find(x=>x.id===id);if(!l)return;
@@ -6894,35 +6901,41 @@ function cfgWebhookPanelHtml(){
     return `<div class="cfg-panel"><div class="cfg-panel-head"><div><div class="cfg-panel-title">Webhook de entrada</div><div class="cfg-panel-sub" style="color:#DC2626">${escHtml(cfgWhkState.error)}</div></div></div><button class="cfg-btn" onclick="cfgWebhookKeyBoot()">Tentar de novo</button></div>`;
   }
   const k=cfgWhkState.key||{},key=k.apiKey||'',funnelId=cfgWebhookResolveFunnelId(k.defaultFunnelId||'');
+  const urlChave=url+'?key='+key,ui=cfgWhkUi,ls=cfgWhkLinks(),ativo=k.active!==false;
+  const destPadrao=(()=>{try{const f=getCommercialFunnels().find(x=>x.id===k.defaultFunnelId);if(!f)return 'Destino ainda não escolhido';const st=(f.stages||[]).find(x=>x.id===k.defaultStageId);return `${f.name||'Funil'} › ${st?.name||k.defaultStageName||(f.stages||[])[0]?.name||'1ª etapa'}`}catch(e){return ''}})();
+  const icoCopiar='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
+  const editor=(idF,idS,fSel,sSel,salvar,onF)=>`<div class="whk-ed"><select class="form-input" id="${idF}" aria-label="Funil" onchange="${onF}(this.value)">${cfgWebhookFunnelOptions(fSel)}</select><select class="form-input" id="${idS}" aria-label="Etapa">${cfgWebhookStageOptions(fSel,sSel)}</select><div class="whk-ed-b"><button class="cfg-btn" onclick="cfgWhkEdit(null)">Cancelar</button><button class="cfg-btn primary" onclick="${salvar}">Salvar destino</button></div></div>`;
+  const linha=o=>`<div class="whk-row${o.editando?' on':''}">
+      <div class="whk-main"><div class="whk-nome">${escHtml(o.nome)}${o.tag?`<span class="whk-tag">${o.tag}</span>`:''}</div><div class="whk-dest">Cai em: <b>${escHtml(o.dest)}</b></div></div>
+      <div class="whk-acts"><button class="cfg-btn primary" onclick="copyTextSafe('${escAttr(o.url)}','URL da ${escAttr(o.nome)}')">${icoCopiar} Copiar URL</button><button class="cfg-btn" onclick="cfgWhkEdit('${escAttr(o.id)}')">Trocar destino</button>${o.excluir?`<button class="cfg-btn whk-del" onclick="cfgWhkLinkDel('${escAttr(o.id)}')" aria-label="Excluir ${escAttr(o.nome)}">Excluir</button>`:''}</div>
+      ${o.editando?o.editor:''}</div>`;
   return `
     <div class="cfg-panel">
-      <div class="cfg-panel-head"><div><div class="cfg-panel-title">Webhook de entrada</div><div class="cfg-panel-sub">Use esta URL e esta chave para receber leads de fora do GexFlow (Make, Zapier, sistema próprio). A chave é pessoal — se você é parceiro, é só sua, separada da do fundador, cada uma com seu próprio destino.</div></div></div>
-      <div class="cfg-copy-row"><code>${escHtml(url)}</code><button class="cfg-btn" onclick="copyTextSafe('${escAttr(url)}','URL')">Copiar URL</button></div>
-      <div class="cfg-copy-row"><code>${escHtml(key)}</code><button class="cfg-btn" onclick="copyTextSafe('${escAttr(key)}','Chave')">Copiar chave</button></div>
-      <div class="cfg-note">Envie a chave no header <b>x-gex-key</b>, no corpo JSON como <b>apiKey</b> ou direto na URL com <b>?key=</b>.</div>
-      <div class="cfg-copy-row" style="margin-top:8px"><code>${escHtml(url+'?key='+key)}</code><button class="cfg-btn primary" onclick="copyTextSafe('${escAttr(url+'?key='+key)}','URL com chave')">Copiar URL com chave</button></div>
-      <div class="cfg-note"><b>Para Eduzz, Hotmart, Kiwify e similares</b> (que não deixam configurar header nem campo extra): cole a <b>URL com chave</b> acima no campo "URL para envio de dados". Quem tiver essa URL consegue enviar leads — se vazar, use "Gerar nova chave".</div>
-      <div class="cfg-actions" style="margin-top:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <button class="cfg-btn" onclick="cfgWebhookRegenerate()">Gerar nova chave</button>
-        <label style="display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:#475569;margin-left:auto">
-          <input type="checkbox" id="cfg-whk-active" ${k.active!==false?'checked':''} onchange="cfgWebhookToggleActive(this.checked)"> Webhook ativo
-        </label>
+      <div class="cfg-panel-head" style="align-items:flex-start"><div><div class="cfg-panel-title">Integrações por webhook</div><div class="cfg-panel-sub">Cada plataforma (Masterclass, Eduzz, Hotmart…) tem a sua URL e o seu funil. Copie a URL e cole na plataforma, no campo de webhook ou "URL para envio de dados".</div></div>
+        <label class="whk-ativo"><input type="checkbox" id="cfg-whk-active" ${ativo?'checked':''} onchange="cfgWebhookToggleActive(this.checked)"> ${ativo?'Recebendo leads':'Pausado'}</label></div>
+      ${ativo?'':`<div class="cfg-note" style="margin-bottom:12px;border-color:#FCA5A5;background:#FEF2F2;color:#991B1B">O webhook está pausado: nenhuma integração abaixo cria leads até você ligar de novo.</div>`}
+      <div class="whk-list">
+        ${linha({id:'padrao',nome:'Padrão',tag:'URL que já estava em uso',dest:destPadrao,url:urlChave,editando:ui.edit==='padrao',editor:editor('cfg-whk-funnel','cfg-whk-stage',funnelId,k.defaultStageId||'','cfgWebhookSaveDestino()','cfgWebhookFunnelChange')})}
+        ${ls.map(l=>linha({id:l.id,nome:l.nome||'Integração',dest:cfgWhkDestinoTxt(l),url:cfgWhkLinkUrl(l,key),excluir:true,editando:ui.edit===l.id,editor:editor('cfg-whl-ef','cfg-whl-es',cfgWebhookResolveFunnelId(l.funnelId),l.stageId||'',`cfgWhkLinkSave('${escAttr(l.id)}')`,'cfgWhkLinkEditFunnel')})).join('')}
       </div>
+      ${ui.novo?`<div class="whk-novo">
+          <div style="font-size:12.5px;font-weight:800;margin-bottom:8px">Nova integração</div>
+          <div class="whk-ed" style="margin:0;padding:0;border:0;background:none"><input class="form-input" id="cfg-whl-nome" maxlength="40" placeholder="Nome (ex.: Eduzz)" aria-label="Nome da integração"><select class="form-input" id="cfg-whl-funnel" aria-label="Funil" onchange="cfgWhkLinkFunnel(this.value)">${cfgWebhookFunnelOptions(funnelId)}</select><select class="form-input" id="cfg-whl-stage" aria-label="Etapa">${cfgWebhookStageOptions(funnelId,'')}</select>
+          <div class="whk-ed-b"><button class="cfg-btn" onclick="cfgWhkNovo(false)">Cancelar</button><button class="cfg-btn primary" onclick="cfgWhkLinkAdd()">Criar URL</button></div></div></div>`
+        :`<button class="cfg-btn whk-add" onclick="cfgWhkNovo(true)">＋ Nova integração</button>`}
     </div>
-    <div class="cfg-panel">
-      <div class="cfg-panel-head"><div><div class="cfg-panel-title">Destino dos leads</div><div class="cfg-panel-sub">Todo lead recebido por este webhook entra automaticamente neste funil e nesta etapa.</div></div></div>
-      <div class="cfg-form-grid">
-        <select class="form-input" id="cfg-whk-funnel" onchange="cfgWebhookFunnelChange(this.value)">${cfgWebhookFunnelOptions(funnelId)}</select>
-        <select class="form-input" id="cfg-whk-stage">${cfgWebhookStageOptions(funnelId,k.defaultStageId||'')}</select>
-      </div>
-      <div class="cfg-actions" style="margin-top:12px">
-        <button class="cfg-btn primary" onclick="cfgWebhookSaveDestino()">Salvar destino</button>
-      </div>
-    </div>
-    ${cfgWhkLinksHtml(key)}
-    <div class="cfg-panel">
-      <div class="cfg-panel-head"><div><div class="cfg-panel-title">Payload recomendado</div><div class="cfg-panel-sub">Modelo simples para criar lead no CRM.</div></div></div>
-      <pre style="white-space:pre-wrap;background:#12112A;color:#EDE9FE;border-radius:12px;padding:14px;font-size:12px;overflow:auto">{
+    <details class="cfg-panel whk-avancado">
+      <summary><span class="cfg-panel-title" style="font-size:15px">Avançado</span><span class="cfg-panel-sub" style="margin-left:8px">chave, Make/Zapier, gerar nova chave e modelo de envio</span></summary>
+      <div style="margin-top:14px">
+        <div class="cfg-copy-row"><code>${escHtml(url)}</code><button class="cfg-btn" onclick="copyTextSafe('${escAttr(url)}','URL')">Copiar URL sem chave</button></div>
+        <div class="cfg-copy-row"><code>${escHtml(key)}</code><button class="cfg-btn" onclick="copyTextSafe('${escAttr(key)}','Chave')">Copiar chave</button></div>
+        <div class="cfg-note">Para Make, Zapier ou sistema próprio: use a URL sem chave e mande a chave no header <b>x-gex-key</b> ou no corpo JSON como <b>apiKey</b>. O lead vai para o destino da integração Padrão.</div>
+        <div class="cfg-actions" style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <button class="cfg-btn" style="color:#B42318" onclick="cfgWebhookRegenerate()">Gerar nova chave</button>
+          <span style="font-size:11.5px;color:#64748B">Só se a URL vazar. Troca a chave de <b>todas</b> as integrações de uma vez, e cada plataforma precisa receber a URL nova.</span>
+        </div>
+        <div style="font-size:12.5px;font-weight:800;margin:16px 0 6px">Modelo de envio (JSON)</div>
+        <pre style="white-space:pre-wrap;background:#12112A;color:#EDE9FE;border-radius:12px;padding:14px;font-size:12px;overflow:auto;margin:0">{
   "nome": "Nome do lead",
   "telefone": "(00) 00000-0000",
   "email": "lead@email.com",
@@ -6931,7 +6944,8 @@ function cfgWebhookPanelHtml(){
   "responsavelEmail": "vendedor@email.com",
   "apiKey": "${escHtml(key)}"
 }</pre>
-    </div>`;
+      </div>
+    </details>`;
 }
 
 function renderConfiguracoesWebhookApi(){
@@ -20298,6 +20312,25 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeD
 .cfg-btn.primary{background:var(--p2);border-color:var(--p2);color:#fff}
 .cfg-btn.primary:hover{background:#6D28D9;color:#fff}
 .cfg-panel{background:#fff;border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px}
+.whk-list{display:flex;flex-direction:column;gap:10px}
+.whk-row{border:1px solid var(--border,#E5E7EB);border-radius:12px;padding:12px 14px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;background:#fff}
+.whk-row.on{border-color:#C4B5FD;box-shadow:0 0 0 3px rgba(124,58,237,.08)}
+.whk-main{flex:1;min-width:200px}
+.whk-nome{font-size:14px;font-weight:800;color:var(--txt,#111)}
+.whk-tag{margin-left:8px;font-size:10.5px;font-weight:700;color:#6D28D9;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:99px;padding:1px 8px;vertical-align:1px}
+.whk-dest{font-size:12px;color:var(--muted,#64748B);margin-top:3px}.whk-dest b{color:var(--txt,#111);font-weight:700}
+.whk-acts{display:flex;gap:8px;flex-wrap:wrap}.whk-acts .cfg-btn{display:inline-flex;align-items:center;gap:6px}
+.whk-del{color:#B42318}
+.whk-ed{flex-basis:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-top:4px;padding:12px;border-radius:10px;background:#FAFAFF;border:1px dashed #DDD6FE}
+.whk-ed-b{grid-column:1/-1;display:flex;justify-content:flex-end;gap:8px}
+.whk-novo{margin-top:12px;padding:14px;border-radius:12px;border:1px dashed #C4B5FD;background:#FAFAFF}
+.whk-add{margin-top:12px;width:100%;justify-content:center;border-style:dashed}
+.whk-ativo{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:#475569;white-space:nowrap}
+.whk-avancado summary{cursor:pointer;list-style:none;display:flex;align-items:center;flex-wrap:wrap}
+.whk-avancado summary::-webkit-details-marker{display:none}
+.whk-avancado summary::before{content:'›';display:inline-block;margin-right:8px;font-size:18px;color:#7C3AED;transition:transform .15s}
+.whk-avancado[open] summary::before{transform:rotate(90deg)}
+
 .cfg-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:16px}
 .cfg-panel-title{font-size:17px;font-weight:800;color:var(--txt)}
 .cfg-panel-sub{font-size:12px;color:var(--muted);margin-top:3px;line-height:1.45}
