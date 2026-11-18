@@ -6872,20 +6872,20 @@ function cfgWhkLinksHtml(key){
   </div>`;
 }
 let cfgWhkUi={edit:null,novo:false};
-window.cfgWhkEdit=function(id){cfgWhkUi.edit=id;cfgWhkUi.novo=false;cfgWhkRedesenhar()};
-window.cfgWhkNovo=function(v){cfgWhkUi.novo=!!v;cfgWhkUi.edit=null;cfgWhkRedesenhar();if(v)setTimeout(()=>document.getElementById('cfg-whl-nome')?.focus(),30)};
+window.cfgWhkEdit=function(id){cfgWhkUi.edit=id;cfgWhkUi.novo=false;cfgWhkUi.eFunil='';cfgWhkUi.eEtapa='';cfgWhkRedesenhar()};
+window.cfgWhkNovo=function(v){cfgWhkUi.novo=!!v;cfgWhkUi.edit=null;cfgWhkUi.dNome='';cfgWhkUi.dFunil='';cfgWhkUi.dEtapa='';cfgWhkRedesenhar();if(v)setTimeout(()=>document.getElementById('cfg-whl-nome')?.focus(),30)};
 window.cfgWhkLinkEditFunnel=function(fid){const sel=document.getElementById('cfg-whl-es');if(sel)sel.innerHTML=cfgWebhookStageOptions(fid,'')};
 window.cfgWhkLinkSave=function(id){const f=document.getElementById('cfg-whl-ef')?.value||'',st=document.getElementById('cfg-whl-es')?.value||'';if(!f){toast('Escolha o funil','#F59E0B');return}
   DB.update('webhook_links',id,{funnelId:f,stageId:st,updatedAt:new Date().toISOString()});cfgWhkUi.edit=null;cfgWhkRedesenhar();toast('Destino salvo ✓ A URL mudou: copie de novo e atualize na plataforma','#10B981')};
 function cfgWhkRedesenhar(){const root=document.getElementById('cfg-webhook-root');if(root)root.innerHTML=cfgWebhookPanelHtml()}
 window.cfgWhkLinkFunnel=function(fid){const sel=document.getElementById('cfg-whl-stage');if(sel)sel.innerHTML=cfgWebhookStageOptions(fid,'')};
 window.cfgWhkLinkAdd=function(){
-  const nome=String(document.getElementById('cfg-whl-nome')?.value||'').trim(),funnelId=document.getElementById('cfg-whl-funnel')?.value||'',stageId=document.getElementById('cfg-whl-stage')?.value||'';
+  const nome=String(document.getElementById('cfg-whl-nome')?.value||cfgWhkUi.dNome||'').trim(),funnelId=document.getElementById('cfg-whl-funnel')?.value||cfgWhkUi.dFunil||'',stageId=document.getElementById('cfg-whl-stage')?.value||cfgWhkUi.dEtapa||'';
   if(!nome){toast('Dê um nome para a integração (ex.: Eduzz)','#F59E0B');document.getElementById('cfg-whl-nome')?.focus();return}
   if(!funnelId){toast('Escolha o funil de destino','#F59E0B');return}
   if(cfgWhkLinks().some(l=>cfgWhkSlug(l.nome)===cfgWhkSlug(nome))){toast('Já existe uma URL com esse nome','#F59E0B');return}
   DB.push('webhook_links',{id:uid(),nome,funnelId,stageId,createdBy:String(sessionUser?.id||''),createdAt:new Date().toISOString()});
-  cfgWhkUi.novo=false;cfgWhkRedesenhar();toast(`URL da ${nome} criada ✓ Copie e cole na plataforma`,'#10B981');
+  cfgWhkUi.novo=false;cfgWhkUi.dNome='';cfgWhkUi.dFunil='';cfgWhkUi.dEtapa='';cfgWhkRedesenhar();toast(`URL da ${nome} criada ✓ Copie e cole na plataforma`,'#10B981');
 };
 window.cfgWhkLinkDel=async function(id){
   const l=cfgWhkLinks().find(x=>x.id===id);if(!l)return;
@@ -6904,7 +6904,7 @@ function cfgWebhookPanelHtml(){
   const urlChave=url+'?key='+key,ui=cfgWhkUi,ls=cfgWhkLinks(),ativo=k.active!==false;
   const destPadrao=(()=>{try{const f=getCommercialFunnels().find(x=>x.id===k.defaultFunnelId);if(!f)return 'Destino ainda não escolhido';const st=(f.stages||[]).find(x=>x.id===k.defaultStageId);return `${f.name||'Funil'} › ${st?.name||k.defaultStageName||(f.stages||[])[0]?.name||'1ª etapa'}`}catch(e){return ''}})();
   const icoCopiar='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
-  const editor=(idF,idS,fSel,sSel,salvar,onF)=>`<div class="whk-ed"><select class="form-input" id="${idF}" aria-label="Funil" onchange="${onF}(this.value)">${cfgWebhookFunnelOptions(fSel)}</select><select class="form-input" id="${idS}" aria-label="Etapa">${cfgWebhookStageOptions(fSel,sSel)}</select><div class="whk-ed-b"><button class="cfg-btn" onclick="cfgWhkEdit(null)">Cancelar</button><button class="cfg-btn primary" onclick="${salvar}">Salvar destino</button></div></div>`;
+  const editor=(idF,idS,fSel0,sSel0,salvar,onF)=>{const fSel=cfgWebhookResolveFunnelId(ui.eFunil||fSel0),sSel=ui.eFunil?(ui.eEtapa||''):sSel0;return `<div class="whk-ed"><select class="form-input" id="${idF}" aria-label="Funil" onchange="cfgWhkUi.eFunil=this.value;cfgWhkUi.eEtapa='';${onF}(this.value)">${cfgWebhookFunnelOptions(fSel)}</select><select class="form-input" id="${idS}" aria-label="Etapa" onchange="cfgWhkUi.eEtapa=this.value">${cfgWebhookStageOptions(fSel,sSel)}</select><div class="whk-ed-b"><button class="cfg-btn" onclick="cfgWhkEdit(null)">Cancelar</button><button class="cfg-btn primary" onclick="${salvar}">Salvar destino</button></div></div>`};
   const linha=o=>`<div class="whk-row${o.editando?' on':''}">
       <div class="whk-main"><div class="whk-nome">${escHtml(o.nome)}${o.tag?`<span class="whk-tag">${o.tag}</span>`:''}</div><div class="whk-dest">Cai em: <b>${escHtml(o.dest)}</b></div></div>
       <div class="whk-acts"><button class="cfg-btn primary" onclick="copyTextSafe('${escAttr(o.url)}','URL da ${escAttr(o.nome)}')">${icoCopiar} Copiar URL</button><button class="cfg-btn" onclick="cfgWhkEdit('${escAttr(o.id)}')">Trocar destino</button>${o.excluir?`<button class="cfg-btn whk-del" onclick="cfgWhkLinkDel('${escAttr(o.id)}')" aria-label="Excluir ${escAttr(o.nome)}">Excluir</button>`:''}</div>
@@ -6920,7 +6920,7 @@ function cfgWebhookPanelHtml(){
       </div>
       ${ui.novo?`<div class="whk-novo">
           <div style="font-size:12.5px;font-weight:800;margin-bottom:8px">Nova integração</div>
-          <div class="whk-ed" style="margin:0;padding:0;border:0;background:none"><input class="form-input" id="cfg-whl-nome" maxlength="40" placeholder="Nome (ex.: Eduzz)" aria-label="Nome da integração"><select class="form-input" id="cfg-whl-funnel" aria-label="Funil" onchange="cfgWhkLinkFunnel(this.value)">${cfgWebhookFunnelOptions(funnelId)}</select><select class="form-input" id="cfg-whl-stage" aria-label="Etapa">${cfgWebhookStageOptions(funnelId,'')}</select>
+          <div class="whk-ed" style="margin:0;padding:0;border:0;background:none"><input class="form-input" id="cfg-whl-nome" maxlength="40" placeholder="Nome (ex.: Eduzz)" aria-label="Nome da integração" value="${escAttr(ui.dNome||'')}" oninput="cfgWhkUi.dNome=this.value"><select class="form-input" id="cfg-whl-funnel" aria-label="Funil" onchange="cfgWhkUi.dFunil=this.value;cfgWhkUi.dEtapa='';cfgWhkLinkFunnel(this.value)">${cfgWebhookFunnelOptions(cfgWebhookResolveFunnelId(ui.dFunil||funnelId))}</select><select class="form-input" id="cfg-whl-stage" aria-label="Etapa" onchange="cfgWhkUi.dEtapa=this.value">${cfgWebhookStageOptions(cfgWebhookResolveFunnelId(ui.dFunil||funnelId),ui.dEtapa||'')}</select>
           <div class="whk-ed-b"><button class="cfg-btn" onclick="cfgWhkNovo(false)">Cancelar</button><button class="cfg-btn primary" onclick="cfgWhkLinkAdd()">Criar URL</button></div></div></div>`
         :`<button class="cfg-btn whk-add" onclick="cfgWhkNovo(true)">＋ Nova integração</button>`}
     </div>
