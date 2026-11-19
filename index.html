@@ -4762,11 +4762,13 @@ function gxUsuarioInteragindo(){
   }catch(e){}
   return null;
 }
-function rerenderActivePageAfterCloudSync(){
+function rerenderActivePageAfterCloudSync(soRealtime){
   try{
     const active=document.querySelector('.page.active')?.id?.replace(/^page-/,'')||'inicio';
     const _mud=window.__gxColsMudadas;window.__gxColsMudadas=null;
-    if(active==='comercial'&&_mud&&_mud.size){
+    // Só pula o Comercial quando o redesenho veio APENAS de eventos em tempo real de outras áreas.
+    // Redesenhos do carregamento (permissões, nuvem) sempre passam — antes podia sobrar "Acesso restrito".
+    if(soRealtime===true&&active==='comercial'&&_mud&&_mud.size){
       const rel=['leads','commercial_funnels','usuarios','profiles','lead_forms','manual_trackings'];
       if(![..._mud].some(c=>rel.includes(c)||String(c).startsWith('kv:gx2_active_funnel')))return;
     }
@@ -4798,12 +4800,15 @@ function rerenderActivePageAfterCloudSync(){
   }
 }
 
-function scheduleRerenderActivePageAfterCloudSync(delay=120){
+let gexRerenderSoRt=true;
+function scheduleRerenderActivePageAfterCloudSync(delay=120,soRealtime){
   try{
+    if(soRealtime!==true)gexRerenderSoRt=false;
     clearTimeout(gexCloudRerenderTimer);
     gexCloudRerenderTimer=setTimeout(()=>{
       gexCloudRerenderTimer=null;
-      rerenderActivePageAfterCloudSync();
+      const rt=gexRerenderSoRt;gexRerenderSoRt=true;
+      rerenderActivePageAfterCloudSync(rt);
     },delay);
   }catch(e){
     rerenderActivePageAfterCloudSync();
@@ -5103,7 +5108,7 @@ function startGexRecordsRealtime(){
           // notifyLeadCreated(leadData);
         }
         try{(window.__gxColsMudadas=window.__gxColsMudadas||new Set()).add(row.collection==='kv'?'kv:'+row.record_id:row.collection)}catch(e){}
-        scheduleRerenderActivePageAfterCloudSync(140);
+        scheduleRerenderActivePageAfterCloudSync(140,true);
       })
       .subscribe(status=>console.log('[GexCloudDB] Realtime:',status));
   }catch(err){
@@ -11674,8 +11679,12 @@ function renderComercial(){
   if(!allowedCommercialTab){
     const pageEl=document.getElementById('page-comercial');
     if(pageEl) showAccessDenied(pageEl,'Comercial');
+    // As permissões podem ainda estar carregando (logo depois do login/atualizar a página): confere de novo
+    window.__gxComNegado=(window.__gxComNegado||0)+1;
+    if(window.__gxComNegado<=4)setTimeout(()=>{try{if(document.getElementById('page-comercial')?.classList.contains('active')&&getFirstAllowedCommercialTab())renderComercial()}catch(e){}},window.__gxComNegado*1500);
     return;
   }
+  window.__gxComNegado=0;
   // Se o usuário não tem Pipeline, renderiza o módulo e leva para a primeira aba permitida.
   const shouldRedirectFromPipeline=!can('comercial_pipeline','view') && allowedCommercialTab!=='pipeline';
   ensureDefaultCommercialFunnel();
