@@ -21782,7 +21782,7 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
         <div class="gxi-form-grid" style="margin-bottom:11px">
           <label class="gxi-field"><span class="gxi-label">Funil de destino</span><select class="gxi-select" id="gxi-lg-funnel" onchange="gxiLeadgenFunnelChanged()">${allFunnels.map(f=>`<option value="${A(f.id)}" ${String(selectedFunnelId)===String(f.id)?'selected':''}>${E(f.name)}</option>`).join('')}</select></label>
           <label class="gxi-field"><span class="gxi-label">Etapa de destino no Pipeline</span><select class="gxi-select" id="gxi-lg-stage"><option value="">Selecione uma etapa</option>${ss.map(st=>`<option value="${A(st.id)}" data-name="${A(st.name)}" ${String(s.stageId)===String(st.id)?'selected':''}>${E(st.name)}</option>`).join('')}</select></label>
-          <label class="gxi-field"><span class="gxi-label">Formulário desta Página</span><select class="gxi-select" id="gxi-lg-form" ${(s.forms||[]).length?'':'disabled'}><option value="">Todos os formulários desta Página</option>${(s.forms||[]).map(f=>`<option value="${A(f.id)}" data-name="${A(f.name)}" ${String(s.formId)===String(f.id)?'selected':''}>${E(f.name)}${f.status&&f.status!=='ACTIVE'?` (${E(f.status)})`:''}</option>`).join('')}</select><small style="display:block;margin-top:5px;font-size:9.5px;color:var(--muted)">${(s.forms||[]).length?'Escolha um formulário específico, útil quando a Página roda vários anúncios com formulários diferentes. "Todos" aceita leads de qualquer um deles.':'Salve a Página e o token uma primeira vez pra listar os formulários disponíveis aqui.'}</small></label>
+          <label class="gxi-field"><span class="gxi-label" style="display:flex;align-items:center;justify-content:space-between;gap:8px">Formulário desta Página <button type="button" id="gxi-lg-refresh" onclick="event.preventDefault();gxiLeadgenRefreshForms()" style="border:1px solid var(--border);background:var(--card,#fff);color:#7C3AED;font:inherit;font-size:11px;font-weight:700;padding:3px 10px;border-radius:8px;cursor:pointer;text-transform:none;letter-spacing:0">↻ Atualizar lista</button></span><select class="gxi-select" id="gxi-lg-form" ${(s.forms||[]).length?'':'disabled'}><option value="">Todos os formulários desta Página</option>${(s.forms||[]).map(f=>`<option value="${A(f.id)}" data-name="${A(f.name)}" ${String(s.formId)===String(f.id)?'selected':''}>${E(f.name)}${f.status&&f.status!=='ACTIVE'?` (${E(f.status)})`:''}</option>`).join('')}</select><small style="display:block;margin-top:5px;font-size:9.5px;color:var(--muted)">${(s.forms||[]).length?'Escolha um formulário específico, útil quando a Página roda vários anúncios com formulários diferentes. "Todos" aceita leads de qualquer um deles.':'Salve a Página e o token uma primeira vez pra listar os formulários disponíveis aqui.'}</small></label>
         </div>
         <div class="gxi-form-grid" style="margin-bottom:11px">
           <label class="gxi-field"><span class="gxi-label">URL do Webhook (cole no Meta for Developers)</span><div class="gxi-secret-row"><input class="gxi-input" id="gxi-lg-webhook" value="${A(webhookUrl)}" readonly><button class="gxi-secret-action" onclick="copyTextSafe('${A(webhookUrl)}','URL do webhook')">Copiar</button></div></label>
@@ -21927,7 +21927,16 @@ window.gxiTrkFunnelChange=id=>{const f=mapFunnels().find(x=>String(x.id)===Strin
     const ss=stagesForFunnel(funnelSel.value);
     stageSel.innerHTML=`<option value="">Selecione uma etapa</option>${ss.map(st=>`<option value="${A(st.id)}" data-name="${A(st.name)}">${E(st.name)}</option>`).join('')}`;
   };
-  window.gxiSaveLeadgenSettings=async()=>{
+  // Busca de novo os formulários da Página na Meta (ex.: formulário recém-criado), mantendo tudo que já está configurado.
+  window.gxiLeadgenRefreshForms=async()=>{
+    const b=document.getElementById('gxi-lg-refresh');if(b){b.disabled=true;b.textContent='Buscando…'}
+    const antes=(getLeadgenSettings().forms||[]).length;
+    await gxiSaveLeadgenSettings({atualizarLista:true});
+    const depois=(getLeadgenSettings().forms||[]).length;
+    toast(depois>antes?`${depois-antes} formulário(s) novo(s) na lista ✓ Escolha e clique em Salvar`:`Lista atualizada: ${depois} formulário(s)`,'#10B981');
+  };
+  window.gxiSaveLeadgenSettings=async(opts)=>{
+    opts=opts||{};
     const old=getLeadgenSettings();
     const pageId=document.getElementById('gxi-lg-page')?.value?.trim()||'';
     const token=document.getElementById('gxi-lg-token')?.value?.trim()||'';
@@ -21965,7 +21974,7 @@ window.gxiTrkFunnelChange=id=>{const f=mapFunnels().find(x=>String(x.id)===Strin
     const next={pageId,pageName,hasToken,hasAppSecret,verifyToken,funnelId,funnelName,stageId,stageName,formId,formName,forms,formsWarning,configured:!!pageId&&hasToken&&!!stageId,updatedAt:new Date().toISOString()};
     saveLeadgenSettingsRow(next);
     render();
-    if(serverSaved)toast('Captação nativa configurada ✓','#10B981');
+    if(serverSaved&&!opts.atualizarLista)toast('Captação nativa configurada ✓','#10B981');
   };
   function conversionValue(mapping,lead){if(mapping.valueSource==='none')return 0;if(mapping.valueSource==='fixed')return Number(mapping.fixedValue||0);return Number(lead?.valor||lead?.value||0)}
   async function sendConversionPlatform(platform,eventName,mapping,lead,payload){
