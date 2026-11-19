@@ -18386,6 +18386,7 @@ const dealActionTypes=[
 ];
 
 function openDealDetail(id){
+  gxCaixaEditando=false;
   currentDealId=id;
   currentActionType='Nota';
   currentHistTab='hist';
@@ -19503,6 +19504,44 @@ window.dealOpenWhatsappChat=function(phone){
   if(phone&&typeof window.wacSelectChat==='function')setTimeout(()=>window.wacSelectChat(phone),500);
 };
 
+// ── CAIXA COLETADO (19/11/2026): dinheiro que entrou na hora (ex.: Pix no fechamento), separado do valor do negócio.
+// Campos no lead: caixaColetado (número) e caixaColetadoEm (AAAA-MM-DD). Aparece no BI e no Modo TV.
+let gxCaixaEditando=false;
+function gxCaixaSecHtml(l){
+  const v=+l.caixaColetado||0,dt=l.caixaColetadoEm?new Date(l.caixaColetadoEm+'T12:00:00').toLocaleDateString('pt-BR'):'';
+  const pc=(+l.valor||0)>0&&v?Math.round(v/(+l.valor)*100):null;
+  const ic='<svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>';
+  if(gxCaixaEditando){
+    const hj=new Date();const iso=new Date(hj.getTime()-hj.getTimezoneOffset()*60000).toISOString().slice(0,10);
+    return `<div class="sb-section"><div class="sb-sec-title">${ic}Caixa coletado</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <label style="font-size:11px;font-weight:700;color:var(--muted)">Valor recebido<input class="form-input" id="gx-caixa-v" inputmode="decimal" placeholder="R$ 0,00" value="${v?escAttr(fmtBRL(v)):''}" style="margin-top:4px"></label>
+        <label style="font-size:11px;font-weight:700;color:var(--muted)">Recebido em<input class="form-input" type="date" id="gx-caixa-d" value="${escAttr(l.caixaColetadoEm||iso)}" style="margin-top:4px"></label>
+        <div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn btn-ghost btn-sm" onclick="gxCaixaEditar(false)">Cancelar</button><button class="btn btn-primary btn-sm" onclick="gxCaixaSalvar()">Salvar</button></div>
+      </div></div>`;
+  }
+  return `<div class="sb-section"><div class="sb-sec-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="display:inline-flex;align-items:center;gap:6px">${ic}Caixa coletado</span><button class="btn btn-ghost btn-sm" style="font-size:11px;padding:3px 10px" onclick="gxCaixaEditar(true)">${v?'Editar':'+ Lançar'}</button></div>
+    <div class="deal-val-big" style="color:${v?'#0EA5E9':'var(--light,#94A3B8)'}">${fmtBRL(v)}</div>
+    <div style="font-size:11.5px;color:var(--muted);margin-top:2px">${v?`Recebido em ${dt}${pc!=null?` · ${pc}% do valor do negócio`:''}`:'Quanto já entrou no caixa (ex.: Pix na hora do fechamento)'}</div></div>`;
+}
+function gxCaixaNum(raw){let t=String(raw||'').replace(/[R$\s]/g,'');if(!t)return 0;
+  if(t.includes(','))t=t.replace(/\./g,'').replace(',','.');else if(/^\d{1,3}(\.\d{3})+$/.test(t))t=t.replace(/\./g,'');
+  const n=parseFloat(t);return isFinite(n)?Math.round(n*100)/100:0}
+window.gxCaixaEditar=function(on){gxCaixaEditando=!!on;renderDealSidebar();if(on)setTimeout(()=>{const i=document.getElementById('gx-caixa-v');if(i){i.focus();i.select()}},30)};
+window.gxCaixaSalvar=function(){
+  const l=DB.find('leads',currentDealId);if(!l)return;
+  const raw=String(document.getElementById('gx-caixa-v')?.value||'').trim();
+  const v=gxCaixaNum(raw);
+  const d=document.getElementById('gx-caixa-d')?.value||'';
+  if(v<0){toast('Valor inválido','#EF4444');return}
+  if(v&&!d){toast('Informe a data do recebimento','#F59E0B');return}
+  const antes=+l.caixaColetado||0;
+  DB.update('leads',l.id,{caixaColetado:v||0,caixaColetadoEm:v?d:'',updatedAt:new Date().toISOString()});
+  if(v!==antes){try{DB.push('atividades',{id:uid(),leadId:l.id,tipo:'Nota',ico:'💰',texto:v?`Caixa coletado: ${fmtBRL(v)} em ${new Date(d+'T12:00:00').toLocaleDateString('pt-BR')}${antes?` (antes ${fmtBRL(antes)})`:''}`:`Caixa coletado removido (era ${fmtBRL(antes)})`,data:now(),usuario:sessionUser?.nome||''})}catch(e){}}
+  gxCaixaEditando=false;
+  try{renderDealDetail()}catch(e){renderDealSidebar()}
+  toast(v?'Caixa coletado salvo ✓':'Caixa coletado removido','#10B981');
+};
 function renderDealSidebar(){
   const l=DB.find('leads',currentDealId);
   if(!l) return;
@@ -19529,6 +19568,7 @@ function renderDealSidebar(){
       <div class="sb-sec-title"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Valor do negócio</div>
       <div class="deal-val-big">${fmtBRL(l.valor||0)}</div>
     </div>
+    ${gxCaixaSecHtml(l)}
     <div class="sb-section">
       <div class="sb-sec-title"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Dados do negócio</div>
       <div class="sb-field"><span class="sb-field-lbl">Estágio</span><span class="sb-field-val">${badge(l.estagio)}</span></div>
