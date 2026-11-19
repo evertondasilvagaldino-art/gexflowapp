@@ -187,8 +187,9 @@ body.tv-on{overflow:hidden}
 .tv-pace span{position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);white-space:nowrap;font-size:clamp(10px,.85vw,13px);color:rgba(255,255,255,.6);font-weight:700}
 .tv-pct{display:flex;justify-content:space-between;margin-top:clamp(22px,2vw,30px);font-size:clamp(13px,1.2vw,18px);color:rgba(255,255,255,.7);font-variant-numeric:tabular-nums}
 .tv-pct b{color:#fff;font-size:1.25em}
-.tv-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(8px,1.2vw,16px);margin-top:clamp(18px,2.6vw,40px)}
+.tv-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:clamp(8px,1.2vw,16px);margin-top:clamp(18px,2.6vw,40px)}
 @media(max-width:700px){.tv-tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tv-tile.tv-caixa b{color:#7DD3FC}
 .tv-tile{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:clamp(12px,1.3vw,20px)}
 .tv-tile span{display:block;font-size:clamp(11px,.9vw,14px);font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.55)}
 .tv-tile b{display:block;font-size:clamp(20px,2.4vw,40px);font-weight:850;letter-spacing:-.02em;margin-top:4px;font-variant-numeric:tabular-nums}
@@ -323,7 +324,7 @@ async function load(){
   const [de,ate]=range();
   if(S.abort)S.abort.abort();
   S.abort=new AbortController();
-  const u=API+'?'+(TOKEN?'t='+encodeURIComponent(TOKEN):'l='+encodeURIComponent(LINK))+'&de='+de+'&ate='+ate+(S.funil&&TOKEN?'&funil='+encodeURIComponent(S.funil):'');
+  const u=API+'?'+(TOKEN?'t='+encodeURIComponent(TOKEN):'l='+encodeURIComponent(LINK))+'&de='+de+'&ate='+ate+(S.funil?'&funil='+encodeURIComponent(S.funil):'');
   try{
     const r=await fetch(u,{signal:S.abort.signal,cache:'no-store'});
     if(r.status===401){
@@ -385,6 +386,7 @@ function render(){
      kpi('Lead → venda',pc(a.leadParaVenda),a.leadParaVenda,b.leadParaVenda)+
      kpi('Ciclo médio de venda',(a.cicloDias||0).toLocaleString('pt-BR')+' dias',a.cicloDias,b.cicloDias,{inverse:true})+
      kpi('Pipeline em aberto',brl(d.pipelineAberto.valor),0,0,{noDelta:true,note:int(d.pipelineAberto.qtd)+' negócios abertos hoje'})+
+     (a.caixa!=null?kpi('Caixa coletado',brl(a.caixa||0),a.caixa||0,(b&&b.caixa)||0,{note:a.faturamento?Math.round((a.caixa||0)/a.faturamento*100)+'% do faturamento':'recebido na hora (ex.: Pix)'}):'')+
    '</section>'+
    '<section class="grid2">'+
      '<div class="card"><div class="head"><div><h2>Faturamento ao longo do tempo</h2><div class="hint">Valor das vendas ganhas, por '+(d.granularidade==='mes'?'mês':'dia')+' de fechamento</div></div><button class="btn tg" data-tg="c1">Ver tabela</button></div><div id="c1" class="chart"></div></div>'+
@@ -547,7 +549,7 @@ $('refresh').addEventListener('click',load);
 let rz;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>Object.keys(charts).forEach(paint),150)});
 if(TOKEN)$('links').style.display='';
 /* ── links por funil (só com o link geral) ── */
-function urlDe(l){return location.origin+location.pathname+'?l='+encodeURIComponent(l)}
+function urlDe(l){return location.origin+location.pathname+'?l='+encodeURIComponent(l)+(String(l).indexOf('__todos__~')===0?'&tv=1':'')}
 async function apiAcao(q){const r=await fetch(API+'?t='+encodeURIComponent(TOKEN)+q,{cache:'no-store'});if(!r.ok)throw new Error('http '+r.status);return r.json()}
 async function abrirLinks(){
   $('mdl').classList.add('on');$('mdl-b').innerHTML='<div class="skel" style="width:60%"></div>';
@@ -613,7 +615,7 @@ function tvContar(el,de,ate){
 }
 async function tvLoad(){
   if(!TOKEN&&!LINK)return;
-  const u=API+'?'+(TOKEN?'t='+encodeURIComponent(TOKEN):'l='+encodeURIComponent(LINK))+'&modo=tv'+(S.funil&&TOKEN?'&funil='+encodeURIComponent(S.funil):'');
+  const u=API+'?'+(TOKEN?'t='+encodeURIComponent(TOKEN):'l='+encodeURIComponent(LINK))+'&modo=tv'+(S.funil?'&funil='+encodeURIComponent(S.funil):'');
   try{
     const r=await fetch(u,{cache:'no-store'});
     if(!r.ok)throw new Error('http '+r.status);
@@ -642,6 +644,7 @@ function tvRender(){
         '<div class="tv-tile"><span>Hoje</span><b>'+brl(d.hojeValor)+'</b><small>'+int(d.hojeVendas)+' venda'+(d.hojeVendas!==1?'s':'')+'</small></div>'+
         '<div class="tv-tile"><span>Vendas no mês</span><b>'+int(d.vendas)+'</b><small>negócios ganhos</small></div>'+
         '<div class="tv-tile"><span>Ticket médio</span><b>'+brl(d.ticket)+'</b><small>por venda</small></div>'+
+        (d.caixa?'<div class="tv-tile tv-caixa"><span>Caixa coletado</span><b>'+brl(d.caixa.mes)+'</b><small>'+(d.faturamento?Math.round(d.caixa.mes/d.faturamento*100)+'% do faturamento':'no mês')+(d.caixa.hoje?' · hoje '+brl(d.caixa.hoje):'')+'</small></div>':'')+
         '<div class="tv-tile"><span>'+(meta>0&&pct<100?'Por dia até a meta':'Média por dia')+'</span><b>'+brl(meta>0&&pct<100?falta/Math.max(1,d.diasMes-d.diaHoje+1):d.faturamento/Math.max(1,d.diaHoje))+'</b><small>'+(meta>0&&pct<100?(d.diasMes-d.diaHoje+1)+' dias restantes':'no mês')+'</small></div>'+
       '</div>'+
     '</div>'+
