@@ -386,6 +386,9 @@ function render(){
      kpi('Lead → venda',pc(a.leadParaVenda),a.leadParaVenda,b.leadParaVenda)+
      kpi('Ciclo médio de venda',(a.cicloDias||0).toLocaleString('pt-BR')+' dias',a.cicloDias,b.cicloDias,{inverse:true})+
      kpi('Pipeline em aberto',brl(d.pipelineAberto.valor),0,0,{noDelta:true,note:int(d.pipelineAberto.qtd)+' negócios abertos hoje'})+
+     (d.ligacoes?kpi('Ligações feitas',int(d.ligacoes.atual.ligacoes),d.ligacoes.atual.ligacoes,d.ligacoes.anterior.ligacoes):'')+
+     (d.ligacoes?kpi('Ligações atendidas',pc(d.ligacoes.atual.taxaAtendimento),d.ligacoes.atual.taxaAtendimento,d.ligacoes.anterior.taxaAtendimento):'')+
+     (d.ligacoes?kpi('Reuniões agendadas por ligação',int(d.ligacoes.atual.agendadas),d.ligacoes.atual.agendadas,d.ligacoes.anterior.agendadas):'')+
      (a.caixa!=null?kpi('Caixa coletado',brl(a.caixa||0),a.caixa||0,(b&&b.caixa)||0,{note:a.faturamento?Math.round((a.caixa||0)/a.faturamento*100)+'% do faturamento':'recebido na hora (ex.: Pix)'}):'')+
    '</section>'+
    '<section class="grid2">'+
@@ -397,11 +400,12 @@ function render(){
      '<div class="card"><h2>Origem dos leads</h2><div class="hint">De onde vieram os leads do período e quantos já viraram venda</div><div class="scroll"><table class="tbl stack" id="ori"></table></div></div>'+
    '</section>'+
    '<section class="card" id="taxas"></section>'+
+   (d.ligacoes?'<section class="card"><h2>Ligações por pessoa</h2><div class="hint">Ligações registradas no GexFlow pelo botão "Ligar" no período · atendidas = atendeu, agendou, pediu retorno ou sem interesse</div><div class="scroll"><table class="tbl stack" id="lig"></table></div></section>':'')+
    '<section class="card"><h2>Ranking por vendedor</h2><div class="hint">Vendas e perdas fechadas no período · leads criados no período</div><div class="scroll"><table class="tbl stack" id="vend"></table></div></section>'+
    '<p class="foot">Conversão = vendas ganhas ÷ (ganhas + perdidas) fechadas no período. Lead → venda = dos leads criados no período, quantos já foram ganhos. Todos os valores são consolidados: nenhum dado pessoal de lead aparece aqui.</p>';
   drawChart('c1',d.serie.map(x=>({k:x.k,v:x.valor,t:'<b>'+labelOf(x.k,d.granularidade,true)+'</b><br>'+brl2(x.valor)+' · '+int(x.ganhos)+' venda(s)'})),'--s1',brlShort,brl2,d.granularidade);
   drawChart('c2',d.serie.map(x=>({k:x.k,v:x.leads,t:'<b>'+labelOf(x.k,d.granularidade,true)+'</b><br>'+int(x.leads)+' lead(s)'})),'--s2',v=>int(v),int,d.granularidade);
-  drawFunnel(d);drawTaxas(d);drawOrigens(d);drawVend(d);
+  drawFunnel(d);drawTaxas(d);drawOrigens(d);drawVend(d);drawLig(d);
   document.querySelectorAll('[data-tg]').forEach(b=>b.onclick=()=>toggleTable(b.dataset.tg));
 }
 function labelOf(k,gran,full){
@@ -529,6 +533,12 @@ function drawOrigens(d){
   $('ori').innerHTML='<thead><tr><th>Origem</th><th>Leads</th><th>Vendas</th><th>Conversão</th><th>Faturamento</th></tr></thead><tbody>'+
    (o.length?o.map(x=>'<tr><td>'+esc(x.origem)+'</td><td data-l="Leads"><div class="inl"><i style="width:'+Math.max(2,x.leads/max*70)+'px"></i><span class="num">'+int(x.leads)+'</span></div></td><td data-l="Vendas" class="num">'+int(x.ganhos)+'</td><td data-l="Conversão" class="num">'+pc(x.conversao)+'</td><td data-l="Faturamento" class="num wide">'+brl(x.valor)+'</td></tr>').join(''):'<tr><td colspan="5">Sem leads no período</td></tr>')+'</tbody>';
 }
+function drawLig(d){
+  const el=$('lig');if(!el||!d.ligacoes)return;const v=d.ligacoes.porPessoa||[];const max=Math.max(1,...v.map(x=>x.ligacoes));
+  el.innerHTML='<thead><tr><th>Pessoa</th><th>Ligações</th><th>Atendidas</th><th>% atendidas</th><th>Reuniões agendadas</th><th>Leads trabalhados</th></tr></thead><tbody>'+
+   (v.length?v.map(x=>'<tr><td>'+esc(x.nome)+'</td><td data-l="Ligações"><div class="inl"><i style="width:'+Math.max(2,x.ligacoes/max*70)+'px"></i><span class="num">'+int(x.ligacoes)+'</span></div></td><td data-l="Atendidas" class="num">'+int(x.atendidas)+'</td><td data-l="% atendidas" class="num">'+pc(x.taxa)+'</td><td data-l="Reuniões" class="num">'+int(x.agendadas)+'</td><td data-l="Leads" class="num">'+int(x.leads)+'</td></tr>').join('')
+   :'<tr><td colspan="6" style="color:var(--mu,#888)">Nenhuma ligação registrada no período.</td></tr>')+'</tbody>';
+}
 function drawVend(d){
   const v=d.vendedores||[];const max=Math.max(1,...v.map(x=>x.valor));
   $('vend').innerHTML='<thead><tr><th>Vendedor</th><th>Leads</th><th>Vendas</th><th>Perdidas</th><th>Conversão</th><th>Ticket</th><th>Faturamento</th></tr></thead><tbody>'+
@@ -644,6 +654,7 @@ function tvRender(){
         '<div class="tv-tile"><span>Hoje</span><b>'+brl(d.hojeValor)+'</b><small>'+int(d.hojeVendas)+' venda'+(d.hojeVendas!==1?'s':'')+'</small></div>'+
         '<div class="tv-tile"><span>Vendas no mês</span><b>'+int(d.vendas)+'</b><small>negócios ganhos</small></div>'+
         '<div class="tv-tile"><span>Ticket médio</span><b>'+brl(d.ticket)+'</b><small>por venda</small></div>'+
+        (d.ligacoes?'<div class="tv-tile"><span>Ligações hoje</span><b>'+int(d.ligacoes.hoje.ligacoes)+'</b><small>'+int(d.ligacoes.hoje.atendidas)+' atendida'+(d.ligacoes.hoje.atendidas!==1?'s':'')+' · '+int(d.ligacoes.hoje.agendadas)+' reuni'+(d.ligacoes.hoje.agendadas!==1?'ões':'ão')+'</small></div>':'')+
         (d.caixa?'<div class="tv-tile tv-caixa"><span>Caixa coletado</span><b>'+brl(d.caixa.mes)+'</b><small>'+(d.faturamento?Math.round(d.caixa.mes/d.faturamento*100)+'% do faturamento':'no mês')+(d.caixa.hoje?' · hoje '+brl(d.caixa.hoje):'')+'</small></div>':'')+
         '<div class="tv-tile"><span>'+(meta>0&&pct<100?'Por dia até a meta':'Média por dia')+'</span><b>'+brl(meta>0&&pct<100?falta/Math.max(1,d.diasMes-d.diaHoje+1):d.faturamento/Math.max(1,d.diaHoje))+'</b><small>'+(meta>0&&pct<100?(d.diasMes-d.diaHoje+1)+' dias restantes':'no mês')+'</small></div>'+
       '</div>'+
