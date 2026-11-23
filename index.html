@@ -13698,6 +13698,7 @@ async function carregarMinhaEquipe(){
       }catch(e){/* segue com o fallback do cache local abaixo */}
     }
     const funisLocais=getVisibleCommercialFunnels(getCommercialFunnels());
+    window._meEquipeDados={};data.forEach(u=>{window._meEquipeDados[u.id]=u});
     box.innerHTML=data.map(u=>{
       const funilNome=funnelNameById[u.assigned_funnel_id]||funisLocais.find(f=>f.id===u.assigned_funnel_id)?.name||(u.assigned_funnel_id?'Funil próprio':'—');
       const ativo=String(u.status||'Ativo')!=='Inativo';
@@ -13706,7 +13707,7 @@ async function carregarMinhaEquipe(){
           <div style="font-size:13px;font-weight:600">${escHtml(u.nome||u.email)}</div>
           <div style="font-size:11.5px;color:var(--muted)">${escHtml(u.email||'')} · Funil: ${escHtml(funilNome)} · <span style="color:${ativo?'#059669':'#DC2626'}">${ativo?'Ativo':'Inativo'}</span></div>
         </div>
-        <button class="btn btn-ghost btn-sm" onclick="alternarStatusSubUsuario('${u.id}',${ativo})">${ativo?'Desativar':'Reativar'}</button>
+        <div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm" onclick="editarSubUsuarioParceiro('${escAttr(u.id)}')">Editar</button><button class="btn btn-ghost btn-sm" onclick="alternarStatusSubUsuario('${u.id}',${ativo})">${ativo?'Desativar':'Reativar'}</button></div>
       </div>`;
     }).join('');
     _minhaEquipeListCache={html:box.innerHTML,at:Date.now()};
@@ -13719,7 +13720,63 @@ async function carregarMinhaEquipe(){
   }
 }
 
+// Editar operador: usa o mesmo formulário de cima (senha em branco = mantém a atual).
+let _meEditandoId='';
+function editarSubUsuarioParceiro(id){
+  const u=(window._meEquipeDados||{})[id];if(!u)return;
+  _meEditandoId=id;
+  popularSelectFunisMinhaEquipe();
+  document.getElementById('me-nome').value=u.nome||'';
+  document.getElementById('me-email').value=u.email||'';
+  const sh=document.getElementById('me-senha');sh.value='';sh.placeholder='Deixe em branco para manter a atual';
+  const sel=document.getElementById('me-funil');
+  if(sel&&u.assigned_funnel_id){if(![...sel.options].some(o=>o.value===u.assigned_funnel_id)){const o=document.createElement('option');o.value=u.assigned_funnel_id;o.textContent='Funil atual';sel.appendChild(o)}sel.value=u.assigned_funnel_id}
+  const btn=document.getElementById('me-criar-btn');if(btn)btn.textContent='Salvar alterações';
+  let c=document.getElementById('me-cancelar-btn');
+  if(!c&&btn){c=document.createElement('button');c.id='me-cancelar-btn';c.className='btn btn-ghost';c.style.marginLeft='8px';c.textContent='Cancelar edição';c.onclick=cancelarEdicaoSubUsuario;btn.after(c)}
+  document.getElementById('minha-equipe-card')?.scrollIntoView({behavior:'smooth',block:'start'});
+  document.getElementById('me-nome')?.focus();
+}
+function cancelarEdicaoSubUsuario(){
+  _meEditandoId='';
+  ['me-nome','me-email','me-senha'].forEach(i=>{const e=document.getElementById(i);if(e)e.value=''});
+  const sh=document.getElementById('me-senha');if(sh)sh.placeholder='Senha de acesso';
+  const btn=document.getElementById('me-criar-btn');if(btn)btn.textContent='+ Criar acesso';
+  document.getElementById('me-cancelar-btn')?.remove();
+}
+async function salvarEdicaoSubUsuario(){
+  const nome=document.getElementById('me-nome')?.value?.trim();
+  const email=document.getElementById('me-email')?.value?.trim();
+  const senha=document.getElementById('me-senha')?.value?.trim();
+  const funnelId=document.getElementById('me-funil')?.value?.trim();
+  if(!nome||!email||!funnelId){toast('Preencha nome, email e escolha o funil','#EF4444');return}
+  if(senha&&senha.length<6){toast('A nova senha precisa ter pelo menos 6 caracteres','#EF4444');return}
+  const btn=document.getElementById('me-criar-btn');
+  if(btn){btn.disabled=true;btn.textContent='Salvando...'}
+  try{
+    const token=await getGexSupabaseToken();
+    const res=await fetch(getSupabaseFunctionUrl('create-partner-subuser'),{
+      method:'POST',
+      headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+      body:JSON.stringify({action:'update',id:_meEditandoId,nome,email,senha,funnelId})
+    });
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok||j?.ok===false)throw new Error(j?.message||'Não foi possível salvar.');
+    toast('Dados atualizados ✓','#10B981');
+    cancelarEdicaoSubUsuario();
+    carregarMinhaEquipe();
+    refreshMyPartnerSubUsers();
+  }catch(err){
+    toast(err.message||'Erro ao salvar','#EF4444');
+    if(btn)btn.textContent='Salvar alterações';
+  }finally{
+    if(btn)btn.disabled=false;
+  }
+}
+
 async function criarSubUsuarioParceiro(){
+  if(_meEditandoId&&document.getElementById('me-cancelar-btn'))return salvarEdicaoSubUsuario();
+  _meEditandoId='';
   const nome=document.getElementById('me-nome')?.value?.trim();
   const email=document.getElementById('me-email')?.value?.trim();
   const senha=document.getElementById('me-senha')?.value?.trim();
@@ -30744,7 +30801,7 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
 .rl-stats b{display:block;font-size:15px;font-weight:800;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rl-stats small{display:block;font-size:11.5px;color:var(--rl-mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rl-lbl{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--rl-mu);margin:4px 0 -4px}
-.rl-p{display:grid;grid-template-columns:28px 34px minmax(0,1fr) minmax(0,1.1fr) minmax(0,1fr) 30px;gap:10px;align-items:center;border:1px solid var(--rl-line);border-radius:12px;padding:10px 12px}.rl-p.rl-pf{grid-template-columns:28px 34px minmax(0,2.1fr) minmax(0,1fr) 30px}.rl-p.rl-pf .rl-nm small{white-space:nowrap}
+.rl-p{display:grid;grid-template-columns:28px 34px minmax(0,1fr) minmax(0,1.1fr) minmax(0,1fr) 30px;gap:10px;align-items:center;border:1px solid var(--rl-line);border-radius:12px;padding:10px 12px}
 .rl-p.off{opacity:.55}
 .rl-p.vez{border-color:#7C3AED;box-shadow:0 0 0 3px rgba(124,58,237,.12)}
 .rl-ord{font-weight:900;font-size:12.5px;color:var(--rl-mu);text-align:center;font-variant-numeric:tabular-nums}
@@ -30760,7 +30817,7 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
 .rl-add{display:flex;gap:8px}
 .rl-note{font-size:12px;color:var(--rl-mu);line-height:1.55;background:var(--rl-soft);border-radius:10px;padding:10px 12px}
 .rl-warn{color:#B45309;font-weight:700}
-@media (max-width:640px){.rl-p,.rl-p.rl-pf{grid-template-columns:28px 34px 1fr 30px}.rl-p .rl-fun,.rl-p .rl-etp{grid-column:3/5}.rl-stats{grid-template-columns:1fr}}
+@media (max-width:640px){.rl-p{grid-template-columns:28px 34px 1fr 30px}.rl-p .rl-fun,.rl-p .rl-etp{grid-column:3/5}.rl-stats{grid-template-columns:1fr}}
 </style>
 <script id="gx-roleta-js">
 /* ═══ ROLETA DE LEADS DO COMERCIAL (04/11/2026) ═══
@@ -30854,8 +30911,7 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
     RS.__novo=!c;
     if(RS.__novo&&!RS.participantes.length){
       // sugestão inicial: vendedores com funil próprio
-      if(parceiro())funisParceiro().forEach(f=>RS.participantes.push(novoPart(donoDoFunil(f.id),f)));
-      else vendedores().forEach(u=>{const f=funisDe(u)[0];if(f)RS.participantes.push(novoPart(u,f))});
+      vendedores().forEach(u=>{const f=funisDe(u)[0];if(f)RS.participantes.push(novoPart(u,f))});
     }
     const {ov,md}=modal();ov.classList.add('open');md.classList.add('open');desenhar();
     // Parceiro: busca a equipe dele (Operadores) direto no banco — depois de recarregar a página ela pode não estar na memória.
@@ -30863,14 +30919,6 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
       refreshMyPartnerSubUsers().then(rows=>{try{_gxUsrVal=null}catch(e){}if(rows&&rows.length&&RS&&document.getElementById('rl-add-sel'))desenhar()}).catch(()=>{});
     }
   };
-  // PARCEIRO (24/11/2026): na roleta dele escolhe-se só o FUNIL; quem recebe sai do funil
-  // (o Operador designado a ele; se não tiver, o próprio parceiro).
-  function donoDoFunil(fid){
-    const us=vendedores();
-    return us.find(u=>role(u)==='Operador de Funil'&&String(u.assignedFunnelId||u.assigned_funnel_id||'')===String(fid))
-      ||us.find(u=>uidOf(u)===meuId()||String(u.id)===meuId())||{id:meuId(),supabaseId:meuId(),nome:sessionUser?.nome||'',email:sessionUser?.email||''};
-  }
-  function funisParceiro(){return funis().filter(f=>f&&!f.isArchived&&String(f.createdBy||'')===meuId())}
   function novoPart(u,f){const st=etapas(f?.id)[0];return {userId:uidOf(u),nome:u.nome||'',email:u.email||'',funnelId:f?.id||'',funnelNome:f?.name||'',stageId:st?.id||'',stageNome:st?.name||'',ativo:true}}
   window.gxRoletaFechar=async function(force){
     if(!force&&RS&&RS.__sujo&&!await gxConfirm('Há alterações não salvas na roleta. Sair sem salvar?'))return;
@@ -30887,17 +30935,9 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
       const u=us.find(x=>uidOf(x)===String(p.userId));
       const meus=u?funisDe(u):[];
       const outros=todosFunis.filter(f=>!meus.some(m=>m.id===f.id));
-      const ehVez=vez&&String(vez.userId)===String(p.userId)&&String(vez.funnelId||'')===String(p.funnelId||'')&&p.ativo!==false;
-      const pos=p.ativo!==false&&p.funnelId?ativos.findIndex(a=>String(a.userId)===String(p.userId)&&String(a.funnelId||'')===String(p.funnelId||''))+1:0;
+      const ehVez=vez&&String(vez.userId)===String(p.userId)&&p.ativo!==false;
+      const pos=p.ativo!==false&&p.funnelId?ativos.findIndex(a=>String(a.userId)===String(p.userId))+1:0;
       const semFunil=!p.funnelId;
-      if(parceiro()){
-        return `<div class="rl-p rl-pf ${p.ativo===false?'off':''} ${ehVez?'vez':''}">
-        <span class="rl-ord">${pos?pos+'º':'—'}</span>${av(u,p.nome)}
-        <div class="rl-nm"><b>${E(todosFunis.find(f=>String(f.id)===String(p.funnelId))?.name||p.funnelNome||'Funil')}</b><small>${ehVez?'<span class="vez">PRÓXIMO</span>':''}<label class="rl-tg sm" title="${p.ativo===false?'Fora da roleta':'Na roleta'}"><input type="checkbox" ${p.ativo!==false?'checked':''} onchange="gxRlSet(${i},'ativo',this.checked)" aria-label="Participa da roleta"><span></span></label><span style="white-space:nowrap">vai para ${E(p.nome||'')}</span></small></div>
-        <select class="rl-in rl-etp" onchange="gxRlSet(${i},'stageId',this.value)" aria-label="Etapa" ${semFunil?'disabled':''}>${etapas(p.funnelId).map(s=>`<option value="${E(s.id)}" ${String(s.id)===String(p.stageId)?'selected':''}>${E(s.name)}</option>`).join('')}</select>
-        <button class="rl-del" onclick="gxRlDel(${i})" aria-label="Tirar ${E(p.funnelNome||'')} da roleta" title="Tirar da roleta"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
-      </div>`;
-      }
       return `<div class="rl-p ${p.ativo===false?'off':''} ${ehVez?'vez':''}">
         <span class="rl-ord">${pos?pos+'º':'—'}</span>${av(u,p.nome)}
         <div class="rl-nm"><b>${E(p.nome)}</b><small>${ehVez?'<span class="vez">PRÓXIMO</span>':''}<label class="rl-tg sm" title="${p.ativo===false?'Fora da roleta':'Na roleta'}"><input type="checkbox" ${p.ativo!==false?'checked':''} onchange="gxRlSet(${i},'ativo',this.checked)" aria-label="Participa da roleta"><span></span></label>${p.ativo===false?'pausado':'na roleta'}</small></div>
@@ -30919,10 +30959,10 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
           <div><span>Distribuídos</span><b>${+RS.distribuidos||0}</b><small>desde que a roleta foi criada</small></div>
           <div><span>Último lead</span><b>${salvo?.ultimo?E(salvo.ultimo.lead||'Lead'):'—'}</b><small>${salvo?.ultimo?`→ ${E(String(salvo.ultimo.para||'').split(' ')[0])} · ${quandoBR(salvo.ultimo.em)}`:'ainda nenhum'}</small></div>
         </div>
-        <div class="rl-lbl">${parceiro()?'Funis na roleta':'Vendedores na roleta'} (rodízio na ordem da lista)</div>
+        <div class="rl-lbl">${parceiro()?'Sua equipe na roleta':'Vendedores na roleta'} (rodízio na ordem da lista)</div>
         ${linhas||'<div class="rl-note">Ninguém na roleta ainda. Adicione os vendedores abaixo.</div>'}
         ${RS.participantes.some(p=>!p.funnelId)?'<div class="rl-note rl-warn">Quem está sem funil escolhido fica fora do rodízio até você escolher.</div>':''}
-        <div class="rl-add"><select class="rl-in" id="rl-add-sel" style="flex:1"><option value="">${parceiro()?'Adicionar funil…':'Adicionar vendedor…'}</option>${parceiro()?funisParceiro().filter(f=>!RS.participantes.some(p=>String(p.funnelId)===String(f.id))).map(f=>`<option value="f:${E(f.id)}">${E(f.name||'Funil')} → ${E(String(donoDoFunil(f.id).nome||'').split(' ')[0])}</option>`).join(''):''}${(parceiro()?[]:fora).map(u=>`<option value="${E(uidOf(u))}">${E(u.nome)}${funisDe(u).length?'':' (sem funil próprio)'}</option>`).join('')}</select><button class="rl-btn sm" onclick="gxRlAdd()">Adicionar</button></div>
+        <div class="rl-add"><select class="rl-in" id="rl-add-sel" style="flex:1"><option value="">${parceiro()?'Adicionar pessoa da sua equipe…':'Adicionar vendedor…'}</option>${fora.map(u=>`<option value="${E(uidOf(u))}">${E(u.nome)}${funisDe(u).length?'':' (sem funil próprio)'}</option>`).join('')}</select><button class="rl-btn sm" onclick="gxRlAdd()">Adicionar</button></div>
         <div class="rl-note">A roleta roda no banco de dados, na hora em que o lead chega, mesmo com o GexFlow fechado, e nunca entrega o mesmo lead para duas pessoas. Quem recebe é avisado no sino e por e-mail. ${gestor()?'<b>Primeira vez:</b> rode o SQL <code>roleta-leads.sql</code> no Supabase. Sem ele, a configuração fica salva mas os leads não são distribuídos.':''}</div>
       </div>
       <div class="rl-f">${RS.__sujo?'<span class="rl-warn" style="margin-right:auto;font-size:12.5px">● Alterações não salvas</span>':''}<button class="rl-btn" onclick="gxRoletaFechar()">Cancelar</button><button class="rl-btn pri" onclick="gxRlSalvar()" ${RS.__sujo||RS.__novo?'':'disabled'}>Salvar roleta</button></div>`;
@@ -30939,7 +30979,6 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
   window.gxRlDel=function(i){RS.participantes.splice(i,1);sujo()};
   window.gxRlAdd=function(){
     const id=document.getElementById('rl-add-sel')?.value;if(!id)return;
-    if(id.startsWith('f:')){const f=funis().find(x=>String(x.id)===id.slice(2));if(!f)return;RS.participantes.push(novoPart(donoDoFunil(f.id),f));sujo();return}
     const u=vendedores().find(x=>uidOf(x)===id);if(!u)return;
     RS.participantes.push(novoPart(u,funisDe(u)[0]));sujo();
   };
