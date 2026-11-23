@@ -2161,7 +2161,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
       <div class="login-brand">Gex<span>Flow</span></div>
     </div>
     <div class="login-greeting">Crie sua nova senha 🔒</div>
-    <div class="login-tagline" style="margin-bottom:22px;text-align:left">Escolha uma senha nova com pelo menos 6 caracteres para voltar a acessar sua conta.</div>
+    <div class="login-tagline" style="margin-bottom:22px;text-align:left">Escolha uma senha nova com pelo menos 8 caracteres para voltar a acessar sua conta.</div>
     <div class="login-err" id="reset-err"></div>
     <div class="form-group"><label class="form-label">Nova senha</label><div class="gx-pwd-wrap"><input class="form-input" id="reset-pass1" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')document.getElementById('reset-pass2').focus()"><button type="button" class="gx-pwd-eye" title="Mostrar senha" onclick="toggleGxPwdEye('reset-pass1',this)"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 10s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6z"/><circle cx="10" cy="10" r="2.6"/></svg></button></div></div>
     <div class="form-group" style="margin-bottom:20px"><label class="form-label">Confirmar nova senha</label><div class="gx-pwd-wrap"><input class="form-input" id="reset-pass2" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')confirmPasswordReset()"><button type="button" class="gx-pwd-eye" title="Mostrar senha" onclick="toggleGxPwdEye('reset-pass2',this)"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 10s3.2-6 9-6 9 6 9 6-3.2 6-9 6-9-6-9-6z"/><circle cx="10" cy="10" r="2.6"/></svg></button></div></div>
@@ -2359,7 +2359,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
   <div class="sb-bottom">
     <button id="sb-collapse-btn" type="button" onclick="gxToggleSidebar()" title="Recolher / abrir menu"><span class="sbc-close">‹ Recolher menu</span><span class="sbc-open">›</span></button>
     <button id="sb-partner-tutorial-row" onclick="gxShowPartnerWelcome()" style="display:none;width:100%;align-items:center;gap:8px;justify-content:center;cursor:pointer;background:rgba(139,92,246,.18);border:1px solid rgba(139,92,246,.45);color:#fff;border-radius:9px;padding:9px 10px;margin-bottom:8px;font-size:13.5px;font-weight:700;font-family:inherit">Como usar o sistema</button>
-    <div class="sb-row"><span class="sb-lbl" style="cursor:pointer">Suporte</span><span style="font-size:9px;color:rgba(255,255,255,.2)">v3.1 Connect · 24.11c</span></div>
+    <div class="sb-row"><span class="sb-lbl" style="cursor:pointer">Suporte</span><span style="font-size:9px;color:rgba(255,255,255,.2)">v3.1 Connect · 24.11d</span></div>
   </div>
 </aside>
 
@@ -8156,6 +8156,7 @@ async function saveModal(type,id=''){
 
       if(!obj.nome||!obj.email){toast('Nome e email obrigatórios','#EF4444');return}
       if(!id&&!senha){toast('Informe uma senha para criar o usuário no Supabase','#EF4444');return}
+      if(senha&&String(senha).length<8){toast('A senha precisa ter pelo menos 8 caracteres','#EF4444');return}
       if(!id&&isFounderLikeRole(roleSelected)){
         toast('Não é permitido criar outro usuário Fundador pelo sistema.','#EF4444');
         return;
@@ -8634,7 +8635,7 @@ function formUsuario(d){
     const disabled=(r==='Fundador')?'disabled':'';
     return`<option value="${r}" ${dRole===r?'selected':''} ${disabled}>${r}</option>`;
   }).join('');
-  const newPwdHint=d?'<div style="font-size:11px;color:var(--muted);margin-top:5px">Deixe em branco para manter a senha atual</div>':'<div style="font-size:11px;color:var(--muted);margin-top:5px">Mínimo de 6 caracteres.</div>';
+  const newPwdHint=d?'<div style="font-size:11px;color:var(--muted);margin-top:5px">Deixe em branco para manter a senha atual</div>':'<div style="font-size:11px;color:var(--muted);margin-top:5px">Mínimo de 8 caracteres.</div>';
   const origemHtml='';
   return `<div class="form-row">
     <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="f-nome" value="${escHtml(d?.nome||'')}"></div>
@@ -13750,7 +13751,7 @@ async function salvarEdicaoSubUsuario(){
   const senha=document.getElementById('me-senha')?.value?.trim();
   const funnelId=document.getElementById('me-funil')?.value?.trim();
   if(!nome||!email||!funnelId){toast('Preencha nome, email e escolha o funil','#EF4444');return}
-  if(senha&&senha.length<6){toast('A nova senha precisa ter pelo menos 6 caracteres','#EF4444');return}
+  if(senha&&senha.length<8){toast('A nova senha precisa ter pelo menos 8 caracteres','#EF4444');return}
   const btn=document.getElementById('me-criar-btn');
   if(btn){btn.disabled=true;btn.textContent='Salvando...'}
   try{
@@ -13782,7 +13783,7 @@ async function criarSubUsuarioParceiro(){
   const senha=document.getElementById('me-senha')?.value?.trim();
   const funnelId=document.getElementById('me-funil')?.value?.trim();
   if(!nome||!email||!senha||!funnelId){toast('Preencha nome, email, senha e escolha o funil','#EF4444');return}
-  if(senha.length<6){toast('A senha precisa ter pelo menos 6 caracteres','#EF4444');return}
+  if(senha.length<8){toast('A senha precisa ter pelo menos 8 caracteres','#EF4444');return}
   const btn=document.getElementById('me-criar-btn');
   if(btn){btn.disabled=true;btn.textContent='Criando...'}
   try{
@@ -19908,7 +19909,7 @@ async function confirmPasswordReset(){
   const btn=document.getElementById('reset-btn');
   errEl.classList.remove('show');
 
-  if(!pass1||pass1.length<6){errEl.textContent='A senha precisa ter pelo menos 6 caracteres.';errEl.classList.add('show');return}
+  if(!pass1||pass1.length<8){errEl.textContent='A senha precisa ter pelo menos 8 caracteres.';errEl.classList.add('show');return}
   if(pass1!==pass2){errEl.textContent='As senhas não são iguais.';errEl.classList.add('show');return}
   if(!supabaseClient){errEl.textContent='Não foi possível confirmar sua sessão de recuperação.';errEl.classList.add('show');return}
 
