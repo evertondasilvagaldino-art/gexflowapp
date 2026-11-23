@@ -33654,15 +33654,21 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
   window.gxLigar=function(id){
     const l=DB.find('leads',id);if(!l){toast('Lead não encontrado','#EF4444');return}
     const c=cfg(),i=gxLigInfo(id),tent=i.n+1,tel=telLimpo(l.telefone||l.whatsapp);
+    const celular=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'');
     selRes='';
     document.getElementById('gx-lig-ov')?.remove();
     const o=document.createElement('div');o.id='gx-lig-ov';o.className='fx-ov';
     o.innerHTML=`<div class="fx-md pl" role="dialog" aria-modal="true" aria-labelledby="gx-lig-t" style="max-width:520px">
       <h3 id="gx-lig-t">Ligação para ${E(l.nome||'lead')}</h3>
       <p class="sub">Tentativa <b>${tent}</b> de ${c.tentativas}${i.ult?` · última há ${diasDesde(i.ult)||0} dia(s)`:''}${l.telefone?` · ${E(l.telefone)}`:''}</p>
-      ${tel?`<div style="display:flex;gap:8px;margin:12px 0 4px;flex-wrap:wrap">
+      ${tel?(celular?`<div style="display:flex;gap:8px;margin:12px 0 4px;flex-wrap:wrap">
         <a class="pl-btn pri" href="tel:+${tel}" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">${icTel} Discar</a>
         <a class="pl-btn" href="https://wa.me/${tel}" target="_blank" rel="noopener" style="text-decoration:none">Abrir no WhatsApp</a></div>`
+        :`<div style="display:flex;gap:8px;margin:12px 0 4px;flex-wrap:wrap">
+        <button type="button" class="pl-btn pri" data-copiar="${E(l.telefone||tel)}" style="display:inline-flex;align-items:center;gap:6px">${icTel} Copiar número</button>
+        <a class="pl-btn" href="https://wa.me/${tel}" target="_blank" rel="noopener" style="text-decoration:none">Abrir no WhatsApp</a>
+        <a class="pl-btn" href="tel:+${tel}" style="text-decoration:none" title="Usa o app de ligação do computador (ex.: Vincular ao Celular do Windows)">Ligar pelo PC</a></div>
+        <small style="display:block;color:var(--pl-mu,#6B7280);font-size:11.5px">No computador: copie o número e ligue do seu celular, ou use "Ligar pelo PC" se tiver o celular conectado ao Windows (app Vincular ao Celular).</small>`)
         :`<div class="cfg-note" style="margin:10px 0">Este lead está sem telefone. Dá para registrar a tentativa mesmo assim.</div>`}
       <div style="font-size:12.5px;font-weight:800;margin:16px 0 8px">Como foi?</div>
       <div class="gx-lig-res" role="radiogroup" aria-label="Resultado da ligação">${Object.entries(RES).map(([k,r])=>`<button type="button" role="radio" aria-checked="false" data-r="${k}" style="--c:${r.cor}">${r.t}</button>`).join('')}</div>
@@ -33679,6 +33685,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     const esc=e=>{if(e.key==='Escape'&&!document.getElementById('gxd-ov')?.classList.contains('open')){e.preventDefault();e.stopImmediatePropagation();fechar()}};
     document.addEventListener('keydown',esc,true);o.addEventListener('mousedown',e=>{if(e.target===o)fechar()});
     o.querySelector('[data-x]').onclick=fechar;
+    o.querySelector('[data-copiar]')?.addEventListener('click',e=>{const v=e.currentTarget.dataset.copiar;try{navigator.clipboard.writeText(v).then(()=>toast('Número copiado: '+v,'#10B981'))}catch(err){toast(v,'#7C3AED')}});
     const sug=r=>{const d=new Date();const passo=Math.max(1,Math.round(c.dias/Math.max(1,c.tentativas)));d.setDate(d.getDate()+(r==='retornar'?1:passo));if(d.getDay()===6)d.setDate(d.getDate()+2);if(d.getDay()===0)d.setDate(d.getDate()+1);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10)};
     o.querySelectorAll('.gx-lig-res button').forEach(b=>b.onclick=()=>{
       selRes=b.dataset.r;o.querySelectorAll('.gx-lig-res button').forEach(x=>{const on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-checked',String(on))});
