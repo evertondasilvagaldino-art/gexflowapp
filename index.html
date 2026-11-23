@@ -4231,6 +4231,7 @@ function startProfilesRealtime(){
 async function refreshUsersFromSupabaseFast(){
   try{
     const rows=await syncUsuariosFromSupabase({silent:true,rerender:true});
+    try{if(typeof refreshMyPartnerSubUsers==='function')await refreshMyPartnerSubUsers()}catch(e){}
     return rows;
   }catch(e){
     console.warn('[GexFlow] refreshUsersFromSupabaseFast:',e);
@@ -30851,6 +30852,10 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
       vendedores().forEach(u=>{const f=funisDe(u)[0];if(f)RS.participantes.push(novoPart(u,f))});
     }
     const {ov,md}=modal();ov.classList.add('open');md.classList.add('open');desenhar();
+    // Parceiro: busca a equipe dele (Operadores) direto no banco — depois de recarregar a página ela pode não estar na memória.
+    if(parceiro()&&typeof refreshMyPartnerSubUsers==='function'){
+      refreshMyPartnerSubUsers().then(rows=>{try{_gxUsrVal=null}catch(e){}if(rows&&rows.length&&RS&&document.getElementById('rl-add-sel'))desenhar()}).catch(()=>{});
+    }
   };
   function novoPart(u,f){const st=etapas(f?.id)[0];return {userId:uidOf(u),nome:u.nome||'',email:u.email||'',funnelId:f?.id||'',funnelNome:f?.name||'',stageId:st?.id||'',stageNome:st?.name||'',ativo:true}}
   window.gxRoletaFechar=async function(force){
