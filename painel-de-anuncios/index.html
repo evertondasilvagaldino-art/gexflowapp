@@ -108,6 +108,28 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .cb-l li.sec{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;cursor:default;padding:8px 9px 4px}
 .cb-l li.sec:hover{background:transparent}
 .cb-l li .q{color:var(--muted);font-size:11.5px;margin-left:4px}
+.cb-l li.op{display:flex;align-items:center;gap:8px}
+.cb-l{min-width:300px}
+.cb .cb-l li.op input{width:16px;height:16px;padding:0;margin:0;border:0;accent-color:var(--accent);flex-shrink:0}
+.cb-l li.acoes .btn{white-space:nowrap}
+.cb-l li.acoes{display:flex;gap:6px;cursor:default;padding:6px 4px;position:sticky;top:-4px;background:var(--surface);border-bottom:1px solid var(--grid);margin-bottom:4px;border-radius:0}
+.cb-l li.acoes:hover{background:var(--surface)}
+.cb-l li.acoes .btn{padding:5px 9px;font-size:12px}
+.cb-l li.acoes .btn.pri{margin-left:auto}
+.cmp-bars{display:grid;gap:8px}
+.cmp-row{display:grid;grid-template-columns:minmax(120px,220px) 1fr;gap:10px;align-items:center;cursor:pointer;border-radius:8px;padding:4px 6px;margin:0 -6px}
+.cmp-row:hover,.cmp-row:focus-visible{background:var(--accent-soft)}
+.cmp-row .nm{font-size:13px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmp-row .tr{display:flex;align-items:center;gap:8px;min-width:0}
+.cmp-row .fl{height:22px;border-radius:0 5px 5px 0;background:var(--s1);min-width:3px}
+.cmp-row .vl{font-size:12.5px;font-weight:700;white-space:nowrap}
+.tbl tr.clk{cursor:pointer}
+.tbl tr.clk:hover td{background:var(--accent-soft)}
+.tbl th.ord{cursor:pointer;user-select:none}
+.tbl th.ord:hover{color:var(--ink)}
+.tbl td.err{color:var(--crit);text-align:left}
+.volta{display:inline-flex;align-items:center;gap:6px;margin-bottom:12px}
+@media(max-width:640px){.cmp-row{grid-template-columns:1fr;gap:2px}}
 .fv{margin-top:8px}.fv label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px}.fv .fsel{max-width:100%}.fv .fok{margin-left:8px;font-size:12px;color:var(--good)}
 .tbl{width:100%;border-collapse:collapse;font-size:13px}
 .tbl th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:right;padding:6px 8px;font-weight:700;border-bottom:1px solid var(--line)}
@@ -219,15 +241,15 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
         <button data-p="custom" aria-pressed="false">Outro…</button>
       </div>
       <div class="custom" id="custom"><input type="date" id="de" aria-label="De"><span>até</span><input type="date" id="ate" aria-label="Até"><button class="btn" id="aplicar">Aplicar</button></div>
-      <div class="cb" id="funil-w"><input id="funil-q" type="text" autocomplete="off" placeholder="Pesquisar conta ou grupo…" aria-label="Pesquisar conta ou grupo de anúncios"><ul id="funil-l" class="cb-l" role="listbox"></ul></div><select id="funil" aria-hidden="true" tabindex="-1" style="display:none"></select>
-      <button class="btn" id="links" style="display:none" title="Links por cliente e grupos de contas">🔗 Links e grupos</button>
+      <div class="cb" id="funil-w"><input id="funil-q" type="text" autocomplete="off" placeholder="Escolher contas…" aria-label="Escolher contas de anúncios"><ul id="funil-l" class="cb-l" role="listbox"></ul></div><select id="funil" aria-hidden="true" tabindex="-1" style="display:none"></select>
+      <button class="btn" id="links" style="display:none" title="Gerar um link só de uma conta de anúncios, para o cliente acompanhar">🔗 Links por cliente</button>
       <button class="btn" id="refresh" title="Atualizar agora">↻ Atualizar</button>
     </div>
   </header>
   <main id="app"><div class="state"><div class="skel" style="width:40%;margin:0 auto 10px"></div><div class="skel" style="width:60%;margin:0 auto"></div></div></main>
 </div>
 <div class="mdl" id="mdl" role="dialog" aria-modal="true" aria-labelledby="mdl-t"><div class="mdl-box">
-  <div style="display:flex;align-items:flex-start;gap:10px"><div><h2 id="mdl-t" style="margin:0;font-size:16px">Links e grupos de contas</h2><div class="hint" style="font-size:12px;color:var(--muted);margin:2px 0 10px">Cada link mostra <b>só a conta (ou o grupo) daquele cliente</b>. "Gerar novo" invalida o link anterior. Um <b>grupo</b> soma os números de todas as contas dele.</div></div><button class="btn" id="mdl-x" style="margin-left:auto">Fechar</button></div>
+  <div style="display:flex;align-items:flex-start;gap:10px"><div><h2 id="mdl-t" style="margin:0;font-size:16px">Links por cliente</h2><div class="hint" style="font-size:12px;color:var(--muted);margin:2px 0 10px">Cada link mostra <b>só a conta de anúncios daquele cliente</b>. "Gerar novo" invalida o link anterior.</div></div><button class="btn" id="mdl-x" style="margin-left:auto">Fechar</button></div>
   <div id="mdl-b"><div class="skel" style="width:60%"></div></div>
 </div></div>
 
@@ -243,7 +265,11 @@ try{
   else if(!QS.get('l')){TOKEN=localStorage.getItem(LSK)||''}
 }catch(e){}
 const LINK=QS.get('l')||'';
-const S={p:'30',de:'',ate:'',conta:'',data:null,timer:null,abort:null};
+const S={p:'30',de:'',ate:'',conta:'',data:null,timer:null,abort:null,sel:[],foco:'',lista:[],comp:null,cm:'gasto',ord:'gasto',ordDesc:true};
+const LSS='gxbi_contas_sel';
+try{const v=JSON.parse(localStorage.getItem(LSS)||'[]');if(Array.isArray(v))S.sel=v.filter(x=>typeof x==='string').slice(0,30)}catch(e){}
+const modoComp=()=>!!TOKEN&&!LINK&&S.sel.length>=2&&!S.foco;
+function salvarSel(){try{localStorage.setItem(LSS,JSON.stringify(S.sel))}catch(e){}}
 const $=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let CUR='BRL';
@@ -280,7 +306,9 @@ async function load0(fresh){
   const [de,ate]=range();
   if(S.abort)S.abort.abort();
   S.abort=new AbortController();
-  const u=API+'?'+(TOKEN?'t='+encodeURIComponent(TOKEN):'l='+encodeURIComponent(LINK))+'&de='+de+'&ate='+ate+(S.conta&&TOKEN?'&conta='+encodeURIComponent(S.conta):'')+(fresh===true?'&fresh=1':'');
+  const comp=modoComp();
+  if(!comp&&TOKEN){S.conta=S.foco||(S.sel.length===1?S.sel[0]:S.conta)}
+  const u=API+'?'+(TOKEN?'t='+encodeURIComponent(TOKEN):'l='+encodeURIComponent(LINK))+'&de='+de+'&ate='+ate+(comp?'&acao=resumo&contas='+encodeURIComponent(S.sel.join(',')):(S.conta&&TOKEN?'&conta='+encodeURIComponent(S.conta):''))+(fresh===true?'&fresh=1':'');
   try{
     S.timedOut=false;const ab=S.abort;const tm=setTimeout(()=>{S.timedOut=true;try{ab.abort()}catch(e){}},90000);
     let r;try{r=await fetch(u,{signal:S.abort.signal,cache:'no-store'})}finally{clearTimeout(tm)}
@@ -292,8 +320,9 @@ async function load0(fresh){
     if(r.status===503){showState('BI ainda não configurado','A chave (secret GEX_BI_TOKEN) no Supabase precisa ter 24 ou mais caracteres. Ajuste e faça Deploy da função de novo.');return}
     if(r.status===404||r.status===502){let b={};try{b=await r.json()}catch(e){}showState(r.status===502?'A Meta não respondeu':'Conta não encontrada',b.error||'Tente novamente em instantes.');return}
     if(!r.ok)throw new Error('http '+r.status);
-    S.data=await r.json();
-    render();
+    const j=await r.json();
+    if(comp){S.comp=j;if(Array.isArray(j.disponiveis)&&j.disponiveis.length)S.lista=j.disponiveis;renderComp()}
+    else{S.data=j;render()}
   }catch(e){
     if(e.name==='AbortError'){if(S.timedOut){S.timedOut=false;if(S.data)$('sub').textContent='O servidor demorou demais. Clique em Atualizar para tentar de novo.';else showState('Demorou demais','O servidor não respondeu a tempo. Clique em Atualizar para tentar de novo.')}return}
     if(S.data){$('sub').textContent='Sem conexão agora — mostrando os últimos dados carregados.';return}
@@ -325,8 +354,10 @@ function render(){
   const d=S.data;if(!d)return;
   CUR=(d.conta&&d.conta.moeda)||'BRL';
   const fs=$('funil');const keep=S.conta||(d.conta&&d.conta.id)||'';
-  fs.innerHTML=(d.contasDisponiveis||[]).map(f=>'<option value="'+esc(f.id)+'"'+(f.grupo?' data-g="1" data-q="'+esc(f.qtd||'')+'"':'')+(f.id===keep?' selected':'')+'>'+esc(f.nome)+'</option>').join('');
-  fs.style.display='none';$('funil-w').style.display=(d.escopo||(d.contasDisponiveis||[]).length<2)?'none':'';cbSync();
+  const disp=(d.contasDisponiveis||[]).filter(f=>!f.grupo);
+  if(!d.escopo)S.lista=disp.map(f=>({id:f.id,nome:f.nome}));
+  fs.innerHTML=disp.map(f=>'<option value="'+esc(f.id)+'"'+(f.id===keep?' selected':'')+'>'+esc(f.nome)+'</option>').join('');
+  fs.style.display='none';$('funil-w').style.display=(d.escopo||disp.length<2)?'none':'';cbSync();
   const grupo=!!(d.conta&&d.conta.grupo);
   const nome=(d.conta&&d.conta.nome)||'';
   $('h1').textContent='Painel de anúncios'+(nome?' · '+nome:'');document.title='Painel de anúncios'+(nome?' · '+nome:'');
@@ -347,7 +378,8 @@ function render(){
   const sv='—';
   const temVenda=temVendaMeta||usaGex;
   const roiTxt=temVenda?pc(a.roi):sv;
-  $('app').innerHTML=aviso+
+  const volta=S.foco&&S.sel.length>=2?'<button class="btn volta" id="volta">← Voltar para as '+S.sel.length+' contas</button>':'';
+  $('app').innerHTML=volta+aviso+
    '<section class="grid-kpi" aria-label="Indicadores">'+
      kpi('Investimento',brl2(a.gasto),a.gasto,b.gasto,{hero:true})+
      kpi(usaGex?'Faturamento (funil no GexFlow)':'Faturamento (compras na Meta)',temVenda?brl2(a.faturamento):sv,a.faturamento,b.faturamento,usaGex?{noDelta:true,note:'a Meta não registrou compras'}:undefined)+
@@ -393,6 +425,59 @@ function render(){
   else drawChart('c2',d.serie.map(x=>({k:x.k,v:x.leads,t:'<b>'+labelOf(x.k,'dia',true)+'</b><br>'+int(x.leads)+' lead(s)'+(x.leads?' · '+brl2(x.gasto/x.leads)+' cada':'')})),'--s2',v=>int(v),int,'dia');
   drawCamps(d);drawCria(d);
   document.querySelectorAll('[data-tg]').forEach(b=>b.onclick=()=>toggleTable(b.dataset.tg));
+  if($('volta'))$('volta').onclick=voltarComp;
+}
+function voltarComp(){S.foco='';cbSync();load();window.scrollTo({top:0,behavior:'smooth'})}
+function abrirConta(id){S.foco=id;cbSync();load();window.scrollTo({top:0,behavior:'smooth'})}
+
+/* ── várias contas lado a lado (sem somar), como na Origem dos leads ── */
+const MET={
+  gasto:{t:'Investimento',f:v=>brl2(v),c:'--s1'},
+  leads:{t:'Leads',f:v=>int(v),c:'--s2'},
+  cpl:{t:'Custo por lead',f:v=>v?brl2(v):'—',c:'--s2',inv:true},
+  conversas:{t:'Mensagens',f:v=>int(v),c:'--s1'},
+  cpConversa:{t:'Custo por mensagem',f:v=>v?brl2(v):'—',c:'--s1',inv:true},
+  vendas:{t:'Vendas',f:v=>int(v),c:'--good'},
+  faturamento:{t:'Faturamento',f:v=>v?brl2(v):'—',c:'--good'},
+  roas:{t:'ROAS',f:v=>v?v.toLocaleString('pt-BR',{maximumFractionDigits:2})+'x':'—',c:'--good'},
+  cliques:{t:'Cliques',f:v=>int(v),c:'--s1'},
+  ctr:{t:'CTR',f:v=>pc(v),c:'--s1'},
+  cpc:{t:'Custo por clique',f:v=>v?brl2(v):'—',c:'--s1',inv:true}
+};
+function renderComp(){
+  const d=S.comp;if(!d)return;
+  const fs=$('funil');fs.innerHTML=S.lista.map(f=>'<option value="'+esc(f.id)+'">'+esc(f.nome)+'</option>').join('');
+  $('funil-w').style.display=S.lista.length<2?'none':'';cbSync();
+  const ok=(d.contas||[]).filter(x=>!x.erro),err=(d.contas||[]).filter(x=>x.erro);
+  CUR=(ok[0]&&ok[0].moeda)||'BRL';
+  $('h1').textContent='Painel de anúncios · '+(d.contas||[]).length+' contas';document.title=$('h1').textContent;
+  const g=new Date(d.geradoEm);
+  $('sub').textContent=brDate(d.periodo.de)+' a '+brDate(d.periodo.ate)+' · cada conta separada, sem somar · atualizado às '+g.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+(d.ms?' · levou '+(d.ms/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' s':'');
+  const temC=ok.some(x=>x.atual.conversas>0),temV=ok.some(x=>x.atual.vendas>0||x.atual.faturamento>0);
+  const mets=['gasto','leads','cpl'].concat(temC?['conversas','cpConversa']:[]).concat(temV?['vendas','faturamento','roas']:[]).concat(['cliques','ctr']);
+  if(!mets.includes(S.cm))S.cm='gasto';
+  $('app').innerHTML=
+   '<section class="card" style="margin-bottom:12px"><div class="head"><div><h2>Comparar contas</h2><div class="hint">Clique numa conta para ver o painel completo dela</div></div></div>'+
+   '<div id="cmp-m" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">'+mets.map(k=>'<button class="btn" data-m="'+k+'" aria-pressed="'+(S.cm===k)+'">'+MET[k].t+'</button>').join('')+'</div>'+
+   '<div class="cmp-bars" id="cmp-b"></div></section>'+
+   '<section class="card"><h2>Todas as contas</h2><div class="hint">Clique no título de uma coluna para ordenar · clique na linha para abrir a conta · a variação compara com o período anterior ('+brDate(d.periodo.anteriorDe)+' a '+brDate(d.periodo.anteriorAte)+')</div><div class="scroll"><table class="tbl stack" id="cmp-t"></table></div></section>'+
+   (err.length?'<p class="foot" style="color:var(--crit)">Não consegui ler agora: '+esc(err.map(x=>x.nome+' ('+x.erro+')').join(' · '))+'</p>':'');
+  $('cmp-m').querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{S.cm=b.dataset.m;renderComp()});
+  // barras
+  const m=MET[S.cm];const lst=ok.slice().sort((a,b)=>{const va=a.atual[S.cm]||0,vb=b.atual[S.cm]||0;if(m.inv){if(!va)return 1;if(!vb)return -1;return va-vb}return vb-va});
+  const max=Math.max(1e-9,...lst.map(x=>x.atual[S.cm]||0));
+  $('cmp-b').innerHTML=lst.length?lst.map(x=>{const v=x.atual[S.cm]||0;return '<div class="cmp-row" role="button" tabindex="0" data-id="'+esc(x.id)+'" title="Abrir '+esc(x.nome)+'"><div class="nm">'+esc(x.nome)+'</div><div class="tr"><div class="fl" style="width:'+(v?Math.max(1,Math.round(v/max*100)):0)+'%;background:var('+m.c+')"></div><span class="vl num">'+m.f(v)+'</span></div></div>'}).join(''):'<div class="hint">Nenhuma conta respondeu.</div>';
+  $('cmp-b').querySelectorAll('.cmp-row').forEach(r=>{r.onclick=()=>abrirConta(r.dataset.id);r.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();abrirConta(r.dataset.id)}}});
+  // tabela
+  const cols=[['gasto','Investimento'],['leads','Leads'],['cpl','Custo/lead']].concat(temC?[['conversas','Mensagens'],['cpConversa','Custo/msg']]:[]).concat(temV?[['vendas','Vendas'],['faturamento','Faturamento'],['roas','ROAS']]:[]).concat([['cliques','Cliques'],['ctr','CTR'],['cpc','Custo/clique']]);
+  const ordv=x=>x.erro?-1:(x.atual[S.ord]||0);
+  const linhas=(d.contas||[]).slice().sort((a,b)=>S.ord==='nome'?String(a.nome).localeCompare(String(b.nome),'pt-BR')*(S.ordDesc?-1:1):(S.ordDesc?ordv(b)-ordv(a):ordv(a)-ordv(b)));
+  const seta=k=>S.ord===k?(S.ordDesc?' ↓':' ↑'):'';
+  $('cmp-t').innerHTML='<thead><tr><th class="ord" data-o="nome">Conta'+seta('nome')+'</th>'+cols.map(c=>'<th class="ord" data-o="'+c[0]+'">'+c[1]+seta(c[0])+'</th>').join('')+'</tr></thead><tbody>'+
+    linhas.map(x=>x.erro?'<tr><td>'+esc(x.nome)+'</td><td class="err" colspan="'+cols.length+'">'+esc(x.erro)+'</td></tr>':
+      '<tr class="clk" data-id="'+esc(x.id)+'" tabindex="0"><td title="'+esc(x.nome)+'">'+esc(x.nome)+'</td>'+cols.map(c=>{const k=c[0],v=x.atual[k]||0;return '<td data-l="'+c[1]+'" class="num">'+MET[k].f(v)+(k==='gasto'?'<div style="font-size:11px">'+delta(v,x.anterior.gasto||0)+'</div>':'')+'</td>'}).join('')+'</tr>').join('')+'</tbody>';
+  $('cmp-t').querySelectorAll('th[data-o]').forEach(th=>th.onclick=()=>{const k=th.dataset.o;if(S.ord===k)S.ordDesc=!S.ordDesc;else{S.ord=k;S.ordDesc=k!=='nome'}renderComp()});
+  $('cmp-t').querySelectorAll('tr.clk').forEach(tr=>{tr.onclick=()=>abrirConta(tr.dataset.id);tr.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();abrirConta(tr.dataset.id)}}});
 }
 function labelOf(k,gran,full){
   if(gran==='mes')return MES[+k.slice(5,7)-1]+'/'+k.slice(2,4);
@@ -489,29 +574,52 @@ function setPreset(p){
 }
 document.querySelectorAll('#presets button').forEach(b=>b.addEventListener('click',()=>setPreset(b.dataset.p)));
 $('aplicar').addEventListener('click',()=>{S.de=$('de').value;S.ate=$('ate').value;if(!S.de||!S.ate)return;load()});
-/* ── seletor de conta/grupo com pesquisa ── */
-function cbNome(){const o=$('funil').selectedOptions[0];return o?(o.dataset.g?'📁 ':'')+o.textContent:''}
+/* ── seletor de contas com caixas de seleção ── */
+let RAS=null; // seleção em edição (só vale ao aplicar/fechar)
+function nomeDe(id){const x=S.lista.find(f=>f.id===id);return x?x.nome:''}
+function cbNome(){
+  if(S.foco)return nomeDe(S.foco)||'Conta';
+  if(S.sel.length>=2)return S.sel.length+' contas selecionadas';
+  if(S.sel.length===1)return nomeDe(S.sel[0])||'1 conta';
+  const o=$('funil').selectedOptions[0];return o?o.textContent:'';
+}
 function cbSync(){if($('funil-l').classList.contains('on'))return;$('funil-q').value=cbNome()}
-function cbItem(o){return '<li role="option" data-v="'+esc(o.value)+'"'+(o.selected?' aria-selected="true"':'')+'>'+(o.dataset.g?'📁 ':'')+esc(o.textContent)+(o.dataset.g&&o.dataset.q?'<span class="q">'+esc(o.dataset.q)+' contas</span>':'')+'</li>'}
 function cbList(f){
+  if(!RAS){const atual=S.conta||(S.data&&S.data.conta&&S.data.conta.id)||'';RAS=new Set(S.foco?[S.foco]:S.sel.length?S.sel:(atual?[atual]:[]))}
   const l=$('funil-l'),t=(f||'').toLowerCase().trim();
-  const ops=[...$('funil').options].filter(o=>!t||o.textContent.toLowerCase().includes(t));
-  const gs=ops.filter(o=>o.dataset.g),cs=ops.filter(o=>!o.dataset.g);
-  l.innerHTML=ops.length?(gs.length?'<li class="sec">Grupos</li>'+gs.map(cbItem).join('')+(cs.length?'<li class="sec">Contas</li>':''):'')+cs.map(cbItem).join(''):'<li class="vz">Nada encontrado</li>';
+  const ops=S.lista.filter(o=>!t||o.nome.toLowerCase().includes(t));
+  const n=RAS.size;
+  l.innerHTML='<li class="acoes"><button class="btn" data-x="todas" type="button">Marcar '+(t?'estas':'todas')+'</button><button class="btn" data-x="limpar" type="button">Limpar</button><button class="btn pri" data-x="ok" type="button">'+(n>=2?'Ver '+n+' contas':n===1?'Ver conta':'Escolha')+'</button></li>'+
+    (ops.length?ops.map(o=>'<li class="op" role="option" data-v="'+esc(o.id)+'" aria-selected="'+RAS.has(o.id)+'"><input type="checkbox" tabindex="-1"'+(RAS.has(o.id)?' checked':'')+'>'+esc(o.nome)+'</li>').join(''):'<li class="vz">Nenhuma conta encontrada</li>');
   l.classList.add('on');
 }
-function cbClose(){$('funil-l').classList.remove('on');cbSync()}
-$('funil-q').addEventListener('focus',e=>{e.target.select();cbList('')});
+function cbAplicar(){
+  if(!RAS)return;
+  const novo=S.lista.map(f=>f.id).filter(id=>RAS.has(id));RAS=null;
+  if(!novo.length){cbClose();return}
+  const mudou=novo.join(',')!==S.sel.join(',')||!!S.foco;
+  S.sel=novo;S.foco='';salvarSel();
+  $('funil-l').classList.remove('on');$('funil-q').blur();cbSync();
+  if(mudou)load();
+}
+function cbClose(){if(RAS){cbAplicar();return}$('funil-l').classList.remove('on');cbSync()}
+$('funil-q').addEventListener('focus',e=>{e.target.value='';cbList('')});
 $('funil-q').addEventListener('input',e=>cbList(e.target.value));
-$('funil-q').addEventListener('blur',()=>setTimeout(cbClose,150));
 $('funil-q').addEventListener('keydown',e=>{
-  if(e.key==='Escape'){e.target.blur();cbClose()}
-  if(e.key==='Enter'){const li=$('funil-l').querySelector('li[data-v]');if(li)li.dispatchEvent(new Event('pointerdown',{bubbles:true}))}
+  if(e.key==='Escape'){RAS=null;$('funil-l').classList.remove('on');e.target.blur();cbSync()}
+  if(e.key==='Enter'){e.preventDefault();cbAplicar()}
 });
 $('funil-l').addEventListener('pointerdown',e=>{
-  const li=e.target.closest('li[data-v]');if(!li)return;e.preventDefault();
-  const v=li.dataset.v;$('funil').value=v;$('funil-l').classList.remove('on');$('funil-q').value=cbNome();$('funil-q').blur();
-  if(v!==S.conta){S.conta=v;load()}
+  e.preventDefault();e.stopPropagation();
+  const x=e.target.closest('[data-x]');
+  if(x){const a=x.dataset.x;const t=$('funil-q').value.toLowerCase().trim();
+    if(a==='ok'){cbAplicar();return}
+    if(a==='limpar')RAS=new Set();
+    if(a==='todas')S.lista.filter(o=>!t||o.nome.toLowerCase().includes(t)).forEach(o=>RAS.add(o.id));
+    cbList($('funil-q').value);return}
+  const li=e.target.closest('li[data-v]');if(!li)return;
+  const v=li.dataset.v;if(RAS.has(v))RAS.delete(v);else RAS.add(v);
+  cbList($('funil-q').value);
 });
 document.addEventListener('pointerdown',e=>{if(!$('funil-w').contains(e.target))cbClose()});
 $('refresh').addEventListener('click',()=>load(true));
@@ -539,15 +647,8 @@ function linhaLink(f){
    '<div class="ac"><button class="btn" data-a="cp">Copiar</button><button class="btn" data-a="nw">Gerar novo</button>'+(f.grupo?'<button class="btn" data-a="ed">Editar</button><button class="btn" data-a="rm">Excluir</button>':'')+'</div></div>';
 }
 function desenharLinks(){
-  const ls=L.links,gs=ls.filter(x=>x.grupo),cs=ls.filter(x=>!x.grupo);
-  $('mdl-b').innerHTML=
-    '<div class="sec-t" style="margin-top:0">Grupos de contas</div>'+
-    '<div id="gf-w"></div>'+
-    (gs.length?gs.map(linhaLink).join(''):'<div class="hint" style="font-size:12.5px;color:var(--muted);padding:6px 0">Nenhum grupo ainda. Junte as contas de um mesmo cliente para ver tudo somado.</div>')+
-    '<button class="btn pri" id="gf-novo" style="margin:6px 0 4px">＋ Novo grupo de contas</button>'+
-    '<div class="sec-t">Contas</div>'+
-    (cs.length?cs.map(linhaLink).join(''):'<div class="state">Nenhuma conta encontrada.</div>');
-  $('gf-novo').onclick=()=>formGrupo(null);
+  const ls=L.links,cs=ls.filter(x=>!x.grupo);
+  $('mdl-b').innerHTML=cs.length?cs.map(linhaLink).join(''):'<div class="state">Nenhuma conta encontrada.</div>';
   $('mdl-b').querySelectorAll('.lk').forEach(row=>{
     const id=row.dataset.id,f=ls.find(x=>x.id===id)||{};
     const inp=row.querySelector('input'),cp=row.querySelector('[data-a=cp]'),nw=row.querySelector('[data-a=nw]');
