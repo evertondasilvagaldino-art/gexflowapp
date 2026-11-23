@@ -13846,7 +13846,8 @@ function getProjectPeople(){
     if(!key||people.some(x=>x._key===key))return;
     people.push({id:String(id||key),nome:nome||email||'Usuário',email,source,_key:key,cargo:p.cargo||p.permissao||''});
   };
-  (DB.get('usuarios')||[]).forEach(u=>add(u,'user'));
+  // Parceiros e Operadores de Funil são de fora: não entram como responsáveis/pessoas da Operação da Gex.
+  (DB.get('usuarios')||[]).forEach(u=>{try{if(isExternalPartnerRole(u?.permissao||u?.cargo))return}catch(e){}add(u,'user')});
   (DB.get('membros')||[]).forEach(m=>add(m,'membro'));
   if(sessionUser)add(sessionUser,'session');
   return people;
@@ -28754,7 +28755,8 @@ html[data-theme="dark"] .gx-age-avg.ok{color:#6EE7B7}html[data-theme="dark"] .gx
   const myKeys=()=>{try{return currentProjectUserKeys()}catch(e){return []}};
   const meNome=()=>sessionUser?.nome||sessionUser?.name||'Alguém';
   const isMe=p=>{if(!p)return false;const ks=myKeys();return [p.id,p.email,p.nome].map(norm).filter(Boolean).some(k=>ks.includes(k))};
-  const all=()=>{try{return DB.get('notificacoes')||[]}catch(e){return []}};
+  // Gex Parceiro / Operador: só avisos do mundo dele (leads, tarefas comerciais, metas) — nunca tarefas internas da Operação da Gex.
+  const all=()=>{try{const l=DB.get('notificacoes')||[];let ext=false;try{ext=isExternalPartnerRole(sessionUser?.permissao||sessionUser?.cargo)}catch(e){}return ext?l.filter(n=>!(n&&n.link&&n.link.kind==='op_tarefa')):l}catch(e){return []}};
   const forMe=n=>isMe({id:n.paraId,email:n.paraEmail,nome:n.paraNome});
   const mine=()=>all().filter(forMe).sort((a,b)=>String(b.criadoEm).localeCompare(String(a.criadoEm)));
   const personOf=x=>{
@@ -30742,7 +30744,7 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
 .rl-stats b{display:block;font-size:15px;font-weight:800;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rl-stats small{display:block;font-size:11.5px;color:var(--rl-mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rl-lbl{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--rl-mu);margin:4px 0 -4px}
-.rl-p{display:grid;grid-template-columns:28px 34px minmax(0,1fr) minmax(0,1.1fr) minmax(0,1fr) 30px;gap:10px;align-items:center;border:1px solid var(--rl-line);border-radius:12px;padding:10px 12px}
+.rl-p{display:grid;grid-template-columns:28px 34px minmax(0,1fr) minmax(0,1.1fr) minmax(0,1fr) 30px;gap:10px;align-items:center;border:1px solid var(--rl-line);border-radius:12px;padding:10px 12px}.rl-p.rl-pf{grid-template-columns:28px 34px minmax(0,2.1fr) minmax(0,1fr) 30px}.rl-p.rl-pf .rl-nm small{white-space:nowrap}
 .rl-p.off{opacity:.55}
 .rl-p.vez{border-color:#7C3AED;box-shadow:0 0 0 3px rgba(124,58,237,.12)}
 .rl-ord{font-weight:900;font-size:12.5px;color:var(--rl-mu);text-align:center;font-variant-numeric:tabular-nums}
@@ -30758,7 +30760,7 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
 .rl-add{display:flex;gap:8px}
 .rl-note{font-size:12px;color:var(--rl-mu);line-height:1.55;background:var(--rl-soft);border-radius:10px;padding:10px 12px}
 .rl-warn{color:#B45309;font-weight:700}
-@media (max-width:640px){.rl-p{grid-template-columns:28px 34px 1fr 30px}.rl-p .rl-fun,.rl-p .rl-etp{grid-column:3/5}.rl-stats{grid-template-columns:1fr}}
+@media (max-width:640px){.rl-p,.rl-p.rl-pf{grid-template-columns:28px 34px 1fr 30px}.rl-p .rl-fun,.rl-p .rl-etp{grid-column:3/5}.rl-stats{grid-template-columns:1fr}}
 </style>
 <script id="gx-roleta-js">
 /* ═══ ROLETA DE LEADS DO COMERCIAL (04/11/2026) ═══
@@ -30852,7 +30854,8 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
     RS.__novo=!c;
     if(RS.__novo&&!RS.participantes.length){
       // sugestão inicial: vendedores com funil próprio
-      vendedores().forEach(u=>{const f=funisDe(u)[0];if(f)RS.participantes.push(novoPart(u,f))});
+      if(parceiro())funisParceiro().forEach(f=>RS.participantes.push(novoPart(donoDoFunil(f.id),f)));
+      else vendedores().forEach(u=>{const f=funisDe(u)[0];if(f)RS.participantes.push(novoPart(u,f))});
     }
     const {ov,md}=modal();ov.classList.add('open');md.classList.add('open');desenhar();
     // Parceiro: busca a equipe dele (Operadores) direto no banco — depois de recarregar a página ela pode não estar na memória.
@@ -30860,6 +30863,14 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
       refreshMyPartnerSubUsers().then(rows=>{try{_gxUsrVal=null}catch(e){}if(rows&&rows.length&&RS&&document.getElementById('rl-add-sel'))desenhar()}).catch(()=>{});
     }
   };
+  // PARCEIRO (24/11/2026): na roleta dele escolhe-se só o FUNIL; quem recebe sai do funil
+  // (o Operador designado a ele; se não tiver, o próprio parceiro).
+  function donoDoFunil(fid){
+    const us=vendedores();
+    return us.find(u=>role(u)==='Operador de Funil'&&String(u.assignedFunnelId||u.assigned_funnel_id||'')===String(fid))
+      ||us.find(u=>uidOf(u)===meuId()||String(u.id)===meuId())||{id:meuId(),supabaseId:meuId(),nome:sessionUser?.nome||'',email:sessionUser?.email||''};
+  }
+  function funisParceiro(){return funis().filter(f=>f&&!f.isArchived&&String(f.createdBy||'')===meuId())}
   function novoPart(u,f){const st=etapas(f?.id)[0];return {userId:uidOf(u),nome:u.nome||'',email:u.email||'',funnelId:f?.id||'',funnelNome:f?.name||'',stageId:st?.id||'',stageNome:st?.name||'',ativo:true}}
   window.gxRoletaFechar=async function(force){
     if(!force&&RS&&RS.__sujo&&!await gxConfirm('Há alterações não salvas na roleta. Sair sem salvar?'))return;
@@ -30876,9 +30887,17 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
       const u=us.find(x=>uidOf(x)===String(p.userId));
       const meus=u?funisDe(u):[];
       const outros=todosFunis.filter(f=>!meus.some(m=>m.id===f.id));
-      const ehVez=vez&&String(vez.userId)===String(p.userId)&&p.ativo!==false;
-      const pos=p.ativo!==false&&p.funnelId?ativos.findIndex(a=>String(a.userId)===String(p.userId))+1:0;
+      const ehVez=vez&&String(vez.userId)===String(p.userId)&&String(vez.funnelId||'')===String(p.funnelId||'')&&p.ativo!==false;
+      const pos=p.ativo!==false&&p.funnelId?ativos.findIndex(a=>String(a.userId)===String(p.userId)&&String(a.funnelId||'')===String(p.funnelId||''))+1:0;
       const semFunil=!p.funnelId;
+      if(parceiro()){
+        return `<div class="rl-p rl-pf ${p.ativo===false?'off':''} ${ehVez?'vez':''}">
+        <span class="rl-ord">${pos?pos+'º':'—'}</span>${av(u,p.nome)}
+        <div class="rl-nm"><b>${E(todosFunis.find(f=>String(f.id)===String(p.funnelId))?.name||p.funnelNome||'Funil')}</b><small>${ehVez?'<span class="vez">PRÓXIMO</span>':''}<label class="rl-tg sm" title="${p.ativo===false?'Fora da roleta':'Na roleta'}"><input type="checkbox" ${p.ativo!==false?'checked':''} onchange="gxRlSet(${i},'ativo',this.checked)" aria-label="Participa da roleta"><span></span></label><span style="white-space:nowrap">vai para ${E(p.nome||'')}</span></small></div>
+        <select class="rl-in rl-etp" onchange="gxRlSet(${i},'stageId',this.value)" aria-label="Etapa" ${semFunil?'disabled':''}>${etapas(p.funnelId).map(s=>`<option value="${E(s.id)}" ${String(s.id)===String(p.stageId)?'selected':''}>${E(s.name)}</option>`).join('')}</select>
+        <button class="rl-del" onclick="gxRlDel(${i})" aria-label="Tirar ${E(p.funnelNome||'')} da roleta" title="Tirar da roleta"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>`;
+      }
       return `<div class="rl-p ${p.ativo===false?'off':''} ${ehVez?'vez':''}">
         <span class="rl-ord">${pos?pos+'º':'—'}</span>${av(u,p.nome)}
         <div class="rl-nm"><b>${E(p.nome)}</b><small>${ehVez?'<span class="vez">PRÓXIMO</span>':''}<label class="rl-tg sm" title="${p.ativo===false?'Fora da roleta':'Na roleta'}"><input type="checkbox" ${p.ativo!==false?'checked':''} onchange="gxRlSet(${i},'ativo',this.checked)" aria-label="Participa da roleta"><span></span></label>${p.ativo===false?'pausado':'na roleta'}</small></div>
@@ -30900,10 +30919,10 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
           <div><span>Distribuídos</span><b>${+RS.distribuidos||0}</b><small>desde que a roleta foi criada</small></div>
           <div><span>Último lead</span><b>${salvo?.ultimo?E(salvo.ultimo.lead||'Lead'):'—'}</b><small>${salvo?.ultimo?`→ ${E(String(salvo.ultimo.para||'').split(' ')[0])} · ${quandoBR(salvo.ultimo.em)}`:'ainda nenhum'}</small></div>
         </div>
-        <div class="rl-lbl">${parceiro()?'Sua equipe na roleta':'Vendedores na roleta'} (rodízio na ordem da lista)</div>
+        <div class="rl-lbl">${parceiro()?'Funis na roleta':'Vendedores na roleta'} (rodízio na ordem da lista)</div>
         ${linhas||'<div class="rl-note">Ninguém na roleta ainda. Adicione os vendedores abaixo.</div>'}
         ${RS.participantes.some(p=>!p.funnelId)?'<div class="rl-note rl-warn">Quem está sem funil escolhido fica fora do rodízio até você escolher.</div>':''}
-        <div class="rl-add"><select class="rl-in" id="rl-add-sel" style="flex:1"><option value="">${parceiro()?'Adicionar pessoa da sua equipe…':'Adicionar vendedor…'}</option>${fora.map(u=>`<option value="${E(uidOf(u))}">${E(u.nome)}${funisDe(u).length?'':' (sem funil próprio)'}</option>`).join('')}</select><button class="rl-btn sm" onclick="gxRlAdd()">Adicionar</button></div>
+        <div class="rl-add"><select class="rl-in" id="rl-add-sel" style="flex:1"><option value="">${parceiro()?'Adicionar funil…':'Adicionar vendedor…'}</option>${parceiro()?funisParceiro().filter(f=>!RS.participantes.some(p=>String(p.funnelId)===String(f.id))).map(f=>`<option value="f:${E(f.id)}">${E(f.name||'Funil')} → ${E(String(donoDoFunil(f.id).nome||'').split(' ')[0])}</option>`).join(''):''}${(parceiro()?[]:fora).map(u=>`<option value="${E(uidOf(u))}">${E(u.nome)}${funisDe(u).length?'':' (sem funil próprio)'}</option>`).join('')}</select><button class="rl-btn sm" onclick="gxRlAdd()">Adicionar</button></div>
         <div class="rl-note">A roleta roda no banco de dados, na hora em que o lead chega, mesmo com o GexFlow fechado, e nunca entrega o mesmo lead para duas pessoas. Quem recebe é avisado no sino e por e-mail. ${gestor()?'<b>Primeira vez:</b> rode o SQL <code>roleta-leads.sql</code> no Supabase. Sem ele, a configuração fica salva mas os leads não são distribuídos.':''}</div>
       </div>
       <div class="rl-f">${RS.__sujo?'<span class="rl-warn" style="margin-right:auto;font-size:12.5px">● Alterações não salvas</span>':''}<button class="rl-btn" onclick="gxRoletaFechar()">Cancelar</button><button class="rl-btn pri" onclick="gxRlSalvar()" ${RS.__sujo||RS.__novo?'':'disabled'}>Salvar roleta</button></div>`;
@@ -30920,6 +30939,7 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
   window.gxRlDel=function(i){RS.participantes.splice(i,1);sujo()};
   window.gxRlAdd=function(){
     const id=document.getElementById('rl-add-sel')?.value;if(!id)return;
+    if(id.startsWith('f:')){const f=funis().find(x=>String(x.id)===id.slice(2));if(!f)return;RS.participantes.push(novoPart(donoDoFunil(f.id),f));sujo();return}
     const u=vendedores().find(x=>uidOf(x)===id);if(!u)return;
     RS.participantes.push(novoPart(u,funisDe(u)[0]));sujo();
   };
