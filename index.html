@@ -4932,8 +4932,17 @@ async function initGexCloudDataSync(isRetry){
     });
 
     // 2) Aplica coleções principais preservando dados locais ainda não enviados.
+    // SEGURANÇA (23/11/2026): parceiro/operador só recebe do banco o que é dele. Aqui o cache local dele
+    // também é alinhado com a nuvem: some o que ele não deveria ver (cópia antiga baixada antes da regra),
+    // preservando só o que acabou de criar e talvez ainda não tenha subido (últimos 10 minutos).
+    const _gxParceiroSessao=(()=>{try{return isExternalPartnerRole(sessionUser?.permissao||sessionUser?.cargo)}catch(e){return false}})();
     GEX_DB_COLLECTIONS.forEach(collection=>{
       let local=gexReadLocalCollection(collection);
+      if(_gxParceiroSessao){
+        const idsNuvem=new Set((byCollection[collection]||[]).map(r=>String(r.record_id)));
+        const recente=Date.now()-10*60*1000;
+        local=local.filter(x=>x&&(idsNuvem.has(String(x.id))||(Date.parse(x._updatedAt||x.updatedAt||x.createdAt||0)||0)>recente));
+      }
       if(collection==='commercial_funnels'&&gexDeletedFunnelIds.size){
         local=local.filter(f=>!(f&&gexDeletedFunnelIds.has(String(f.id))));
       }
