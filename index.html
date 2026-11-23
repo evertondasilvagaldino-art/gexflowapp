@@ -2951,6 +2951,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
     <button class="deal-back" onclick="closeDealDetail()"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Comercial</button>
     <div class="deal-name" id="deal-title-name">Negócio</div>
     <div class="deal-status-btns">
+      <button class="dstatus-btn" style="border-color:#C4B5FD;color:#6D28D9" onclick="gxLigar(currentDealId)" title="Ligar e registrar o resultado">📞 Ligar</button>
       <button class="dstatus-btn perdido" id="dstatus-perdido" onclick="setDealStatus('Perdido')">✕ Perdido</button>
       <button class="dstatus-btn andamento" id="dstatus-andamento" onclick="setDealStatus('Em andamento')"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Em andamento</button>
       <button class="dstatus-btn ganho" id="dstatus-ganho" onclick="setDealStatus('Ganho')">✓ Ganho</button>
@@ -4312,7 +4313,7 @@ const GEX_DB_COLLECTIONS = [
   'tracking_links','integration_events','integration_connections','manual_trackings','tracking_events',
   'conversion_settings','conversion_events','lead_forms','lead_form_submissions','leadgen_settings',
   'whatsapp_widgets','automacoes','automacao_tasks','automacao_log','email_smtp_settings','zapi_settings',
-  'op_listas','op_tarefas','op_acessos','notificacoes','op_automacoes','metas','metas_regras','roleta_leads','metas_anuais','docs','planejamento','fin_categorias','webhook_links'
+  'op_listas','op_tarefas','op_acessos','notificacoes','op_automacoes','metas','metas_regras','roleta_leads','metas_anuais','docs','planejamento','fin_categorias','webhook_links','sdr_config'
 ];
 const GEX_KV_EXCLUDED = new Set([
   // gx2_usuarios: mesmo "usuarios" já sendo excluído da sincronização por
@@ -11372,6 +11373,7 @@ function renderSalesTeamDashboard(){
       <div class="sales-mini-kpi"><div class="sales-mini-lbl">Tarefas atrasadas</div><div class="sales-mini-val" style="color:${sum.atrasadas?'var(--red)':'var(--green)'}">${sum.atrasadas}</div><div class="sales-mini-sub">responsáveis do comercial</div></div>
     </div>
   </div>
+  ${typeof gxSdrPainelHtml==='function'?gxSdrPainelHtml():''}
   <div class="sales-team-grid">
     ${rows.length?rows.map((r,i)=>`
       <div class="sales-seller-card">
@@ -11840,9 +11842,11 @@ function renderComercial(){
         ${l.origem?`<div class="pcard-co gx-c-orig">${gxIc('orig')}<span>${escHtml(String(l.origem))}</span></div>`:''}
         ${l.dataFechamento?`<div class="pcard-co gx-c-prev">${gxIc('prev')}<span>${escHtml(String(l.dataFechamento))}</span></div>`:''}
         ${gxStageAgeBadge(l,stage)}
+        ${typeof gxLigBadge==='function'?gxLigBadge(l):''}
         <div class="pcard-footer gx-c-foot">
           <span class="pcard-val gx-c-val">${fmtBRL(l.valor||0)}</span>
           <div class="pcard-actions gx-c-acoes">
+            <button class="btn btn-ghost btn-sm btn-icon gx-lig-btn" title="Ligar e registrar a ligação" aria-label="Ligar para ${escAttr(l.nome||'lead')}" onclick="event.stopPropagation();gxLigar('${l.id}')">${window.GX_IC_TEL||'📞'}</button>
             <button class="btn btn-ghost btn-sm btn-icon" title="Abrir detalhes" onclick="event.stopPropagation();openDealDetail('${l.id}')">${gxIc('ver')}</button>
             <button class="btn btn-ghost btn-sm btn-icon" title="Editar" onclick="event.stopPropagation();openModal('lead','${l.id}')">${gxIc('edit')}</button>
             <button class="btn btn-ghost btn-sm btn-icon" title="Excluir" onclick="event.stopPropagation();confirmDelete(()=>{DB.remove('leads','${l.id}');renderComercial();toast('Removido','#EF4444')})">${gxIc('del')}</button>
@@ -19230,7 +19234,7 @@ function addDealActivity(){
   const txt=document.getElementById('deal-activity-text')?.value?.trim();
   if(!txt){toast('Escreva uma atividade','#EF4444');return}
   const t=dealActionTypes.find(a=>a.key===currentActionType)||dealActionTypes[0];
-  DB.push('atividades',{id:uid(),leadId:currentDealId,tipo:currentActionType,ico:t.ico,texto:txt,data:now(),usuario:sessionUser?.nome||'Everton Galdino'});
+  DB.push('atividades',{id:uid(),leadId:currentDealId,tipo:currentActionType,ico:t.ico,texto:txt,data:now(),createdAt:new Date().toISOString(),usuario:sessionUser?.nome||'Everton Galdino',usuarioId:String(sessionUser?.id||'')});
 
   // Criar lembrete se marcado
   const chk=document.getElementById('lembrete-chk');
@@ -19568,6 +19572,7 @@ function renderDealSidebar(){
       <div class="sb-sec-title"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Valor do negócio</div>
       <div class="deal-val-big">${fmtBRL(l.valor||0)}</div>
     </div>
+    ${typeof gxLigSecHtml==='function'?gxLigSecHtml(l):''}
     ${gxCaixaSecHtml(l)}
     <div class="sb-section">
       <div class="sb-sec-title"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Dados do negócio</div>
@@ -33585,5 +33590,215 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
   document.addEventListener('keydown',e=>{if(e.key==='Escape')esconder()});
 })();
 </script>
+
+<script id="gx-sdr-ligacoes">
+// ═══ CONTROLE DE LIGAÇÕES DO SDR — Fase 1 (23/11/2026) ═══
+// • Botão "Ligar" no card e no negócio: disca (celular/WhatsApp) e registra o RESULTADO em 1 clique.
+// • Contador de tentativas no card (ex.: 📞 5/12), alerta de lead parado sem ligação.
+// • Próxima tentativa vira lembrete (com_tasks) para o responsável, seguindo a cadência.
+// • Painel "Atividade de ligações" na Equipe Comercial (por pessoa, contra a meta diária).
+// Registro: coleção atividades, tipo "Ligação", campo ligacao:{resultado,tentativa}. Cadência: coleção sdr_config (id "padrao").
+(function(){
+  const E=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const RES={
+    atendeu:{t:'Atendeu',cor:'#059669',ok:true},
+    agendou:{t:'Agendou reunião',cor:'#7C3AED',ok:true,ag:true},
+    retornar:{t:'Pediu para retornar',cor:'#0EA5E9',ok:true},
+    sem_interesse:{t:'Sem interesse',cor:'#B45309',ok:true},
+    nao_atendeu:{t:'Não atendeu',cor:'#64748B'},
+    caixa_postal:{t:'Caixa postal',cor:'#64748B'},
+    numero_errado:{t:'Número errado',cor:'#DC2626'}
+  };
+  window.GX_LIG_RES=RES;
+  const PADRAO={tentativas:12,dias:21,metaDia:40,alertaDias:2};
+  function cfg(){try{const r=(DB.get('sdr_config')||[]).find(x=>x&&x.id==='padrao');return Object.assign({},PADRAO,r||{})}catch(e){return {...PADRAO}}}
+  window.gxSdrCfg=cfg;
+  // data de uma atividade (createdAt ISO; registros antigos só têm "dd/mm/aaaa, hh:mm:ss")
+  function ts(a){
+    if(a.createdAt){const t=Date.parse(a.createdAt);if(!isNaN(t))return t}
+    const m=String(a.data||'').match(/(\d{2})\/(\d{2})\/(\d{4})(?:[ ,]+(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+    if(m)return new Date(+m[3],+m[2]-1,+m[1],+(m[4]||12),+(m[5]||0),+(m[6]||0)).getTime();
+    return 0;
+  }
+  window.gxLigTs=ts;
+  const ehLig=a=>a&&(a.tipo==='Ligação'||a.ligacao);
+  let memo={k:'',v:null};
+  function indice(){
+    const A=DB.get('atividades')||[];
+    const k=A.length+'|'+(A[A.length-1]?.id||'');
+    if(memo.k===k&&memo.v)return memo.v;
+    const m=new Map();
+    A.forEach(a=>{if(!ehLig(a)||!a.leadId)return;const t=ts(a);const r=m.get(a.leadId)||{n:0,ult:0,res:''};r.n++;if(t>=r.ult){r.ult=t;r.res=a.ligacao?.resultado||''}m.set(a.leadId,r)});
+    memo={k,v:m};return m;
+  }
+  window.gxLigInfo=id=>indice().get(id)||{n:0,ult:0,res:''};
+  const fechado=l=>{try{return isWonOpportunity(l)||isLostOpportunityLocal(l)}catch(e){return false}};
+  const diasDesde=t=>t?Math.floor((Date.now()-t)/86400000):null;
+  const telLimpo=v=>{let d=String(v||'').replace(/\D/g,'');if(!d)return '';if(d.length<=11)d='55'+d;return d};
+  const icTel='<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>';
+  window.GX_IC_TEL=icTel;
+
+  // ── selo no card do Pipeline ──
+  window.gxLigBadge=function(l){
+    if(!l||fechado(l))return '';
+    const c=cfg(),i=gxLigInfo(l.id),d=diasDesde(i.ult);
+    const criadoHa=diasDesde(Date.parse(l.createdAt||l.created_at||'')||0);
+    const atrasado=i.n?(d!=null&&d>=c.alertaDias):(criadoHa!=null&&criadoHa>=1);
+    const completo=i.n>=c.tentativas;
+    const tip=i.n?`${i.n} de ${c.tentativas} tentativas · última há ${d===0?'menos de 1 dia':d+' dia(s)'}${i.res&&RES[i.res]?' · '+RES[i.res].t:''}`:'Nenhuma ligação registrada ainda';
+    return `<span class="gx-lig ${completo?'fim':atrasado?'atr':i.n?'ok':'zero'}" title="${E(tip)}">${icTel}${i.n}/${c.tentativas}${atrasado&&!completo?' · parado':''}</span>`;
+  };
+
+  // ── janela "Registrar ligação" ──
+  let selRes='';
+  window.gxLigar=function(id){
+    const l=DB.find('leads',id);if(!l){toast('Lead não encontrado','#EF4444');return}
+    const c=cfg(),i=gxLigInfo(id),tent=i.n+1,tel=telLimpo(l.telefone||l.whatsapp);
+    selRes='';
+    document.getElementById('gx-lig-ov')?.remove();
+    const o=document.createElement('div');o.id='gx-lig-ov';o.className='fx-ov';
+    o.innerHTML=`<div class="fx-md pl" role="dialog" aria-modal="true" aria-labelledby="gx-lig-t" style="max-width:520px">
+      <h3 id="gx-lig-t">Ligação para ${E(l.nome||'lead')}</h3>
+      <p class="sub">Tentativa <b>${tent}</b> de ${c.tentativas}${i.ult?` · última há ${diasDesde(i.ult)||0} dia(s)`:''}${l.telefone?` · ${E(l.telefone)}`:''}</p>
+      ${tel?`<div style="display:flex;gap:8px;margin:12px 0 4px;flex-wrap:wrap">
+        <a class="pl-btn pri" href="tel:+${tel}" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">${icTel} Discar</a>
+        <a class="pl-btn" href="https://wa.me/${tel}" target="_blank" rel="noopener" style="text-decoration:none">Abrir no WhatsApp</a></div>`
+        :`<div class="cfg-note" style="margin:10px 0">Este lead está sem telefone. Dá para registrar a tentativa mesmo assim.</div>`}
+      <div style="font-size:12.5px;font-weight:800;margin:16px 0 8px">Como foi?</div>
+      <div class="gx-lig-res" role="radiogroup" aria-label="Resultado da ligação">${Object.entries(RES).map(([k,r])=>`<button type="button" role="radio" aria-checked="false" data-r="${k}" style="--c:${r.cor}">${r.t}</button>`).join('')}</div>
+      <label style="display:block;font-size:12px;font-weight:700;margin:14px 0 6px">O que foi falado / próximo passo <span style="font-weight:400;color:var(--pl-mu,#6B7280)">(opcional)</span></label>
+      <textarea id="gx-lig-nota" class="pl-in" rows="2" style="width:100%;resize:vertical" placeholder="Ex.: pediu proposta por WhatsApp"></textarea>
+      <div id="gx-lig-prox" style="display:none;margin-top:12px;padding:12px;border-radius:10px;background:var(--pl-bg2,#F8F7FF);border:1px dashed #DDD6FE">
+        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700"><input type="checkbox" id="gx-lig-agendar" checked> Agendar a próxima tentativa</label>
+        <div style="display:flex;gap:8px;margin-top:8px"><input type="date" id="gx-lig-data" class="pl-in" style="flex:1"><input type="time" id="gx-lig-hora" class="pl-in" value="10:00" style="width:120px"></div>
+        <small style="display:block;margin-top:6px;color:var(--pl-mu,#6B7280)">Vira um lembrete para ${E(getLeadOwnerName(l)||'o responsável')} em Tarefas do Dia.</small>
+      </div>
+      <div class="pl-btns"><button type="button" class="pl-btn" data-x>Cancelar</button><button type="button" class="pl-btn pri" data-ok>Registrar ligação</button></div></div>`;
+    document.body.appendChild(o);
+    const fechar=()=>{o.remove();document.removeEventListener('keydown',esc,true)};
+    const esc=e=>{if(e.key==='Escape'&&!document.getElementById('gxd-ov')?.classList.contains('open')){e.preventDefault();e.stopImmediatePropagation();fechar()}};
+    document.addEventListener('keydown',esc,true);o.addEventListener('mousedown',e=>{if(e.target===o)fechar()});
+    o.querySelector('[data-x]').onclick=fechar;
+    const sug=r=>{const d=new Date();const passo=Math.max(1,Math.round(c.dias/Math.max(1,c.tentativas)));d.setDate(d.getDate()+(r==='retornar'?1:passo));if(d.getDay()===6)d.setDate(d.getDate()+2);if(d.getDay()===0)d.setDate(d.getDate()+1);return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10)};
+    o.querySelectorAll('.gx-lig-res button').forEach(b=>b.onclick=()=>{
+      selRes=b.dataset.r;o.querySelectorAll('.gx-lig-res button').forEach(x=>{const on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-checked',String(on))});
+      const prox=o.querySelector('#gx-lig-prox');const mostra=!['agendou','sem_interesse','numero_errado'].includes(selRes)&&tent<c.tentativas;
+      prox.style.display=mostra?'block':'none';if(mostra)o.querySelector('#gx-lig-data').value=sug(selRes);
+    });
+    o.querySelector('[data-ok]').onclick=()=>{
+      if(!selRes){toast('Escolha como foi a ligação','#F59E0B');return}
+      const nota=String(o.querySelector('#gx-lig-nota').value||'').trim();
+      const r=RES[selRes];
+      DB.push('atividades',{id:uid(),leadId:l.id,tipo:'Ligação',ico:'📞',texto:`${r.t}${nota?' — '+nota:''} (tentativa ${tent}/${c.tentativas})`,data:now(),createdAt:new Date().toISOString(),
+        usuario:sessionUser?.nome||'',usuarioId:String(sessionUser?.id||''),ligacao:{resultado:selRes,tentativa:tent}});
+      // fecha lembretes de ligação em aberto deste lead que já venceram
+      try{const hj=new Date();const hoje=new Date(hj.getTime()-hj.getTimezoneOffset()*60000).toISOString().slice(0,10);
+        const tks=getCommercialTasks();let mud=false;tks.forEach(t=>{if(t&&!t.completed&&String(t.opportunityId)===String(l.id)&&t.type==='Ligação'&&(!t.dueDate||t.dueDate<=hoje)){t.completed=true;t.completedAt=new Date().toISOString();mud=true}});if(mud)saveCommercialTasks(tks)}catch(e){}
+      const ag=o.querySelector('#gx-lig-agendar'),dt=o.querySelector('#gx-lig-data')?.value,hr=o.querySelector('#gx-lig-hora')?.value||'';
+      if(o.querySelector('#gx-lig-prox').style.display!=='none'&&ag?.checked&&dt){
+        try{createCommercialTask({title:`Ligar para ${l.nome||'lead'} (tentativa ${tent+1}/${c.tentativas})`,description:nota,opportunityId:l.id,opportunityName:(l.nome||'')+(l.empresa?' – '+l.empresa:''),contactName:l.nome||'',companyName:l.empresa||'',
+          type:'Ligação',priority:selRes==='retornar'?'Alta':'Média',dueDate:dt,dueTime:hr,assignedTo:getLeadOwnerName(l)||sessionUser?.nome||'',assignedToId:getLeadOwnerId(l)||sessionUser?.id||'',assignedToEmail:getLeadOwnerEmail(l)||sessionUser?.email||''})}catch(e){console.warn(e)}
+      }
+      DB.update('leads',l.id,{ultimaLigacaoEm:new Date().toISOString(),ultimaLigacaoRes:selRes,updatedAt:new Date().toISOString()});
+      fechar();
+      toast(`Ligação registrada: ${r.t}${r.ag?' 🎯':''}`,'#10B981');
+      try{if(typeof currentDealId!=='undefined'&&currentDealId===l.id)renderDealDetail()}catch(e){}
+      try{if(document.getElementById('page-comercial')?.classList.contains('active'))renderComercial()}catch(e){}
+      try{if(typeof renderTarefasDia==='function')renderTarefasDia()}catch(e){}
+      if(r.ag)setTimeout(()=>toast('Lembre de mover o negócio para a etapa de reunião agendada','#7C3AED'),900);
+    };
+    setTimeout(()=>o.querySelector('.gx-lig-res button')?.focus(),40);
+  };
+
+  // ── bloco "Ligações" na lateral do negócio ──
+  window.gxLigSecHtml=function(l){
+    const c=cfg(),i=gxLigInfo(l.id),d=diasDesde(i.ult);
+    const pc=Math.min(100,Math.round(i.n/c.tentativas*100));
+    return `<div class="sb-section"><div class="sb-sec-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="display:inline-flex;align-items:center;gap:6px">${icTel}Ligações</span><button class="btn btn-primary btn-sm" style="font-size:11px;padding:4px 10px" onclick="gxLigar('${E(l.id)}')">Ligar</button></div>
+      <div style="display:flex;align-items:baseline;gap:6px"><b style="font-size:22px">${i.n}</b><span style="color:var(--muted);font-size:12.5px">de ${c.tentativas} tentativas</span></div>
+      <div style="height:6px;border-radius:99px;background:var(--border,#E5E7EB);overflow:hidden;margin:6px 0"><div style="height:100%;width:${pc}%;background:${i.n>=c.tentativas?'#059669':'#7C3AED'}"></div></div>
+      <div style="font-size:11.5px;color:var(--muted)">${i.n?`Última há ${d===0?'menos de 1 dia':d+' dia(s)'}${i.res&&RES[i.res]?` · <b style="color:${RES[i.res].cor}">${RES[i.res].t}</b>`:''}`:'Nenhuma ligação registrada'}</div></div>`;
+  };
+
+  // ── painel "Atividade de ligações" (Equipe Comercial) ──
+  let per='hoje';
+  window.gxSdrPer=function(p){per=p;try{renderSalesTeamDashboard()}catch(e){}};
+  window.gxSdrPainelHtml=function(){
+    const c=cfg(),A=DB.get('atividades')||[];
+    const d0=new Date();d0.setHours(0,0,0,0);
+    const ini=per==='hoje'?d0.getTime():per==='7d'?d0.getTime()-6*86400000:new Date(d0.getFullYear(),d0.getMonth(),1).getTime();
+    const dias=per==='hoje'?1:per==='7d'?7:d0.getDate();
+    const gestor=typeof isSalesManagerView==='function'?isSalesManagerView():true;
+    const meId=String(sessionUser?.id||''),meNome=String(sessionUser?.nome||'');
+    const pessoas=new Map();
+    A.forEach(a=>{if(!ehLig(a))return;const t=ts(a);if(t<ini)return;
+      const nome=a.usuario||'Sem nome',k=a.usuarioId||('n:'+nome.toLowerCase());
+      if(!gestor&&!(String(a.usuarioId||'')===meId||(!a.usuarioId&&nome===meNome)))return;
+      const p=pessoas.get(k)||{nome,lig:0,at:0,ag:0,leads:new Set()};p.lig++;const r=RES[a.ligacao?.resultado];if(r?.ok)p.at++;if(r?.ag)p.ag++;p.leads.add(a.leadId);pessoas.set(k,p)});
+    // leads em aberto parados (sem ligação há X dias), por responsável
+    let parados=0;try{(getVisibleCommercialLeads(DB.get('leads')||[])).forEach(l=>{if(fechado(l))return;if(!gestor&&String(getLeadOwnerId(l))!==meId)return;const i=gxLigInfo(l.id);if(i.n>=c.tentativas)return;const dd=diasDesde(i.ult||Date.parse(l.createdAt||'')||0);if(dd!=null&&dd>=c.alertaDias)parados++})}catch(e){}
+    const rows=[...pessoas.values()].sort((a,b)=>b.lig-a.lig);
+    const tot=rows.reduce((s,p)=>({lig:s.lig+p.lig,at:s.at+p.at,ag:s.ag+p.ag}),{lig:0,at:0,ag:0});
+    const metaPer=c.metaDia*dias;
+    const seg=(k,t)=>`<button type="button" onclick="gxSdrPer('${k}')" aria-pressed="${per===k}" class="${per===k?'on':''}">${t}</button>`;
+    return `<div class="sales-team-card gx-sdr" style="margin-bottom:14px">
+      <div class="gx-sdr-h"><div><div class="sales-team-title" style="font-size:16px">Atividade de ligações</div><div class="sales-team-sub">Ligações registradas pelo botão "Ligar" · meta de ${c.metaDia} por pessoa/dia · cadência de ${c.tentativas} tentativas em ${c.dias} dias</div></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div class="gx-sdr-seg">${seg('hoje','Hoje')}${seg('7d','7 dias')}${seg('mes','Mês')}</div>${gestor&&typeof gxEspelhoAllowed==='function'&&gxEspelhoAllowed()?`<button class="btn btn-ghost btn-sm" onclick="gxSdrConfig()">Cadência e meta</button>`:''}</div></div>
+      <div class="sales-team-summary" style="margin-top:12px">
+        <div class="sales-mini-kpi"><div class="sales-mini-lbl">Ligações</div><div class="sales-mini-val">${tot.lig}</div><div class="sales-mini-sub">${rows.length} pessoa(s)</div></div>
+        <div class="sales-mini-kpi"><div class="sales-mini-lbl">Atendidas</div><div class="sales-mini-val">${tot.lig?Math.round(tot.at/tot.lig*100):0}%</div><div class="sales-mini-sub">${tot.at} conversas</div></div>
+        <div class="sales-mini-kpi"><div class="sales-mini-lbl">Reuniões agendadas</div><div class="sales-mini-val">${tot.ag}</div><div class="sales-mini-sub">${tot.lig?Math.round(tot.ag/tot.lig*100):0}% das ligações</div></div>
+        <div class="sales-mini-kpi"><div class="sales-mini-lbl">Leads parados</div><div class="sales-mini-val" style="color:${parados?'var(--red,#DC2626)':'var(--green,#059669)'}">${parados}</div><div class="sales-mini-sub">sem ligação há ${c.alertaDias}+ dias</div></div>
+      </div>
+      ${rows.length?`<div style="overflow-x:auto;margin-top:12px"><table class="gx-sdr-t"><thead><tr><th>Pessoa</th><th>Ligações</th><th>Atendidas</th><th>Agendou</th><th>Leads</th><th style="min-width:160px">Meta do período (${metaPer})</th></tr></thead><tbody>
+        ${rows.map(p=>{const pc=metaPer?Math.min(100,Math.round(p.lig/metaPer*100)):0;return `<tr><td><b>${E(p.nome)}</b></td><td>${p.lig}</td><td>${p.at} <small>(${p.lig?Math.round(p.at/p.lig*100):0}%)</small></td><td>${p.ag}</td><td>${p.leads.size}</td>
+          <td><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;height:7px;border-radius:99px;background:var(--border,#E5E7EB);overflow:hidden"><div style="height:100%;width:${Math.max(2,pc)}%;background:${pc>=100?'#059669':pc>=60?'#7C3AED':'#F59E0B'}"></div></div><small style="min-width:34px;text-align:right">${pc}%</small></div></td></tr>`}).join('')}
+      </tbody></table></div>`:`<div class="sales-team-empty" style="margin-top:12px">Nenhuma ligação registrada ${per==='hoje'?'hoje':'neste período'}. O SDR registra clicando em <b>Ligar</b> no card ou no negócio.</div>`}
+    </div>`;
+  };
+  window.gxSdrConfig=function(){
+    const c=cfg();
+    document.getElementById('gx-sdrc-ov')?.remove();
+    const o=document.createElement('div');o.id='gx-sdrc-ov';o.className='fx-ov';
+    const campo=(id,lbl,v,dica)=>`<label style="display:block;margin-top:12px;font-size:12.5px;font-weight:700">${lbl}<input class="pl-in" type="number" min="1" id="${id}" value="${v}" style="width:100%;margin-top:5px"><small style="display:block;font-weight:400;color:var(--pl-mu,#6B7280);margin-top:3px">${dica}</small></label>`;
+    o.innerHTML=`<div class="fx-md pl" role="dialog" aria-modal="true" style="max-width:420px"><h3>Cadência e meta de ligações</h3><p class="sub">Vale para todo o time comercial.</p>
+      ${campo('gx-c-t','Tentativas por lead',c.tentativas,'Ex.: 12 tentativas antes de desistir do lead')}
+      ${campo('gx-c-d','Em quantos dias',c.dias,'Define o intervalo sugerido entre uma tentativa e a próxima')}
+      ${campo('gx-c-m','Meta de ligações por pessoa/dia',c.metaDia,'Usada no painel de atividade')}
+      ${campo('gx-c-a','Alerta de lead parado após (dias)',c.alertaDias,'Card fica laranja quando passa disso sem ligação')}
+      <div class="pl-btns"><button type="button" class="pl-btn" data-x>Cancelar</button><button type="button" class="pl-btn pri" data-ok>Salvar</button></div></div>`;
+    document.body.appendChild(o);
+    const fechar=()=>o.remove();o.addEventListener('mousedown',e=>{if(e.target===o)fechar()});o.querySelector('[data-x]').onclick=fechar;
+    o.querySelector('[data-ok]').onclick=()=>{
+      const v=id=>Math.max(1,Math.round(+o.querySelector('#'+id).value||0));
+      const novo={id:'padrao',tentativas:v('gx-c-t'),dias:v('gx-c-d'),metaDia:v('gx-c-m'),alertaDias:v('gx-c-a'),updatedAt:new Date().toISOString()};
+      const ex=(DB.get('sdr_config')||[]).some(x=>x&&x.id==='padrao');ex?DB.update('sdr_config','padrao',novo):DB.push('sdr_config',novo);
+      fechar();toast('Cadência e meta salvas ✓','#10B981');try{renderSalesTeamDashboard()}catch(e){}
+    };
+  };
+})();
+</script>
+<style id="gx-sdr-css">
+.gx-lig{display:inline-flex;align-items:center;gap:4px;margin-top:6px;font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:99px;border:1px solid transparent;width:fit-content}
+.gx-lig.zero{color:#64748B;background:#F1F5F9;border-color:#E2E8F0}
+.gx-lig.ok{color:#6D28D9;background:#F5F3FF;border-color:#DDD6FE}
+.gx-lig.atr{color:#B45309;background:#FFFBEB;border-color:#FDE68A}
+.gx-lig.fim{color:#047857;background:#ECFDF5;border-color:#A7F3D0}
+.pcard .gx-lig-btn{color:#7C3AED}
+.gx-lig-res{display:flex;flex-wrap:wrap;gap:8px}
+.gx-lig-res button{border:1.5px solid var(--pl-bd,#E5E7EB);background:var(--pl-card,#fff);color:var(--pl-tx,#111);font:inherit;font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:10px;cursor:pointer}
+.gx-lig-res button:hover{border-color:var(--c)}
+.gx-lig-res button.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 12%,transparent);color:var(--c)}
+.gx-lig-res button:focus-visible{outline:2px solid var(--c);outline-offset:2px}
+.sales-team-card.gx-sdr{padding:18px 20px}
+.gx-sdr-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.gx-sdr-seg{display:inline-flex;border:1px solid var(--border,#E5E7EB);border-radius:10px;padding:3px;gap:2px}
+.gx-sdr-seg button{border:0;background:transparent;font:inherit;font-size:12px;font-weight:700;padding:5px 11px;border-radius:7px;cursor:pointer;color:var(--muted,#64748B)}
+.gx-sdr-seg button.on{background:#7C3AED;color:#fff}
+.gx-sdr-t{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.gx-sdr-t th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted,#64748B);padding:8px 10px}
+.gx-sdr-t td{padding:9px 10px;border-top:1px solid var(--border,#E5E7EB)}
+.gx-sdr-t small{color:var(--muted,#64748B)}
+</style>
 </body>
 </html>
