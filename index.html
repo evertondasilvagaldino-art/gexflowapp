@@ -6677,7 +6677,7 @@ function saveConfigBillingForm(){
 function configTabbar(active){
   const tabs=getAllowedConfigTabs();
   if(!tabs.length)return '';
-  return `<div class="cfg-tabbar">${tabs.map(t=>`<button class="cfg-tab ${t.key===active?'active':''}" onclick="openConfigTab('${t.key}')">${gxEmojiIco(t.icon)}${t.title}</button>`).join('')}</div>`;
+  return `<div class="cfg-tabbar">${tabs.map(t=>`<button class="cfg-tab ${t.key===active?'active':''}" onclick="openConfigTab('${t.key}')">${gxEmojiIco(t.icon)}${escHtml(t.title)}</button>`).join('')}</div>`;
 }
 
 function renderConfiguracoes(sub){
@@ -6719,8 +6719,8 @@ function renderConfiguracoesHome(){
       ${allowed.map(t=>`
         <div class="cfg-card">
           <div class="cfg-ico">${gxEmojiIco(t.icon)}</div>
-          <div class="cfg-card-title">${t.title}</div>
-          <div class="cfg-card-desc">${t.desc}</div>
+          <div class="cfg-card-title">${escHtml(t.title)}</div>
+          <div class="cfg-card-desc">${escHtml(t.desc)}</div>
           <div class="cfg-actions"><button class="cfg-btn primary" onclick="openConfigTab('${t.key}')">Abrir</button></div>
         </div>`).join('')}
     </div>`;
@@ -8307,17 +8307,17 @@ function clienteInicioData(c){
 function formCliente(d,contexto='full'){
   if(contexto==='carteira')return formClienteCarteira(d);
   return `<div class="form-row">
-    <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="f-nome" value="${d?.nome||''}"></div>
-    <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-email" value="${d?.email||''}"></div>
+    <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="f-nome" value="${escHtml(d?.nome||'')}"></div>
+    <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-email" value="${escHtml(d?.email||'')}"></div>
   </div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" id="f-tel" value="${d?.telefone||''}"></div>
+    <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" id="f-tel" value="${escHtml(d?.telefone||'')}"></div>
     <div class="form-group"><label class="form-label">Status</label>
       <select class="form-input" id="f-status"><option ${d?.status==='Em negociação'?'selected':''}>Em negociação</option><option ${d?.status==='Aguardando'?'selected':''}>Aguardando</option><option ${d?.status==='Ativo'?'selected':''}>Ativo</option><option ${d?.status==='Pediu para sair'?'selected':''}>Pediu para sair</option><option ${d?.status==='Lead'?'selected':''}>Lead</option><option ${d?.status==='Inativo'?'selected':''}>Inativo</option></select></div>
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Squads responsáveis (Ctrl/Cmd+clique para vários)</label>
-      <select class="form-input" id="f-squad" multiple size="3">${DB.get('squads').map(s=>`<option value="${s.nome}" ${clienteSquads(d).includes(s.nome)?'selected':''}>${s.nome}</option>`).join('')}</select>
+      <select class="form-input" id="f-squad" multiple size="3">${DB.get('squads').map(s=>`<option value="${escHtml(s.nome)}" ${clienteSquads(d).includes(s.nome)?'selected':''}>${escHtml(s.nome)}</option>`).join('')}</select>
     </div>
     <div>
       <div class="form-group"><label class="form-label">LTV</label><input class="form-input" id="f-ltv" placeholder="R$ 0,00" inputmode="decimal" oninput="this.value=gexMoneyFmt(this.value,false);gexClienteMrrAtualiza()" onblur="this.value=gexMoneyFmt(this.value,true);gexClienteMrrAtualiza()" value="${gexMoneyFmt(d?.ltv==='—'?'':d?.ltv,true)}"></div>
@@ -8342,7 +8342,7 @@ function formCliente(d,contexto='full'){
       <input class="form-input" id="f-saida" type="date" value="${d?.saidaEm?String(d.saidaEm).slice(0,10):''}"></div>
   </div>
   <div style="font-size:10.5px;color:var(--muted);margin:-6px 0 12px">A data de início é preenchida sozinha na 1ª vez que o cliente fica <b>Ativo</b>. A data de saída vale para “Pediu para sair” e “Inativo” — se ficar em branco, mantém a data já registrada ou usa a de hoje.</div>
-  <div class="form-group"><label class="form-label">Descrição / Observações</label><textarea class="form-input" id="f-desc" rows="3">${d?.desc||''}</textarea></div>
+  <div class="form-group"><label class="form-label">Descrição / Observações</label><textarea class="form-input" id="f-desc" rows="3">${escHtml(d?.desc||'')}</textarea></div>
   ${d?.id&&typeof gxDocsBlocoHtml==='function'?`<div class="form-group">${gxDocsBlocoHtml('cliente',d.id,d.nome||'')}</div>`:''}
   ${(()=>{try{if(!d?.id||typeof can!=='function'||!can('contratos','view'))return '';}catch(e){return '';}return `<div class="form-group" style="margin-top:4px;padding-top:12px;border-top:1px dashed var(--border)"><button type="button" class="btn btn-ghost" onclick="enviarClienteParaContratos('${d.id}')">Enviar para contratos</button><div style="font-size:10.5px;color:var(--muted);margin-top:5px">Cria um contrato com o MRR calculado (LTV ÷ período) como valor mensal, começando hoje e vencendo ao fim do período. O financeiro administra em Clientes → Contratos.</div></div>`})()}`;
 }
@@ -8399,10 +8399,10 @@ function formClienteCarteira(d){
   const cabecalho=isEdit?`
     <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--bg);border-radius:9px;margin-bottom:16px">
       <div style="width:36px;height:36px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials(d?.nome||'')}</div>
-      <div><div style="font-weight:700;font-size:14px">${d?.nome||''}</div><div style="font-size:11px;color:var(--muted)">Dados cadastrais (contato, LTV, status comercial etc.) ficam na aba Clientes</div></div>
+      <div><div style="font-weight:700;font-size:14px">${escHtml(d?.nome||'')}</div><div style="font-size:11px;color:var(--muted)">Dados cadastrais (contato, LTV, status comercial etc.) ficam na aba Clientes</div></div>
     </div>
     <input type="hidden" id="f-nome" value="${esc(d?.nome)}">`
-    :`<div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="f-nome" value="${d?.nome||''}"></div>`;
+    :`<div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="f-nome" value="${escHtml(d?.nome||'')}"></div>`;
   const preservados=`
     <input type="hidden" id="f-email" value="${esc(d?.email)}">
     <input type="hidden" id="f-tel" value="${esc(d?.telefone)}">
@@ -8423,7 +8423,7 @@ function formClienteCarteira(d){
     <div class="form-group"><label class="form-label">Relacionamento</label>
       <select class="form-input" id="f-conta-relacionamento"><option value="">— Não avaliado —</option>${CONTA_RELACIONAMENTO_OPCOES.map(r=>`<option ${d?.contaRelacionamento===r?'selected':''}>${r}</option>`).join('')}</select></div>
     <div class="form-group"><label class="form-label">Responsáveis (Ctrl/Cmd+clique para vários)</label>
-      <select class="form-input" id="f-conta-resp" multiple size="3">${DB.get('membros').map(m=>`<option value="${m.id}" ${(d?.contaResponsaveis||[]).includes(m.id)?'selected':''}>${m.nome}</option>`).join('')}</select></div>
+      <select class="form-input" id="f-conta-resp" multiple size="3">${DB.get('membros').map(m=>`<option value="${m.id}" ${(d?.contaResponsaveis||[]).includes(m.id)?'selected':''}>${escHtml(m.nome)}</option>`).join('')}</select></div>
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Drive</label><input class="form-input" id="f-link-drive" placeholder="https://drive.google.com/..." value="${d?.linkDrive||''}"></div>
@@ -8437,7 +8437,7 @@ function formClienteCarteira(d){
 
 function formProjeto(d){
   const cliAtual=d?.cliente||'';
-  const clis=DB.get('clientes').map(c=>`<option value="${c.nome.replace(/"/g,'&quot;')}">${c.nome}</option>`).join('');
+  const clis=DB.get('clientes').map(c=>`<option value="${c.nome.replace(/"/g,'&quot;')}">${escHtml(c.nome)}</option>`).join('');
   const setSelect=()=>{if(cliAtual){const sel=document.getElementById('f-cliente');if(sel){for(let o of sel.options)if(o.value===cliAtual){o.selected=true;break}}}};
   setTimeout(setSelect,0);
   const statusAtual=d?.status||'A fazer';
@@ -8449,8 +8449,8 @@ function formProjeto(d){
   // pré-selecionado com esse squad.
   const squadsCadastradas=DB.get('squads')||[];
   const squadPreSelecionado=d?.squad||(typeof projFolderView!=='undefined'&&projFolderView&&projFolderView!==SEM_SQUAD_KEY?projFolderView:'');
-  const squadOptsProjeto=squadsCadastradas.map(s=>`<option value="${s.nome.replace(/"/g,'&quot;')}" ${squadPreSelecionado===s.nome?'selected':''}>${s.nome}</option>`).join('');
-  return `<div class="form-group"><label class="form-label">Nome do Projeto *</label><input class="form-input" id="f-nome" value="${d?.nome||''}"></div>
+  const squadOptsProjeto=squadsCadastradas.map(s=>`<option value="${s.nome.replace(/"/g,'&quot;')}" ${squadPreSelecionado===s.nome?'selected':''}>${escHtml(s.nome)}</option>`).join('');
+  return `<div class="form-group"><label class="form-label">Nome do Projeto *</label><input class="form-input" id="f-nome" value="${escHtml(d?.nome||'')}"></div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Cliente</label><select class="form-input" id="f-cliente"><option value="">Selecionar...</option>${clis}</select></div>
     <div class="form-group"><label class="form-label">Status</label>
@@ -8486,7 +8486,7 @@ function formProjeto(d){
     <div style="display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:13px"><div style="font-size:11px;color:var(--muted)">★ = Relacionamento &nbsp;◆ = Resultado</div></div>
   </div>
   ${renderProjectResponsibleSelect(d,'f-responsavel-projeto')}
-  <div class="form-group"><label class="form-label">Descrição</label><textarea class="form-input" id="f-desc">${d?.desc||''}</textarea></div>`;
+  <div class="form-group"><label class="form-label">Descrição</label><textarea class="form-input" id="f-desc">${escHtml(d?.desc||'')}</textarea></div>`;
 }
 
 // CORREÇÃO (03/10/2026, a pedido do Everton): "Produtos" era uma única lista
@@ -8534,12 +8534,12 @@ function formLead(d){
   const stageObjs=getActiveFunnelStages();
   const prods=getProdutos();
   return `<div class="form-row">
-    <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="f-nome" value="${d?.nome||''}"></div>
-    <div class="form-group"><label class="form-label">Empresa</label><input class="form-input" id="f-empresa" value="${d?.empresa||''}"></div>
+    <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="f-nome" value="${escHtml(d?.nome||'')}"></div>
+    <div class="form-group"><label class="form-label">Empresa</label><input class="form-input" id="f-empresa" value="${escHtml(d?.empresa||'')}"></div>
   </div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-email" type="email" value="${d?.email||''}"></div>
-    <div class="form-group"><label class="form-label">Telefone / WhatsApp</label><input class="form-input" id="f-tel" value="${d?.telefone||''}"></div>
+    <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="f-email" type="email" value="${escHtml(d?.email||'')}"></div>
+    <div class="form-group"><label class="form-label">Telefone / WhatsApp</label><input class="form-input" id="f-tel" value="${escHtml(d?.telefone||'')}"></div>
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Produto / Serviço</label>
@@ -8557,7 +8557,7 @@ function formLead(d){
     <div class="form-group"><label class="form-label">Valor (R$)</label><input class="form-input" id="f-valor" type="text" inputmode="numeric" autocomplete="off" placeholder="R$ 0,00" oninput="gxBRLInput(this)" value="${d?.valor?gxBRLFormat(d.valor):''}"></div>
     <div class="form-group"><label class="form-label">Estágio</label>
       <select class="form-input" id="f-estagio">
-        ${stageObjs.map(s=>`<option value="${s.id}" ${(d?.stageId===s.id||d?.estagio===s.name)?'selected':''}>${s.name}</option>`).join('')}
+        ${stageObjs.map(s=>`<option value="${s.id}" ${(d?.stageId===s.id||d?.estagio===s.name)?'selected':''}>${escHtml(s.name)}</option>`).join('')}
       </select></div>
   </div>
   ${renderLeadOwnerSelect(d)}
@@ -8589,7 +8589,7 @@ const FINANCAS_CATEGORIAS=['Mensalidade','Projeto','Software','Pessoal','Marketi
 
 function formTransacao(d){
   const cats=FINANCAS_CATEGORIAS;
-  return `<div class="form-group"><label class="form-label">Descrição *</label><input class="form-input" id="f-desc" value="${d?.desc||''}"></div>
+  return `<div class="form-group"><label class="form-label">Descrição *</label><input class="form-input" id="f-desc" value="${escHtml(d?.desc||'')}"></div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Categoria</label><select class="form-input" id="f-cat">${cats.map(c=>`<option ${d?.cat===c?'selected':''}>${c}</option>`).join('')}</select></div>
     <div class="form-group"><label class="form-label">Tipo</label><select class="form-input" id="f-tipo"><option ${d?.tipo==='Receita'?'selected':''}>Receita</option><option ${d?.tipo==='Despesa'?'selected':''}>Despesa</option></select></div>
@@ -8602,9 +8602,9 @@ function formTransacao(d){
 
 function formMembro(d){
   const squads=DB.get('squads');
-  const squadOpts=squads.map(s=>`<option value="${s.nome}" ${d?.squad===s.nome?'selected':''}>${s.nome}</option>`).join('');
+  const squadOpts=squads.map(s=>`<option value="${escHtml(s.nome)}" ${d?.squad===s.nome?'selected':''}>${escHtml(s.nome)}</option>`).join('');
   return `<div class="form-row">
-    <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="f-nome" value="${d?.nome||''}"></div>
+    <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="f-nome" value="${escHtml(d?.nome||'')}"></div>
     <div class="form-group"><label class="form-label">Cargo</label><input class="form-input" id="f-cargo" value="${d?.cargo||''}"></div>
   </div>
   <div class="form-row">
@@ -8633,12 +8633,12 @@ function formUsuario(d){
   const newPwdHint=d?'<div style="font-size:11px;color:var(--muted);margin-top:5px">Deixe em branco para manter a senha atual</div>':'<div style="font-size:11px;color:var(--muted);margin-top:5px">Mínimo de 6 caracteres.</div>';
   const origemHtml='';
   return `<div class="form-row">
-    <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="f-nome" value="${d?.nome||''}"></div>
-    <div class="form-group"><label class="form-label">Email *</label><input class="form-input" id="f-email" type="email" value="${d?.email||''}" ${!isNew?'':'autocomplete="off"'}></div>
+    <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="f-nome" value="${escHtml(d?.nome||'')}"></div>
+    <div class="form-group"><label class="form-label">Email *</label><input class="form-input" id="f-email" type="email" value="${escHtml(d?.email||'')}" ${!isNew?'':'autocomplete="off"'}></div>
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Cargo</label><input class="form-input" id="f-cargo" value="${d?.cargo||''}"></div>
-    <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" id="f-telefone" value="${d?.telefone||''}" placeholder="(00) 0.0000-0000"></div>
+    <div class="form-group"><label class="form-label">Telefone</label><input class="form-input" id="f-telefone" value="${escHtml(d?.telefone||'')}" placeholder="(00) 0.0000-0000"></div>
   </div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Papel / Permissão</label>
@@ -9117,8 +9117,8 @@ function updateRolePreview(){
 }
 
 function _formContratoCampos(d){
-  const clis=DB.get('clientes').map(c=>`<option value="${c.id}" ${d?.clienteId===c.id?'selected':''}>${c.nome}</option>`).join('');
-  return `<div class="form-group"><label class="form-label">Título do Contrato *</label><input class="form-input" id="f-cont-titulo" value="${d?.titulo||''}"></div>
+  const clis=DB.get('clientes').map(c=>`<option value="${c.id}" ${d?.clienteId===c.id?'selected':''}>${escHtml(c.nome)}</option>`).join('');
+  return `<div class="form-group"><label class="form-label">Título do Contrato *</label><input class="form-input" id="f-cont-titulo" value="${escHtml(d?.titulo||'')}"></div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Cliente</label><select class="form-input" id="f-cont-cliente"><option value="">Selecionar...</option>${clis}</select></div>
     <div class="form-group"><label class="form-label">Valor</label><input class="form-input" id="f-cont-valor" placeholder="R$ 0,00" inputmode="decimal" oninput="this.value=gexMoneyFmt(this.value,false)" onblur="this.value=gexMoneyFmt(this.value,true)" value="${gexMoneyFmt(d?.valor,true)}"></div>
@@ -9230,8 +9230,8 @@ function renderDetailBody(){
     <div style="display:flex;gap:14px;margin-bottom:16px;align-items:center;padding:4px 0 14px;border-bottom:1px solid var(--border)">
       <div style="width:52px;height:52px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${initials(c.nome)}</div>
       <div style="flex:1">
-        <div style="font-size:16px;font-weight:700">${c.nome}</div>
-        <div style="font-size:12px;color:var(--muted)">${c.email||'—'} · ${c.telefone||'—'}</div>
+        <div style="font-size:16px;font-weight:700">${escHtml(c.nome)}</div>
+        <div style="font-size:12px;color:var(--muted)">${escHtml(c.email||'—')} · ${escHtml(c.telefone||'—')}</div>
         <div style="display:flex;gap:6px;margin-top:6px">${badge(c.status)}<span class="badge badge-gray">Health: <b style="color:${healthColor(c.health||0)}">${c.health||0}</b></span><span class="badge badge-purple">${c.ltv}</span></div>
       </div>
       <button class="btn btn-ghost btn-sm gx-ibtn" onclick="closeDetail();openModal('cliente','${c.id}')">${gxIc('edit')}Editar</button>
@@ -9245,7 +9245,7 @@ function renderDetailBody(){
     </div>
 
     <div class="tab-pane active" id="tab-dados">
-      ${c.desc?`<div style="background:var(--bg);border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;line-height:1.6;border-left:3px solid var(--p3)"><div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px">DESCRIÇÃO / OBSERVAÇÕES</div>${c.desc}</div>`:'<div style="color:var(--light);font-size:13px;padding:10px 0">Sem descrição cadastrada</div>'}
+      ${c.desc?`<div style="background:var(--bg);border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;line-height:1.6;border-left:3px solid var(--p3)"><div style="font-size:11px;font-weight:600;color:var(--muted);margin-bottom:4px">DESCRIÇÃO / OBSERVAÇÕES</div>${escHtml(c.desc)}</div>`:'<div style="color:var(--light);font-size:13px;padding:10px 0">Sem descrição cadastrada</div>'}
       <div class="form-row">
         <div><div class="form-label">Squad${clienteSquads(c).length>1?'s':''}</div><div style="font-size:13px;font-weight:500">${clienteSquads(c).length?clienteSquads(c).join(', '):'—'}</div></div>
         <div><div class="form-label">Criado em</div><div style="font-size:13px">${c.createdAt||'—'}</div></div>
@@ -9253,7 +9253,7 @@ function renderDetailBody(){
     </div>
 
     <div class="tab-pane" id="tab-followup">
-      ${fus.length?fus.map(f=>`<div class="fu-entry"><div class="fu-meta">${f.data}</div><div class="fu-text">${f.nota}</div><button style="background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;margin-top:4px" onclick="deleteFollowup('${f.id}')">Remover</button></div>`).join(''):'<div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div><div class="empty-txt">Sem histórico ainda</div></div>'}
+      ${fus.length?fus.map(f=>`<div class="fu-entry"><div class="fu-meta">${f.data}</div><div class="fu-text">${escHtml(f.nota)}</div><button style="background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;margin-top:4px" onclick="deleteFollowup('${f.id}')">Remover</button></div>`).join(''):'<div class="empty"><div class="empty-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div><div class="empty-txt">Sem histórico ainda</div></div>'}
       <div class="fu-add">
         <div class="form-label">Nova entrada</div>
         <textarea class="form-input" id="fu-text" rows="3" placeholder="Anotação sobre reunião, ligação, email..."></textarea>
@@ -9265,7 +9265,7 @@ function renderDetailBody(){
       ${tasks.map(t=>`<div class="task-item">
         <div class="task-check ${t.status==='Concluída'?'done':''}" onclick="toggleTask('${t.id}')">${t.status==='Concluída'?'✓':''}</div>
         <div class="task-txt">
-          <div class="task-desc">${t.desc}</div>
+          <div class="task-desc">${escHtml(t.desc)}</div>
           <div class="task-date">${t.prazo||'Sem prazo'}</div>
         </div>
         <button style="background:none;border:none;color:var(--red);font-size:12px;cursor:pointer;margin-left:8px" onclick="deleteTask('${t.id}')">🗑</button>
@@ -11829,7 +11829,7 @@ function renderComercial(){
       <div class="pipe-header" style="display:flex;align-items:center;gap:6px">
         <span style="width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
         <div style="flex:1">
-          <div class="pipe-title">${stage.name} ${wonBadge}${lostBadge}</div>
+          <div class="pipe-title">${escHtml(stage.name)} ${wonBadge}${lostBadge}</div>
           <div class="pipe-total">${fmtBRL(sub)}${gxStageAvgLabel(items,stage)}</div>
         </div>
         <span class="kol-count">${items.length}</span>
@@ -11841,10 +11841,10 @@ function renderComercial(){
         return `<div class="pcard" draggable="true" ondragstart="dragStart(event,'${l.id}','lead')" ondragend="dragEnd(event)" onclick="openDealDetail('${l.id}')">
         <div class="pcard-top">
           <span class="pcard-avatar gx-c-avatar" style="background:${avatarColor}">${initials}</span>
-          <div class="pcard-name">${l.nome||'Lead sem nome'}</div>
+          <div class="pcard-name">${escHtml(l.nome||'Lead sem nome')}</div>
         </div>
         ${l.empresa?`<div class="pcard-co gx-c-emp">${gxIc('emp')}<span>${escHtml(String(l.empresa))}</span></div>`:''}
-        <div class="pcard-co gx-c-resp">${(()=>{const on=getLeadOwnerName(l);return on?`<span class="gx-resp-av">${gxAvInner({id:getLeadOwnerId(l),email:getLeadOwnerEmail(l),nome:on},on)}</span>`:gxIc('resp')})()}<span>${getLeadOwnerName(l)||'Sem responsável'}</span></div>
+        <div class="pcard-co gx-c-resp">${(()=>{const on=getLeadOwnerName(l);return on?`<span class="gx-resp-av">${gxAvInner({id:getLeadOwnerId(l),email:getLeadOwnerEmail(l),nome:on},on)}</span>`:gxIc('resp')})()}<span>${escHtml(getLeadOwnerName(l)||'Sem responsável')}</span></div>
         ${(()=>{const t=leadEntradaLabel(l);return t?`<div class="pcard-co gx-c-ent" title="Data e hora em que o lead entrou">${gxIc('ent')}<span>${t}</span></div>`:''})()}
         ${l.telefone?`<div class="pcard-co gx-c-tel">${gxIc('tel')}<span>${escHtml(String(l.telefone))}</span></div>`:''}
         ${l.email?`<div class="pcard-co gx-c-mail">${gxIc('mail')}<span>${escHtml(String(l.email))}</span></div>`:''}
@@ -12838,7 +12838,7 @@ function renderFinancas(){
     <div class="fin-card lucro"><div class="fin-label">Lucro líquido</div><div class="fin-val purple">${fmtBRL(rec-desp)}</div><div style="font-size:10px;color:var(--p2);margin-top:4px;font-weight:600">Margem: ${margin}%</div></div>`;
   const tbody=document.getElementById('fin-tbody');
   tbody.innerHTML=txs.sort((a,b)=>b.data?.localeCompare(a.data)).map(t=>`<tr>
-    <td style="font-weight:500">${t.desc}</td>
+    <td style="font-weight:500">${escHtml(t.desc)}</td>
     <td><span class="badge badge-gray">${t.cat}</span></td>
     <td>${badge(t.tipo)}</td>
     <td style="font-weight:700;color:${t.tipo==='Receita'?'var(--green)':'var(--red)'}">${t.tipo==='Receita'?'+':'−'} ${fmtBRL(t.valor)}</td>
@@ -12866,7 +12866,7 @@ function renderRH(){
     const sqCounts=squads.map(s=>({...s,cnt:mbs.filter(m=>m.squad===s.nome).length}));
     filterEl.innerHTML=`<button class="sq-tab${rhSquadFilter==='todos'?' active':''}" onclick="setRhFilter('todos')">Todos <span style="background:rgba(0,0,0,.1);padding:1px 7px;border-radius:10px;font-size:10px;margin-left:3px">${mbs.length}</span></button>`
       +sqCounts.map(s=>`<button class="sq-tab${rhSquadFilter===s.nome?' active':''}" onclick="setRhFilter('${s.nome.replace(/'/g,"\\'")}')" style="${rhSquadFilter===s.nome?'':''}">
-        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${s.cor||'var(--muted)'};margin-right:4px"></span>${s.nome}
+        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${s.cor||'var(--muted)'};margin-right:4px"></span>${escHtml(s.nome)}
         <span style="background:rgba(0,0,0,.1);padding:1px 7px;border-radius:10px;font-size:10px;margin-left:3px">${s.cnt}</span>
       </button>`).join('');
   }
@@ -12878,7 +12878,7 @@ function renderRH(){
     const sqCor=sqMap[m.squad]||'var(--muted)';
     return `<div class="member-card">
       <div class="member-av" style="overflow:hidden">${gxAvInner(m)}</div>
-      <div class="member-name">${m.nome}</div>
+      <div class="member-name">${escHtml(m.nome)}</div>
       <div class="member-role">${m.cargo}</div>
       <div style="margin-bottom:8px">${badge(m.status)}</div>
       <div style="margin-bottom:10px"><span style="background:${sqCor}22;color:${sqCor};font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;border:1px solid ${sqCor}44">${m.squad||'—'}</span></div>
@@ -12909,7 +12909,7 @@ function renderSquadMgrList(){
   document.getElementById('squad-mgr-list').innerHTML=squads.length?squads.map((s,i)=>`
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg);border-radius:10px;border:1px solid var(--border)">
       <div style="width:12px;height:12px;border-radius:50%;background:${s.cor||'var(--muted)'};flex-shrink:0"></div>
-      <input class="form-input" style="flex:1;padding:5px 10px;font-size:13px;font-weight:600" value="${s.nome}" onchange="updateSquadName('${s.id}',this.value)" id="sq-input-${s.id}">
+      <input class="form-input" style="flex:1;padding:5px 10px;font-size:13px;font-weight:600" value="${escHtml(s.nome)}" onchange="updateSquadName('${s.id}',this.value)" id="sq-input-${s.id}">
       <select class="form-input" style="width:auto;padding:4px 8px;font-size:11px;flex-shrink:0" title="Tipo de tela em Projetos > Gestão de Entregas" onchange="updateSquadTipo('${s.id}',this.value)">
         <option value="conteudo" ${(s.tipo||'conteudo')==='conteudo'?'selected':''}>Conteúdo</option>
         <option value="trafego" ${s.tipo==='trafego'?'selected':''}>Tráfego</option>
@@ -13164,12 +13164,12 @@ function renderUsuarios(opts={}){
       <td><div style="display:flex;align-items:center;gap:8px">
         <div class="user-list-av">${getAvatarInner(u)}</div>
         <div>
-          <div style="font-weight:600;font-size:13px">${u.nome}</div>
+          <div style="font-weight:600;font-size:13px">${escHtml(u.nome)}</div>
           ${isFundadorUser?'<div style="font-size:9px;color:var(--p2);font-weight:700;letter-spacing:.04em;text-transform:uppercase">Fundador — acesso total</div>':''}
           ${u.authProvider==='supabase'?'':'<div style="font-size:9px;color:var(--light);font-weight:700;letter-spacing:.04em;text-transform:uppercase">Local/cache</div>'}
         </div>
       </div></td>
-      <td style="color:var(--muted);font-size:12px">${u.email}</td>
+      <td style="color:var(--muted);font-size:12px">${escHtml(u.email)}</td>
       <td style="color:var(--muted)">${u.cargo||'—'}</td>
       <td>${badge(resolveRole(u.permissao))}</td>
       <td>${badge(u.status)}</td>
@@ -14090,7 +14090,7 @@ function renderEntregasFolders(pros){
     return `<div class="squad-folder-card" onclick="openProjSquadFolder('${s.nome.replace(/'/g,"\\'")}')">
       <div class="squad-folder-bar" style="background:${s.cor||'var(--muted)'}"></div>
       <div class="squad-folder-ico" style="background:${s.cor||'var(--muted)'}22;color:${s.cor||'var(--muted)'}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></svg></div>
-      <div class="squad-folder-name">${s.nome}</div>
+      <div class="squad-folder-name">${escHtml(s.nome)}</div>
       <div class="squad-folder-cnt">${cnt} projeto${cnt===1?'':'s'}</div>
     </div>`;
   }).join('');
@@ -14188,7 +14188,7 @@ function contaFiltroBarra(clientesDoSquad){
     </select>
     <select class="form-input" style="padding:5px 8px;font-size:12px;width:auto" onchange="setContaFiltro('responsavel',this.value)">
       <option value="">Responsável (todos)</option>
-      ${responsaveis.map(m=>`<option value="${m.id}" ${f.responsavel===m.id?'selected':''}>${m.nome}</option>`).join('')}
+      ${responsaveis.map(m=>`<option value="${m.id}" ${f.responsavel===m.id?'selected':''}>${escHtml(m.nome)}</option>`).join('')}
     </select>
     ${ativos?`<button class="btn btn-ghost btn-sm" onclick="limparContaFiltro()">✕ Limpar filtros (${ativos})</button>`:''}
   </div>`;
@@ -14229,7 +14229,7 @@ function buildContaKanbanHtml(clientes){
         const resCor=CONTA_RESULTADO_COR[c.contaResultado]||'#9CA3AF';
         const nComentarios=(c.comentarios||[]).length;
         return `<div class="kcard" draggable="true" ondragstart="dragStart(event,'${c.id}','cliente-conta')" ondragend="dragEnd(event)" onclick="openModal('cliente','${c.id}','carteira')">
-        <div class="kcard-title">${c.nome}</div>
+        <div class="kcard-title">${escHtml(c.nome)}</div>
         <div class="kcard-sub">${resp.length?resp.map(m=>m.nome).join(', '):'Sem responsável'}</div>
         <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">
           ${c.contaResultado?`<span class="badge" style="background:${resCor}22;color:${resCor}">${c.contaResultado}</span>`:''}
@@ -14283,11 +14283,11 @@ function buildContaStatusGroupsHtml(clientes){
     const rows=items.map(c=>{
       const nComentarios=(c.comentarios||[]).length;
       const resp=(c.contaResponsaveis||[]).map(mid=>membros.find(m=>m.id===mid)).filter(Boolean);
-      const avatares=resp.length?resp.map((m,i)=>`<div style="width:24px;height:24px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card);margin-left:${i?'-8px':'0'};overflow:hidden" title="${m.nome}">${gxAvInner(m)}</div>`).join(''):'<span style="color:var(--light);font-size:16px">👤</span>';
+      const avatares=resp.length?resp.map((m,i)=>`<div style="width:24px;height:24px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--card);margin-left:${i?'-8px':'0'};overflow:hidden" title="${escHtml(m.nome)}">${gxAvInner(m)}</div>`).join(''):'<span style="color:var(--light);font-size:16px">👤</span>';
       const resCor=CONTA_RESULTADO_COR[c.contaResultado]||'#9CA3AF';
       const relCor=CONTA_RELACIONAMENTO_COR[c.contaRelacionamento]||'#9CA3AF';
       return `<tr style="cursor:pointer" onclick="openModal('cliente','${c.id}','carteira')">
-        <td style="font-weight:600;font-size:13px">${c.nome}</td>
+        <td style="font-weight:600;font-size:13px">${escHtml(c.nome)}</td>
         <td onclick="event.stopPropagation()">
           <select class="form-input" style="padding:4px 8px;font-size:11px;font-weight:700;width:auto;color:${resCor};background:${resCor}15;border-color:${resCor}44" onchange="setContaResultado('${c.id}',this.value)">
             <option value="" ${!c.contaResultado?'selected':''}>—</option>
@@ -14473,8 +14473,8 @@ function buildEntregasKanbanHtml(pros,clienteNome){
       ${items.map(p=>{
         const nComentarios=(p.comentarios||[]).length;
         return `<div class="kcard" draggable="true" ondragstart="dragStart(event,'${p.id}','projeto')" ondragend="dragEnd(event)" onclick="openModal('projeto','${p.id}')">
-        <div class="kcard-title">${p.nome}</div>
-        <div class="kcard-sub" style="display:flex;align-items:center;gap:6px">${p.responsavelNome?`<span class="gx-resp-av">${gxAvInner({id:p.responsavelId,nome:p.responsavelNome},p.responsavelNome)}</span>${p.responsavelNome}`:'Sem responsável'}</div>
+        <div class="kcard-title">${escHtml(p.nome)}</div>
+        <div class="kcard-sub" style="display:flex;align-items:center;gap:6px">${p.responsavelNome?`<span class="gx-resp-av">${gxAvInner({id:p.responsavelId,nome:p.responsavelNome},p.responsavelNome)}</span>${escHtml(p.responsavelNome)}`:'Sem responsável'}</div>
         <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">
           ${p.formato?`<span class="badge badge-blue">${p.formato}</span>`:''}
           <span class="badge" style="background:${PRIORIDADE_COR[p.prioridade||'Normal']}22;color:${PRIORIDADE_COR[p.prioridade||'Normal']}">${p.prioridade||'Normal'}</span>
@@ -14502,8 +14502,8 @@ function buildEntregasStatusGroupsHtml(pros,clienteNome){
       const nComentarios=(p.comentarios||[]).length;
       const objCor=OBJETIVO_COR[p.objetivoPost]||'#9CA3AF';
       return `<tr style="cursor:pointer" onclick="openModal('projeto','${p.id}')">
-        <td style="font-weight:600;font-size:13px">${p.nome}</td>
-        <td onclick="event.stopPropagation()">${p.responsavelNome?`<div style="display:flex;align-items:center;gap:6px"><div style="width:26px;height:26px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">${gxAvInner({id:p.responsavelId,nome:p.responsavelNome},p.responsavelNome)}</div><span style="font-size:12px">${p.responsavelNome}</span></div>`:'<span style="color:var(--light);font-size:16px">👤</span>'}</td>
+        <td style="font-weight:600;font-size:13px">${escHtml(p.nome)}</td>
+        <td onclick="event.stopPropagation()">${p.responsavelNome?`<div style="display:flex;align-items:center;gap:6px"><div style="width:26px;height:26px;border-radius:50%;background:var(--p-light);color:var(--p2);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden">${gxAvInner({id:p.responsavelId,nome:p.responsavelNome},p.responsavelNome)}</div><span style="font-size:12px">${escHtml(p.responsavelNome)}</span></div>`:'<span style="color:var(--light);font-size:16px">👤</span>'}</td>
         <td>${p.formato?`<span class="badge badge-blue">${p.formato}</span>`:'<span style="color:var(--light)">—</span>'}</td>
         <td>${p.objetivoPost?`<span class="badge" style="background:${objCor}22;color:${objCor}">${p.objetivoPost}</span>`:'<span style="color:var(--light)">—</span>'}</td>
         <td onclick="event.stopPropagation()">
@@ -14547,7 +14547,7 @@ function renderEntregasClienteBoard(prosAll){
     <div class="proj-breadcrumb">
       <span class="bc-back" onclick="backToProjFolders()">Squads</span> /
       <span class="bc-back" onclick="backToProjClientes()" style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${folderCor};display:inline-block"></span>${folderNome}</span> /
-      <b>${clienteLabel}</b>
+      <b>${escHtml(clienteLabel)}</b>
     </div>
     <div class="page-header">
       <div><div class="page-title">${clienteLabel}</div><div class="page-sub">Entregas agrupadas por etapa</div></div>
@@ -14624,7 +14624,7 @@ function renderOnboarding(){
           return `<div class="ob-card" onclick="openObModal('${ob.id}')">
             <div class="ob-card-name">
               <div class="ob-av">${initials(cli.nome)}</div>
-              <span>${cli.nome}</span>
+              <span>${escHtml(cli.nome)}</span>
             </div>
             ${resps.length?`<div class="ob-resp-chips">${resps.map(r=>`<div class="ob-chip">${r}</div>`).join('')}</div>`:''}
             <div class="ob-prog-row">
@@ -14668,14 +14668,14 @@ function renderObDetail(){
   const respChips=respIds.map(rid=>{
     const m=membros.find(m=>m.id===rid);
     if(!m)return'';
-    return `<div class="ob-chip" style="background:var(--p-light);color:var(--p2);border-color:var(--p3)">${m.nome}${isProjectFounderView()?`<span style="cursor:pointer;margin-left:4px;opacity:.6" onclick="removeObResp('${rid}')">×</span>`:''}</div>`;
+    return `<div class="ob-chip" style="background:var(--p-light);color:var(--p2);border-color:var(--p3)">${escHtml(m.nome)}${isProjectFounderView()?`<span style="cursor:pointer;margin-left:4px;opacity:.6" onclick="removeObResp('${rid}')">×</span>`:''}</div>`;
   }).join('');
 
   const membrosDisponiveis=membros.filter(m=>!respIds.includes(m.id));
   const addRespBtn=(isProjectFounderView()&&membrosDisponiveis.length)?`
     <select class="form-input" style="width:auto;padding:3px 8px;font-size:11px" onchange="addObResp(this.value);this.value=''">
       <option value="">+ Adicionar responsável</option>
-      ${membrosDisponiveis.map(m=>`<option value="${m.id}">${m.nome} (${m.cargo||'—'})</option>`).join('')}
+      ${membrosDisponiveis.map(m=>`<option value="${m.id}">${escHtml(m.nome)} (${m.cargo||'—'})</option>`).join('')}
     </select>`:'';
 
   document.getElementById('ob-body').innerHTML=`
@@ -14712,7 +14712,7 @@ function renderObDetail(){
             value="${s.label}" onchange="updateObStepLabel(${i},this.value)">
           <select class="form-input" style="width:130px;padding:4px 8px;font-size:11px" onchange="updateObStepResp(${i},this.value)">
             <option value="">— Responsável</option>
-            ${membros.map(m=>`<option value="${m.nome}" ${s.responsavel===m.nome?'selected':''}>${m.nome}</option>`).join('')}
+            ${membros.map(m=>`<option value="${escHtml(m.nome)}" ${s.responsavel===m.nome?'selected':''}>${escHtml(m.nome)}</option>`).join('')}
           </select>
           <button class="btn btn-ghost btn-sm btn-icon" onclick="removeObStep(${i})"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
         </div>`;
@@ -14867,9 +14867,9 @@ function renderTarefasProj(){
       <div class="tbl-wrap"><table>
         <thead><tr><th>Tarefa</th><th>Cliente</th><th>Responsável</th><th>Prazo</th><th>Status</th><th>Ações</th></tr></thead>
         <tbody>${tasks.length?tasks.sort((a,b)=>(a.prazo||'').localeCompare(b.prazo||'')).map(t=>`<tr>
-          <td style="font-weight:500">${t.desc}</td>
-          <td style="color:var(--muted)">${getName(t.clienteId)}</td>
-          <td style="color:var(--muted)">${t.responsavelNome||t.assignedTo||t.responsavel||'—'}</td>
+          <td style="font-weight:500">${escHtml(t.desc)}</td>
+          <td style="color:var(--muted)">${escHtml(getName(t.clienteId))}</td>
+          <td style="color:var(--muted)">${escHtml(t.responsavelNome||t.assignedTo||t.responsavel||'—')}</td>
           <td style="color:var(--muted)">${t.prazo?new Date(t.prazo+'T00:00:00').toLocaleDateString('pt-BR'):'—'}</td>
           <td>${badge(t.status)}</td>
           <td><div class="td-actions">
@@ -14900,12 +14900,12 @@ function openModalTarefaGlobal(id=null){
   document.getElementById('modal-title').textContent=t?'Editar Tarefa':'Nova Tarefa';
   document.getElementById('modal-body').innerHTML=`
     <div class="form-group"><label class="form-label">Descrição da Tarefa *</label>
-      <input class="form-input" id="ftg-desc" placeholder="Ex: Enviar relatório mensal" value="${t?.desc||''}"></div>
+      <input class="form-input" id="ftg-desc" placeholder="Ex: Enviar relatório mensal" value="${escHtml(t?.desc||'')}"></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Cliente</label>
         <select class="form-input" id="ftg-cliente">
           <option value="">— Sem cliente —</option>
-          ${cls.map(c=>`<option value="${c.id}" ${t?.clienteId===c.id?'selected':''}>${c.nome}</option>`).join('')}
+          ${cls.map(c=>`<option value="${c.id}" ${t?.clienteId===c.id?'selected':''}>${escHtml(c.nome)}</option>`).join('')}
         </select></div>
       <div class="form-group"><label class="form-label">Prazo</label>
         <input class="form-input" id="ftg-prazo" type="date" value="${t?.prazo||''}"></div>
@@ -15014,8 +15014,8 @@ function renderAprovacao(){
     <div>
       <div class="aprov-col-hdr" style="color:${color};border-color:${borderColor}">${title} <span style="font-size:12px;background:${borderColor}22;padding:1px 8px;border-radius:10px;font-weight:700">${arr.length}</span></div>
       ${arr.map(c=>`<div class="aprov-card">
-        <div class="aprov-card-title">${c.titulo}</div>
-        <div class="aprov-card-meta">${c.cliente} · ${c.tipo} · 👤 ${c.responsavel}</div>
+        <div class="aprov-card-title">${escHtml(c.titulo)}</div>
+        <div class="aprov-card-meta">${escHtml(c.cliente)} · ${escHtml(c.tipo)} · 👤 ${escHtml(c.responsavel)}</div>
         <div class="aprov-actions">
           ${c.status!=='Aprovado'?`<button class="btn btn-sm" style="background:#DCFCE7;color:#166534;border:none" onclick="setConteudo('${c.id}','Aprovado')">✓ Aprovar</button>`:''}
           ${c.status!=='Reprovado'?`<button class="btn btn-sm" style="background:#FEE2E2;color:#991B1B;border:none" onclick="setConteudo('${c.id}','Reprovado')">✕ Reprovar</button>`:''}
@@ -15044,7 +15044,7 @@ function setConteudo(id,status){
 }
 
 function openModalConteudo(){
-  const cls=getVisibleClientsForProject().map(c=>`<option>${c.nome}</option>`).join('');
+  const cls=getVisibleClientsForProject().map(c=>`<option>${escHtml(c.nome)}</option>`).join('');
   document.getElementById('modal-title').textContent='Novo Conteúdo';
   document.getElementById('modal-body').innerHTML=`
     <div class="form-row">
@@ -15591,8 +15591,8 @@ function renderEsquemas(){
     <div class="esquema-grid">
       ${esquemas.map(e=>e.tipo==='doc'&&typeof gxEsqDocCard==='function'?gxEsqDocCard(e,{podeEditar,podeExcluir}):`<div class="esquema-card">
         <div class="esquema-ico">${gxEmojiIco(e.ico)}</div>
-        <div class="esquema-name">${e.nome}</div>
-        <div class="esquema-desc">${e.desc}</div>
+        <div class="esquema-name">${escHtml(e.nome)}</div>
+        <div class="esquema-desc">${escHtml(e.desc)}</div>
         <div class="esq-tipo">Texto · dá para usar nos Docs</div>
         <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn btn-primary btn-sm" onclick="usarEsquema('${e.id}')">Usar</button>
@@ -15609,7 +15609,7 @@ function usarEsquema(id){
   if(!e)return;
   document.getElementById('modal-title').textContent=e.ico+' '+e.nome;
   document.getElementById('modal-body').innerHTML=`
-    <div style="margin-bottom:10px;font-size:12px;color:var(--muted)">${e.desc}</div>
+    <div style="margin-bottom:10px;font-size:12px;color:var(--muted)">${escHtml(e.desc)}</div>
     <textarea id="esq-viewer" style="width:100%;height:420px;font-family:monospace;font-size:12px;line-height:1.6;border:1px solid var(--border);border-radius:8px;padding:14px;resize:vertical;background:#FAFAFA;color:var(--txt)">${e.conteudo}</textarea>`;
   document.getElementById('modal-footer').innerHTML=`
     <button class="btn btn-ghost" onclick="closeModal()">Fechar</button>
@@ -15639,12 +15639,12 @@ function openModalEsquema(id=null){
       </div>
       <div class="form-group" style="flex:1">
         <label class="form-label">Nome *</label>
-        <input class="form-input" id="esq-nome" value="${e?.nome||''}" placeholder="Ex: Brief de Cliente">
+        <input class="form-input" id="esq-nome" value="${escHtml(e?.nome||'')}" placeholder="Ex: Brief de Cliente">
       </div>
     </div>
     <div class="form-group">
       <label class="form-label">Descrição</label>
-      <input class="form-input" id="esq-desc" value="${e?.desc||''}" placeholder="Breve descrição do template">
+      <input class="form-input" id="esq-desc" value="${escHtml(e?.desc||'')}" placeholder="Breve descrição do template">
     </div>
     ${e?.tipo==='doc'?`<div style="font-size:12px;color:var(--muted);background:var(--bg);border-radius:8px;padding:10px 12px">O conteúdo deste modelo (páginas e subpáginas) é editado no editor de Docs: botão <b>Abrir modelo</b> no card.</div>`:`<div class="form-group">
       <label class="form-label">Conteúdo do template *</label>
@@ -15690,7 +15690,7 @@ function renderFornecedores(){
       <div class="tbl-wrap"><table>
         <thead><tr><th>Nome</th><th>Serviço</th><th>Contato</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead>
         <tbody>${forn.length?forn.map(f=>`<tr>
-          <td style="font-weight:600">${f.nome}</td>
+          <td style="font-weight:600">${escHtml(f.nome)}</td>
           <td><span class="badge badge-purple">${f.servico}</span></td>
           <td style="color:var(--muted);font-size:12px">${f.contato}</td>
           <td style="font-weight:600;color:var(--green)">${f.valor}</td>
@@ -15709,7 +15709,7 @@ function openModalFornecedor(d=null){
   document.getElementById('modal-title').textContent=d?'Editar Fornecedor':'Novo Fornecedor';
   document.getElementById('modal-body').innerHTML=`
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="f-nome" value="${d?.nome||''}"></div>
+      <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="f-nome" value="${escHtml(d?.nome||'')}"></div>
       <div class="form-group"><label class="form-label">Serviço</label><input class="form-input" id="f-servico" value="${d?.servico||''}"></div>
     </div>
     <div class="form-row">
@@ -15739,7 +15739,7 @@ function renderCreators(){
     </div>
     <div class="creator-grid">${crs.length?crs.map(c=>`<div class="creator-card">
       <div class="creator-av">${initials(c.nome)}</div>
-      <div class="creator-name">${c.nome}</div>
+      <div class="creator-name">${escHtml(c.nome)}</div>
       <div class="creator-spec">${c.especialidade}</div>
       <div class="creator-stats">
         <div><span class="creator-stat-val">${c.seguidores}</span>Seguidores</div>
@@ -15759,7 +15759,7 @@ function openModalCreator(d=null){
   document.getElementById('modal-title').textContent=d?'Editar Creator':'Novo Creator';
   document.getElementById('modal-body').innerHTML=`
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="f-nome" value="${d?.nome||''}"></div>
+      <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="f-nome" value="${escHtml(d?.nome||'')}"></div>
       <div class="form-group"><label class="form-label">Especialidade</label><input class="form-input" id="f-esp" value="${d?.especialidade||''}"></div>
     </div>
     <div class="form-row">
@@ -17531,7 +17531,7 @@ function renderArchivedFunnelsModal(){
       const updated=f.updatedAt?new Date(f.updatedAt).toLocaleString('pt-BR'):'—';
       return `<div class="archived-funnel-summary">
         <div class="archived-funnel-info">
-          <div class="archived-funnel-name">${f.name||'Funil sem nome'}</div>
+          <div class="archived-funnel-name">${escHtml(f.name||'Funil sem nome')}</div>
           <div class="archived-funnel-meta">${count} oportunidade(s) • ${stages} etapa(s) • arquivado/atualizado em ${updated}</div>
         </div>
         <div class="archived-funnel-actions">
@@ -17690,7 +17690,7 @@ function renderFunnelModalBody(){
       <div style="display:flex;flex-direction:column;gap:10px">
         <div class="form-group" style="margin:0">
           <label class="form-label">Nome do funil *</label>
-          <input class="form-input" id="fm-name" value="${fmDraft.name}" placeholder="Ex: Funil de Prospecção" oninput="fmDraft.name=this.value">
+          <input class="form-input" id="fm-name" value="${escHtml(fmDraft.name)}" placeholder="Ex: Funil de Prospecção" oninput="fmDraft.name=this.value">
         </div>
         <div class="form-group" style="margin:0">
           <label class="form-label">Descrição</label>
@@ -17716,7 +17716,7 @@ function renderFunnelModalBody(){
                 ${FM_COLORS.map(c=>`<div class="fm-color-swatch${c===s.color?' selected':''}" style="background:${c}" onclick="setFmStageColor(${i},'${c}')"></div>`).join('')}
               </div>
             </div>
-            <input class="fm-stage-name" value="${s.name}" placeholder="Nome da etapa"
+            <input class="fm-stage-name" value="${escHtml(s.name)}" placeholder="Nome da etapa"
               oninput="fmDraft.stages[${i}].name=this.value" id="fsn-${i}">
             <input class="fm-stage-prob" type="number" min="0" max="100" value="${s.probability||0}"
               oninput="fmDraft.stages[${i}].probability=+this.value" title="Probabilidade %">
@@ -18332,9 +18332,9 @@ function renderStageList(){
       ondragstart="stageDragStart(${i})" ondragover="event.preventDefault()" ondrop="stageDrop(${i})">
       <span class="stage-drag-handle" title="Arrastar para reordenar">⠿</span>
       <div class="stage-color-dot" style="background:${col}"></div>
-      <input class="stage-name-input" value="${s.name}" id="si-${i}"
+      <input class="stage-name-input" value="${escHtml(s.name)}" id="si-${i}"
         onchange="stageDraft[${i}].name=this.value.trim()||stageDraft[${i}].name;this.value=stageDraft[${i}].name">
-      ${hasLeads?`<span title="${s.name} tem leads — remova-os primeiro" style="font-size:11px;color:var(--muted)">🔒</span>`:`<button class="stage-del-btn" onclick="removeStage(${i})" title="Excluir etapa">✕</button>`}
+      ${hasLeads?`<span title="${escHtml(s.name)} tem leads — remova-os primeiro" style="font-size:11px;color:var(--muted)">🔒</span>`:`<button class="stage-del-btn" onclick="removeStage(${i})" title="Excluir etapa">✕</button>`}
     </div>`;
   }).join('');
 }
@@ -18847,10 +18847,10 @@ function _taskHtml(t,cls){
       ${done?'✓':''}
     </div>
     <div class="lem-task-body">
-      <div class="lem-task-title">${ico} ${t.title}</div>
+      <div class="lem-task-title">${ico} ${escHtml(t.title)}</div>
       <div class="lem-task-meta">
         ${t.dueDate?`<span>${_taskDateLabel(t)}</span>`:''}
-        ${t.companyName?`<span>· ${t.companyName}</span>`:''}
+        ${t.companyName?`<span>· ${escHtml(t.companyName)}</span>`:''}
         <span class="lem-pri ${pri}">${t.priority}</span>
       </div>
     </div>
@@ -18928,7 +18928,7 @@ function renderTarefasDia(){
       <div class="tdia-circle ${done?'done':type}" onclick="event.stopPropagation();${done?`reopenCommercialTask('${t.id}')`:`completeCommercialTask('${t.id}')`}">${done?'✓':''}</div>
       <div class="tdia-ibody">
         <div class="tdia-ititle">${escHtml(String(t.title||t.titulo||t.desc||'Tarefa sem título'))}</div>
-        ${opp?`<div class="tdia-imeta">${ico} ${opp}</div>`:''}
+        ${opp?`<div class="tdia-imeta">${ico} ${escHtml(opp)}</div>`:''}
       </div>
       ${dtLabel?`<span class="tdia-dt-tag ${dtCls}">${dtLabel}</span>`:''}
     </div>`;
@@ -19024,10 +19024,10 @@ function openTaskEditModal(taskId){
           <div class="gcal-row-main">
             ${isFounderTaskAdmin()
               ? `<select class="gcal-inline-input" id="te-resp">
-                  <option value="${t.assignedTo||''}">${t.assignedTo||'Everton Galdino'}</option>
+                  <option value="${escHtml(t.assignedTo||'')}">${escHtml(t.assignedTo||'Everton Galdino')}</option>
                   ${members.filter(m=>m!==(t.assignedTo||'')).map(m=>`<option>${m}</option>`).join('')}
                 </select>`
-              : `<input class="gcal-inline-input readonly" id="te-resp" value="${sessionUser?.nome||t.assignedTo||'Usuário'}" readonly>`}
+              : `<input class="gcal-inline-input readonly" id="te-resp" value="${escHtml(sessionUser?.nome||t.assignedTo||'Usuário')}" readonly>`}
           </div>
           <div class="gcal-row-sub">Responsável</div>
         </div>
@@ -19035,7 +19035,7 @@ function openTaskEditModal(taskId){
       <div class="gcal-row">
         <div class="gcal-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
         <div class="gcal-row-content">
-          <textarea class="gcal-inline-input" id="te-desc" rows="2" placeholder="Adicionar descrição">${t.description||''}</textarea>
+          <textarea class="gcal-inline-input" id="te-desc" rows="2" placeholder="Adicionar descrição">${escHtml(t.description||'')}</textarea>
         </div>
       </div>
       <div class="gcal-row">
@@ -19106,7 +19106,7 @@ function openQuickTaskModal(forceDealId,presetDate){
     ?`<div class="gcal-row">
         <div class="gcal-ico"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></div>
         <div class="gcal-row-content">
-          <div class="gcal-static"><strong>${l.nome||'Oportunidade'}</strong>${l.empresa?' · '+l.empresa:''}</div>
+          <div class="gcal-static"><strong>${escHtml(l.nome||'Oportunidade')}</strong>${l.empresa?' · '+escHtml(l.empresa):''}</div>
           <div class="gcal-row-sub">Vinculada a esta oportunidade</div>
         </div>
       </div>`
@@ -19115,7 +19115,7 @@ function openQuickTaskModal(forceDealId,presetDate){
         <div class="gcal-row-content">
           <select class="gcal-inline-input" id="qt-opp" style="width:100%">
             <option value="">— Nenhuma (tarefa geral) —</option>
-            ${leads.map(ld=>`<option value="${ld.id}">${ld.nome}${ld.empresa?' – '+ld.empresa:''}</option>`).join('')}
+            ${leads.map(ld=>`<option value="${ld.id}">${escHtml(ld.nome)}${ld.empresa?' – '+escHtml(ld.empresa):''}</option>`).join('')}
           </select>
           <div class="gcal-row-sub">Oportunidade vinculada</div>
         </div>
@@ -19144,7 +19144,7 @@ function openQuickTaskModal(forceDealId,presetDate){
           <div class="gcal-row-main">
             ${isFounderTaskAdmin()
               ? `<select class="gcal-inline-input" id="qt-resp">${respOptions.map(r=>`<option>${r}</option>`).join('')}</select>`
-              : `<input class="gcal-inline-input readonly" id="qt-resp" value="${sessionUser?.nome||'Usuário'}" readonly>`}
+              : `<input class="gcal-inline-input readonly" id="qt-resp" value="${escHtml(sessionUser?.nome||'Usuário')}" readonly>`}
           </div>
           <div class="gcal-row-sub">Responsável</div>
         </div>
@@ -19344,10 +19344,10 @@ function renderDealMain(){
       <div class="act-content">
         <div class="act-header">
           <span class="act-type" style="background:${at.color};color:${at.text}">${a.tipo}</span>
-          <span class="act-user">${a.usuario||'Everton'}</span>
+          <span class="act-user">${escHtml(a.usuario||'Everton')}</span>
           <span class="act-time">${a.data}</span>
         </div>
-        <div class="act-text">${a.texto}</div>
+        <div class="act-text">${escHtml(a.texto)}</div>
         <button style="background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;margin-top:5px" onclick="deleteDealActivity('${a.id}')">Remover</button>
       </div>
     </div>`;
@@ -19368,7 +19368,7 @@ function renderDealMain(){
       const pri=TASK_PRI_CLS[tk.priority]||'media';
       return `<div class="deal-task-row ${cls}" onclick="openTaskEditModal('${tk.id}')">
         <div class="lem-check${tk.completed?' done':''}" onclick="event.stopPropagation();${tk.completed?`reopenCommercialTask('${tk.id}')`:`completeCommercialTask('${tk.id}')`}">${tk.completed?'✓':''}</div>
-        <div class="dt-title">${ico} ${tk.title}</div>
+        <div class="dt-title">${ico} ${escHtml(tk.title)}</div>
         ${tk.dueDate?`<span style="font-size:10px;color:var(--muted)">${tk.dueDate}</span>`:''}
         <span class="lem-pri ${pri}">${tk.priority}</span>
       </div>`;
@@ -19417,7 +19417,7 @@ function renderDealMain(){
             <label class="form-label">Responsável</label>
             ${isFounderTaskAdmin()
               ? `<select class="form-input" id="lem-task-resp">${respOptions.map(r=>`<option>${r}</option>`).join('')}</select>`
-              : `<input class="form-input" id="lem-task-resp" value="${sessionUser?.nome||'Usuário'}" readonly>`}
+              : `<input class="form-input" id="lem-task-resp" value="${escHtml(sessionUser?.nome||'Usuário')}" readonly>`}
           </div>
           <div class="form-group" style="flex:2">
             <label class="form-label">Observação</label>
@@ -19599,10 +19599,10 @@ function renderDealSidebar(){
     </div>
     <div class="sb-section">
       <div class="sb-sec-title"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Dados do contato</div>
-      <div class="sb-field"><span class="sb-field-lbl">Nome</span><span class="sb-field-val">${l.nome}</span></div>
-      <div class="sb-field"><span class="sb-field-lbl">Empresa</span><span class="sb-field-val">${l.empresa||gxLeadFormCompany(l)||'—'}</span></div>
-      <div class="sb-field"><span class="sb-field-lbl">Email</span><span class="sb-field-val">${l.email||'—'}</span></div>
-      <div class="sb-field"><span class="sb-field-lbl">Telefone</span><span class="sb-field-val">${l.telefone||'—'}</span></div>
+      <div class="sb-field"><span class="sb-field-lbl">Nome</span><span class="sb-field-val">${escHtml(l.nome)}</span></div>
+      <div class="sb-field"><span class="sb-field-lbl">Empresa</span><span class="sb-field-val">${escHtml(l.empresa||gxLeadFormCompany(l)||'—')}</span></div>
+      <div class="sb-field"><span class="sb-field-lbl">Email</span><span class="sb-field-val">${escHtml(l.email||'—')}</span></div>
+      <div class="sb-field"><span class="sb-field-lbl">Telefone</span><span class="sb-field-val">${escHtml(l.telefone||'—')}</span></div>
     </div>
     ${gxLeadFormExtrasHtml(l)}
     <div class="sb-section">
@@ -21569,16 +21569,16 @@ body.gex-premium-ui *::-webkit-scrollbar-thumb:hover{
     // comercial da empresa, não faz sentido pra quem só conecta o próprio
     // WhatsApp) — só o card de conexão mesmo.
     const summaryHtml=_visRole==='Colaborador'?'':`<div class="gxi-summary"><div class="gxi-stat"><span>Conexões ativas</span><b>${connectedCount(VISIBLE_PROVIDERS)}</b><small>de ${connectable.length} disponíveis</small></div><div class="gxi-stat"><span>Regras de tracking</span><b>${rules.length}</b><small>${rules.filter(x=>x.active!==false).length} ativas</small></div><div class="gxi-stat"><span>Eventos processados</span><b>${getEvents().length}</b><small>últimos registros</small></div></div>`;
-    return `${summaryHtml}<div class="gxi-grid">${VISIBLE_PROVIDERS.map(p=>{if(p.comingSoon){return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft};opacity:.85"><div class="gxi-card-top"><div class="gxi-icon">${gxiBrandIcon(p)}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill soon">Em breve</span></div><p>${p.desc}</p><div class="gxi-card-note">Fica registrado aqui como o próximo canal — ainda sem previsão fechada.</div><div class="gxi-card-actions"><button class="gxi-btn small" disabled style="opacity:.55;cursor:not-allowed">Em breve</button></div></article>`}
+    return `${summaryHtml}<div class="gxi-grid">${VISIBLE_PROVIDERS.map(p=>{if(p.comingSoon){return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft};opacity:.85"><div class="gxi-card-top"><div class="gxi-icon">${gxiBrandIcon(p)}</div><div><h3>${escHtml(p.name)}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill soon">Em breve</span></div><p>${escHtml(p.desc)}</p><div class="gxi-card-note">Fica registrado aqui como o próximo canal — ainda sem previsão fechada.</div><div class="gxi-card-actions"><button class="gxi-btn small" disabled style="opacity:.55;cursor:not-allowed">Em breve</button></div></article>`}
     if(p.id==='whatsapp'||p.id==='whatsapp_zapi'||p.id==='whatsapp_oficial'){
       const zs=getZapiSettings(),act=gxiWaProv(),mine=p.id==='whatsapp'?'evolution':p.id==='whatsapp_oficial'?'meta':'zapi',isMine=act===mine,other=act&&!isMine;
       const key=p.id==='whatsapp'?'evo':p.id==='whatsapp_oficial'?'meta':'zapi';
       const badge=p.badge?`<span class="gxi-wa-badge ${key}">${p.badge}</span>`:'';
       const note=isMine?(mine==='evolution'?'Conexão direta pelo servidor GexFlow.':mine==='meta'?`Número <b>${E(zs.metaPhone||'')}</b>${zs.metaName?` · ${E(zs.metaName)}`:''}.`:`Instância <b>${E(zs.instanceId||'')}</b>.`):other?`Hoje seu número está conectado pelo <b>${GXI_WA_LABEL[act]||act}</b>. Só uma conexão fica ativa por vez.`:(mine==='evolution'?'Clique em Conectar e escaneie o QR Code com o celular.':mine==='meta'?'Abre a janela da Meta: escolha a empresa, cadastre o número e confirme o código por SMS.':'Tenha em mãos Instance ID, Token e Client-Token da sua conta Z-API.');
       const mainBtn=mine==='meta'?(isMine?`<button class="gxi-btn primary small" onclick="gxWaTemplates()">Modelos de mensagem</button>`:`<button class="gxi-btn primary small" onclick="gxiMetaConnect(this)">${p.button}</button>`):mine==='evolution'?`<button class="gxi-btn primary small" onclick="gxiWaConnect(this)">${isMine?'Reconectar / QR Code':p.button}</button>`:`<button class="gxi-btn primary small" onclick="gxiZapiOpenForm()">${isMine?'Ver conexão':p.button}</button>`;
-      return `<article class="gxi-card gxi-wa-card${isMine?' gxi-wa-active':''}" style="--accent:${p.accent};--soft:${p.soft}"><div class="gxi-card-top"><div class="gxi-icon">${gxiBrandIcon(p)}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}${badge}</div></div><span class="gxi-pill ${isMine?'pending':'off'}" id="gxi-wa-${key}-pill">${isMine?'Verificando…':'Não conectado'}</span></div><p>${p.desc}</p><div class="gxi-card-note">${note}</div><div class="gxi-card-actions" id="gxi-wa-${key}-actions">${isMine?`<button class="gxi-btn small danger" onclick="gxiDisconnectZapi()">Desconectar</button>`:''}${mainBtn}</div></article>`;
+      return `<article class="gxi-card gxi-wa-card${isMine?' gxi-wa-active':''}" style="--accent:${p.accent};--soft:${p.soft}"><div class="gxi-card-top"><div class="gxi-icon">${gxiBrandIcon(p)}</div><div><h3>${escHtml(p.name)}</h3><div class="gxi-card-cat">${p.cat}${badge}</div></div><span class="gxi-pill ${isMine?'pending':'off'}" id="gxi-wa-${key}-pill">${isMine?'Verificando…':'Não conectado'}</span></div><p>${escHtml(p.desc)}</p><div class="gxi-card-note">${note}</div><div class="gxi-card-actions" id="gxi-wa-${key}-actions">${isMine?`<button class="gxi-btn small danger" onclick="gxiDisconnectZapi()">Desconectar</button>`:''}${mainBtn}</div></article>`;
     }
-    const c=connection(p.id),on=c.status==='connected',pending=c.status==='pending';return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft}"><div class="gxi-card-top"><div class="gxi-icon">${gxiBrandIcon(p)}</div><div><h3>${p.name}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill ${on?'on':pending?'pending':'off'}">${on?'Conectado':pending?'Pendente':'Não conectado'}</span></div><p>${p.desc}</p><div class="gxi-card-note">${on?`Conta: ${E(c.assets?.name||c.assets?.account||'Conexão oficial')}`:'Autorização oficial, sem expor tokens no navegador.'}</div><div class="gxi-card-actions">${on?`<button class="gxi-btn small" onclick="gxiTestConnection('${p.id}')">Testar</button><button class="gxi-btn small danger" onclick="gxiDisconnect('${p.id}')">Desconectar</button>`:`<button class="gxi-btn primary small" onclick="gxiConnect('${p.id}')">${p.button}</button>`}</div></article>`}).join('')}${asaasTileHtml()}</div>${_visRole==='Colaborador'?zapiConfigHtml()+asaasConfigHtml():smtpConfigHtml()}`}
+    const c=connection(p.id),on=c.status==='connected',pending=c.status==='pending';return `<article class="gxi-card" style="--accent:${p.accent};--soft:${p.soft}"><div class="gxi-card-top"><div class="gxi-icon">${gxiBrandIcon(p)}</div><div><h3>${escHtml(p.name)}</h3><div class="gxi-card-cat">${p.cat}</div></div><span class="gxi-pill ${on?'on':pending?'pending':'off'}">${on?'Conectado':pending?'Pendente':'Não conectado'}</span></div><p>${escHtml(p.desc)}</p><div class="gxi-card-note">${on?`Conta: ${E(c.assets?.name||c.assets?.account||'Conexão oficial')}`:'Autorização oficial, sem expor tokens no navegador.'}</div><div class="gxi-card-actions">${on?`<button class="gxi-btn small" onclick="gxiTestConnection('${p.id}')">Testar</button><button class="gxi-btn small danger" onclick="gxiDisconnect('${p.id}')">Desconectar</button>`:`<button class="gxi-btn primary small" onclick="gxiConnect('${p.id}')">${p.button}</button>`}</div></article>`}).join('')}${asaasTileHtml()}</div>${_visRole==='Colaborador'?zapiConfigHtml()+asaasConfigHtml():smtpConfigHtml()}`}
   function smtpConfigHtml(){
     const s=getEmailSmtpSettings(),on=!!s.connected;
     return `<div class="gxi-conv-grid" style="grid-template-columns:1fr;margin-top:13px">
@@ -28599,7 +28599,7 @@ html[data-theme="dark"] .wac-meta-window{color:#FCD34D}
         ${msg?`<div class="gxwt-empty">${esc(msg)}</div>`:`<div class="gxwt-list">${items.length?items.map((t,i)=>`<div class="gxwt-item${send?' pick':''}${sel===t?' sel':''}" data-i="${list.indexOf(t)}"><div style="min-width:0"><b>${esc(t.name)}</b> <span style="font-size:11px;opacity:.7">${esc(t.category)} · ${esc(t.language)}</span><div class="gxwt-body">${esc(t.body)}</div>${t.rejected&&t.status==='REJECTED'?`<div style="font-size:11.5px;color:#DC2626;margin-top:3px">Motivo: ${esc(t.rejected)}</div>`:''}</div><span class="gxwt-st ${esc(t.status)}">${ST[t.status]||esc(t.status)}</span>${send?'':`<button class="gxwt-del" data-del="${esc(t.name)}">Apagar</button>`}</div>`).join(''):`<div class="gxwt-empty">${send?'Nenhum modelo aprovado ainda. Crie um em Integrações > WhatsApp Oficial > Modelos de mensagem.':'Nenhum modelo ainda. Crie o primeiro abaixo.'}</div>`}</div>`}
         ${send?(sel?`<div class="gxwt-form">${Array.from({length:sel.params},(_,k)=>`<label>Variável {{${k+1}}}<input data-p="${k}" placeholder="Ex.: ${k===0?esc(opts.toName||'Maria'):'valor'}" value="${k===0&&opts.toName?esc(opts.toName):''}"></label>`).join('')}<div class="gxwt-prev" id="gxwt-prev"></div></div>
           <div class="gxwt-foot"><button class="gxwt-btn" data-close>Cancelar</button><button class="gxwt-btn pri" id="gxwt-send">Enviar modelo</button></div>`:'')
-        :`<div style="margin:2px 0 12px"><div style="font-size:12px;font-weight:700;margin-bottom:7px">Modelos prontos</div><div style="display:flex;flex-wrap:wrap;gap:6px">${PRONTOS.filter(p=>!list.some(t=>t.name===p.name)).map(p=>`<button class="gxwt-btn" style="height:32px;padding:0 12px;font-size:12px" data-pronto="${p.name}">+ ${esc(p.label)}</button>`).join('')||'<span style="font-size:12px;opacity:.7">Todos os modelos prontos já foram criados.</span>'}</div></div>
+        :`<div style="margin:2px 0 12px"><div style="font-size:12px;font-weight:700;margin-bottom:7px">Modelos prontos</div><div style="display:flex;flex-wrap:wrap;gap:6px">${PRONTOS.filter(p=>!list.some(t=>t.name===p.name)).map(p=>`<button class="gxwt-btn" style="height:32px;padding:0 12px;font-size:12px" data-pronto="${escHtml(p.name)}">+ ${esc(p.label)}</button>`).join('')||'<span style="font-size:12px;opacity:.7">Todos os modelos prontos já foram criados.</span>'}</div></div>
           <div class="gxwt-form">
             <label>Nome (sem espaços)<input id="gxwt-name" placeholder="ex.: retorno_atendimento"></label>
             <label>Categoria<select id="gxwt-cat"><option value="UTILITY">Utilidade (atendimento, avisos)</option><option value="MARKETING">Marketing (ofertas, novidades)</option></select></label>
@@ -30146,7 +30146,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
       <div class="mt-bar">
         <div class="mt-seg" role="tablist">
           <button class="${!S.area?'on':''}" onclick="mtArea('')">${g?'Todas':'Ranking geral'}</button>
-          ${Object.entries(AREAS).filter(([k])=>areasVisiveis().includes(k)).map(([k,a])=>`<button class="${S.area===k?'on':''}" onclick="mtArea('${k}')"><span class="dot" style="background:${a.cor}"></span>${a.nome}</button>`).join('')}
+          ${Object.entries(AREAS).filter(([k])=>areasVisiveis().includes(k)).map(([k,a])=>`<button class="${S.area===k?'on':''}" onclick="mtArea('${k}')"><span class="dot" style="background:${a.cor}"></span>${escHtml(a.nome)}</button>`).join('')}
         </div>
         ${g&&!metas().some(m=>m.mes===S.mes)?`<span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">${metas().some(m=>m.mes===mesShift(S.mes,-1))?`<button class="mt-btn sm" onclick="mtCopiar(-1)">Copiar metas de ${E(mesLabel(mesShift(S.mes,-1)).split(' ')[0])}</button>`:''}${metas().some(m=>m.mes===mesShift(S.mes,1))?`<button class="mt-btn sm" onclick="mtCopiar(1)">Copiar metas de ${E(mesLabel(mesShift(S.mes,1)).split(' ')[0])}</button>`:''}</span>`:''}
       </div>
@@ -30192,7 +30192,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const nItens=(m.itens||[]).length,feitos=(m.itens||[]).filter(i=>i.feito).length;
     const fmt=v=>ind.un==='R$'?BRL(v):NUM(v);
     return `<tr class="mt-row" tabindex="0" onclick="mtAbrir('${m.id}')" onkeydown="if(event.key==='Enter')mtAbrir('${m.id}')">
-      <td><div class="mt-ind"><span class="ic" style="background:${a.fundo};color:${a.cor}">${ico(a.ic)}</span><div><b>${E(m.titulo)}</b><small><span class="mt-area" style="background:${a.fundo};color:${a.cor}">${a.nome}</span>${c.auto.length?`<span>${c.auto.length} auto</span>`:''}${nItens?`<span>☑ ${feitos}/${nItens}</span>`:''}</small></div></div></td>
+      <td><div class="mt-ind"><span class="ic" style="background:${a.fundo};color:${a.cor}">${ico(a.ic)}</span><div><b>${E(m.titulo)}</b><small><span class="mt-area" style="background:${a.fundo};color:${a.cor}">${escHtml(a.nome)}</span>${c.auto.length?`<span>${c.auto.length} auto</span>`:''}${nItens?`<span>☑ ${feitos}/${nItens}</span>`:''}</small></div></div></td>
       ${g?`<td><div class="mt-who">${av(u,m.userNome)}<span>${E(m.userNome)}</span></div></td>`:''}
       <td><div class="mt-prog"><div class="mt-track" role="progressbar" aria-valuenow="${Math.round(c.pct)}" aria-valuemin="0" aria-valuemax="100"><div class="mt-fill ${barCls(c.pct)}" style="width:${Math.min(100,c.pct)}%"></div></div><span class="mt-pct">${Math.round(c.pct)}%</span></div><div class="mt-qty">${fmt(c.realizado)} de ${fmt(c.alvo)}</div></td>
       <td class="num"><span class="mt-com ${c.comissao?'':'zero'}" title="${E(txtCom(c))}">${BRL(c.comissao)}<small>${E(txtCom(c))}</small></span></td>
@@ -30371,7 +30371,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const falta=Math.max(0,c.alvo-c.realizado);
     const dr=gaveta(`
       <div class="mt-dr-h"><span class="mt-dr-ic" style="background:${a.fundo};color:${a.cor}">${ico(a.ic)}</span>
-        <div style="min-width:0"><h2>${E(m.titulo)}</h2><small>${av(u,m.userNome)} ${E(m.userNome)} · <span class="mt-area" style="background:${a.fundo};color:${a.cor}">${a.nome}</span> · ${dataBR(periodo(m).ini)} a ${dataBR(periodo(m).fim)}</small></div>
+        <div style="min-width:0"><h2>${E(m.titulo)}</h2><small>${av(u,m.userNome)} ${E(m.userNome)} · <span class="mt-area" style="background:${a.fundo};color:${a.cor}">${escHtml(a.nome)}</span> · ${dataBR(periodo(m).ini)} a ${dataBR(periodo(m).fim)}</small></div>
         <button class="mt-x" onclick="mtFechar()" aria-label="Fechar">✕</button></div>
       <div class="mt-dr-b">
         <div class="mt-big"><div class="pct">${Math.round(c.pct)}%</div><div class="qty"><b>${fmt(c.realizado)}</b> de ${fmt(c.alvo)}<br>${c.pct>=100?'Meta batida 🎉':`faltam ${fmt(falta)}`}</div><div class="mt-track"><div class="mt-fill ${barCls(c.pct)}" style="width:${Math.min(100,c.pct)}%"></div></div></div>
@@ -30443,7 +30443,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     const dr=gaveta(`
       <div class="mt-dr-h"><div><h2>${ed?'Editar meta':'Nova meta do mês'}</h2><small>${E(mesLabel(ed?m.mes:S.mes))}</small></div><button class="mt-x" onclick="mtFechar()" aria-label="Fechar">✕</button></div>
       <div class="mt-dr-b"><div class="mt-form">
-        <label class="mt-fld"><span>Área</span><select class="mt-in" id="mtf-area" onchange="mtfArea(this.value)" ${ed?'disabled':''}>${Object.entries(AREAS).map(([k,a])=>`<option value="${k}" ${k===area?'selected':''}>${a.nome}</option>`).join('')}</select></label>
+        <label class="mt-fld"><span>Área</span><select class="mt-in" id="mtf-area" onchange="mtfArea(this.value)" ${ed?'disabled':''}>${Object.entries(AREAS).map(([k,a])=>`<option value="${k}" ${k===area?'selected':''}>${escHtml(a.nome)}</option>`).join('')}</select></label>
         <label class="mt-fld"><span>Indicador</span><select class="mt-in" id="mtf-ind" onchange="mtfInd()" ${ed?'disabled':''}></select></label>
         <label class="mt-fld full"><span>Nome da meta</span><input class="mt-in" id="mtf-tit" value="${E(m?.titulo||'')}" placeholder="Gerado sozinho se ficar em branco"></label>
         <label class="mt-fld full"><span id="mtf-alvo-l">Meta (alvo)</span><input class="mt-in" id="mtf-alvo" type="text" inputmode="decimal" autocomplete="off" data-alvo="${E(m?.alvo||'')}" oninput="mtMoeda(this)" placeholder="Ex.: 88"></label>
@@ -30463,7 +30463,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
   window.mtfArea=function(area,ind){
     S.form.area=area;
     const sel=document.getElementById('mtf-ind');if(!sel)return;
-    sel.innerHTML=Object.entries(INDICADORES).filter(([,v])=>v.area===area).map(([k,v])=>`<option value="${k}" ${k===ind?'selected':''}>${v.nome}${v.un==='R$'?' (R$)':''}</option>`).join('');
+    sel.innerHTML=Object.entries(INDICADORES).filter(([,v])=>v.area===area).map(([k,v])=>`<option value="${k}" ${k===ind?'selected':''}>${escHtml(v.nome)}${v.un==='R$'?' (R$)':''}</option>`).join('');
     mtfInd();
   };
   window.mtfInd=function(){
@@ -30589,7 +30589,7 @@ body.mt-open .gxc-fab,body.mt-open .gxw-fab,body.mt-open .gxw-popup{display:none
     gaveta(`
       <div class="mt-dr-h"><div><h2>Comissões</h2><small>Altere e clique em <b>Salvar comissão</b>: as metas abertas recalculam. Meses fechados não mudam.</small></div><button class="mt-x" onclick="mtFechar()" aria-label="Fechar">✕</button></div>
       <div class="mt-dr-b">
-        <div class="mt-seg">${Object.entries(AREAS).map(([k,a])=>`<button class="${k===area?'on':''}" onclick="mtRegras('${k}')"><span class="dot" style="background:${a.cor}"></span>${a.nome}</button>`).join('')}</div>
+        <div class="mt-seg">${Object.entries(AREAS).map(([k,a])=>`<button class="${k===area?'on':''}" onclick="mtRegras('${k}')"><span class="dot" style="background:${a.cor}"></span>${escHtml(a.nome)}</button>`).join('')}</div>
         ${geral?regraHtml(geral,'Regra da área — vale para todos'):`<div class="mt-empty" style="padding:22px"><b>Sem regra para ${AREAS[area].nome}</b>Sem regra, a comissão fica R$ 0.<div style="margin-top:12px"><button class="mt-btn pri sm" onclick="mtRegraNova('${area}','')">Criar regra da área</button></div></div>`}
         ${esp.map(r=>regraHtml(r,`Regra só de ${E(pessoa(r.userId)?.nome||r.userNome||'pessoa')}`)).join('')}
         <div class="mt-fld"><span>Regra diferente para uma pessoa</span><div style="display:flex;gap:8px"><select class="mt-in" id="mt-rg-p" style="flex:1"><option value="">Escolha a pessoa…</option>${semRegra.map(u=>`<option value="${E(userId(u))}">${E(u.nome)}</option>`).join('')}</select><button class="mt-btn sm" onclick="mtRegraNova('${area}',document.getElementById('mt-rg-p').value)">Adicionar</button></div><small>A regra da pessoa vale no lugar da regra da área.</small></div>
