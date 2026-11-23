@@ -2359,7 +2359,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
   <div class="sb-bottom">
     <button id="sb-collapse-btn" type="button" onclick="gxToggleSidebar()" title="Recolher / abrir menu"><span class="sbc-close">‹ Recolher menu</span><span class="sbc-open">›</span></button>
     <button id="sb-partner-tutorial-row" onclick="gxShowPartnerWelcome()" style="display:none;width:100%;align-items:center;gap:8px;justify-content:center;cursor:pointer;background:rgba(139,92,246,.18);border:1px solid rgba(139,92,246,.45);color:#fff;border-radius:9px;padding:9px 10px;margin-bottom:8px;font-size:13.5px;font-weight:700;font-family:inherit">Como usar o sistema</button>
-    <div class="sb-row"><span class="sb-lbl" style="cursor:pointer">Suporte</span><span style="font-size:9px;color:rgba(255,255,255,.2)">v3.1 Connect · 24.11b</span></div>
+    <div class="sb-row"><span class="sb-lbl" style="cursor:pointer">Suporte</span><span style="font-size:9px;color:rgba(255,255,255,.2)">v3.1 Connect · 24.11c</span></div>
   </div>
 </aside>
 
@@ -7652,7 +7652,7 @@ function handleMetaOAuthRedirectResult(){
         }
       };
       if(window.opener){
-        try{window.opener.postMessage({type:'gex_meta_oauth_success',...payload},'*');}catch(e){}
+        try{window.opener.postMessage({type:'gex_meta_oauth_success',...payload},location.origin);}catch(e){}
         setTimeout(()=>window.close(),400);
       }else if(typeof applyMetaOAuthConnection==='function'){
         applyMetaOAuthConnection(payload);
@@ -7660,7 +7660,7 @@ function handleMetaOAuthRedirectResult(){
     }else if(result==='error'){
       const error=params.get('error')||'Erro ao conectar Meta';
       if(window.opener){
-        try{window.opener.postMessage({type:'gex_meta_oauth_error',error},'*');}catch(e){}
+        try{window.opener.postMessage({type:'gex_meta_oauth_error',error},location.origin);}catch(e){}
         setTimeout(()=>window.close(),400);
       }else{
         if(typeof saveIntegrationTestResult==='function')saveIntegrationTestResult('meta_ads',{status:'error',message:error});
@@ -7748,7 +7748,7 @@ function handleLeadgenOAuthRedirectResult(){
     if(result==='success'){
       const pageId=params.get('pageId')||'',pageName=params.get('pageName')||'';
       if(window.opener){
-        try{window.opener.postMessage({type:'gex_leadgen_oauth_success',pageId,pageName},'*');}catch(e){}
+        try{window.opener.postMessage({type:'gex_leadgen_oauth_success',pageId,pageName},location.origin);}catch(e){}
         setTimeout(()=>window.close(),400);
       }else{
         applyLeadgenOAuthConnection(pageId,pageName);
@@ -7756,7 +7756,7 @@ function handleLeadgenOAuthRedirectResult(){
     }else if(result==='choose'){
       const state=params.get('state')||'',pages=params.get('pages')||'';
       if(window.opener){
-        try{window.opener.postMessage({type:'gex_leadgen_oauth_choose',state,pages},'*');}catch(e){}
+        try{window.opener.postMessage({type:'gex_leadgen_oauth_choose',state,pages},location.origin);}catch(e){}
         setTimeout(()=>window.close(),400);
       }else{
         applyLeadgenOAuthChoice(state,pages);
@@ -7764,7 +7764,7 @@ function handleLeadgenOAuthRedirectResult(){
     }else if(result==='error'){
       const error=params.get('error')||'Erro ao conectar a Página';
       if(window.opener){
-        try{window.opener.postMessage({type:'gex_leadgen_oauth_error',error},'*');}catch(e){}
+        try{window.opener.postMessage({type:'gex_leadgen_oauth_error',error},location.origin);}catch(e){}
         setTimeout(()=>window.close(),400);
       }else{
         if(typeof toast==='function')toast(error,'#EF4444');
@@ -25430,7 +25430,7 @@ function handleGcalOAuthRedirectResult(){
     if(result==='success'){
       const payload={googleEmail:params.get('googleEmail')||''};
       if(window.opener){
-        try{window.opener.postMessage({type:'gex_gcal_oauth_success',...payload},'*');}catch(e){}
+        try{window.opener.postMessage({type:'gex_gcal_oauth_success',...payload},location.origin);}catch(e){}
         setTimeout(()=>window.close(),400);
       }else{
         applyGcalOAuthConnection(payload);
@@ -25438,7 +25438,7 @@ function handleGcalOAuthRedirectResult(){
     }else if(result==='error'){
       const error=params.get('error')||'Erro ao conectar Google Agenda';
       if(window.opener){
-        try{window.opener.postMessage({type:'gex_gcal_oauth_error',error},'*');}catch(e){}
+        try{window.opener.postMessage({type:'gex_gcal_oauth_error',error},location.origin);}catch(e){}
         setTimeout(()=>window.close(),400);
       }else{
         toast(error,'#EF4444');
@@ -28724,6 +28724,7 @@ html[data-theme="dark"] .wac-meta-window{color:#FCD34D}
 
   // Retorno da janela da Meta (?gex_wa_meta=success|error)
   window.addEventListener('message',e=>{
+    if(e.origin!==location.origin)return; // só aceita aviso do próprio GexFlow (popup da conexão oficial)
     const d=e.data||{};
     if(d.type==='gex_wa_meta_success'&&typeof window.gxiMetaApplyConnected==='function')window.gxiMetaApplyConnected(d.phone,d.name);
     if(d.type==='gex_wa_meta_error')toast(d.error||'Erro ao conectar o WhatsApp oficial','#EF4444');
@@ -28734,7 +28735,7 @@ html[data-theme="dark"] .wac-meta-window{color:#FCD34D}
     if(r){
       const phone=params.get('phone')||'',name=params.get('name')||'',error=params.get('error')||'';
       if(window.opener){
-        try{window.opener.postMessage(r==='success'?{type:'gex_wa_meta_success',phone,name}:{type:'gex_wa_meta_error',error},'*')}catch(e){}
+        try{window.opener.postMessage(r==='success'?{type:'gex_wa_meta_success',phone,name}:{type:'gex_wa_meta_error',error},location.origin)}catch(e){}
         setTimeout(()=>window.close(),400);
       }else{
         const apply=()=>{if(r==='success'&&typeof window.gxiMetaApplyConnected==='function')window.gxiMetaApplyConnected(phone,name);else if(r!=='success')toast(error||'Erro ao conectar o WhatsApp oficial','#EF4444')};
