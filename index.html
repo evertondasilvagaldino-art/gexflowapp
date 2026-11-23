@@ -2951,7 +2951,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
     <button class="deal-back" onclick="closeDealDetail()"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Comercial</button>
     <div class="deal-name" id="deal-title-name">Negócio</div>
     <div class="deal-status-btns">
-      <button class="dstatus-btn" style="border-color:#C4B5FD;color:#6D28D9" onclick="gxLigar(currentDealId)" title="Ligar e registrar o resultado">📞 Ligar</button>
+      <button class="dstatus-btn" style="border-color:#C4B5FD;color:#6D28D9" onclick="gxLigar(currentDealId)" title="Ligar e registrar o resultado (recurso em teste)">📞 Ligar <span class="gx-beta">Beta</span></button>
       <button class="dstatus-btn perdido" id="dstatus-perdido" onclick="setDealStatus('Perdido')">✕ Perdido</button>
       <button class="dstatus-btn andamento" id="dstatus-andamento" onclick="setDealStatus('Em andamento')"><svg class="dl-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Em andamento</button>
       <button class="dstatus-btn ganho" id="dstatus-ganho" onclick="setDealStatus('Ganho')">✓ Ganho</button>
@@ -11846,7 +11846,7 @@ function renderComercial(){
         <div class="pcard-footer gx-c-foot">
           <span class="pcard-val gx-c-val">${fmtBRL(l.valor||0)}</span>
           <div class="pcard-actions gx-c-acoes">
-            <button class="btn btn-ghost btn-sm btn-icon gx-lig-btn" title="Ligar e registrar a ligação" aria-label="Ligar para ${escAttr(l.nome||'lead')}" onclick="event.stopPropagation();gxLigar('${l.id}')">${window.GX_IC_TEL||'📞'}</button>
+            <button class="btn btn-ghost btn-sm btn-icon gx-lig-btn" title="Ligar e registrar a ligação (Beta)" aria-label="Ligar para ${escAttr(l.nome||'lead')}" onclick="event.stopPropagation();gxLigar('${l.id}')">${window.GX_IC_TEL||'📞'}</button>
             <button class="btn btn-ghost btn-sm btn-icon" title="Abrir detalhes" onclick="event.stopPropagation();openDealDetail('${l.id}')">${gxIc('ver')}</button>
             <button class="btn btn-ghost btn-sm btn-icon" title="Editar" onclick="event.stopPropagation();openModal('lead','${l.id}')">${gxIc('edit')}</button>
             <button class="btn btn-ghost btn-sm btn-icon" title="Excluir" onclick="event.stopPropagation();confirmDelete(()=>{DB.remove('leads','${l.id}');renderComercial();toast('Removido','#EF4444')})">${gxIc('del')}</button>
@@ -33659,7 +33659,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     document.getElementById('gx-lig-ov')?.remove();
     const o=document.createElement('div');o.id='gx-lig-ov';o.className='fx-ov';
     o.innerHTML=`<div class="fx-md pl" role="dialog" aria-modal="true" aria-labelledby="gx-lig-t" style="max-width:520px">
-      <h3 id="gx-lig-t">Ligação para ${E(l.nome||'lead')}</h3>
+      <h3 id="gx-lig-t">Ligação para ${E(l.nome||'lead')} <span class="gx-beta">Beta</span></h3>
       <p class="sub">Tentativa <b>${tent}</b> de ${c.tentativas}${i.ult?` · última há ${diasDesde(i.ult)||0} dia(s)`:''}${l.telefone?` · ${E(l.telefone)}`:''}</p>
       ${tel?(celular?`<div style="display:flex;gap:8px;margin:12px 0 4px;flex-wrap:wrap">
         <a class="pl-btn pri" href="tel:+${tel}" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px">${icTel} Discar</a>
@@ -33721,7 +33721,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
   window.gxLigSecHtml=function(l){
     const c=cfg(),i=gxLigInfo(l.id),d=diasDesde(i.ult);
     const pc=Math.min(100,Math.round(i.n/c.tentativas*100));
-    return `<div class="sb-section"><div class="sb-sec-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="display:inline-flex;align-items:center;gap:6px">${icTel}Ligações</span><button class="btn btn-primary btn-sm" style="font-size:11px;padding:4px 10px" onclick="gxLigar('${E(l.id)}')">Ligar</button></div>
+    return `<div class="sb-section"><div class="sb-sec-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span style="display:inline-flex;align-items:center;gap:6px">${icTel}Ligações <span class="gx-beta">Beta</span></span><button class="btn btn-primary btn-sm" style="font-size:11px;padding:4px 10px" onclick="gxLigar('${E(l.id)}')">Ligar</button></div>
       <div style="display:flex;align-items:baseline;gap:6px"><b style="font-size:22px">${i.n}</b><span style="color:var(--muted);font-size:12.5px">de ${c.tentativas} tentativas</span></div>
       <div style="height:6px;border-radius:99px;background:var(--border,#E5E7EB);overflow:hidden;margin:6px 0"><div style="height:100%;width:${pc}%;background:${i.n>=c.tentativas?'#059669':'#7C3AED'}"></div></div>
       <div style="font-size:11.5px;color:var(--muted)">${i.n?`Última há ${d===0?'menos de 1 dia':d+' dia(s)'}${i.res&&RES[i.res]?` · <b style="color:${RES[i.res].cor}">${RES[i.res].t}</b>`:''}`:'Nenhuma ligação registrada'}</div></div>`;
@@ -33749,7 +33749,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     const metaPer=c.metaDia*dias;
     const seg=(k,t)=>`<button type="button" onclick="gxSdrPer('${k}')" aria-pressed="${per===k}" class="${per===k?'on':''}">${t}</button>`;
     return `<div class="sales-team-card gx-sdr" style="margin-bottom:14px">
-      <div class="gx-sdr-h"><div><div class="sales-team-title" style="font-size:16px">Atividade de ligações</div><div class="sales-team-sub">Ligações registradas pelo botão "Ligar" · meta de ${c.metaDia} por pessoa/dia · cadência de ${c.tentativas} tentativas em ${c.dias} dias</div></div>
+      <div class="gx-sdr-h"><div><div class="sales-team-title" style="font-size:16px">Atividade de ligações <span class="gx-beta">Beta</span></div><div class="sales-team-sub">Ligações registradas pelo botão "Ligar" · meta de ${c.metaDia} por pessoa/dia · cadência de ${c.tentativas} tentativas em ${c.dias} dias</div></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div class="gx-sdr-seg">${seg('hoje','Hoje')}${seg('7d','7 dias')}${seg('mes','Mês')}</div>${gestor&&typeof gxEspelhoAllowed==='function'&&gxEspelhoAllowed()?`<button class="btn btn-ghost btn-sm" onclick="gxSdrConfig()">Cadência e meta</button>`:''}</div></div>
       <div class="sales-team-summary" style="margin-top:12px">
         <div class="sales-mini-kpi"><div class="sales-mini-lbl">Ligações</div><div class="sales-mini-val">${tot.lig}</div><div class="sales-mini-sub">${rows.length} pessoa(s)</div></div>
@@ -33798,6 +33798,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
 .gx-lig-res button.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 12%,transparent);color:var(--c)}
 .gx-lig-res button:focus-visible{outline:2px solid var(--c);outline-offset:2px}
 .sales-team-card.gx-sdr{padding:18px 20px}
+.gx-beta{display:inline-flex;align-items:center;margin-left:6px;padding:1px 7px;border-radius:99px;background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;vertical-align:middle;line-height:1.5}
 .gx-sdr-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
 .gx-sdr-seg{display:inline-flex;border:1px solid var(--border,#E5E7EB);border-radius:10px;padding:3px;gap:2px}
 .gx-sdr-seg button{border:0;background:transparent;font:inherit;font-size:12px;font-weight:700;padding:5px 11px;border-radius:7px;cursor:pointer;color:var(--muted,#64748B)}
