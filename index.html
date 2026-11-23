@@ -2359,7 +2359,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
   <div class="sb-bottom">
     <button id="sb-collapse-btn" type="button" onclick="gxToggleSidebar()" title="Recolher / abrir menu"><span class="sbc-close">‹ Recolher menu</span><span class="sbc-open">›</span></button>
     <button id="sb-partner-tutorial-row" onclick="gxShowPartnerWelcome()" style="display:none;width:100%;align-items:center;gap:8px;justify-content:center;cursor:pointer;background:rgba(139,92,246,.18);border:1px solid rgba(139,92,246,.45);color:#fff;border-radius:9px;padding:9px 10px;margin-bottom:8px;font-size:13.5px;font-weight:700;font-family:inherit">Como usar o sistema</button>
-    <div class="sb-row"><span class="sb-lbl" style="cursor:pointer">Suporte</span><span style="font-size:9px;color:rgba(255,255,255,.2)">v3.1 Connect</span></div>
+    <div class="sb-row"><span class="sb-lbl" style="cursor:pointer">Suporte</span><span style="font-size:9px;color:rgba(255,255,255,.2)">v3.1 Connect · 24.11b</span></div>
   </div>
 </aside>
 
@@ -30841,9 +30841,11 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
   const cfgGet=()=>(DB.get('roleta_leads')||[]).find(x=>x.id===cfgId())||null;
   let RS=null; // rascunho da configuração aberta
 
+  let _rlEquipe=[]; // equipe do parceiro lida direto do banco ao abrir a roleta (não depende do cache)
   function vendedores(){
     if(parceiro()){
       let us=[];try{us=(typeof getUsuariosForDisplay==='function'?getUsuariosForDisplay():DB.get('usuarios'))||[]}catch(e){}
+      us=[..._rlEquipe,...us];
       const me=meuId(),vistos=new Set();
       return us.filter(u=>String(u.status||'Ativo').toLowerCase()!=='inativo'&&(uidOf(u)===me||String(u.id)===me||String(u.parentPartnerId||u.parent_partner_id||'')===me))
         .filter(u=>{const k=uidOf(u);if(!k||vistos.has(k))return false;vistos.add(k);return true})
@@ -30915,8 +30917,13 @@ body:has(.rl-md.open) .gxc-fab,body:has(.rl-md.open) .gxw-fab{display:none!impor
     }
     const {ov,md}=modal();ov.classList.add('open');md.classList.add('open');desenhar();
     // Parceiro: busca a equipe dele (Operadores) direto no banco — depois de recarregar a página ela pode não estar na memória.
-    if(parceiro()&&typeof refreshMyPartnerSubUsers==='function'){
-      refreshMyPartnerSubUsers().then(rows=>{try{_gxUsrVal=null}catch(e){}if(rows&&rows.length&&RS&&document.getElementById('rl-add-sel'))desenhar()}).catch(()=>{});
+    if(parceiro()&&typeof supabaseClient!=='undefined'&&supabaseClient){
+      supabaseClient.from('profiles').select('id,nome,email,cargo,permissao,status,parent_partner_id,assigned_funnel_id').eq('parent_partner_id',meuId())
+        .then(({data})=>{
+          _rlEquipe=(data||[]).map(p=>({id:p.id,supabaseId:p.id,nome:p.nome||p.email||'',email:p.email||'',cargo:p.cargo||'',permissao:p.permissao||'Operador de Funil',status:p.status||'Ativo',parentPartnerId:p.parent_partner_id||'',assignedFunnelId:p.assigned_funnel_id||''}));
+          if(RS&&document.getElementById('rl-add-sel'))desenhar();
+          try{if(typeof refreshMyPartnerSubUsers==='function')refreshMyPartnerSubUsers()}catch(e){}
+        },()=>{});
     }
   };
   function novoPart(u,f){const st=etapas(f?.id)[0];return {userId:uidOf(u),nome:u.nome||'',email:u.email||'',funnelId:f?.id||'',funnelNome:f?.name||'',stageId:st?.id||'',stageNome:st?.name||'',ativo:true}}
