@@ -52,6 +52,9 @@ select,input[type=date]{background:var(--surface);color:var(--ink);border:1px so
 button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .btn{background:var(--surface);color:var(--ink2);border:1px solid var(--line);border-radius:10px;padding:7px 12px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
 .btn:hover{color:var(--ink)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.pri:hover{color:#fff;filter:brightness(1.08)}
+.btn:disabled{opacity:.55;cursor:default}
 .custom{display:none;gap:6px;align-items:center}
 .custom.on{display:flex}
 .grid-kpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px}
@@ -97,11 +100,14 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .cb{position:relative;min-width:210px}
 .cb input{width:100%;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:7px 10px;font:inherit;font-size:12.5px}
 .cb input:focus{outline:2px solid var(--accent);outline-offset:1px}
-.cb-l{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:20;max-height:280px;overflow:auto;list-style:none;margin:0;padding:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.cb-l{display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:20;max-height:320px;overflow:auto;list-style:none;margin:0;padding:4px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
 .cb-l.on{display:block}
 .cb-l li{padding:7px 9px;border-radius:7px;font-size:12.5px;cursor:pointer}
 .cb-l li:hover,.cb-l li[aria-selected=true]{background:var(--accent-soft);color:var(--ink)}
 .cb-l li.vz{color:var(--muted);cursor:default}
+.cb-l li.sec{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;cursor:default;padding:8px 9px 4px}
+.cb-l li.sec:hover{background:transparent}
+.cb-l li .q{color:var(--muted);font-size:11.5px;margin-left:4px}
 .fv{margin-top:8px}.fv label{display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px}.fv .fsel{max-width:100%}.fv .fok{margin-left:8px;font-size:12px;color:var(--good)}
 .tbl{width:100%;border-collapse:collapse;font-size:13px}
 .tbl th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:right;padding:6px 8px;font-weight:700;border-bottom:1px solid var(--line)}
@@ -124,8 +130,20 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 .lk{display:grid;grid-template-columns:minmax(110px,1fr) minmax(0,2.4fr) auto;gap:8px;align-items:center;padding:10px 0;border-top:1px solid var(--grid)}
 .lk:first-of-type{border-top:0}
 .lk input{width:100%;background:var(--bg);color:var(--ink2);border:1px solid var(--line);border-radius:8px;padding:7px 9px;font:inherit;font-size:12px}
-.lk .ac{display:flex;gap:6px}
-@media(max-width:640px){.lk{grid-template-columns:1fr}}
+.lk .ac{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.lk .gq{font-size:11.5px;color:var(--muted);margin-top:2px}
+.sec-t{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;margin:14px 0 2px}
+.gf{border:1px solid var(--line);border-radius:12px;padding:14px;margin:4px 0 10px;background:var(--bg)}
+.gf label.t{display:block;font-size:12px;font-weight:600;color:var(--ink2);margin-bottom:4px}
+.gf input[type=text]{width:100%;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;font-size:13px}
+.gf .ck{max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:8px;margin-top:6px;background:var(--surface)}
+.gf .ck label{display:flex;gap:8px;align-items:center;padding:7px 10px;font-size:12.5px;cursor:pointer;border-bottom:1px solid var(--grid)}
+.gf .ck label:last-child{border-bottom:0}
+.gf .ck label:hover{background:var(--accent-soft)}
+.gf .rod{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.gf .msg{font-size:12px;color:var(--crit)}
+.gf .cnt{font-size:12px;color:var(--muted);margin-right:auto}
+@media(max-width:640px){.lk{grid-template-columns:1fr}.lk .ac{justify-content:flex-start}}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 
 /* ── mobile ── */
@@ -141,7 +159,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
   .seg button{white-space:nowrap;padding:9px 12px;flex:0 0 auto}
   .custom.on{width:100%;flex-wrap:wrap}
   .custom input[type=date]{flex:1;min-width:130px}
-  #funil{flex:1 1 100%}
+  #funil-w{flex:1 1 100%}
   #links,#refresh{flex:1 1 calc(50% - 4px);padding:10px 12px}
   select,input[type=date]{font-size:16px;padding:10px 12px}
   .grid-kpi{gap:8px;margin-bottom:8px}
@@ -177,6 +195,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
   .mdl{align-items:flex-end;padding:0}
   .mdl-box{width:100%;max-height:86vh;border-radius:16px 16px 0 0;padding:16px 14px calc(16px + env(safe-area-inset-bottom))}
   .lk .ac .btn{flex:1;padding:10px}
+  .gf input[type=text]{font-size:16px}
 }
 @media(max-width:380px){.kpi .val{font-size:19px}.kpi.hero .val{font-size:27px}}
 </style>
@@ -200,15 +219,15 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
         <button data-p="custom" aria-pressed="false">Outro…</button>
       </div>
       <div class="custom" id="custom"><input type="date" id="de" aria-label="De"><span>até</span><input type="date" id="ate" aria-label="Até"><button class="btn" id="aplicar">Aplicar</button></div>
-      <div class="cb" id="funil-w"><input id="funil-q" type="text" autocomplete="off" placeholder="Pesquisar conta…" aria-label="Pesquisar conta de anúncios"><ul id="funil-l" class="cb-l" role="listbox"></ul></div><select id="funil" aria-hidden="true" tabindex="-1" style="display:none"></select>
-      <button class="btn" id="links" style="display:none" title="Gerar um link só de uma conta de anúncios, para o cliente acompanhar">🔗 Links por cliente</button>
+      <div class="cb" id="funil-w"><input id="funil-q" type="text" autocomplete="off" placeholder="Pesquisar conta ou grupo…" aria-label="Pesquisar conta ou grupo de anúncios"><ul id="funil-l" class="cb-l" role="listbox"></ul></div><select id="funil" aria-hidden="true" tabindex="-1" style="display:none"></select>
+      <button class="btn" id="links" style="display:none" title="Links por cliente e grupos de contas">🔗 Links e grupos</button>
       <button class="btn" id="refresh" title="Atualizar agora">↻ Atualizar</button>
     </div>
   </header>
   <main id="app"><div class="state"><div class="skel" style="width:40%;margin:0 auto 10px"></div><div class="skel" style="width:60%;margin:0 auto"></div></div></main>
 </div>
 <div class="mdl" id="mdl" role="dialog" aria-modal="true" aria-labelledby="mdl-t"><div class="mdl-box">
-  <div style="display:flex;align-items:flex-start;gap:10px"><div><h2 id="mdl-t" style="margin:0;font-size:16px">Links por cliente</h2><div class="hint" style="font-size:12px;color:var(--muted);margin:2px 0 10px">Cada link mostra <b>só a conta de anúncios daquele cliente</b>. "Gerar novo" invalida o link anterior.</div></div><button class="btn" id="mdl-x" style="margin-left:auto">Fechar</button></div>
+  <div style="display:flex;align-items:flex-start;gap:10px"><div><h2 id="mdl-t" style="margin:0;font-size:16px">Links e grupos de contas</h2><div class="hint" style="font-size:12px;color:var(--muted);margin:2px 0 10px">Cada link mostra <b>só a conta (ou o grupo) daquele cliente</b>. "Gerar novo" invalida o link anterior. Um <b>grupo</b> soma os números de todas as contas dele.</div></div><button class="btn" id="mdl-x" style="margin-left:auto">Fechar</button></div>
   <div id="mdl-b"><div class="skel" style="width:60%"></div></div>
 </div></div>
 
@@ -263,7 +282,7 @@ async function load0(fresh){
   S.abort=new AbortController();
   const u=API+'?'+(TOKEN?'t='+encodeURIComponent(TOKEN):'l='+encodeURIComponent(LINK))+'&de='+de+'&ate='+ate+(S.conta&&TOKEN?'&conta='+encodeURIComponent(S.conta):'')+(fresh===true?'&fresh=1':'');
   try{
-    S.timedOut=false;const ab=S.abort;const tm=setTimeout(()=>{S.timedOut=true;try{ab.abort()}catch(e){}},60000);
+    S.timedOut=false;const ab=S.abort;const tm=setTimeout(()=>{S.timedOut=true;try{ab.abort()}catch(e){}},90000);
     let r;try{r=await fetch(u,{signal:S.abort.signal,cache:'no-store'})}finally{clearTimeout(tm)}
     if(r.status===401){
       let b={};try{b=await r.json()}catch(e){}
@@ -276,7 +295,7 @@ async function load0(fresh){
     S.data=await r.json();
     render();
   }catch(e){
-    if(e.name==='AbortError'){if(S.timedOut){S.timedOut=false;if(S.data)$('sub').textContent='O servidor demorou mais de 1 minuto. Clique em Atualizar para tentar de novo.';else showState('Demorou demais','O servidor não respondeu em 1 minuto. Clique em Atualizar para tentar de novo.')}return}
+    if(e.name==='AbortError'){if(S.timedOut){S.timedOut=false;if(S.data)$('sub').textContent='O servidor demorou demais. Clique em Atualizar para tentar de novo.';else showState('Demorou demais','O servidor não respondeu a tempo. Clique em Atualizar para tentar de novo.')}return}
     if(S.data){$('sub').textContent='Sem conexão agora — mostrando os últimos dados carregados.';return}
     showState('Não consegui carregar os dados','Verifique sua conexão e clique em Atualizar.');
   }
@@ -306,15 +325,17 @@ function render(){
   const d=S.data;if(!d)return;
   CUR=(d.conta&&d.conta.moeda)||'BRL';
   const fs=$('funil');const keep=S.conta||(d.conta&&d.conta.id)||'';
-  fs.innerHTML=(d.contasDisponiveis||[]).map(f=>'<option value="'+esc(f.id)+'"'+(f.id===keep?' selected':'')+'>'+esc(f.nome)+'</option>').join('');
+  fs.innerHTML=(d.contasDisponiveis||[]).map(f=>'<option value="'+esc(f.id)+'"'+(f.grupo?' data-g="1" data-q="'+esc(f.qtd||'')+'"':'')+(f.id===keep?' selected':'')+'>'+esc(f.nome)+'</option>').join('');
   fs.style.display='none';$('funil-w').style.display=(d.escopo||(d.contasDisponiveis||[]).length<2)?'none':'';cbSync();
+  const grupo=!!(d.conta&&d.conta.grupo);
   const nome=(d.conta&&d.conta.nome)||'';
   $('h1').textContent='Painel de anúncios'+(nome?' · '+nome:'');document.title='Painel de anúncios'+(nome?' · '+nome:'');
   const g=new Date(d.geradoEm);
-  $('sub').textContent=brDate(d.periodo.de)+' a '+brDate(d.periodo.ate)+' · atualizado às '+g.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+(d.ms?' · levou '+(d.ms/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' s':'');
+  $('sub').textContent=(grupo?'Grupo de '+(d.conta.contas||[]).length+' contas: '+(d.conta.contas||[]).join(', ')+' · ':'')+brDate(d.periodo.de)+' a '+brDate(d.periodo.ate)+' · atualizado às '+g.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})+(d.ms?' · levou '+(d.ms/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' s':'');
+  const aviso=grupo&&(d.conta.falhas||[]).length?'<div class="card" style="margin-bottom:12px;font-size:13px;color:var(--crit)">Não consegui ler '+(d.conta.falhas.length===1?'a conta':'as contas')+' <b>'+esc(d.conta.falhas.join(', '))+'</b> agora. Os números abaixo somam só as outras contas do grupo.</div>':'';
   const a=d.atual,b=d.anterior;
   if(!a.gasto&&!a.impressoes&&!a.cliques&&!a.leads){
-    $('app').innerHTML='<div class="state"><b>Sem anúncios rodando neste período</b>Escolha outro período.</div>';return;
+    $('app').innerHTML=aviso+'<div class="state"><b>Sem anúncios rodando neste período</b>Escolha outro período.</div>';return;
   }
   const temVendaMeta=a.vendas>0||a.faturamento>0;
   const vinc=!!(d.rastreio&&d.rastreio.vinculado);
@@ -326,7 +347,7 @@ function render(){
   const sv='—';
   const temVenda=temVendaMeta||usaGex;
   const roiTxt=temVenda?pc(a.roi):sv;
-  $('app').innerHTML=
+  $('app').innerHTML=aviso+
    '<section class="grid-kpi" aria-label="Indicadores">'+
      kpi('Investimento',brl2(a.gasto),a.gasto,b.gasto,{hero:true})+
      kpi(usaGex?'Faturamento (funil no GexFlow)':'Faturamento (compras na Meta)',temVenda?brl2(a.faturamento):sv,a.faturamento,b.faturamento,usaGex?{noDelta:true,note:'a Meta não registrou compras'}:undefined)+
@@ -345,7 +366,7 @@ function render(){
      kpi('Mensagens iniciadas',int(a.conversas),a.conversas,b.conversas)+
      kpi('Custo por mensagem',a.conversas?brl2(a.cpConversa):sv,a.cpConversa,b.cpConversa,{inverse:true})+
      kpi('Cliques que viraram mensagem',a.conversas?pc(a.taxaConversa):sv,a.taxaConversa,b.taxaConversa)+
-     kpi('Alcance (pessoas)',int(a.alcance),a.alcance,b.alcance)+
+     kpi(grupo?'Alcance (soma das contas)':'Alcance (pessoas)',int(a.alcance),a.alcance,b.alcance)+
    '</section>':'')+
    (d.rastreio&&(d.rastreio.leads>0||d.rastreio.ganhos>0||d.rastreio.vinculado)?'<section class="grid-kpi" aria-label="Vendas no GexFlow">'+
      kpi(vinc?'Leads do funil':'Leads rastreados (UTM)',int(d.rastreio.leads),0,0,{noDelta:true,note:vinc?'criados no período em '+(d.rastreio.funilNome||'funil vinculado'):'leads do GexFlow que vieram destes anúncios'})+
@@ -359,14 +380,14 @@ function render(){
      kpi('ROAS total do funil',a.gasto?((a.faturamento+d.rastreio.valor)/a.gasto).toLocaleString('pt-BR',{maximumFractionDigits:2})+'x':sv,0,0,{noDelta:true,note:'faturamento total ÷ investimento'})+
      kpi('Custo por venda (total)',(a.vendas+d.rastreio.ganhos)?brl2(a.gasto/(a.vendas+d.rastreio.ganhos)):sv,0,0,{noDelta:true,note:'investimento ÷ vendas totais'})+
    '</section>':'')+
-   (temVenda?'':'<div class="card" style="margin-bottom:12px;font-size:13px;color:var(--ink2)">A Meta não registrou <b>compras</b> neste período para esta conta. Faturamento, vendas, ROAS e ROI só aparecem quando os anúncios têm o evento de compra configurado no pixel (ou nas conversões) com o valor da venda.</div>')+
+   (temVenda?'':'<div class="card" style="margin-bottom:12px;font-size:13px;color:var(--ink2)">A Meta não registrou <b>compras</b> neste período para '+(grupo?'as contas deste grupo':'esta conta')+'. Faturamento, vendas, ROAS e ROI só aparecem quando os anúncios têm o evento de compra configurado no pixel (ou nas conversões) com o valor da venda.</div>')+
    '<section class="grid2">'+
      '<div class="card"><div class="head"><div><h2>Investimento por dia</h2><div class="hint">Quanto foi gasto em anúncios em cada dia</div></div><button class="btn tg" data-tg="c1">Ver tabela</button></div><div id="c1" class="chart"></div></div>'+
      '<div class="card"><div class="head"><div><h2>'+(temVendaMeta?'Faturamento por dia':'Leads por dia')+'</h2><div class="hint">'+(temVendaMeta?'Valor das compras registradas pela Meta em cada dia':'Leads gerados pelos anúncios em cada dia')+'</div></div><button class="btn tg" data-tg="c2">Ver tabela</button></div><div id="c2" class="chart"></div></div>'+
    '</section>'+
    '<section class="card" id="cri-sec" style="margin-bottom:12px"></section>'+
-   '<section class="card"><h2>Campanhas</h2><div class="hint">Ativas primeiro, depois as pausadas nos últimos 60 dias · dentro de cada grupo, por investimento no período</div><div id="camp-f" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div><div class="scroll"><table class="tbl stack" id="camp"></table></div></section>'+
-   '<p class="foot">Dados lidos direto da conta de anúncios (Meta). Faturamento = valor das compras registradas pelos anúncios. ROAS = faturamento ÷ investimento. ROI = (faturamento − investimento) ÷ investimento. Variações comparam com o período anterior de mesmo tamanho ('+brDate(d.periodo.anteriorDe)+' a '+brDate(d.periodo.anteriorAte)+').</p>';
+   '<section class="card"><h2>Campanhas</h2><div class="hint">Ativas primeiro, depois as pausadas nos últimos 60 dias · dentro de cada grupo, por investimento no período'+(grupo?' · o nome da conta aparece depois de cada campanha':'')+'</div><div id="camp-f" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div><div class="scroll"><table class="tbl stack" id="camp"></table></div></section>'+
+   '<p class="foot">Dados lidos direto '+(grupo?'das contas de anúncios do grupo (Meta), somados':'da conta de anúncios (Meta)')+'. Faturamento = valor das compras registradas pelos anúncios. ROAS = faturamento ÷ investimento. ROI = (faturamento − investimento) ÷ investimento. Variações comparam com o período anterior de mesmo tamanho ('+brDate(d.periodo.anteriorDe)+' a '+brDate(d.periodo.anteriorAte)+').'+(grupo?' No grupo, o alcance é a soma das contas (uma pessoa alcançada por duas contas conta duas vezes).':'')+'</p>';
   drawChart('c1',d.serie.map(x=>({k:x.k,v:x.gasto,t:'<b>'+labelOf(x.k,'dia',true)+'</b><br>'+brl2(x.gasto)+' · '+int(x.cliques)+' clique(s)'})),'--s1',fx,brl2,'dia');
   if(temVendaMeta)drawChart('c2',d.serie.map(x=>({k:x.k,v:x.faturamento,t:'<b>'+labelOf(x.k,'dia',true)+'</b><br>'+brl2(x.faturamento)+' · '+int(x.vendas)+' venda(s)'})),'--s2',fx,brl2,'dia');
   else drawChart('c2',d.serie.map(x=>({k:x.k,v:x.leads,t:'<b>'+labelOf(x.k,'dia',true)+'</b><br>'+int(x.leads)+' lead(s)'+(x.leads?' · '+brl2(x.gasto/x.leads)+' cada':'')})),'--s2',v=>int(v),int,'dia');
@@ -468,13 +489,15 @@ function setPreset(p){
 }
 document.querySelectorAll('#presets button').forEach(b=>b.addEventListener('click',()=>setPreset(b.dataset.p)));
 $('aplicar').addEventListener('click',()=>{S.de=$('de').value;S.ate=$('ate').value;if(!S.de||!S.ate)return;load()});
-/* ── seletor de conta com pesquisa ── */
-function cbNome(){const o=$('funil').selectedOptions[0];return o?o.textContent:''}
+/* ── seletor de conta/grupo com pesquisa ── */
+function cbNome(){const o=$('funil').selectedOptions[0];return o?(o.dataset.g?'📁 ':'')+o.textContent:''}
 function cbSync(){if($('funil-l').classList.contains('on'))return;$('funil-q').value=cbNome()}
+function cbItem(o){return '<li role="option" data-v="'+esc(o.value)+'"'+(o.selected?' aria-selected="true"':'')+'>'+(o.dataset.g?'📁 ':'')+esc(o.textContent)+(o.dataset.g&&o.dataset.q?'<span class="q">'+esc(o.dataset.q)+' contas</span>':'')+'</li>'}
 function cbList(f){
   const l=$('funil-l'),t=(f||'').toLowerCase().trim();
   const ops=[...$('funil').options].filter(o=>!t||o.textContent.toLowerCase().includes(t));
-  l.innerHTML=ops.length?ops.map(o=>'<li role="option" data-v="'+esc(o.value)+'"'+(o.selected?' aria-selected="true"':'')+'>'+esc(o.textContent)+'</li>').join(''):'<li class="vz">Nenhuma conta encontrada</li>';
+  const gs=ops.filter(o=>o.dataset.g),cs=ops.filter(o=>!o.dataset.g);
+  l.innerHTML=ops.length?(gs.length?'<li class="sec">Grupos</li>'+gs.map(cbItem).join('')+(cs.length?'<li class="sec">Contas</li>':''):'')+cs.map(cbItem).join(''):'<li class="vz">Nada encontrado</li>';
   l.classList.add('on');
 }
 function cbClose(){$('funil-l').classList.remove('on');cbSync()}
@@ -487,45 +510,103 @@ $('funil-q').addEventListener('keydown',e=>{
 });
 $('funil-l').addEventListener('pointerdown',e=>{
   const li=e.target.closest('li[data-v]');if(!li)return;e.preventDefault();
-  const v=li.dataset.v;$('funil').value=v;$('funil-l').classList.remove('on');$('funil-q').value=li.textContent;$('funil-q').blur();
+  const v=li.dataset.v;$('funil').value=v;$('funil-l').classList.remove('on');$('funil-q').value=cbNome();$('funil-q').blur();
   if(v!==S.conta){S.conta=v;load()}
 });
 document.addEventListener('pointerdown',e=>{if(!$('funil-w').contains(e.target))cbClose()});
 $('refresh').addEventListener('click',()=>load(true));
 let rz;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>Object.keys(charts).forEach(paint),150)});
 if(TOKEN)$('links').style.display='';
-/* ── links por funil (só com o link geral) ── */
+/* ── links por conta/grupo e gestão de grupos (só com o link geral) ── */
 function urlDe(l){return location.origin+location.pathname+'?l='+encodeURIComponent(l)}
-async function apiAcao(q){const r=await fetch(API+'?t='+encodeURIComponent(TOKEN)+q,{cache:'no-store'});if(!r.ok)throw new Error('http '+r.status);return r.json()}
+async function apiAcao(q){
+  const r=await fetch(API+'?t='+encodeURIComponent(TOKEN)+q,{cache:'no-store'});
+  let j={};try{j=await r.json()}catch(e){}
+  if(!r.ok)throw new Error(j.error||('Erro '+r.status));
+  return j;
+}
+const L={links:[],funis:[]};
 async function abrirLinks(){
   $('mdl').classList.add('on');$('mdl-b').innerHTML='<div class="skel" style="width:60%"></div>';
-  try{const [j,fj]=await Promise.all([apiAcao('&acao=links'),apiAcao('&acao=funis').catch(()=>({funis:[]}))]);desenharLinks(j.links||[],fj.funis||[])}
-  catch(e){$('mdl-b').innerHTML='<div class="state">Não consegui carregar os funis.</div>'}
+  try{const [j,fj]=await Promise.all([apiAcao('&acao=links'),apiAcao('&acao=funis').catch(()=>({funis:[]}))]);L.links=j.links||[];L.funis=fj.funis||[];desenharLinks()}
+  catch(e){$('mdl-b').innerHTML='<div class="state">Não consegui carregar os links.</div>'}
 }
-function desenharLinks(ls,funis){
-  funis=funis||[];
-  $('mdl-b').innerHTML=ls.length?ls.map(f=>'<div class="lk" data-id="'+esc(f.id)+'"><div><b>'+esc(f.nome)+'</b><div class="fv"><label>Funil do GexFlow (para somar o faturamento certo)</label><select class="fsel" aria-label="Funil do GexFlow da conta '+esc(f.nome)+'"><option value="">Sem funil vinculado</option>'+funis.map(fu=>'<option value="'+esc(fu.id)+'"'+(fu.id===f.funilId?' selected':'')+'>'+esc(fu.nome)+(fu.padrao?' (padrão)':'')+'</option>').join('')+'</select><span class="fok"></span></div></div><input readonly value="'+esc(urlDe(f.l))+'" aria-label="Link do funil '+esc(f.nome)+'"><div class="ac"><button class="btn" data-a="cp">Copiar</button><button class="btn" data-a="nw">Gerar novo</button></div></div>').join(''):'<div class="state">Nenhum funil encontrado.</div>';
+function linhaLink(f){
+  const funis=L.funis;
+  return '<div class="lk" data-id="'+esc(f.id)+'"><div><b>'+(f.grupo?'📁 ':'')+esc(f.nome)+'</b>'+(f.grupo?'<div class="gq">'+(f.contas||[]).length+' contas: '+esc((f.contas||[]).map(id=>(L.links.find(x=>x.id===id)||{}).nome||id).join(', '))+'</div>':'')+
+   '<div class="fv"><label>Funil do GexFlow (para somar o faturamento certo)</label><select class="fsel" aria-label="Funil do GexFlow de '+esc(f.nome)+'"><option value="">'+(f.grupo?'Sem funil (usa o de cada conta)':'Sem funil vinculado')+'</option>'+funis.map(fu=>'<option value="'+esc(fu.id)+'"'+(fu.id===f.funilId?' selected':'')+'>'+esc(fu.nome)+(fu.padrao?' (padrão)':'')+'</option>').join('')+'</select><span class="fok"></span></div></div>'+
+   '<input readonly value="'+esc(urlDe(f.l))+'" aria-label="Link de '+esc(f.nome)+'">'+
+   '<div class="ac"><button class="btn" data-a="cp">Copiar</button><button class="btn" data-a="nw">Gerar novo</button>'+(f.grupo?'<button class="btn" data-a="ed">Editar</button><button class="btn" data-a="rm">Excluir</button>':'')+'</div></div>';
+}
+function desenharLinks(){
+  const ls=L.links,gs=ls.filter(x=>x.grupo),cs=ls.filter(x=>!x.grupo);
+  $('mdl-b').innerHTML=
+    '<div class="sec-t" style="margin-top:0">Grupos de contas</div>'+
+    '<div id="gf-w"></div>'+
+    (gs.length?gs.map(linhaLink).join(''):'<div class="hint" style="font-size:12.5px;color:var(--muted);padding:6px 0">Nenhum grupo ainda. Junte as contas de um mesmo cliente para ver tudo somado.</div>')+
+    '<button class="btn pri" id="gf-novo" style="margin:6px 0 4px">＋ Novo grupo de contas</button>'+
+    '<div class="sec-t">Contas</div>'+
+    (cs.length?cs.map(linhaLink).join(''):'<div class="state">Nenhuma conta encontrada.</div>');
+  $('gf-novo').onclick=()=>formGrupo(null);
   $('mdl-b').querySelectorAll('.lk').forEach(row=>{
+    const id=row.dataset.id,f=ls.find(x=>x.id===id)||{};
     const inp=row.querySelector('input'),cp=row.querySelector('[data-a=cp]'),nw=row.querySelector('[data-a=nw]');
     inp.addEventListener('focus',()=>inp.select());
     const fsel=row.querySelector('.fsel'),fok=row.querySelector('.fok');
     fsel.addEventListener('change',async()=>{
       fok.textContent='Salvando…';
-      try{await apiAcao('&acao=vincular&conta='+encodeURIComponent(row.dataset.id)+'&funil='+encodeURIComponent(fsel.value));fok.textContent='Salvo ✓';load();setTimeout(()=>fok.textContent='',2200)}
+      try{await apiAcao('&acao=vincular&conta='+encodeURIComponent(id)+'&funil='+encodeURIComponent(fsel.value));f.funilId=fsel.value;fok.textContent='Salvo ✓';load();setTimeout(()=>fok.textContent='',2200)}
       catch(e){fok.textContent='Erro ao salvar'}
     });
     cp.addEventListener('click',async()=>{
       try{await navigator.clipboard.writeText(inp.value)}catch(e){inp.select();document.execCommand('copy')}
       cp.textContent='Copiado ✓';setTimeout(()=>cp.textContent='Copiar',1800);
     });
-    let armed=false,t;
-    nw.addEventListener('click',async()=>{
-      if(!armed){armed=true;nw.textContent='Confirmar?';clearTimeout(t);t=setTimeout(()=>{armed=false;nw.textContent='Gerar novo'},4000);return}
-      armed=false;nw.textContent='Gerando…';
-      try{const j=await apiAcao('&acao=revogar&conta='+encodeURIComponent(row.dataset.id));inp.value=urlDe(j.l);nw.textContent='Novo link ✓';setTimeout(()=>nw.textContent='Gerar novo',2200)}
+    confirma(nw,'Gerar novo',async()=>{
+      nw.textContent='Gerando…';
+      try{const j=await apiAcao('&acao=revogar&conta='+encodeURIComponent(id));inp.value=urlDe(j.l);f.l=j.l;nw.textContent='Novo link ✓';setTimeout(()=>nw.textContent='Gerar novo',2200)}
       catch(e){nw.textContent='Erro';setTimeout(()=>nw.textContent='Gerar novo',2200)}
     });
+    const ed=row.querySelector('[data-a=ed]');if(ed)ed.onclick=()=>formGrupo(f);
+    const rm=row.querySelector('[data-a=rm]');
+    if(rm)confirma(rm,'Excluir',async()=>{
+      rm.textContent='Excluindo…';
+      try{await apiAcao('&acao=grupo_excluir&conta='+encodeURIComponent(id));if(S.conta===id)S.conta='';await abrirLinks();load()}
+      catch(e){rm.textContent='Erro';setTimeout(()=>rm.textContent='Excluir',2200)}
+    });
   });
+}
+function confirma(btn,txt,acao){
+  let armed=false,t;
+  btn.addEventListener('click',()=>{
+    if(!armed){armed=true;btn.textContent='Confirmar?';clearTimeout(t);t=setTimeout(()=>{armed=false;btn.textContent=txt},4000);return}
+    armed=false;clearTimeout(t);acao();
+  });
+}
+function formGrupo(g){
+  const w=$('gf-w');if(!w)return;
+  const cs=L.links.filter(x=>!x.grupo),sel=new Set((g&&g.contas)||[]);
+  w.innerHTML='<div class="gf"><label class="t" for="gf-nome">'+(g?'Editar grupo':'Nome do grupo')+'</label><input type="text" id="gf-nome" maxlength="80" placeholder="Ex.: VMI Imobiliária" value="'+esc(g?g.nome:'')+'">'+
+    '<label class="t" for="gf-q" style="margin-top:10px">Contas do grupo</label><input type="text" id="gf-q" placeholder="Filtrar contas…" autocomplete="off">'+
+    '<div class="ck" id="gf-ck">'+cs.map(c=>'<label data-n="'+esc(c.nome.toLowerCase())+'"><input type="checkbox" value="'+esc(c.id)+'"'+(sel.has(c.id)?' checked':'')+'>'+esc(c.nome)+'</label>').join('')+'</div>'+
+    '<div class="rod"><span class="cnt" id="gf-cnt"></span><span class="msg" id="gf-msg"></span><button class="btn" id="gf-x">Cancelar</button><button class="btn pri" id="gf-ok">'+(g?'Salvar grupo':'Criar grupo')+'</button></div></div>';
+  $('gf-novo').style.display='none';
+  const cnt=()=>{const n=w.querySelectorAll('#gf-ck input:checked').length;$('gf-cnt').textContent=n+' conta'+(n===1?'':'s')+' selecionada'+(n===1?'':'s')};cnt();
+  w.querySelectorAll('#gf-ck input').forEach(i=>i.addEventListener('change',cnt));
+  $('gf-q').addEventListener('input',e=>{const t=e.target.value.toLowerCase().trim();w.querySelectorAll('#gf-ck label').forEach(l=>{l.style.display=!t||l.dataset.n.includes(t)?'':'none'})});
+  $('gf-x').onclick=()=>{w.innerHTML='';$('gf-novo').style.display=''};
+  $('gf-ok').onclick=async()=>{
+    const nome=$('gf-nome').value.trim(),ids=[...w.querySelectorAll('#gf-ck input:checked')].map(i=>i.value);
+    if(!nome){$('gf-msg').textContent='Dê um nome ao grupo.';return}
+    if(ids.length<2){$('gf-msg').textContent='Escolha pelo menos 2 contas.';return}
+    const b=$('gf-ok');b.disabled=true;b.textContent='Salvando…';$('gf-msg').textContent='';
+    try{
+      const j=await apiAcao('&acao=grupo_salvar&nome='+encodeURIComponent(nome)+'&contas='+encodeURIComponent(ids.join(','))+(g?'&id='+encodeURIComponent(g.id):''));
+      await abrirLinks();
+      if(g&&S.conta===g.id)load();else if(!g&&j.id){load()}
+    }catch(e){$('gf-msg').textContent=e.message||'Não consegui salvar.';b.disabled=false;b.textContent=g?'Salvar grupo':'Criar grupo'}
+  };
+  setTimeout(()=>{try{$('gf-nome').focus()}catch(e){}},30);
 }
 $('links').addEventListener('click',abrirLinks);
 $('mdl-x').addEventListener('click',()=>$('mdl').classList.remove('on'));
