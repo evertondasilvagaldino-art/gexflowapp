@@ -3676,6 +3676,9 @@ function normalizeLocalUserForSupabaseCache(user={}){
     permOverrides:user.permOverrides||user.perm_overrides||{},
     supabaseId:user.supabaseId||user.id||'',
     authProvider:user.authProvider||'local',
+    // Equipe do Gex Parceiro: sem estes dois campos os Operadores dele sumiam da Roleta / seletores.
+    parentPartnerId:user.parentPartnerId||user.parent_partner_id||'',
+    assignedFunnelId:user.assignedFunnelId||user.assigned_funnel_id||'',
     createdAt:user.createdAt||user.created_at||new Date().toISOString(),
     updatedAt:user.updatedAt||user.updated_at||new Date().toISOString()
   };
