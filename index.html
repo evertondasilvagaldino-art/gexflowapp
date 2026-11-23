@@ -29202,7 +29202,7 @@ body.gxc-shake{animation:gxcShake .8s cubic-bezier(.36,.07,.19,.97)}
   async function init(){
     if(C.ready||C.starting)return;
     if(typeof supabaseClient==='undefined'||!supabaseClient||!sessionUser)return;
-    if(!interno(sessionUser))return;
+    if(!interno(sessionUser)||!(sessionUser.permissao||sessionUser.cargo))return;
     C.starting=true;
     try{
       const {data}=await supabaseClient.auth.getUser();
@@ -29517,7 +29517,7 @@ body.gxc-shake{animation:gxcShake .8s cubic-bezier(.36,.07,.19,.97)}
     return prevOpen(id);
   };
   window.gxChatDiag=()=>({eu:C.uid,ws:C.ws,presenca:[...C.online],emailsOnline:[...(C.onlineEmails||[])],vistos:C.seen,equipe:team().map(u=>({nome:u.nome,id:uidOf(u),email:u.email,online:isOn(uidOf(u))}))});
-  setInterval(()=>{if(!C.ready)init();else{const b=document.getElementById('gxc-btn');if(b)b.classList.toggle('show',!!(typeof sessionUser!=='undefined'&&sessionUser));paintBtn()}},4000);
+  setInterval(()=>{if(!C.ready)init();else{const b=document.getElementById('gxc-btn');const ok=!!(typeof sessionUser!=='undefined'&&sessionUser&&interno(sessionUser));if(b)b.classList.toggle('show',ok);if(!ok){try{document.querySelectorAll('.gxc-panel,#gxc-panel').forEach(x=>x.classList.remove('open','show'))}catch(e){}return}paintBtn()}},4000);
   setTimeout(init,2500);
 })();
 </script>
