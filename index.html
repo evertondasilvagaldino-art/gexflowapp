@@ -20283,7 +20283,7 @@ if(supabaseClient){
 // banco), então qualquer ação do usuário já força a conferência.
 let gexStatusPollTimer=null;
 let gexLastStatusCheckAt=0;
-const GEX_STATUS_CHECK_MIN_GAP_MS=3000; // não checa de novo antes de 3s do último check
+const GEX_STATUS_CHECK_MIN_GAP_MS=30000; // CONSUMO (23/11/2026): era 3s — cada clique virava uma consulta. Agora no máximo 1 a cada 30s.
 let gexPerfilSumiuN=0;
 async function gexRevalidateOwnStatus(force){
   try{
@@ -20321,7 +20321,7 @@ async function gexRevalidateOwnStatus(force){
 }
 function startGexStatusPoll(){
   if(gexStatusPollTimer)return;
-  gexStatusPollTimer=setInterval(()=>{ if(sessionUser&&!document.hidden)gexRevalidateOwnStatus(true); },5000);
+  gexStatusPollTimer=setInterval(()=>{ if(sessionUser&&!document.hidden)gexRevalidateOwnStatus(true); },60000); // CONSUMO: era 5s
 }
 startGexStatusPoll();
 // Revalida assim que a aba volta a ficar visível (usuário trocou de aba/
@@ -20331,6 +20331,7 @@ startGexStatusPoll();
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible'&&sessionUser)gexRevalidateOwnStatus(true);
 });
+document.addEventListener('visibilitychange',()=>{try{if(document.visibilityState==='visible'&&document.getElementById('page-whatsapp-chat')?.classList.contains('active')&&typeof window.renderWhatsappChat==='function'&&window.wacReloadInboxNow)window.wacReloadInboxNow()}catch(e){}});
 document.addEventListener('click',()=>{ if(sessionUser)gexRevalidateOwnStatus(); },{capture:true,passive:true});
 document.addEventListener('keydown',()=>{ if(sessionUser)gexRevalidateOwnStatus(); },{capture:true,passive:true});
 
@@ -24251,16 +24252,17 @@ ${gxlCloseScriptTag}`;
     return res.json().catch(()=>({}));
   }
 
+  window.wacReloadInboxNow=function(){try{loadInbox(wacSelectedPhone)}catch(e){}};
   window.renderWhatsappChat=async function(){
     const page=document.getElementById('page-whatsapp-chat');
     if(!page)return;
     page.innerHTML=shellHtml();
     await Promise.all([loadStatus(),loadInbox(),loadTagCatalog()]);
     if(!wacPollInterval){
-      wacPollInterval=setInterval(()=>{if(pageActive())loadInbox(wacSelectedPhone)},6000);
+      wacPollInterval=setInterval(()=>{if(pageActive()&&!document.hidden)loadInbox(wacSelectedPhone)},6000); // CONSUMO: para com a aba em segundo plano
     }
     if(!window._wacStatusInterval){
-      window._wacStatusInterval=setInterval(()=>{if(pageActive())loadStatus()},60000);
+      window._wacStatusInterval=setInterval(()=>{if(pageActive()&&!document.hidden)loadStatus()},60000);
     }
   };
 
