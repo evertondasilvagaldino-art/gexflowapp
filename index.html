@@ -2359,7 +2359,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
   <div class="sb-bottom">
     <button id="sb-collapse-btn" type="button" onclick="gxToggleSidebar()" title="Recolher / abrir menu"><span class="sbc-close">‹ Recolher menu</span><span class="sbc-open">›</span></button>
     <button id="sb-partner-tutorial-row" onclick="gxShowPartnerWelcome()" style="display:none;width:100%;align-items:center;gap:8px;justify-content:center;cursor:pointer;background:rgba(139,92,246,.18);border:1px solid rgba(139,92,246,.45);color:#fff;border-radius:9px;padding:9px 10px;margin-bottom:8px;font-size:13.5px;font-weight:700;font-family:inherit">Como usar o sistema</button>
-    <div class="sb-row"><span class="sb-lbl" style="cursor:pointer">Suporte</span><span style="font-size:9px;color:rgba(255,255,255,.2)">v3.1 Connect · 24.11e</span></div>
+    <div class="sb-row"><span class="sb-lbl" style="cursor:pointer">Suporte</span><span style="font-size:9px;color:rgba(255,255,255,.2)">v3.1 Connect · 24.11f</span></div>
   </div>
 </aside>
 
@@ -4372,9 +4372,18 @@ function gexBatchRun(fn){
 // Cópia em memória usada SÓ quando o localStorage estoura a cota: sem ela, a tela lia o cache
 // antigo/truncado e os leads "sumiam" até atualizar a página (a nuvem continuava certa).
 const _gxMem={};
+// 24/11/2026: coleções grandes que o banco recarrega a cada abertura e não precisam ficar no navegador.
+// Ficam só em memória — liberam ~1,5 MB do armazenamento local (que tem limite de ~5 MB por site).
+// O motor de automações só roda depois da nuvem carregar (veja gexRunAutomationEngine), então não duplica nada.
+const GEX_MEM_ONLY_COLLECTIONS=['automacao_tasks','automacao_log'];
+let _gxQuotaAvisado=false;
 function gexReadLocalCollection(collection){
   const key=gexCacheKey(collection);
   if(_gxMem[key])return _gxMem[key].slice();
+  if(GEX_MEM_ONLY_COLLECTIONS.includes(collection)){
+    let v=[];try{v=gexJsonParse(localStorage.getItem(key)||'[]',[]);if(!Array.isArray(v))v=[];localStorage.removeItem(key)}catch(e){}
+    _gxMem[key]=v;return v.slice();
+  }
   const raw=localStorage.getItem(key)||'[]';
   if(_gxBatch>0){
     const c=_gxBatchC[key];
@@ -4389,6 +4398,7 @@ function gexReadLocalCollection(collection){
 function gexWriteLocalCollection(collection,value){
   if(collection==='usuarios')_gxUsrVal=null;
   const _gxKey=gexCacheKey(collection),_gxArr=Array.isArray(value)?value:[];
+  if(GEX_MEM_ONLY_COLLECTIONS.includes(collection)){_gxMem[_gxKey]=_gxArr.slice();try{localStorage.removeItem(_gxKey)}catch(e){}return}
   try{
     localStorage.setItem(_gxKey,JSON.stringify(_gxArr));
     delete _gxMem[_gxKey];
@@ -4410,7 +4420,8 @@ function gexWriteLocalCollection(collection,value){
     // cópia local pode ficar desatualizada, mas o Supabase (fonte real) não
     // fica bloqueado por causa disso.
     console.warn(`[GexFlow] localStorage cheio ao salvar cache local de "${collection}":`,e);
-    try{toast('Armazenamento local do navegador está cheio — os dados foram enviados ao Supabase, mas o cache local pode não refletir tudo. Considere limpar dados do site.','#F59E0B')}catch(_e){}
+    // Os dados continuam salvos no banco e na memória da aba; o aviso aparece no máximo uma vez por sessão.
+    if(!_gxQuotaAvisado){_gxQuotaAvisado=true;try{toast('Armazenamento local do navegador está cheio — seus dados estão salvos no banco normalmente.','#F59E0B')}catch(_e){}}
   }
 }
 function gexNewLocalId(){
@@ -23917,6 +23928,8 @@ ${gxlCloseScriptTag}`;
     }catch(e){return allLeads}
   }
   window.gexRunAutomationEngine=async function(){
+    // Só roda com os dados da nuvem já carregados — evita recriar tarefas/avisos com um cache vazio ou antigo.
+    if(typeof supabaseClient!=='undefined'&&supabaseClient&&typeof gexCloudReady!=='undefined'&&!gexCloudReady)return;
     let rs=[];
     try{rs=(DB.get('automacoes')||[]).filter(r=>r.ativo!==false)}catch(e){return}
     if(!rs.length){window.__gexAutoLastRun=Date.now();return}
