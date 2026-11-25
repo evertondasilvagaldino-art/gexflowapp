@@ -2359,7 +2359,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
   <div class="sb-bottom">
     <button id="sb-collapse-btn" type="button" onclick="gxToggleSidebar()" title="Recolher / abrir menu"><span class="sbc-close">‹ Recolher menu</span><span class="sbc-open">›</span></button>
     <button id="sb-partner-tutorial-row" onclick="gxShowPartnerWelcome()" style="display:none;width:100%;align-items:center;gap:8px;justify-content:center;cursor:pointer;background:rgba(139,92,246,.18);border:1px solid rgba(139,92,246,.45);color:#fff;border-radius:9px;padding:9px 10px;margin-bottom:8px;font-size:13.5px;font-weight:700;font-family:inherit">Como usar o sistema</button>
-    <div class="sb-row"><span class="sb-lbl" style="cursor:pointer">Suporte</span><span style="font-size:9px;color:rgba(255,255,255,.2)">v3.1 Connect · 24.11f</span></div>
+    <div class="sb-row"><span class="sb-lbl" style="cursor:pointer">Suporte</span><span style="font-size:9px;color:rgba(255,255,255,.2)">v3.1 Connect · 25.11a</span></div>
   </div>
 </aside>
 
@@ -4376,7 +4376,7 @@ const _gxMem={};
 // Ficam só em memória — liberam ~1,5 MB do armazenamento local (que tem limite de ~5 MB por site).
 // O motor de automações só roda depois da nuvem carregar (veja gexRunAutomationEngine), então não duplica nada.
 const GEX_MEM_ONLY_COLLECTIONS=['automacao_tasks','automacao_log'];
-let _gxQuotaAvisado=false;
+let _gxQuotaAvisado=false,_gxQuotaFalhou=false;
 function gexReadLocalCollection(collection){
   const key=gexCacheKey(collection);
   if(_gxMem[key])return _gxMem[key].slice();
@@ -4410,6 +4410,8 @@ function gexWriteLocalCollection(collection,value){
       if(freed){localStorage.setItem(_gxKey,JSON.stringify(_gxArr));delete _gxMem[_gxKey];return}
     }catch(e2){}
     _gxMem[_gxKey]=_gxArr.slice();
+    // A cópia local deixou de ser confiável: a próxima abertura volta a baixar tudo (sem carga incremental).
+    _gxQuotaFalhou=true;try{localStorage.removeItem('gx2_tmp_syncwm')}catch(_e){}
     // Estouro de cota do localStorage (comum quando várias fotos de perfil em
     // base64 se acumulam no cache de "usuarios") não pode travar quem chamou
     // esta função sem avisar — antes disso acontecia de forma silenciosa e
@@ -4864,6 +4866,17 @@ async function initGexCloudDataSync(isRetry){
     if(gexIsolateCacheByWorkspace()){ location.reload(); return false; }
     gexPurgeDemoSeedForCompany();
     const logSet=new Set(GEX_LOG_COLLECTIONS);
+    // CARGA INCREMENTAL (25/11/2026): em vez de baixar o banco inteiro em toda abertura, baixa só o que mudou
+    // desde a última sincronização deste navegador (updated_at é carimbado pelo servidor), incluindo o que foi
+    // apagado. Volta a baixar tudo quando: é a 1ª vez, passou de 3 dias da última carga completa, trocou o
+    // usuário/empresa, mudou a lista de coleções, o armazenamento local estourou, ou é parceiro/operador.
+    const _wmKey='gx2_tmp_syncwm',_colsSig=GEX_DB_COLLECTIONS.join(',');
+    let _wm=null;try{_wm=JSON.parse(localStorage.getItem(_wmKey)||'null')}catch(e){_wm=null}
+    const _parceiroBoot=(()=>{try{return isExternalPartnerRole(sessionUser?.permissao||sessionUser?.cargo)}catch(e){return true}})();
+    const _incremental=!!(_wm&&_wm.u===sessionUser.id&&_wm.ws===GEX_WORKSPACE_ID&&_wm.cols===_colsSig&&_wm.at&&_wm.fullAt
+      &&(Date.now()-Date.parse(_wm.fullAt))<3*86400000&&!_parceiroBoot&&!_gxQuotaFalhou
+      &&localStorage.getItem('gx2_cloud_backfilled_v2')==='1');
+    const _desde=_incremental?new Date(Date.parse(_wm.at)-5*60*1000).toISOString():null;
     // CORREÇÃO (26/10/2026): o Supabase devolve no máximo ~1000 linhas por consulta (limite do servidor,
     // não adianta .limit(100000)). Sem ordem fixa, quando a empresa passa disso a carga vinha com um
     // pedaço diferente a cada atualização — leads "sumindo e voltando". Agora lê em páginas, com ordem
@@ -4873,11 +4886,12 @@ async function initGexCloudDataSync(isRetry){
       const PAGE=1000;
       let from=0;
       for(let guard=0;guard<500;guard++){
-        const res=await supabaseClient
+        let q=supabaseClient
           .from(GEX_CLOUD_TABLE)
           .select('collection,record_id,data,updated_at,deleted_at')
-          .eq('workspace_id',GEX_WORKSPACE_ID)
-          .is('deleted_at',null)
+          .eq('workspace_id',GEX_WORKSPACE_ID);
+        q=_incremental?q.gt('updated_at',_desde):q.is('deleted_at',null);
+        const res=await q
           .not('collection','in',`(${GEX_LOG_COLLECTIONS.map(c=>`"${c}"`).join(',')})`)
           .order('collection',{ascending:true})
           .order('record_id',{ascending:true})
@@ -4891,11 +4905,26 @@ async function initGexCloudDataSync(isRetry){
       return {data:all};
     });
 
-    const byCollection={};
+    const byCollection={},_apagados={};
+    let _maxAt=_incremental?_wm.at:'';
     (data||[]).forEach(row=>{
+      if(row.updated_at&&String(row.updated_at)>String(_maxAt||''))_maxAt=row.updated_at;
+      if(row.deleted_at){(_apagados[row.collection]||(_apagados[row.collection]=new Set())).add(String(row.record_id));return}
       if(!byCollection[row.collection])byCollection[row.collection]=[];
       byCollection[row.collection].push(row);
     });
+    // Coleções que só ficam na memória (não no navegador): na carga incremental vêm inteiras, à parte.
+    if(_incremental){
+      for(const c of GEX_MEM_ONLY_COLLECTIONS){
+        const rows=[];
+        for(let from=0,g=0;g<200;g++){
+          const r=await gexWithRetry(async()=>{const x=await supabaseClient.from(GEX_CLOUD_TABLE).select('collection,record_id,data,updated_at,deleted_at')
+            .eq('workspace_id',GEX_WORKSPACE_ID).eq('collection',c).is('deleted_at',null).order('record_id',{ascending:true}).range(from,from+999);if(x.error)throw x.error;return x.data||[]});
+          if(!r.length)break;rows.push(...r);from+=r.length;if(r.length<1000)break;
+        }
+        byCollection[c]=rows;
+      }
+    }
 
     // Coleções de log: buscadas separadamente, cada uma com seu próprio
     // limite, sempre priorizando as mais recentes — assim elas nunca
@@ -4945,6 +4974,7 @@ async function initGexCloudDataSync(isRetry){
         localStorage.setItem(row.record_id,String(row.data?.value??''));
       }
     });
+    (_apagados.kv?[..._apagados.kv]:[]).forEach(k=>{try{if(gexShouldSyncKV(k))localStorage.removeItem(k)}catch(e){}});
 
     // 2) Aplica coleções principais preservando dados locais ainda não enviados.
     // SEGURANÇA (23/11/2026): parceiro/operador só recebe do banco o que é dele. Aqui o cache local dele
@@ -4958,6 +4988,7 @@ async function initGexCloudDataSync(isRetry){
         const recente=Date.now()-10*60*1000;
         local=local.filter(x=>x&&(idsNuvem.has(String(x.id))||(Date.parse(x._updatedAt||x.updatedAt||x.createdAt||0)||0)>recente));
       }
+      if(_apagados[collection]&&_apagados[collection].size){const del=_apagados[collection];local=local.filter(x=>!(x&&del.has(String(x.id))))}
       if(collection==='commercial_funnels'&&gexDeletedFunnelIds.size){
         local=local.filter(f=>!(f&&gexDeletedFunnelIds.has(String(f.id))));
       }
@@ -5023,6 +5054,11 @@ async function initGexCloudDataSync(isRetry){
 
     gexPurgeDemoSeedForCompany();
     gexCloudReady=true;
+    try{
+      if(!_gxQuotaFalhou&&!_parceiroBoot&&localStorage.getItem('gx2_cloud_backfilled_v2')==='1'){
+        localStorage.setItem(_wmKey,JSON.stringify({u:sessionUser.id,ws:GEX_WORKSPACE_ID,cols:_colsSig,at:_maxAt||'1970-01-01T00:00:00Z',fullAt:_incremental?_wm.fullAt:new Date().toISOString()}));
+      }else localStorage.removeItem(_wmKey);
+    }catch(e){}
     // Parceiro novo (cadastro pelo link): cria o funil pessoal dele já no primeiro login, sem esperar abrir o Comercial.
     // Só roda depois que a nuvem terminou de carregar (ensurePersonalCommercialFunnel já exige isso) e nunca duplica.
     try{setTimeout(()=>{try{if(resolveRole(sessionUser?.permissao||sessionUser?.cargo||'')==='Gex Parceiro'&&typeof ensureDefaultCommercialFunnel==='function'){ensureDefaultCommercialFunnel()}}catch(e){}},1500)}catch(e){}
@@ -5037,7 +5073,7 @@ async function initGexCloudDataSync(isRetry){
     // é só descomentar a linha abaixo pra voltar ao funcionamento antigo.
     // if(typeof startGexAutomationEngine==='function')startGexAutomationEngine();
     rerenderActivePageAfterCloudSync();
-    console.log('[GexCloudDB] ✅ Dados carregados/sincronizados com Supabase:',(data||[]).length,'registros');
+    console.log('[GexCloudDB] ✅ Dados carregados/sincronizados com Supabase:',(data||[]).length,'registros',_incremental?`(incremental desde ${_desde})`:'(carga completa)');
     return true;
   }catch(err){
     gexApplyingCloudPayload=false;
