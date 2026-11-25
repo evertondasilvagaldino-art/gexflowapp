@@ -2359,7 +2359,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
   <div class="sb-bottom">
     <button id="sb-collapse-btn" type="button" onclick="gxToggleSidebar()" title="Recolher / abrir menu"><span class="sbc-close">‹ Recolher menu</span><span class="sbc-open">›</span></button>
     <button id="sb-partner-tutorial-row" onclick="gxShowPartnerWelcome()" style="display:none;width:100%;align-items:center;gap:8px;justify-content:center;cursor:pointer;background:rgba(139,92,246,.18);border:1px solid rgba(139,92,246,.45);color:#fff;border-radius:9px;padding:9px 10px;margin-bottom:8px;font-size:13.5px;font-weight:700;font-family:inherit">Como usar o sistema</button>
-    <div class="sb-row"><span class="sb-lbl" style="cursor:pointer">Suporte</span><span style="font-size:9px;color:rgba(255,255,255,.2)">v3.1 Connect · 25.11c</span></div>
+    <div class="sb-row"><span class="sb-lbl" style="cursor:pointer">Suporte</span><span style="font-size:9px;color:rgba(255,255,255,.2)">v3.1 Connect · 25.11d</span></div>
   </div>
 </aside>
 
@@ -23055,7 +23055,8 @@ ${gxlCloseScriptTag}`;
   // resto do sistema — sem exigir login de quem preenche no site externo).
   function gxwEmbedSnippet(w){
     const cfg={
-      id:w.id,nome:w.nome||'Minha Empresa',numero:String(w.numero||'').replace(/\D/g,''),
+      id:w.id,nome:w.nome||'Minha Empresa',numero:(()=>{const n=String(w.numero||'').replace(/\D/g,'');return (n.length===10||n.length===11)&&!n.startsWith('55')?'55'+n:n})(), // sem o 55 o wa.me não abre a conversa
+      
       saudacao:w.saudacao||'',mensagem:w.mensagem||'Olá, meu nome é {{nome}}. Vim pelo site e gostaria de saber mais!',
       textoBotao:w.textoBotao||'Fale conosco!',pedirEmail:!!w.pedirEmail,cor:w.cor||'#25D366',posicao:w.posicao==='left'?'left':'right',
       funnelId:w.funnelId||'',funnelName:w.funnelName||'',stageId:w.stageId||'',stageName:w.stageName||'Novo Lead',
