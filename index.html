@@ -2359,7 +2359,7 @@ body.gex-premium-ui .gxb-tb th{background:transparent}
   <div class="sb-bottom">
     <button id="sb-collapse-btn" type="button" onclick="gxToggleSidebar()" title="Recolher / abrir menu"><span class="sbc-close">‹ Recolher menu</span><span class="sbc-open">›</span></button>
     <button id="sb-partner-tutorial-row" onclick="gxShowPartnerWelcome()" style="display:none;width:100%;align-items:center;gap:8px;justify-content:center;cursor:pointer;background:rgba(139,92,246,.18);border:1px solid rgba(139,92,246,.45);color:#fff;border-radius:9px;padding:9px 10px;margin-bottom:8px;font-size:13.5px;font-weight:700;font-family:inherit">Como usar o sistema</button>
-    <div class="sb-row"><span class="sb-lbl" style="cursor:pointer">Suporte</span><span style="font-size:9px;color:rgba(255,255,255,.2)">v3.1 Connect · 25.11b</span></div>
+    <div class="sb-row"><span class="sb-lbl" style="cursor:pointer">Suporte</span><span style="font-size:9px;color:rgba(255,255,255,.2)">v3.1 Connect · 25.11c</span></div>
   </div>
 </aside>
 
@@ -32780,6 +32780,12 @@ html body span.gx-aj:hover,html body span.gx-aj:focus-visible{color:#7C3AED;outl
 .fx-in{color:var(--pl-ok)!important}
 .fx-out{color:var(--pl-er)!important}
 .fx-fil{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.fx-per{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:-4px 0 16px}
+.fx-per input,.fx-per select{height:34px;border:1px solid var(--pl-line);border-radius:10px;padding:0 10px;font:inherit;font-size:13px;background:var(--pl-card);color:var(--pl-tx)}
+.fx-per .fx-pa{width:32px;height:34px;border-radius:9px;border:1px solid var(--pl-line);background:var(--pl-card);color:var(--pl-tx);cursor:pointer;font-size:15px}
+.fx-per .fx-rot{font-size:13px;color:var(--pl-mu)}
+.fx-per .fx-rot b{color:var(--pl-tx)}
+.fx-res{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
 .fx-fil input,.fx-fil select{height:36px;border:1px solid var(--pl-line);border-radius:10px;padding:0 10px;font:inherit;font-size:13px;background:var(--pl-card);color:var(--pl-tx)}
 .fx-fil input[type=search]{flex:1;min-width:180px}
 .fx-fil select{max-width:220px}
@@ -32973,7 +32979,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
   window.gxFinPlano=plano;
 
   // ── estado ──
-  const S={tab:'lanc',ano:new Date().getFullYear(),mes:'',tipo:'',cat:'',cli:'',q:'',lim:100,dreMes:'',completo:false};
+  const S={tab:'lanc',ano:new Date().getFullYear(),mes:'',tipo:'',cat:'',cli:'',q:'',lim:100,dreMes:'',completo:false,per:'ano',dia:'',de:'',ate:''};
   window.fxCompleto=v=>{S.completo=!!v;renderFinancas()};
   const chaveResumoFx=()=>`<div class="pl-seg" role="group" aria-label="Detalhe da tabela"><button type="button" class="${S.completo?'':'on'}" aria-pressed="${!S.completo}" onclick="fxCompleto(false)">Resumo</button><button type="button" class="${S.completo?'on':''}" aria-pressed="${S.completo}" onclick="fxCompleto(true)">Completo</button></div>`;
   let RC=null; // cache válido só enquanto a tela está sendo desenhada (lê o banco local 1 vez)
@@ -33010,6 +33016,7 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
           <button type="button" class="pl-btn pri" onclick="fxNovo('Receita')">+ Entrada</button>`:''}
         </div></div>
       <div class="pl-tabs" role="tablist">${tabs.map(([k,t])=>`<button type="button" role="tab" aria-selected="${S.tab===k}" class="${S.tab===k?'on':''}" onclick="fxTab('${k}')">${t}</button>`).join('')}</div>
+      ${S.tab==='lanc'||S.tab==='painel'?periodoHtml():''}
       ${body}</div>`;
     try{gxMelhorarSelects(pg)}catch(e){}
     try{if(!S.completo){
@@ -33021,17 +33028,50 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     }finally{RC=null}
   };
   window.fxTab=t=>{S.tab=t;renderFinancas()};
-  window.fxAno=d=>{S.ano+=d;S.lim=100;renderFinancas()};
+  window.fxAno=d=>{S.ano+=d;S.lim=100;if(S.per==='dia'||S.per==='intervalo')S.per=S.mes?'mes':'ano';renderFinancas()};
   window.fxFiltro=(k,v)=>{S[k]=v;S.lim=100;renderFinancas();if(k==='q'){const i=document.getElementById('fx-q');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}}};
 
   function opcoesCat(tipo,sel,todas){
     const grupos={};plano().filter(p=>!tipo||p.tipo===tipo).forEach(p=>{(grupos[(p.tipo==='Receita'&&!p.fora?'Entradas':p.fora?'Fora do resultado ('+(p.tipo==='Receita'?'entradas':'saídas')+')':p.grupo)]=grupos[(p.tipo==='Receita'&&!p.fora?'Entradas':p.fora?'Fora do resultado ('+(p.tipo==='Receita'?'entradas':'saídas')+')':p.grupo)]||[]).push(p.cat)});
     return (todas?`<option value="">Todas as categorias</option>`:'')+Object.entries(grupos).map(([g,cs])=>`<optgroup label="${E(g)}">${cs.map(c=>`<option ${c===sel?'selected':''}>${E(c)}</option>`).join('')}</optgroup>`).join('')+(!todas&&pode('create')?`<optgroup label="Suas categorias"><option value="__nova__">+ Criar categoria…</option>${minhasCats().filter(c=>!tipo||c.tipo===tipo).length?'<option value="__gerir__">Gerenciar categorias criadas…</option>':''}</optgroup>`:'');
   }
+  // ── Período (25/11/2026): ano, mês, dia ou intervalo — vale para Lançamentos e Painel ──
+  const dBR=d=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(d||''));return m?`${m[3]}/${m[2]}/${m[1]}`:'—'};
+  function noPeriodo(){
+    if(S.per==='dia'&&S.dia)return txs().filter(t=>String(t.data).slice(0,10)===S.dia);
+    if(S.per==='intervalo'&&(S.de||S.ate)){const de=S.de||'0000-00-00',ate=S.ate||'9999-12-31';return txs().filter(t=>{const d=String(t.data).slice(0,10);return d>=de&&d<=ate})}
+    const A=doAno(S.ano);return S.mes?A.filter(t=>String(t.data).slice(5,7)===S.mes):A;
+  }
+  function rotuloPeriodo(){
+    if(S.per==='dia'&&S.dia)return dBR(S.dia);
+    if(S.per==='intervalo'&&(S.de||S.ate))return `${S.de?dBR(S.de):'início'} a ${S.ate?dBR(S.ate):'hoje'}`;
+    if(S.mes)return `${MESES_LONGO[+S.mes-1]} de ${S.ano}`;
+    return String(S.ano);
+  }
+  function periodoHtml(){
+    const hoje=typeof gxHojeLocal==='function'?gxHojeLocal():new Date().toISOString().slice(0,10);
+    const ops=[['ano','Ano'],['mes','Mês'],['dia','Dia'],['intervalo','Período']];
+    let extra='';
+    if(S.per==='mes')extra=`<select aria-label="Mês" onchange="fxFiltro('mes',this.value)">${MESES_LONGO.map((m,i)=>{const v=String(i+1).padStart(2,'0');return `<option value="${v}" ${S.mes===v?'selected':''}>${m[0].toUpperCase()+m.slice(1)} de ${S.ano}</option>`}).join('')}</select>`;
+    if(S.per==='dia')extra=`<button type="button" class="fx-pa" aria-label="Dia anterior" onclick="fxDiaPasso(-1)">‹</button><input type="date" aria-label="Dia" value="${E(S.dia)}" max="9999-12-31" onchange="fxDia(this.value)"><button type="button" class="fx-pa" aria-label="Próximo dia" onclick="fxDiaPasso(1)">›</button>${S.dia!==hoje?`<button type="button" class="pl-btn" onclick="fxDia('${hoje}')">Hoje</button>`:''}`;
+    if(S.per==='intervalo')extra=`<input type="date" aria-label="De" value="${E(S.de)}" onchange="fxIntervalo('de',this.value)"><span class="fx-rot">até</span><input type="date" aria-label="Até" value="${E(S.ate)}" onchange="fxIntervalo('ate',this.value)">`;
+    return `<div class="fx-per"><div class="pl-seg" role="group" aria-label="Período">${ops.map(([k,t])=>`<button type="button" class="${S.per===k?'on':''}" aria-pressed="${S.per===k}" onclick="fxPer('${k}')">${t}</button>`).join('')}</div>${extra}<span class="fx-rot">Mostrando: <b>${E(rotuloPeriodo())}</b></span></div>`;
+  }
+  window.fxPer=k=>{
+    const hoje=typeof gxHojeLocal==='function'?gxHojeLocal():new Date().toISOString().slice(0,10);
+    S.per=k;S.lim=100;
+    if(k==='ano')S.mes='';
+    if(k==='mes'&&!S.mes)S.mes=String(S.ano)===hoje.slice(0,4)?hoje.slice(5,7):'01';
+    if(k==='dia'){S.mes='';if(!S.dia)S.dia=String(S.ano)===hoje.slice(0,4)?hoje:`${S.ano}-01-01`}
+    if(k==='intervalo'){S.mes='';if(!S.de&&!S.ate){S.de=hoje.slice(0,8)+'01';S.ate=hoje}}
+    renderFinancas();
+  };
+  window.fxDia=v=>{if(!v)return;S.dia=v;S.ano=+v.slice(0,4);S.lim=100;renderFinancas()};
+  window.fxDiaPasso=n=>{const d=new Date((S.dia||gxHojeLocal())+'T12:00:00');d.setDate(d.getDate()+n);fxDia(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'))};
+  window.fxIntervalo=(k,v)=>{S[k]=v;if(S.de&&S.ate&&S.de>S.ate){const x=S.de;S.de=S.ate;S.ate=x}S.lim=100;renderFinancas()};
   function filtrados(){
     const q=norm(S.q);
-    return doAno(S.ano).filter(t=>{
-      if(S.mes&&String(t.data).slice(5,7)!==S.mes)return false;
+    return noPeriodo().filter(t=>{
       if(S.tipo&&t.tipo!==S.tipo)return false;
       if(S.cat&&info(t.cat,t.tipo).cat!==S.cat)return false;
       if(S.cli&&String(t.clienteId||'')!==S.cli&&norm(t.clienteNome)!==norm(S.cli))return false;
@@ -33080,21 +33120,23 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
         <td><span class="fx-cat"><b>${E(f.cat)}</b><span>${f.fora?`<span class="pl-pill wa">${t.tipo==='Receita'?'entrada de caixa · não é venda':'saída de caixa · não é custo'}</span>`:E(f.grupo)}</span></span></td>
         <td class="v ${t.tipo==='Receita'?'fx-in':'fx-out'}">${t.tipo==='Receita'?'+':'−'} ${R(v)}</td>
         <td style="white-space:nowrap;text-align:right">${pode('edit')?`<button type="button" class="fx-ib" aria-label="Editar" onclick="fxEditar('${E(t.id)}')">${IC.editar}</button>`:''} ${pode('delete')?`<button type="button" class="fx-ib del" aria-label="Excluir" onclick="fxExcluir('${E(t.id)}')">${IC.lixo}</button>`:''}</td></tr>`}).join('');
-    const Rz=somaResultado(L);
-    return `${kpisResultado(Rz)}
-      ${!S.cat&&!S.tipo&&!S.q&&!S.cli?saudeHtml(Rz,S.mes?'Saúde financeira em '+MESES_LONGO[+S.mes-1]:'Saúde financeira em '+S.ano):''}
-      ${!S.cat&&!S.tipo&&!S.q&&!S.cli?ponteHtml(L,S.mes?'Para onde foi o dinheiro em '+MESES_LONGO[+S.mes-1]:'Para onde foi o dinheiro em '+S.ano):''}
+    // Resumo do que está filtrado (o painel completo com lucro, saúde e "para onde foi o dinheiro" fica só na aba Painel)
+    const nIn=L.filter(t=>t.tipo==='Receita').length,nOut=L.length-nIn;
+    return `<div class="fx-res pl-kpis fx-kpis" style="margin-top:0">
+        <div class="pl-k"><span>Entradas</span><b class="fx-in">${gxMoedaCurta(recC)}</b><small>${nIn} lançamento${nIn!==1?'s':''} · ${E(rotuloPeriodo())}</small></div>
+        <div class="pl-k"><span>Saídas</span><b class="fx-out">${gxMoedaCurta(despC)}</b><small>${nOut} lançamento${nOut!==1?'s':''} · ${E(rotuloPeriodo())}</small></div>
+        <div class="pl-k dest"><span>Saldo do período</span><b class="${recC-despC<0?'fx-out':''}">${recC-despC<0?'− ':''}${gxMoedaCurta(Math.abs(recC-despC))}</b><small>entradas − saídas · <a href="javascript:void(0)" onclick="fxTab('painel')" style="color:inherit;font-weight:700">ver painel completo</a></small></div>
+      </div>
       <div class="pl-card">
         <div class="fx-fil">
           <input type="search" id="fx-q" placeholder="Buscar descrição, cliente…" value="${E(S.q)}" oninput="fxFiltro('q',this.value)" aria-label="Buscar">
-          <select aria-label="Mês" onchange="fxFiltro('mes',this.value)"><option value="">Ano inteiro</option>${MESES_LONGO.map((m,i)=>{const v=String(i+1).padStart(2,'0');return `<option value="${v}" ${S.mes===v?'selected':''}>${m[0].toUpperCase()+m.slice(1)}</option>`}).join('')}</select>
           <select aria-label="Tipo" onchange="fxFiltro('tipo',this.value)"><option value="">Entradas e saídas</option><option value="Receita" ${S.tipo==='Receita'?'selected':''}>Só entradas</option><option value="Despesa" ${S.tipo==='Despesa'?'selected':''}>Só saídas</option></select>
           <select aria-label="Categoria" onchange="fxFiltro('cat',this.value)">${opcoesCat('',S.cat,true)}</select>
           ${clientes.length?`<select aria-label="Cliente" onchange="fxFiltro('cli',this.value)"><option value="">Todos os clientes</option>${clientes.map(([k,n])=>`<option value="${E(k)}" ${S.cli===k?'selected':''}>${E(n)}</option>`).join('')}</select>`:''}
-          ${S.q||S.mes||S.tipo||S.cat||S.cli?`<button type="button" class="pl-btn" onclick="fxLimpar()">Limpar</button>`:''}
+          ${S.q||S.mes||S.tipo||S.cat||S.cli||S.per!=='ano'?`<button type="button" class="pl-btn" onclick="fxLimpar()">Limpar</button>`:''}
         </div>
         <div class="pl-tw"><table class="pl-t fx-t"><thead><tr><th>Data</th><th style="text-align:left">Descrição</th><th style="text-align:left">Categoria</th><th>Valor</th><th></th></tr></thead>
-        <tbody>${linhas||`<tr><td colspan="5" style="text-align:center;color:var(--pl-mu);padding:26px">Nenhum lançamento ${S.q||S.mes||S.tipo||S.cat||S.cli?'com esses filtros':'em '+S.ano}.</td></tr>`}</tbody></table></div>
+        <tbody>${linhas||`<tr><td colspan="5" style="text-align:center;color:var(--pl-mu);padding:26px">Nenhum lançamento ${S.q||S.tipo||S.cat||S.cli?'com esses filtros':'em '+E(rotuloPeriodo())}.</td></tr>`}</tbody></table></div>
         ${L.length>S.lim?`<div class="fx-mais"><button type="button" class="pl-btn" onclick="fxMais()">Mostrar mais (${L.length-S.lim} restantes)</button></div>`:''}
         <p class="pl-nota">${L.length} lançamento${L.length!==1?'s':''}.</p></div>`;
   }
@@ -33122,8 +33164,8 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
       </div></div>`;
   }
   window.fxMais=()=>{S.lim+=200;renderFinancas()};
-  window.fxLimpar=()=>{Object.assign(S,{q:'',mes:'',tipo:'',cat:'',cli:'',lim:100});renderFinancas()};
-  window.fxIr=(cat,mes)=>{Object.assign(S,{tab:'lanc',cat:cat||'',mes:mes||'',tipo:'',q:'',cli:'',lim:100});renderFinancas();window.scrollTo&&window.scrollTo(0,0)};
+  window.fxLimpar=()=>{Object.assign(S,{q:'',mes:'',tipo:'',cat:'',cli:'',lim:100,per:'ano',dia:'',de:'',ate:''});renderFinancas()};
+  window.fxIr=(cat,mes)=>{Object.assign(S,{tab:'lanc',cat:cat||'',mes:mes||'',per:mes?'mes':'ano',tipo:'',q:'',cli:'',lim:100});renderFinancas();window.scrollTo&&window.scrollTo(0,0)};
 
   function telaFluxo(){
     const R0=v=>gxMoedaCurta(v),sinal=v=>gxMoedaCurta(v);
@@ -33202,9 +33244,9 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
   }
 
   function telaPainel(){
-    const M=porMes(S.ano);const A=doAno(S.ano);
+    const M=porMes(S.ano);const A=noPeriodo(),rot=rotuloPeriodo();
     const Rz=somaResultado(A),rec=Rz.rec;
-    const mesesCom=Object.values(M).filter(m=>m.rec||m.desp).length||1;
+    const mesesCom=new Set(A.map(t=>String(t.data).slice(0,7))).size||1;
     // top despesas e clientes
     const cats={};A.forEach(t=>{if(t.tipo!=='Despesa')return;const f=info(t.cat,t.tipo);if(f.fora)return;cats[f.cat]=(cats[f.cat]||0)+valorNum(t)});
     const topD=Object.entries(cats).sort((a,b)=>b[1]-a[1]).slice(0,8);
@@ -33213,13 +33255,13 @@ html[data-theme="dark"] .fx-tg button.on{background:var(--g-card)}
     const barras=(arr,cls)=>{const mx=Math.max(1,...arr.map(x=>x[1]));return `<div class="fx-bar">${arr.map(([n,v])=>`<div><span title="${E(n)}">${E(n)}</span><i class="${cls}" style="width:${Math.max(1,v/mx*100)}%"></i><b>${R0(v)}</b></div>`).join('')||'<p class="sub">Sem dados.</p>'}</div>`};
     const folha=((cats['Salários da equipe']||0)+(cats['Pró-labore dos sócios']||0));
     return `${kpisResultado(Rz,{t:'Folha (equipe + sócios)',v:gxMoedaCurta(folha),s:`${P(rec?folha/rec:0)} do faturamento · lucro líquido médio ${gxMoedaCurta(Rz.liq/mesesCom)}/mês`})}
-      ${saudeHtml(Rz,'Saúde financeira em '+S.ano)}
-      <div class="pl-card"><h3>Faturamento x despesas por mês</h3><p class="sub">A linha roxa é o lucro líquido do mês (ponto vermelho = mês no prejuízo).</p>
+      ${saudeHtml(Rz,'Saúde financeira em '+rot)}
+      <div class="pl-card"><h3>Faturamento x despesas por mês em ${S.ano}</h3><p class="sub">A linha roxa é o lucro líquido do mês (ponto vermelho = mês no prejuízo).</p>
         <div id="fx-graf" style="color:var(--pl-tx)"></div>
         <div class="pl-leg"><span><i style="background:#10B981"></i>Faturamento</span><span><i style="background:#EF4444"></i>Despesas</span><span><i style="background:#7C3AED"></i>Lucro líquido</span></div></div>
-      ${ponteHtml(A,'Para onde foi o dinheiro em '+S.ano)}
-      <div class="fx-2"><div class="pl-card"><h3>Maiores despesas</h3><p class="sub">Onde mais saiu dinheiro na operação em ${S.ano}</p>${barras(topD,'out')}</div>
-        <div class="pl-card"><h3>Clientes que mais faturam</h3><p class="sub">Faturamento por cliente em ${S.ano}</p>${barras(topC,'in')}</div></div>`;
+      ${ponteHtml(A,'Para onde foi o dinheiro em '+rot)}
+      <div class="fx-2"><div class="pl-card"><h3>Maiores despesas</h3><p class="sub">Onde mais saiu dinheiro na operação em ${E(rot)}</p>${barras(topD,'out')}</div>
+        <div class="pl-card"><h3>Clientes que mais faturam</h3><p class="sub">Faturamento por cliente em ${E(rot)}</p>${barras(topC,'in')}</div></div>`;
   }
 
   // ── lançamento (novo / editar) ──
